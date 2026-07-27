@@ -138,8 +138,10 @@ ADR-0006).
 - Acceptance Criteria:
   - A declarative topology spawns N VMs, each provisioned with the extension
     activated and a unique participant identity.
-  - Each VM can run benchmarks independently and publish its results to the
-    shared session.
+  - Each VM runs benchmarks independently and stores its results in its **own
+    local mprr ring buffer**; VMs do **not** compare runs across each other and
+    exchange **no run data** — only inter-actor coordination crosses the bus
+    (LBA-REQ-007, LBA-REQ-010).
   - VM teardown is clean and leaves no orphaned bus listeners or lock state.
 - Change Guidance: Keep participant identity and topology declarative so a
   session is reproducible and auditable.
