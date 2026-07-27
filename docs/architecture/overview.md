@@ -20,7 +20,9 @@
 installed on a Codespace or Vagrant golden VM (LBA-REQ-002). It runs benchmarks
 via its agentic actor (LBA-REQ-003), presents them in a time-cursor viewer
 (LBA-REQ-004/005), and coordinates across multiple VMs over a TCP/UDP bus
-(LBA-REQ-006/007) instead of a GitHub Discussion.
+(LBA-REQ-006/007) instead of a GitHub Discussion. Captured pictures are stored
+VM-locally via **mprr**'s ring buffer (LBA-REQ-009); the bus never carries
+images.
 
 ```mermaid
 flowchart LR
@@ -54,6 +56,9 @@ flowchart LR
 - The agentic actor drives a run and emits a **schema-versioned run result**:
   an ordered metric time-series and an ordered set of captured pictures, all on
   one run clock. This schema is the contract between actor and viewer.
+- Captured pictures are stored **VM-locally** in mprr's ring buffer
+  (long-packet), indexed via short-packet; the run result carries frame `ref`s
+  into that local store, never image bytes (ADR-0005, LBA-REQ-009).
 
 ### 3.4 Viewer view — addresses LBA-REQ-004, LBA-REQ-005
 - A single **selected-time** value is the source of truth. The draggable
@@ -70,6 +75,8 @@ flowchart LR
   clocks align for cross-VM benchmark comparison.
 - Messages are schema-versioned with sender id, timestamp, and session id; a
   late joiner reconstructs session state from the TCP log.
+- The bus carries **coordination + index/metadata only** — never image bytes;
+  frames stay in each VM's mprr cleanroom (ADR-0005, LBA-REQ-009).
 
 ## 4. Architecture decisions (42010 §5.7)
 
@@ -82,6 +89,7 @@ flowchart LR
 | AD-5 | TCP for order, UDP for presence/time-sync | Reliability where needed, low latency where tolerable | LBA-REQ-007 |
 | AD-6 | Loopback / private-network bind by default | Offline, air-gapped, no public exposure | LBA-REQ-007 |
 | AD-7 | Mirror the collab-bus semantics on the new transport | Preserve a proven coordination model across a transport change | LBA-REQ-007 |
+| AD-8 | Store pictures in the VM-local mprr ring buffer; bus carries metadata only | Reuse mprr's governed bounded-RAM ring buffer; keep the bus payload-agnostic; cleanroom isolation | LBA-REQ-009 |
 
 ## 5. Risks and open questions
 
@@ -89,8 +97,10 @@ flowchart LR
   protocol) — to be decided in a follow-up ADR.
 - `[Open]` Time-sync accuracy target for cross-VM comparison (UDP beacon
   cadence and clock-skew bound).
-- `[Open]` Picture capture source and cadence on each target (host vs container
-  vs LabVIEW render) and its storage footprint.
+- `[Open]` Picture capture *source* and cadence per target (host vs container
+  vs LabVIEW render). **Storage is resolved (ADR-0005): the VM-local mprr ring
+  buffer**; the remaining open is the capture source/cadence and the
+  benchmark-frame → mprr-long-packet mapping.
 - `[Risk]` Extraction scope creep — the moved-module manifest (AD-1) must be
   bounded before implementation to avoid dragging `vi-history-suite` internals.
 
@@ -102,6 +112,7 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | --- | --- | --- |
 | [ADR-0001](adr/ADR-0001-run-result-schema.md) | Run-result schema (metrics + time-indexed pictures on one clock) | WIN |
 | [ADR-0002](adr/ADR-0002-viewer-cursor-picture-binding.md) | Viewer single selected-time source of truth | WIN |
+| [ADR-0005](adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md) | Image/frame storage via mprr ring buffer in the VM cleanroom (no image transport) | WIN |
 | ADR-0003 *(reserved)* | Coordination-bus wire format (the `[Open]` above) | LINUX |
 | ADR-0004 *(reserved)* | Cross-VM time-sync accuracy (the `[Open]` above) | LINUX |
 

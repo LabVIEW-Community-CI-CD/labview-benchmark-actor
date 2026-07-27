@@ -47,5 +47,8 @@ Define a single **schema-versioned run-result** as the actor↔viewer contract.
 - **−** Requires the actor to stamp every sample/frame on the run clock at
   capture time; a late/monotonic-clock bug would desync metrics and pictures
   (mitigated by a schema validation test, T-003).
-- **Open:** frame `ref` transport across VMs (inline vs fetched over the bus) is
-  a transport concern — defer to the LINUX bus ADRs (ADR-0003/0004).
+- **Resolved (ADR-0005):** frames are stored **VM-locally** in mprr's
+  long-packet ring buffer (cleanroom); `ref` is a **local** pointer resolved on
+  the same VM. Image bytes are **never** transported over the bus — the bus
+  carries only short-packet index/timestamp metadata. This settles the
+  frame-`ref`-transport question for the LINUX bus lane: **metadata-only**.

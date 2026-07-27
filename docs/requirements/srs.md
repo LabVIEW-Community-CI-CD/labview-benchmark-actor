@@ -17,6 +17,12 @@ VMs coordinate over a **TCP/UDP bus** rather than a GitHub Discussion.
 Assumptions and constraints are marked as such; everything else is a normative
 requirement. This is planning material — no implementation is claimed.
 
+**External canonical dependency:** captured pictures are stored via **mprr**
+(`svelderrainruiz/mprr`, `develop`) — its bounded-RAM dual-packet ring buffer
+(mprr ADR-0024) and frozen TDMS-compatible `1.0` replay transport — inside each
+VM cleanroom. labview-benchmark-actor consumes mprr; it does not re-implement
+the ring buffer (see LBA-REQ-009, ADR-0005).
+
 ---
 
 ### LBA-REQ-001: Standalone extraction of hooking and agentic infrastructure
@@ -69,8 +75,13 @@ requirement. This is planning material — no implementation is claimed.
   - A run is reproducible: the same inputs and golden VM produce an
     equivalently-shaped result (bounded numeric variance is allowed and
     documented).
+  - Captured pictures are recorded into the VM-local **mprr ring buffer**
+    (long-packet stream) and indexed via the short-packet stream; the
+    run-result frame `ref` points at that local store, never at bytes carried
+    over the coordination bus (LBA-REQ-009, ADR-0005).
 - Change Guidance: Treat the run-result schema as the contract between the
-  actor and the viewer; version it explicitly.
+  actor and the viewer; version it explicitly. Frame payloads are stored via
+  mprr, not embedded in the envelope.
 
 ### LBA-REQ-004: Benchmark time-cursor (draggable vertical line)
 
@@ -105,6 +116,9 @@ requirement. This is planning material — no implementation is claimed.
     without desynchronizing from the cursor's selected time.
   - If no picture exists at/near the selected time, the panel shows an explicit
     "no frame at this time" state rather than a stale image.
+  - The displayed picture is read from the **VM-local mprr review-capture
+    store** (the cleanroom), not fetched over the coordination bus
+    (LBA-REQ-009, ADR-0005).
 - Change Guidance: Index pictures by run-relative timestamp so cursor→picture
   resolution is O(log n) and deterministic.
 
@@ -139,6 +153,10 @@ requirement. This is planning material — no implementation is claimed.
   - The bus degrades safely: a lost UDP beacon does not corrupt TCP-ordered
     state, and a dropped TCP peer is detected and surfaced.
   - No coordination path depends on `github.com` or a Discussion at run time.
+  - The bus carries **coordination and index/metadata only** — frame index,
+    run-relative timestamp, and run/session ids (mprr short-packet metadata).
+    **Image bytes are never transported over TCP or UDP** (LBA-REQ-009,
+    ADR-0005).
 - Change Guidance: Mirror the semantics of the GitHub-Discussion collab bus
   (claim / handoff / ack / done, check-before-publish) so the coordination model
   is preserved while the transport changes. `[Assumption]` bind to loopback or
@@ -161,6 +179,30 @@ requirement. This is planning material — no implementation is claimed.
 - Change Guidance: If the baseline bumps, update the stamp in `README.md` and
   `docs/cm/cm-plan.md` together and re-run the standards validation.
 
+### LBA-REQ-009: VM cleanroom image storage via the mprr ring buffer
+
+- Status: Proposed
+- Area: Storage / Capture
+- Statement: Captured pictures shall be stored **locally within each VM
+  (a cleanroom)** using the existing **mprr** ring buffer, as metadata-indexed
+  payload, and shall not be transported over the coordination bus.
+- Acceptance Criteria:
+  - Pictures are written to the VM-local mprr **long-packet** ring buffer;
+    their index/timestamp is written to the **short-packet** stream, per mprr's
+    governed dual-packet buffering policy (mprr ADR-0024).
+  - The coordination bus (LBA-REQ-007) carries only the short-packet
+    index/metadata needed to correlate frames across VMs — never image bytes.
+  - mprr is consumed as an external canonical dependency
+    (`svelderrainruiz/mprr`, frozen TDMS-compatible `1.0` replay contract),
+    version-pinned; the ring buffer, transport, and buffering policy are reused,
+    not re-implemented.
+  - `[Assumption]` a benchmark frame maps onto one mprr long-packet payload;
+    the exact review-capture manifest mapping is confirmed against mprr before
+    implementation.
+- Change Guidance: Treat mprr as the authority for the ring buffer and replay
+  transport; an mprr schema move requires a successor ADR here (ADR-0005) before
+  this contract can move.
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -175,3 +217,4 @@ requirement. This is planning material — no implementation is claimed.
 | LBA-REQ-006 | Multi-VM topology | T-006 |
 | LBA-REQ-007 | Coordination transport | T-007 |
 | LBA-REQ-008 | CM / move | T-008 |
+| LBA-REQ-009 | Storage (mprr ring buffer) | T-009 |

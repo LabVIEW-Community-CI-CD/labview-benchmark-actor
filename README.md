@@ -17,7 +17,7 @@ Codespace** or a **Vagrant golden VM**, it lets an operator drive
 **benchmarking** through that agentic infrastructure and review results through
 a **time-cursor benchmark viewer**.
 
-Two capabilities distinguish it from the parent repo:
+Three capabilities distinguish it from the parent repo:
 
 1. **Benchmark time-cursor UI** — a benchmark chart with a draggable **vertical
    time cursor**; dragging it left↔right selects a point in time, and the
@@ -26,7 +26,19 @@ Two capabilities distinguish it from the parent repo:
 2. **TCP/UDP coordination bus** — multiple Vagrant VMs, each running the
    extension, coordinate over a **local TCP + UDP message bus** instead of a
    GitHub Discussion, so benchmarking runs offline / air-gapped and in parallel
-   across VMs.
+   across VMs. The bus carries **coordination + index metadata only**.
+3. **VM cleanroom image storage** — captured pictures are stored **locally in
+   each VM** via the existing **mprr** ring buffer (`svelderrainruiz/mprr`,
+   `develop`) as metadata-indexed payload; **image bytes never travel the bus**
+   (LBA-REQ-009, [ADR-0005](docs/architecture/adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md)).
+
+## External dependency
+
+- **mprr** (`svelderrainruiz/mprr`, `develop`) — the canonical authority for the
+  bounded-RAM dual-packet **ring buffer** (mprr ADR-0024) and the frozen
+  TDMS-compatible `1.0` replay transport. This package **consumes** mprr for
+  VM-local image storage; it does not re-implement the ring buffer. Pin the mprr
+  version; an mprr schema move requires a successor ADR here.
 
 ## Standards coverage
 

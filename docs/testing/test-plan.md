@@ -26,8 +26,9 @@
 | T-004 | LBA-REQ-004 | Unit (viewer logic) + browser | Pointer and keyboard drag map to a selected time within bounds; Home/End jump to run start/end; selected time updates continuously; no out-of-range selection. |
 | T-005 | LBA-REQ-005 | Unit (indexing) + browser | Nearest-at-or-before rule resolves the correct picture index; moving the cursor updates the picture in lockstep; the "no frame at this time" state renders when appropriate. |
 | T-006 | LBA-REQ-006 | Deployment | Spawn N VMs from the declarative topology; assert each activates with a unique identity and publishes results; assert clean teardown leaves no orphaned listeners/locks. |
-| T-007 | LBA-REQ-007 | Integration | TCP delivers ordered claim/handoff/ack/done/results; UDP presence/time-sync beacons flow; a dropped UDP beacon does not corrupt TCP-ordered state; a dropped TCP peer is detected; a late joiner reconstructs session state; no path touches `github.com` at run time. |
+| T-007 | LBA-REQ-007 | Integration | TCP delivers ordered claim/handoff/ack/done/results; UDP presence/time-sync beacons flow; a dropped UDP beacon does not corrupt TCP-ordered state; a dropped TCP peer is detected; a late joiner reconstructs session state; no path touches `github.com` at run time; assert the bus carries only index/metadata (no image bytes). |
 | T-008 | LBA-REQ-008 | Static / CM | Assert `README.md` and `docs/cm/cm-plan.md` name `repo-standards-review` v0.2.19 (commit `d44f210d`); assert the `docs/` lane layout matches the standards runner; assert requirement IDs are unchanged after a simulated move. |
+| T-009 | LBA-REQ-009 | Integration | Assert captured pictures are written to the VM-local mprr **long-packet** ring buffer and their index/timestamp to the **short-packet** stream (per mprr ADR-0024); assert the run-result frame `ref` resolves against the local mprr review-capture store; assert **no image bytes** cross the coordination bus (metadata/index only). |
 
 ## Browser / UI validation
 

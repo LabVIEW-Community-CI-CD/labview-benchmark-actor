@@ -12,6 +12,7 @@
 | [ADR-0002](ADR-0002-viewer-cursor-picture-binding.md) | Viewer: single selected-time source of truth | WIN | Proposed | LBA-REQ-004, LBA-REQ-005 |
 | [ADR-0003](ADR-0003-coordination-bus-wire-format.md) | Coordination bus wire format (length-prefixed JSON over TCP) | LINUX | Proposed | LBA-REQ-007 |
 | [ADR-0004](ADR-0004-cross-vm-time-sync.md) | Cross-VM time-sync (UDP beacon cadence + skew bound) | LINUX | Proposed | LBA-REQ-006, LBA-REQ-007 |
+| [ADR-0005](ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md) | Image/frame storage via mprr ring buffer in the VM cleanroom (no image transport over the bus) | WIN | Proposed | LBA-REQ-003, LBA-REQ-005 |
 
-Numbering is split by owner to avoid collisions: WIN takes 0001–0002, LINUX
-takes 0003–0004. Add new ADRs by extending your own range.
+Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005),
+LINUX takes 0003–0004. Add new ADRs by extending your own range.
