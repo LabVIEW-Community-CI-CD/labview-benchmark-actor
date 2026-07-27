@@ -93,29 +93,64 @@ const htmlAgain = buildBenchmarkFrameScrubberHtml(sample, nonce);
 check('build is deterministic', htmlAgain === html);
 
 // ---------------------------------------------------------------------------
-// 3. mapper against the real emitted Linux synchronized-review state
+// 3a. mapper on a synthetic synchronized-review-state-v1 (hermetic, no files)
+//     so this self-test is a full deterministic pass on any OS -- including
+//     WIN's native-Windows cross-plane run -- with no /tmp scratch dependency.
 // ---------------------------------------------------------------------------
-console.log('synchronized-review-state mapper');
+console.log('synchronized-review-state mapper (synthetic, hermetic)');
+const syntheticState = {
+  schemaVersion: 'mprr-successor-shadow-dashboard-synchronized-review-state-v1',
+  shellTitle: 'Synthetic Review',
+  graphMetricField: 'cpuUsagePercent',
+  selectedPointId: 'seg-0001-frame-0002',
+  points: [
+    {
+      pointId: 'seg-0001-frame-0001',
+      segmentOrdinal: 1,
+      frameOrdinal: 1,
+      benchmarkPacketTimestamp: '2026-04-12T00:00:00.000Z',
+      metricValue: 17.5,
+      metrics: { cpuUsagePercent: 17.5, ramUsageBytes: 1024 },
+      packetDerivedImagePath: '/synthetic/frame-0001.png'
+    },
+    {
+      pointId: 'seg-0001-frame-0002',
+      segmentOrdinal: 1,
+      frameOrdinal: 2,
+      benchmarkPacketTimestamp: '2026-04-12T00:00:00.120Z',
+      metricValue: 44.0,
+      metrics: { cpuUsagePercent: 44.0, ramUsageBytes: 2048 },
+      packetDerivedImagePath: '/synthetic/frame-0002.png'
+    }
+  ]
+};
+const synthResolver = (p) => 'data:image/png;base64,' + Buffer.from(p.pointId).toString('base64');
+const synthModel = buildScrubberModelFromSynchronizedReviewState(syntheticState, { imageResolver: synthResolver });
+check('metricLabel = graphMetricField', synthModel.metricLabel === 'cpuUsagePercent');
+check('one model point per state point', synthModel.points.length === 2);
+const synthCs = synthModel.points.map((p) => p.centiseconds);
+check('centiseconds derived ascending [0,12]', synthCs.join(',') === '0,12', synthCs.join(','));
+check('first frame-start is cs 0', synthCs[0] === 0);
+check('metricValue read from metrics[graphMetricField]', synthModel.points[1].metricValue === 44.0);
+check('selectedIndex resolves selectedPointId', synthModel.points[synthModel.selectedIndex].pointId === 'seg-0001-frame-0002');
+check('every point has a data: image', synthModel.points.every((p) => p.image.startsWith('data:image/')));
+check('synthetic document embeds data URIs', buildBenchmarkFrameScrubberHtml(synthModel, 'n').includes('data:image/png;base64,'));
+
+// ---------------------------------------------------------------------------
+// 3b. mapper on the REAL emitted state when present (bonus; writes a demo doc).
+// ---------------------------------------------------------------------------
 const statePath =
   process.env.VIHS_SCRUBBER_STATE ||
   '/tmp/lba-dash-linux/surface/successor-shadow-dashboard-synchronized-review-state.json';
 if (existsSync(statePath)) {
+  console.log('synchronized-review-state mapper (real emitted state)');
   const state = JSON.parse(readFileSync(statePath, 'utf8'));
-  // Deterministic image resolver so the test does not depend on PNG bytes.
-  const model = buildScrubberModelFromSynchronizedReviewState(state, {
-    imageResolver: (p) => 'data:image/png;base64,' + Buffer.from(p.pointId).toString('base64')
-  });
-  check('model metricLabel = state graphMetricField', model.metricLabel === state.graphMetricField);
-  check('model has one point per state point', model.points.length === state.points.length);
-  const cs = model.points.map((p) => p.centiseconds);
-  check('centiseconds ascending', cs.every((v, i) => i === 0 || v >= cs[i - 1]), cs.join(','));
-  check('first frame-start is cs 0', cs[0] === 0);
-  check('selectedIndex resolves state.selectedPointId', model.points[model.selectedIndex].pointId === state.selectedPointId);
-  check('every point has a data: image', model.points.every((p) => p.image.startsWith('data:image/')));
-
-  // Build the real document from real PNG bytes and emit a demo for the
-  // follow-up browser proof + manual inspection.
   const realModel = buildScrubberModelFromSynchronizedReviewState(state);
+  check('real model point count matches state', realModel.points.length === state.points.length);
+  check(
+    'real model centiseconds ascending',
+    realModel.points.every((p, i) => i === 0 || p.centiseconds >= realModel.points[i - 1].centiseconds)
+  );
   const realHtml = buildBenchmarkFrameScrubberHtml(realModel, 'demo-nonce-0001');
   check('real document embeds real PNG data URIs', realHtml.includes('data:image/png;base64,'));
   const demoOut = process.env.VIHS_SCRUBBER_DEMO_OUT || join(HERE, '.demo', 'scrubber-demo.html');
@@ -123,7 +158,7 @@ if (existsSync(statePath)) {
   writeFileSync(demoOut, realHtml);
   console.log('  ..   wrote demo document -> ' + demoOut + ' (' + realHtml.length + ' bytes)');
 } else {
-  console.log('  skip real-state mapper (no state at ' + statePath + ')');
+  console.log('  ..   real emitted state not present (set VIHS_SCRUBBER_STATE to add the bonus check)');
 }
 
 // ---------------------------------------------------------------------------
