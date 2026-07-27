@@ -47,6 +47,17 @@
 6. Record the move (source commit, target repo, standards result) as closeout
    evidence.
 
+## Documentation link checking (ISO 15289)
+
+- Documentation links are validated with **lychee** (a *docs link check*). The
+  workflow is seeded at `.github/workflows/docs-link-check.yml` (job
+  `Docs Link Check / lychee`, scanning `docs/**/*.md` and `**/*.md`).
+- While the package lives under `prototype/labview-benchmark-actor/**` it is a
+  subtree, so the seeded workflow is **dormant**; it activates automatically
+  when the package moves to its own repository root (LBA-REQ-008, move step 2).
+- No passing link-check run is claimed as evidence here — only the configured,
+  move-ready gate.
+
 ## Status accounting
 
 - Change to any CI is recorded on the discussion thread with the affected

@@ -1,0 +1,33 @@
+# Seeded docs link-check gate (ISO/IEC/IEEE 15289).
+#
+# This workflow is part of the move-ready specification package
+# (LBA-REQ-008). While the package lives under
+# prototype/labview-benchmark-actor/** in vi-history-suite it is a subtree, so
+# this workflow is DORMANT. It activates automatically when the package is moved
+# to its own repository root (see docs/cm/cm-plan.md, move step 2). No passing
+# link-check run is claimed as proving evidence at the prototype stage.
+name: docs-link-check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  lychee:
+    name: Docs Link Check / lychee
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run lychee on docs and markdown
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --include-fragments
+            docs/**/*.md
+            **/*.md

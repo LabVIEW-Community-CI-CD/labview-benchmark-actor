@@ -14,7 +14,7 @@
 | Golden-VM / infra owner | Reproducible multi-VM provisioning; safe, offline coordination |
 | Standards reviewer | Requirements→architecture→test traceability; stamped baseline |
 
-## 2. Context
+## 2. Context view
 
 `labview-benchmark-actor` is extracted from `vi-history-suite` (LBA-REQ-001) and
 installed on a Codespace or Vagrant golden VM (LBA-REQ-002). It runs benchmarks
@@ -25,6 +25,9 @@ communication only**; run data (metrics + pictures) stays VM-local in **mprr**'s
 ring buffer (LBA-REQ-009). Agents review only their **own** previous runs; the
 operator concentrates runs to the host for an **ollama** comparison layer
 (LBA-REQ-010).
+
+The **context diagram** below places the actor in its operational environment
+(the Vagrant VMs / Codespace, the coordination bus, and the operator host):
 
 ```mermaid
 flowchart LR
@@ -45,6 +48,15 @@ flowchart LR
 ```
 
 ## 3. Viewpoints and views (42010 §5.5–5.6)
+
+The subsections below realize the four standard architecture views (the C4 /
+42010 convention): the **context view** is the §2 context diagram (the system
+in its environment); the **container view** is §3.1 (packaging) plus §3.2
+(deployment) — the deployable `.vsix`, the VM-local mprr ring-buffer store, and
+the coordination bus as the runtime containers; the **component view** is
+§3.3–§3.5 — the actor / run-result, viewer, and coordination-transport
+components inside those containers; and the **deployment view** is §3.2 — the
+multi-VM / Codespace topology.
 
 ### 3.1 Packaging / boundary view — addresses LBA-REQ-001, LBA-REQ-008
 - The extension is a self-contained `.vsix`. Reused `vi-history-suite` logic is
