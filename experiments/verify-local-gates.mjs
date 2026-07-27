@@ -103,6 +103,29 @@ check('mprr-live-capture-shared-inputs-present', () => {
   return { dir: 'experiments/mprr-live-capture' };
 });
 
+// 3b. Canonical shared self-test-conformance inputs pinned with contract-(a) shapes.
+check('self-test-conformance-inputs-pinned', () => {
+  const dir = join('experiments', 'self-test-conformance', 'inputs');
+  const ledger = readJson(join(dir, 'ground-truth-ledger.json'));
+  assert(ledger.schemaVersion === 'mprr-self-test-ground-truth-ledger-v1', 'ground-truth-ledger schemaVersion mismatch');
+  assert(ledger.timingAuthority?.tickIntervalMilliseconds === 10, 'tickIntervalMilliseconds must be 10');
+  assert(ledger.timingAuthority?.periodicEventId === 'stopwatch-tick', 'periodicEventId must be stopwatch-tick');
+  const surface = readJson(join(dir, 'surface-metadata.json'));
+  assert(surface.schemaVersion === 'mprr-self-test-surface-v1', 'surface-metadata schemaVersion mismatch');
+  assert(surface.groundTruthLedgerPath === 'ground-truth-ledger.json', 'surface groundTruthLedgerPath must be the relative portable reference');
+  const events = readFileSync(join(pkgRoot, dir, 'operator-events.jsonl'), 'utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  assert(events.length === 3, `operator-events must have 3 events, got ${events.length}`);
+  assert(
+    events.map((e) => e.kind).join(',') === 'cursor-sample,click,keyboard',
+    `unexpected operator-event kinds: ${events.map((e) => e.kind).join(',')}`
+  );
+  return { events: events.length, ledgerTick: ledger.timingAuthority.tickIntervalMilliseconds };
+});
+
 // 4. Ring-buffer mirror replay proof is deterministic and monotonic.
 check('ring-buffer-mirror-replay-deterministic', () => {
   const receipt = readJson('experiments/ring-buffer-mirror/receipt.json');

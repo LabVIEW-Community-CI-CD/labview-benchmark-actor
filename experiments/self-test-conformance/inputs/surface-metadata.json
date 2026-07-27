@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "mprr-self-test-surface-v1",
+  "surfaceId": "mprr-windows-primary-monitor-self-test",
+  "groundTruthLedgerPath": "ground-truth-ledger.json",
+  "screenBounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  }
+}

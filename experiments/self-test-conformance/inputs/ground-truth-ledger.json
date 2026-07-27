@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "mprr-self-test-ground-truth-ledger-v1",
+  "surfaceId": "mprr-windows-primary-monitor-self-test",
+  "timingAuthority": {
+    "clockId": "mprr-monotonic-centiseconds",
+    "source": "monotonic-stopwatch-centiseconds",
+    "unit": "centisecond",
+    "displayFormat": "hh:mm:ss.cc",
+    "periodicEventId": "stopwatch-tick",
+    "tickIntervalMilliseconds": 10
+  },
+  "binaryStripEncoding": {
+    "encodingId": "mprr-binary-strip-v1"
+  }
+}
