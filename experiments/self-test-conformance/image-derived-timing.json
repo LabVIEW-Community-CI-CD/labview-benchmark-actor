@@ -11,14 +11,7 @@
         "stripBits": "1010010100000000000000000000101000001010",
         "stripImage": "strips/stopwatch-010.pgm",
         "decodeMethod": "extractBinaryStripReadingFromPortableGrayMap",
-        "colonOcr": {
-          "role": "human-only-not-machine-timing",
-          "engine": "Windows.Media.Ocr",
-          "rawOcrText": "",
-          "matchedFastDigits": 0,
-          "corroborationConfidence": 0,
-          "fractionalTailMatched": false
-        }
+        "colonOcr": "human-only-not-machine-timing"
       }
     },
     {
@@ -31,14 +24,7 @@
         "stripBits": "1010010100000000000000000000110000001100",
         "stripImage": "strips/stopwatch-012.pgm",
         "decodeMethod": "extractBinaryStripReadingFromPortableGrayMap",
-        "colonOcr": {
-          "role": "human-only-not-machine-timing",
-          "engine": "Windows.Media.Ocr",
-          "rawOcrText": ".12",
-          "matchedFastDigits": 2,
-          "corroborationConfidence": 1,
-          "fractionalTailMatched": true
-        }
+        "colonOcr": "human-only-not-machine-timing"
       }
     },
     {
@@ -51,14 +37,7 @@
         "stripBits": "1010010100000000000000000000111100001111",
         "stripImage": "strips/stopwatch-015.pgm",
         "decodeMethod": "extractBinaryStripReadingFromPortableGrayMap",
-        "colonOcr": {
-          "role": "human-only-not-machine-timing",
-          "engine": "Windows.Media.Ocr",
-          "rawOcrText": ".15",
-          "matchedFastDigits": 2,
-          "corroborationConfidence": 1,
-          "fractionalTailMatched": true
-        }
+        "colonOcr": "human-only-not-machine-timing"
       }
     }
   ],

@@ -129,11 +129,9 @@ The fast centisecond tail corroborates (2 of 3 fully; the `.10` line dropped --
 exactly finding-3). This is recorded ONLY as auditable fidelity evidence; the
 authoritative `observedCentiseconds` stays strip-anchored (pixel-decoded, 0 skew).
 
-These values are embedded per sample as `fidelity.colonOcr` **objects** in
-`image-derived-timing.json` (WIN's `PLANE2_COLON_OCR_CONTRACT`: `role` +
-`engine` + `rawOcrText` + `matchedFastDigits` + `corroborationConfidence` +
-`fractionalTailMatched`), replacing the plane-1/3 placeholder string. They are
-gate-validated by `experiments/verify-local-gates.mjs`
-(`image-derived-timing-colon-ocr-fidelity`, `colonOcrRecorded` = 3), which
-recomputes the metric from `(observedText, rawOcrText)` and fails on any drift.
-`colon-corroboration.json` retains the raw capture (adds `rawOcrText` + `ocrMs`).
+These values live in the **sidecar** `colon-corroboration.json`, kept SEPARATE by
+design so `image-derived-timing.json` stays byte-identical across all 3 planes
+(the machine channel); its per-sample `fidelity.colonOcr` remains the placeholder
+string. The local gate `colon-corroboration-plane2-scoring` re-derives each entry
+via `experiments/corroboration-confidence-reference.mjs` and asserts byte-for-byte
+agreement (drift or tamper fails the gate).
