@@ -60,3 +60,11 @@ metric↔picture binding (that is intra-VM on the ADR-0001 clock).
   leader re-establishes the reference).
 - **Open:** heartbeat cadence / miss-count `K` to confirm on the real Vagrant
   network (T-007); 1 Hz / K=3 is the starting point.
+
+## Validation (2026-07-27)
+
+Grounded by the `experiments/bus-prototype/` echo (see ADR-0003 Validation):
+UDP presence beacons flow, a peer that stops beaconing is flagged not-present
+after `K` misses, and **total UDP loss does not corrupt the TCP-ordered
+coordination state** (LBA-REQ-007.3) — all exercised in the 12/12, deterministic,
+cross-platform run (LINUX node v22 + WIN node v24).

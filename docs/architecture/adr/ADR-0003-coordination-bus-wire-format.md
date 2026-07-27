@@ -57,7 +57,11 @@ coordination messages and appends them to a session log. A joining VM opens TCP,
 sends `HELLO`, and receives a state **snapshot** (current claims, handoff owner,
 last `seq` per sender) followed by a live tail — reconstructing
 session state deterministically (LBA-REQ-007.2). Per-connection TCP order plus
-the leader's global sequence give a total order for coordination.
+the leader's global sequence give a total order for coordination. The
+`experiments/bus-prototype/` echo replays the **full** log on join; because the
+snapshot already carries `globalSeqHead` and `lastSeqBySender`, a production
+leader can instead **tail from the joiner's last offset** — a bounded future
+optimization, not a correctness gap.
 
 **4. Check-before-publish — optimistic concurrency on the log.** A publisher
 stamps the log offset (or per-sender `seq`) it last observed; the leader rejects
@@ -102,6 +106,20 @@ or the private Vagrant network only — never a public interface.
 - **−** The session leader is a coordination anchor (a single point); mitigated
   by making leader state equal to the replayable log, so a re-elected leader can
   rebuild from any peer's log copy.
-- **Open:** leader election / failover (who anchors if the leader VM dies) — a
-  follow-up; the log-replay design makes state recoverable, so election is the
-  remaining piece.
+- **`[Open]`** Leader election / failover (who anchors if the leader VM dies)
+  is **not yet designed**. Session state is log-recoverable (proven by the
+  prototype's snapshot + replay), so a re-elected leader can rebuild from any
+  peer's log copy — but the election/failover mechanism itself remains the one
+  genuine open item of this ADR.
+
+## Validation (2026-07-27)
+
+Grounded by a running prototype, not prose: `experiments/bus-prototype/`
+(`busPrototype.mjs`, Node built-ins `net`+`dgram`) exercises this wire format
+end-to-end and passes **12/12** assertions, **deterministic across 5 back-to-back
+runs**, and **cross-platform** (LINUX node v22 + WIN node v24, same 12/12). It
+proves: length-prefixed-JSON framing round-trips embedded control chars; oversize
+rejected on encode and fail-closed on decode without stream desync; TCP total
+order identical across peers; leader state derived from the append-log; late-join
+snapshot + tail reconstruct; check-before-publish rejects a stale `lastSeenSeq`
+and accepts a fresh one. See `experiments/bus-prototype/receipt.json`.
