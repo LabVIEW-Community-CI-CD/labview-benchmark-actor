@@ -2,7 +2,7 @@
 
 - Status: Proposed
 - Owner: LINUX
-- Traces to: LBA-REQ-007 (TCP/UDP coordination bus); supports LBA-REQ-006 (multi-VM); constrained by ADR-0005 / LBA-REQ-009 (image bytes never cross the bus — the bus is metadata-only)
+- Traces to: LBA-REQ-007 (inter-actor coordination bus); supports LBA-REQ-006 (multi-VM); the bus carries NO run/frame data or metadata — comms only (ADR-0005 / ADR-0006, LBA-REQ-009/010)
 - Standards baseline: `repo-standards-review` v0.2.19
 
 ## Context
@@ -15,20 +15,21 @@ semantics (claim → ack → handoff → done, check-before-publish, one owner p
 hotspot) while changing only the transport (AD-7), and it must let a
 late-joining VM reconstruct current session state (LBA-REQ-007.2).
 
-ADR-0001 defines the run-result with a frame `ref`. A human **cleanroom**
-directive — landed as ADR-0005 / LBA-REQ-009 — resolves how that `ref` relates
-to the bus: **image bytes are never transported** (neither inline nor fetched).
-Each VM stores its pictures locally in the **mprr** ring buffer and the bus
-carries frame **metadata only**. §5 below is written to that directive; it
-revises an earlier content-addressed-FETCH design that ADR-0005 supersedes.
+Successive operator directives (ADR-0005, then ADR-0006 / LBA-REQ-010) fix the
+bus's scope: it carries **inter-actor communication only** — the
+GitHub-Discussion replacement. **No run data, run/frame metadata, or images ever
+cross it**; the entire **mprr** ring buffer stays VM-local, each actor reviews
+only its **own** prior runs, and completed runs are concentrated to the operator
+host **out-of-band** for a host-side ollama layer. §5 records that scope (it
+supersedes earlier metadata-on-the-bus and content-addressed-FETCH drafts).
 
 ## Decision
 
 **1. Framing — length-prefixed JSON over TCP.** Each message is a 4-byte
 big-endian unsigned length prefix followed by exactly that many bytes of UTF-8
 JSON (one envelope per frame). A per-connection maximum frame size (default
-**1 MiB** — the bus is a single coordination channel carrying metadata only, per
-§5) fails closed on a corrupt or hostile length.
+**1 MiB** — the bus carries only small inter-actor coordination messages, per §5)
+fails closed on a corrupt or hostile length.
 
 - Rationale: a length prefix is binary-safe and streaming-friendly — the reader
   awaits an exact byte count, with no delimiter scanning and no escaping —
@@ -44,8 +45,9 @@ JSON (one envelope per frame). A per-connection maximum frame size (default
   the current bus per-machine team name (a reused module under the LBA-REQ-001
   extraction boundary).
 - `seq` is a monotonic per-sender sequence number; `type` is one of
-  `CLAIM | ACK | HANDOFF | DONE | PROGRESS | RESULT | NOTE`. There is no
-  image-fetch verb (see §5 — images never cross the bus).
+  `CLAIM | ACK | HANDOFF | DONE | PROGRESS | NOTE` (the GitHub-Discussion
+  replacement set). There is no run-data or image-fetch verb (see §5); a
+  run-complete signal is a bare `DONE`/`NOTE` notice with no run payload.
 - The shape mirrors `vihs-collab-msg@v1`, so the coordination model is preserved
   across the transport change (AD-7).
 
@@ -53,7 +55,7 @@ JSON (one envelope per frame). A per-connection maximum frame size (default
 session leader (AD-7, "one owner") assigns a global order to accepted
 coordination messages and appends them to a session log. A joining VM opens TCP,
 sends `HELLO`, and receives a state **snapshot** (current claims, handoff owner,
-last `seq` per sender, run-result heads) followed by a live tail — reconstructing
+last `seq` per sender) followed by a live tail — reconstructing
 session state deterministically (LBA-REQ-007.2). Per-connection TCP order plus
 the leader's global sequence give a total order for coordination.
 
@@ -63,19 +65,19 @@ or warns a write that raced past an intervening message — mirroring the curren
 bus "the other agent posted N comment(s) since your last message" guard. Claims
 are advisory locks (`CLAIM` → `ACK`); a hotspot has one owner at a time.
 
-**5. Frame `ref` transport — metadata-only bus; frames resolve VM-locally
-(ADR-0005 / LBA-REQ-009).** Per the cleanroom directive, **image bytes are never
-carried on the bus** — neither inline nor fetched. The run-result and the
-`RESULT` coordination message carry frame **metadata only** —
-`{ index, t, ref, w, h }` plus run/session ids — where `ref` is a **local
-pointer** into the origin VM's **mprr** review-capture store (long-packet
-payload indexed by the short-packet stream; mprr ADR-0024), resolved by the
-viewer **on that same VM** (LBA-REQ-005). Other VMs use the index/timestamp
-metadata to correlate and compare frames across the session (aligned by the
-ADR-0004 time-sync), never the bytes. This **supersedes** the earlier
-content-addressed-FETCH design: there is **no `FETCH`/`FETCH_REPLY` verb and no
-bulk-blob TCP connection**. Reviewing another VM's images is out-of-band access
-to that VM's cleanroom store, by design (ADR-0005).
+**5. No run or frame data on the bus — comms only (ADR-0005 / ADR-0006,
+LBA-REQ-007/009/010).** The bus is the **inter-actor communication channel
+only** — the GitHub-Discussion replacement. It carries **no run data, no
+run/frame metadata, and no images**. The entire **mprr** ring buffer (short- and
+long-packet) stays VM-local (ADR-0005); each actor's viewer reviews only that
+VM's **own** prior runs (ADR-0002), and completed runs reach the operator host
+by an **out-of-band** concentration step for a host-side ollama layer — never
+over the bus (ADR-0006 / LBA-REQ-010). There is therefore **no
+`FETCH`/`FETCH_REPLY` verb, no bulk-blob connection, and no frame-metadata
+payload**; a run-complete signal is at most a bare `DONE`/`NOTE` coordination
+notice (e.g. `{ runId, status }`) with no run-result payload. There is no
+cross-VM run correlation or comparison on the wire. This supersedes the earlier
+content-addressed-FETCH and metadata-on-the-bus drafts.
 
 **6. Degrade-safe (LBA-REQ-007.3).** A framing error (bad length, over-cap,
 invalid JSON) drops that one frame and surfaces a diagnostic without
@@ -88,21 +90,18 @@ or the private Vagrant network only — never a public interface.
 
 ## Consequences
 
-- **+** The bus is a single, small, totally-ordered coordination + metadata
-  channel; bus sizing is fully decoupled from image volume (images stay VM-local
-  in mprr, ADR-0005) — no bulk plane and no head-of-line-blocking concern.
-- **+** Late-join is snapshot + tail over metadata only (LBA-REQ-007.2); there
-  is never any image transfer to replay.
+- **+** The bus is a single, small, totally-ordered inter-actor coordination
+  channel; bus sizing is fully decoupled from run/image volume (all run data
+  stays VM-local in mprr, ADR-0005) — no bulk plane and no head-of-line concern.
+- **+** Late-join is snapshot + tail over coordination state only
+  (LBA-REQ-007.2); there is never any run/image data to replay.
 - **+** Human-auditable JSON keeps the collab bus's skim-and-parse property; no
   schema compiler is required.
-- **+** No `github.com` at run time (LBA-REQ-007.4), and no image bytes on the
-  wire (LBA-REQ-009) — the coordination plane is fully local and payload-agnostic.
+- **+** No `github.com` at run time (LBA-REQ-007.4) and no run/frame data on the
+  wire (LBA-REQ-009) — the bus is purely local inter-actor coordination.
 - **−** The session leader is a coordination anchor (a single point); mitigated
   by making leader state equal to the replayable log, so a re-elected leader can
   rebuild from any peer's log copy.
 - **Open:** leader election / failover (who anchors if the leader VM dies) — a
   follow-up; the log-replay design makes state recoverable, so election is the
   remaining piece.
-- **Open:** if a `RESULT` run-result with a very dense metric series approaches
-  the coordination cap, page or summarize it on the bus (a metrics-size concern
-  only — images are already off the bus via ADR-0005).
