@@ -17,7 +17,7 @@
 //   node experiments/verify-local-gates.mjs [--json] [--out <path>]
 // Exit code 0 when every check passes, 1 otherwise.
 
-import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
@@ -162,7 +162,28 @@ check('rtm-proven-rows-cite-existing-evidence', () => {
   }
   return { rowsChecked: rows.length, provenChecked };
 });
-
+// 6. ADR index integrity: every ADR file is indexed and every index row resolves,
+//    and each ADR heading number matches its filename (guards ADR/index drift).
+check('adr-index-integrity', () => {
+  const adrDir = join(pkgRoot, 'docs', 'architecture', 'adr');
+  const files = readdirSync(adrDir)
+    .filter((f) => /^ADR-\d{4}-.*\.md$/.test(f))
+    .sort();
+  assert(files.length > 0, 'no ADR files found');
+  const readme = readFileSync(join(adrDir, 'README.md'), 'utf8');
+  const linked = [...readme.matchAll(/\|\s*\[ADR-\d{4}\]\((ADR-\d{4}-[^)]+\.md)\)/g)].map((m) => m[1]);
+  const linkedSet = new Set(linked);
+  for (const f of files) {
+    assert(linkedSet.has(f), `ADR file ${f} is not listed in the index README`);
+    const num = f.slice(4, 8);
+    const heading = readFileSync(join(adrDir, f), 'utf8').split(/\r?\n/, 1)[0];
+    assert(heading.startsWith(`# ADR-${num}:`), `${f} heading must start with "# ADR-${num}:"`);
+  }
+  for (const l of linked) {
+    assert(files.includes(l), `index links ${l} but the file does not exist`);
+  }
+  return { adrFiles: files.length, indexed: linked.length };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
