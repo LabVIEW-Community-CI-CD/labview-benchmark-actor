@@ -87,7 +87,10 @@ ADR-0006).
     over the coordination bus (LBA-REQ-009, ADR-0005).
 - Change Guidance: Treat the run-result schema as the contract between the
   actor and the viewer; version it explicitly. Frame payloads are stored via
-  mprr, not embedded in the envelope.
+  mprr, not embedded in the envelope. mprr's short-packet analysis summary
+  already yields the ordered timeline (`timingTicks64` + `frameId` +
+  `payloadDescriptorId`) this contract needs — confirmed by a headless live
+  capture (see `experiments/mprr-live-capture/`).
 
 ### LBA-REQ-004: Benchmark time-cursor (draggable vertical line)
 
@@ -126,7 +129,10 @@ ADR-0006).
     store** (the cleanroom), not fetched over the coordination bus
     (LBA-REQ-009, ADR-0005).
 - Change Guidance: Index pictures by run-relative timestamp so cursor→picture
-  resolution is O(log n) and deterministic.
+  resolution is O(log n) and deterministic. mprr's short-packet stream already
+  supplies this index as `timingTicks64` (100 ns timing authority) keyed to
+  `frameId`/`payloadDescriptorId`; a live capture confirmed the resolve path
+  end-to-end (see `experiments/mprr-live-capture/`).
 
 ### LBA-REQ-006: Multi-VM Vagrant benchmarking topology
 
@@ -205,9 +211,12 @@ ADR-0006).
     (`svelderrainruiz/mprr`, frozen TDMS-compatible `1.0` replay contract),
     version-pinned; the ring buffer, transport, and buffering policy are reused,
     not re-implemented.
-  - `[Assumption]` a benchmark frame maps onto one mprr long-packet payload;
-    the exact review-capture manifest mapping is confirmed against mprr before
-    implementation.
+  - `[Confirmed 2026-07-27]` a benchmark frame maps onto exactly one mprr
+    long-packet payload: a headless dual-packet live capture (mprr `develop`,
+    .NET 8) produced 20/20 frames, each `frameId` bracketed by short-packet
+    `frame-start`/`frame-end` and joined to one long-packet payload via
+    `payloadDescriptorId`, all `correlationOutcome=authoritative`,
+    `driftClass=none` (see `experiments/mprr-live-capture/`).
 - Change Guidance: Treat mprr as the authority for the ring buffer and replay
   transport; an mprr schema move requires a successor ADR here (ADR-0005) before
   this contract can move.

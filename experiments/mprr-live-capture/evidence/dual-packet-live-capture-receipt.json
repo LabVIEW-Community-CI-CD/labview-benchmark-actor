@@ -1,0 +1,230 @@
+{
+  "schemaVersion": "mprr-self-test-dual-packet-live-capture-v1",
+  "generatedAtUtc": "2026-07-27T16:50:30.2089528\u002B00:00",
+  "attemptId": "mprr-self-test-dual-packet-live-20260727T165022z",
+  "runId": "mprr-self-test-dual-packet-live-20260727T165022z-20260727T165030151Z",
+  "outputDirectory": "C:\\Users\\SergioVelderrain\\AppData\\Local\\Temp\\mprr-lba-derisk\\live",
+  "surfaceId": "mprr-windows-primary-monitor-self-test",
+  "surfaceMetadataPath": "C:\\Users\\SergioVelderrain\\AppData\\Local\\Temp\\mprr-lba-derisk\\live-inputs\\surface-metadata.json",
+  "groundTruthLedgerPath": "C:\\Users\\SergioVelderrain\\AppData\\Local\\Temp\\mprr-lba-derisk\\live-inputs\\ground-truth-ledger.json",
+  "transportSchemaId": "mprr-dual-packet-self-test-live-v1",
+  "packetSchemaId": "2.0",
+  "timingAuthorityId": "mprr-self-test-synthetic-monotonic-100ns",
+  "triggerSessionId": "mprr-self-test-dual-packet-live-20260727T165022z-20260727T165030151Z-autostart",
+  "primaryAnalysisSurface": "short-packet",
+  "manifestPath": "dual-packet-manifest.json",
+  "correlationReceiptPath": "dual-packet-correlation-receipt.json",
+  "shortPacketAnalysisSummaryPath": "short-packet-analysis-summary.json",
+  "readerFriendlyShortPacketStream": true,
+  "authoritativeOutcome": "authoritative",
+  "streamSummaries": [
+    {
+      "streamId": "short-packet",
+      "relativePath": "short.tdms",
+      "packetCount": 92,
+      "firstWriterLocalSequence": 1,
+      "lastWriterLocalSequence": 92,
+      "firstTimingTicks64": 0,
+      "lastTimingTicks64": 19000010,
+      "packetKindsRetained": [
+        "governed-trigger",
+        "frame-start",
+        "operator-annotation",
+        "frame-end",
+        "keyboard",
+        "ungoverned-trigger",
+        "cursor-sample",
+        "click"
+      ]
+    },
+    {
+      "streamId": "long-packet",
+      "relativePath": "long.tdms",
+      "packetCount": 20,
+      "firstWriterLocalSequence": 1,
+      "lastWriterLocalSequence": 20,
+      "firstTimingTicks64": 2,
+      "lastTimingTicks64": 19000002,
+      "packetKindsRetained": [
+        "frame-payload"
+      ]
+    }
+  ],
+  "renderedFrames": [
+    {
+      "frameId": 1,
+      "payloadDescriptorId": 1001,
+      "relativeMilliseconds": 0,
+      "renderedCentiseconds": 0,
+      "activeLabelElementId": "label-alpha",
+      "activeEventId": "steady-frame"
+    },
+    {
+      "frameId": 2,
+      "payloadDescriptorId": 1002,
+      "relativeMilliseconds": 100,
+      "renderedCentiseconds": 10,
+      "activeLabelElementId": "label-beta",
+      "activeEventId": "trigger-start-fire"
+    },
+    {
+      "frameId": 3,
+      "payloadDescriptorId": 1003,
+      "relativeMilliseconds": 200,
+      "renderedCentiseconds": 20,
+      "activeLabelElementId": "label-gamma",
+      "activeEventId": "click-target-beta-press"
+    },
+    {
+      "frameId": 4,
+      "payloadDescriptorId": 1004,
+      "relativeMilliseconds": 300,
+      "renderedCentiseconds": 30,
+      "activeLabelElementId": "label-alpha",
+      "activeEventId": "trigger-mark-fire"
+    },
+    {
+      "frameId": 5,
+      "payloadDescriptorId": 1005,
+      "relativeMilliseconds": 400,
+      "renderedCentiseconds": 40,
+      "activeLabelElementId": "label-beta",
+      "activeEventId": "steady-frame"
+    },
+    {
+      "frameId": 6,
+      "payloadDescriptorId": 1006,
+      "relativeMilliseconds": 500,
+      "renderedCentiseconds": 50,
+      "activeLabelElementId": "label-gamma",
+      "activeEventId": "trigger-start-fire"
+    },
+    {
+      "frameId": 7,
+      "payloadDescriptorId": 1007,
+      "relativeMilliseconds": 600,
+      "renderedCentiseconds": 60,
+      "activeLabelElementId": "label-alpha",
+      "activeEventId": "click-target-beta-press"
+    },
+    {
+      "frameId": 8,
+      "payloadDescriptorId": 1008,
+      "relativeMilliseconds": 700,
+      "renderedCentiseconds": 70,
+      "activeLabelElementId": "label-beta",
+      "activeEventId": "trigger-mark-fire"
+    },
+    {
+      "frameId": 9,
+      "payloadDescriptorId": 1009,
+      "relativeMilliseconds": 800,
+      "renderedCentiseconds": 80,
+      "activeLabelElementId": "label-gamma",
+      "activeEventId": "steady-frame"
+    },
+    {
+      "frameId": 10,
+      "payloadDescriptorId": 1010,
+      "relativeMilliseconds": 900,
+      "renderedCentiseconds": 90,
+      "activeLabelElementId": "label-alpha",
+      "activeEventId": "trigger-start-fire"
+    },
+    {
+      "frameId": 11,
+      "payloadDescriptorId": 1011,
+      "relativeMilliseconds": 1000,
+      "renderedCentiseconds": 100,
+      "activeLabelElementId": "label-beta",
+      "activeEventId": "click-target-beta-press"
+    },
+    {
+      "frameId": 12,
+      "payloadDescriptorId": 1012,
+      "relativeMilliseconds": 1100,
+      "renderedCentiseconds": 110,
+      "activeLabelElementId": "label-gamma",
+      "activeEventId": "trigger-mark-fire"
+    },
+    {
+      "frameId": 13,
+      "payloadDescriptorId": 1013,
+      "relativeMilliseconds": 1200,
+      "renderedCentiseconds": 120,
+      "activeLabelElementId": "label-alpha",
+      "activeEventId": "steady-frame"
+    },
+    {
+      "frameId": 14,
+      "payloadDescriptorId": 1014,
+      "relativeMilliseconds": 1300,
+      "renderedCentiseconds": 130,
+      "activeLabelElementId": "label-beta",
+      "activeEventId": "trigger-start-fire"
+    },
+    {
+      "frameId": 15,
+      "payloadDescriptorId": 1015,
+      "relativeMilliseconds": 1400,
+      "renderedCentiseconds": 140,
+      "activeLabelElementId": "label-gamma",
+      "activeEventId": "click-target-beta-press"
+    },
+    {
+      "frameId": 16,
+      "payloadDescriptorId": 1016,
+      "relativeMilliseconds": 1500,
+      "renderedCentiseconds": 150,
+      "activeLabelElementId": "label-alpha",
+      "activeEventId": "trigger-mark-fire"
+    },
+    {
+      "frameId": 17,
+      "payloadDescriptorId": 1017,
+      "relativeMilliseconds": 1600,
+      "renderedCentiseconds": 160,
+      "activeLabelElementId": "label-beta",
+      "activeEventId": "steady-frame"
+    },
+    {
+      "frameId": 18,
+      "payloadDescriptorId": 1018,
+      "relativeMilliseconds": 1700,
+      "renderedCentiseconds": 170,
+      "activeLabelElementId": "label-gamma",
+      "activeEventId": "trigger-start-fire"
+    },
+    {
+      "frameId": 19,
+      "payloadDescriptorId": 1019,
+      "relativeMilliseconds": 1800,
+      "renderedCentiseconds": 180,
+      "activeLabelElementId": "label-alpha",
+      "activeEventId": "click-target-beta-press"
+    },
+    {
+      "frameId": 20,
+      "payloadDescriptorId": 1020,
+      "relativeMilliseconds": 1900,
+      "renderedCentiseconds": 190,
+      "activeLabelElementId": "label-beta",
+      "activeEventId": "trigger-mark-fire"
+    }
+  ],
+  "consoleSummary": {
+    "attemptId": "mprr-self-test-dual-packet-live-20260727T165022z",
+    "runId": "mprr-self-test-dual-packet-live-20260727T165022z-20260727T165030151Z",
+    "outputDirectory": "C:\\Users\\SergioVelderrain\\AppData\\Local\\Temp\\mprr-lba-derisk\\live",
+    "authoritativeOutcome": "authoritative",
+    "packetSchemaId": "2.0",
+    "primaryAnalysisSurface": "short-packet",
+    "shortPacketPath": "short.tdms",
+    "longPacketPath": "long.tdms",
+    "manifestPath": "dual-packet-manifest.json",
+    "correlationReceiptPath": "dual-packet-correlation-receipt.json",
+    "shortPacketAnalysisSummaryPath": "short-packet-analysis-summary.json",
+    "shortPacketCount": 92,
+    "longPacketCount": 20
+  }
+}

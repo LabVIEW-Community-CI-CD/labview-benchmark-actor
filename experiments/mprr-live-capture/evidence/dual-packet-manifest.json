@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "mprr-dual-packet-manifest-v1",
+  "runId": "mprr-self-test-dual-packet-live-20260727T165022z-20260727T165030151Z",
+  "attemptId": "mprr-self-test-dual-packet-live-20260727T165022z",
+  "transportSchemaId": "mprr-dual-packet-self-test-live-v1",
+  "packetSchemaId": "2.0",
+  "timingAuthorityId": "mprr-self-test-synthetic-monotonic-100ns",
+  "triggerSessionId": "mprr-self-test-dual-packet-live-20260727T165022z-20260727T165030151Z-autostart",
+  "primaryAnalysisSurface": "short-packet",
+  "streamArtifacts": [
+    {
+      "streamId": "short-packet",
+      "relativePath": "short.tdms",
+      "role": "primary-analysis-surface",
+      "packetSchemaId": "2.0",
+      "wireClass": "short-packet",
+      "authoritativeOutcome": "authoritative",
+      "packetCount": 92,
+      "firstWriterLocalSequence": 1,
+      "lastWriterLocalSequence": 92,
+      "firstTimingTicks64": 0,
+      "lastTimingTicks64": 19000010,
+      "packetKindsRetained": [
+        "governed-trigger",
+        "frame-start",
+        "operator-annotation",
+        "frame-end",
+        "keyboard",
+        "ungoverned-trigger",
+        "cursor-sample",
+        "click"
+      ],
+      "frameRangeStart": 1,
+      "frameRangeEnd": 20
+    },
+    {
+      "streamId": "long-packet",
+      "relativePath": "long.tdms",
+      "role": "payload-surface",
+      "packetSchemaId": "2.0",
+      "wireClass": "long-packet",
+      "authoritativeOutcome": "authoritative",
+      "packetCount": 20,
+      "firstWriterLocalSequence": 1,
+      "lastWriterLocalSequence": 20,
+      "firstTimingTicks64": 2,
+      "lastTimingTicks64": 19000002,
+      "packetKindsRetained": [
+        "frame-payload"
+      ],
+      "frameRangeStart": 1,
+      "frameRangeEnd": 20
+    }
+  ]
+}

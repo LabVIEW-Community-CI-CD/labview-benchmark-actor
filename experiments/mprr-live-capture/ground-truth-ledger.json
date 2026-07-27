@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "mprr-self-test-ground-truth-ledger-v1",
+  "timingAuthority": { "tickIntervalMilliseconds": 10 },
+  "binaryStripEncoding": { "prefixBits": "10100101" },
+  "eventSchedule": {
+    "inputDriven": [
+      { "eventId": "trigger-start-fire" },
+      { "eventId": "click-target-beta-press" },
+      { "eventId": "trigger-mark-fire" }
+    ]
+  }
+}

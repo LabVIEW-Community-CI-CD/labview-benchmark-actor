@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "mprr-dual-packet-buffering-policy-receipt-v1",
+  "generatedAtUtc": "2026-07-27T16:39:57.815Z",
+  "authoritativeOutcome": "authoritative",
+  "outputDirectory": "C:\\Users\\SERGIO~1\\AppData\\Local\\Temp\\mprr-lba-derisk\\buffering",
+  "implementedRequirements": [
+    "MPRR-REQ-094",
+    "MPRR-REQ-095"
+  ],
+  "optimizationTelemetryCommand": "npm run review:capture:self-test:dual-packet-optimization",
+  "policyContractPath": "C:\\Users\\SERGIO~1\\AppData\\Local\\Temp\\mprr-lba-derisk\\buffering\\dual-packet-buffering-policy.contract.json",
+  "shortTelemetryContractPath": "C:\\Users\\SERGIO~1\\AppData\\Local\\Temp\\mprr-lba-derisk\\buffering\\short-packet-buffering-telemetry.contract.json",
+  "longTelemetryContractPath": "C:\\Users\\SERGIO~1\\AppData\\Local\\Temp\\mprr-lba-derisk\\buffering\\long-packet-buffering-telemetry.contract.json",
+  "governedBudgets": {
+    "shortPacket": {
+      "byteBudgetBytes": 16777216,
+      "packetBudget": 32768
+    },
+    "longPacket": {
+      "byteBudgetBytes": 268435456,
+      "packetBudget": 512
+    }
+  },
+  "governedPriorityRule": "preserve short-packet continuity before long-packet payload completeness",
+  "runtimeTelemetryArtifacts": [
+    "short-packet-buffering-telemetry.json",
+    "long-packet-buffering-telemetry.json"
+  ]
+}

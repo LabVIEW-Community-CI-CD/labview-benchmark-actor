@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "mprr-dual-packet-transport-contract-receipt-v1",
+  "generatedAtUtc": "2026-07-27T16:39:47.048Z",
+  "authoritativeOutcome": "authoritative",
+  "outputDirectory": "C:\\Users\\SERGIO~1\\AppData\\Local\\Temp\\mprr-lba-derisk\\contract",
+  "packetSchemaDecision": {
+    "currentFrozenTransportSchemaId": "1.0",
+    "successorPacketSchemaId": "2.0",
+    "governingAdrs": [
+      "ADR-0021",
+      "ADR-0022",
+      "ADR-0023"
+    ]
+  },
+  "plannedRuntimeArtifacts": {
+    "shortPacketStreamPath": "short.tdms",
+    "longPacketStreamPath": "long.tdms",
+    "manifestPath": "dual-packet-manifest.json",
+    "correlationReceiptPath": "dual-packet-correlation-receipt.json"
+  },
+  "manifestContractPath": "C:\\Users\\SERGIO~1\\AppData\\Local\\Temp\\mprr-lba-derisk\\contract\\dual-packet-manifest.contract.json",
+  "correlationContractPath": "C:\\Users\\SERGIO~1\\AppData\\Local\\Temp\\mprr-lba-derisk\\contract\\dual-packet-correlation-receipt.contract.json",
+  "responsibilitiesPath": "C:\\Users\\SERGIO~1\\AppData\\Local\\Temp\\mprr-lba-derisk\\contract\\packet-stream-responsibilities.contract.json",
+  "primaryAnalysisSurface": "short-packet",
+  "requiredProofArtifacts": [
+    "short.tdms",
+    "long.tdms",
+    "dual-packet-manifest.json",
+    "dual-packet-correlation-receipt.json"
+  ]
+}

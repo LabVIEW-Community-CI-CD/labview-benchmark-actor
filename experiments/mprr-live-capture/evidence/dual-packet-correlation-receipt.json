@@ -1,0 +1,235 @@
+{
+  "schemaVersion": "mprr-dual-packet-correlation-receipt-v1",
+  "runId": "mprr-self-test-dual-packet-live-20260727T165022z-20260727T165030151Z",
+  "attemptId": "mprr-self-test-dual-packet-live-20260727T165022z",
+  "timingAuthorityId": "mprr-self-test-synthetic-monotonic-100ns",
+  "triggerSessionId": "mprr-self-test-dual-packet-live-20260727T165022z-20260727T165030151Z-autostart",
+  "triggerIssuedTick": 0,
+  "shortWriterAcknowledgedTick": 0,
+  "longWriterAcknowledgedTick": 2,
+  "shortWriterStartObservedTick": 0,
+  "longWriterStartObservedTick": 2,
+  "startSkewTicks": 2,
+  "frameCorrelations": [
+    {
+      "frameId": 1,
+      "payloadDescriptorId": 1001,
+      "shortFrameStartPacketSequence": 2,
+      "longPayloadPacketSequences": [
+        1
+      ],
+      "shortFrameEndPacketSequence": 4,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 2,
+      "payloadDescriptorId": 1002,
+      "shortFrameStartPacketSequence": 5,
+      "longPayloadPacketSequences": [
+        2
+      ],
+      "shortFrameEndPacketSequence": 9,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 3,
+      "payloadDescriptorId": 1003,
+      "shortFrameStartPacketSequence": 10,
+      "longPayloadPacketSequences": [
+        3
+      ],
+      "shortFrameEndPacketSequence": 14,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 4,
+      "payloadDescriptorId": 1004,
+      "shortFrameStartPacketSequence": 15,
+      "longPayloadPacketSequences": [
+        4
+      ],
+      "shortFrameEndPacketSequence": 19,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 5,
+      "payloadDescriptorId": 1005,
+      "shortFrameStartPacketSequence": 20,
+      "longPayloadPacketSequences": [
+        5
+      ],
+      "shortFrameEndPacketSequence": 22,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 6,
+      "payloadDescriptorId": 1006,
+      "shortFrameStartPacketSequence": 23,
+      "longPayloadPacketSequences": [
+        6
+      ],
+      "shortFrameEndPacketSequence": 27,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 7,
+      "payloadDescriptorId": 1007,
+      "shortFrameStartPacketSequence": 28,
+      "longPayloadPacketSequences": [
+        7
+      ],
+      "shortFrameEndPacketSequence": 32,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 8,
+      "payloadDescriptorId": 1008,
+      "shortFrameStartPacketSequence": 33,
+      "longPayloadPacketSequences": [
+        8
+      ],
+      "shortFrameEndPacketSequence": 37,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 9,
+      "payloadDescriptorId": 1009,
+      "shortFrameStartPacketSequence": 38,
+      "longPayloadPacketSequences": [
+        9
+      ],
+      "shortFrameEndPacketSequence": 40,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 10,
+      "payloadDescriptorId": 1010,
+      "shortFrameStartPacketSequence": 41,
+      "longPayloadPacketSequences": [
+        10
+      ],
+      "shortFrameEndPacketSequence": 45,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 11,
+      "payloadDescriptorId": 1011,
+      "shortFrameStartPacketSequence": 46,
+      "longPayloadPacketSequences": [
+        11
+      ],
+      "shortFrameEndPacketSequence": 50,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 12,
+      "payloadDescriptorId": 1012,
+      "shortFrameStartPacketSequence": 51,
+      "longPayloadPacketSequences": [
+        12
+      ],
+      "shortFrameEndPacketSequence": 55,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 13,
+      "payloadDescriptorId": 1013,
+      "shortFrameStartPacketSequence": 56,
+      "longPayloadPacketSequences": [
+        13
+      ],
+      "shortFrameEndPacketSequence": 58,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 14,
+      "payloadDescriptorId": 1014,
+      "shortFrameStartPacketSequence": 59,
+      "longPayloadPacketSequences": [
+        14
+      ],
+      "shortFrameEndPacketSequence": 63,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 15,
+      "payloadDescriptorId": 1015,
+      "shortFrameStartPacketSequence": 64,
+      "longPayloadPacketSequences": [
+        15
+      ],
+      "shortFrameEndPacketSequence": 68,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 16,
+      "payloadDescriptorId": 1016,
+      "shortFrameStartPacketSequence": 69,
+      "longPayloadPacketSequences": [
+        16
+      ],
+      "shortFrameEndPacketSequence": 73,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 17,
+      "payloadDescriptorId": 1017,
+      "shortFrameStartPacketSequence": 74,
+      "longPayloadPacketSequences": [
+        17
+      ],
+      "shortFrameEndPacketSequence": 76,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 18,
+      "payloadDescriptorId": 1018,
+      "shortFrameStartPacketSequence": 77,
+      "longPayloadPacketSequences": [
+        18
+      ],
+      "shortFrameEndPacketSequence": 81,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 19,
+      "payloadDescriptorId": 1019,
+      "shortFrameStartPacketSequence": 82,
+      "longPayloadPacketSequences": [
+        19
+      ],
+      "shortFrameEndPacketSequence": 86,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    },
+    {
+      "frameId": 20,
+      "payloadDescriptorId": 1020,
+      "shortFrameStartPacketSequence": 87,
+      "longPayloadPacketSequences": [
+        20
+      ],
+      "shortFrameEndPacketSequence": 91,
+      "correlationOutcome": "authoritative",
+      "driftClass": "none"
+    }
+  ]
+}

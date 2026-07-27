@@ -107,8 +107,11 @@ flowchart LR
   (no cross-VM comparison).
 - `[Open]` Picture capture *source* and cadence per target (host vs container
   vs LabVIEW render). **Storage is resolved (ADR-0005): the VM-local mprr ring
-  buffer**; the remaining open is the capture source/cadence and the
-  benchmark-frame → mprr-long-packet mapping.
+  buffer**, and the benchmark-frame → mprr-long-packet mapping is now
+  **confirmed by a headless live capture** (20/20 frames, one long-packet
+  payload per `frameId`, `driftClass=none`; see
+  `experiments/mprr-live-capture/`). The remaining open is the capture
+  source/cadence per target.
 - `[Risk]` Extraction scope creep — the moved-module manifest (AD-1) must be
   bounded before implementation to avoid dragging `vi-history-suite` internals.
 
