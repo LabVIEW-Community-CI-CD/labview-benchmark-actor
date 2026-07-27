@@ -93,10 +93,9 @@ flowchart LR
 
 ## 5. Risks and open questions
 
-- `[Open]` Exact bus wire format (length-prefixed JSON over TCP vs a framed
-  protocol) — to be decided in a follow-up ADR.
-- `[Open]` Time-sync accuracy target for cross-VM comparison (UDP beacon
-  cadence and clock-skew bound).
+- `[Resolved ADR-0003]` Bus wire format — length-prefixed JSON over TCP.
+- `[Resolved ADR-0004]` Cross-VM time-sync — UDP beacon cadence + clock-skew
+  bound.
 - `[Open]` Picture capture *source* and cadence per target (host vs container
   vs LabVIEW render). **Storage is resolved (ADR-0005): the VM-local mprr ring
   buffer**; the remaining open is the capture source/cadence and the
@@ -113,8 +112,9 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0001](adr/ADR-0001-run-result-schema.md) | Run-result schema (metrics + time-indexed pictures on one clock) | WIN |
 | [ADR-0002](adr/ADR-0002-viewer-cursor-picture-binding.md) | Viewer single selected-time source of truth | WIN |
 | [ADR-0005](adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md) | Image/frame storage via mprr ring buffer in the VM cleanroom (no image transport) | WIN |
-| ADR-0003 *(reserved)* | Coordination-bus wire format (the `[Open]` above) | LINUX |
-| ADR-0004 *(reserved)* | Cross-VM time-sync accuracy (the `[Open]` above) | LINUX |
+| [ADR-0003](adr/ADR-0003-coordination-bus-wire-format.md) | Coordination-bus wire format (length-prefixed JSON over TCP) | LINUX |
+| [ADR-0004](adr/ADR-0004-cross-vm-time-sync.md) | Cross-VM time-sync (UDP beacon cadence + skew bound) | LINUX |
 
-The picture-capture-source and extraction-scope `[Open]`/`[Risk]` items remain
-open pending a capture-source ADR and the bounded moved-module manifest.
+Remaining open items: the picture-capture *source*/cadence (storage itself is
+resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded
+moved-module manifest).

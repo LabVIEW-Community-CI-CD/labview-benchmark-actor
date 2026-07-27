@@ -59,3 +59,16 @@ is resolved by the viewer **on the same VM**.
 - **Open:** exact mapping of a benchmark frame onto mprr's long-packet payload
   and the review-capture manifest fields — coordinate against mprr's
   fixture-profile / review-capture contract before implementation.
+
+## Relationship to ADR-0003 (supersedes §5)
+
+This decision **supersedes ADR-0003 §5** (frame `ref` transport by
+content-addressed **FETCH** over a bulk TCP connection). Per the cleanroom
+directive, image bytes are **never** transported over the bus — neither inline
+nor fetched. The viewer reads a frame from the **same VM's** local mprr store;
+the bus carries frame **metadata only** (`{ index, t, ref, w, h }`, where `ref`
+resolves against the local mprr review-capture store, not a bus fetch).
+ADR-0003 §5 and its `FETCH`/`FETCH_REPLY` bulk-blob channel should be revised
+accordingly (LINUX lane). The rest of ADR-0003 — length-prefixed-JSON framing,
+the `bus-msg@1` envelope, leader-ordered late-join, and check-before-publish —
+is unaffected and remains the coordination contract.
