@@ -98,3 +98,33 @@ on the fix2 branch -- concrete evidence for mprr MR #137 ahead of merge.
 
 Re-runnable: the committed receipt is validated by
 `experiments/verify-local-gates.mjs` (`windows-crosscheck-receipt-authoritative`).
+
+## Plane-2 golden-VM RESULT (LINUX/me, plane 2) + ADR-0007 colon-OCR corroboration
+
+Executed in the golden Win11 + LabVIEW 2026 Vagrant VM (a 2nd Windows plane),
+running the committed portable `produce-conformance.cjs` with the VM's .NET 8 SDK
+8.0.423. Full receipt: `receipt-golden-vm.json`.
+
+- `authoritativeOutcome`: **authoritative**; `missingComparisons`: 0; `replayPlanPacketCount`: 5
+- image / tdms / reader `maxAbsoluteSkewMilliseconds` = 0 / 0 / 0 -> byte-for-byte
+  agreement with planes 1 (LINUX) + 3 (native Windows).
+
+So the portable strip-anchored generator is authoritative on **all three planes**
+(LINUX + native-Windows + golden-VM), confirming the machine timing channel is
+genuinely cross-platform.
+
+### ADR-0007 human-OCR corroboration (`colon-corroboration.json`)
+
+The optional finding-3 fidelity garnish: the human-only colon `hh:mm:ss.cc` field
+was rendered NON-BOLD, OCR'd via `Windows.Media.Ocr` in the golden VM, and scored
+with `experiments/corroboration-confidence-reference.mjs` (WIN's metric):
+
+| sample | observedText | rawOcrText | corroborationConfidence | fractionalTailMatched |
+| --- | --- | --- | --- | --- |
+| stopwatch-010 | 00:00:00.10 | (empty) | 0 | false |
+| stopwatch-012 | 00:00:00.12 | .12 | 1 | true |
+| stopwatch-015 | 00:00:00.15 | .15 | 1 | true |
+
+The fast centisecond tail corroborates (2 of 3 fully; the `.10` line dropped --
+exactly finding-3). This is recorded ONLY as auditable fidelity evidence; the
+authoritative `observedCentiseconds` stays strip-anchored (pixel-decoded, 0 skew).

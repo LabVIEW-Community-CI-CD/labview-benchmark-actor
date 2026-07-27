@@ -1,0 +1,32 @@
+[
+  {
+    "sampleId": "stopwatch-010",
+    "observedText": "00:00:00.10",
+    "rawOcrText": "",
+    "ocrMs": 439,
+    "fast": "10",
+    "matchedFastDigits": 0,
+    "corroborationConfidence": 0,
+    "fractionalTailMatched": false
+  },
+  {
+    "sampleId": "stopwatch-012",
+    "observedText": "00:00:00.12",
+    "rawOcrText": ".12",
+    "ocrMs": 488,
+    "fast": "12",
+    "matchedFastDigits": 2,
+    "corroborationConfidence": 1,
+    "fractionalTailMatched": true
+  },
+  {
+    "sampleId": "stopwatch-015",
+    "observedText": "00:00:00.15",
+    "rawOcrText": ".15",
+    "ocrMs": 505,
+    "fast": "15",
+    "matchedFastDigits": 2,
+    "corroborationConfidence": 1,
+    "fractionalTailMatched": true
+  }
+]
