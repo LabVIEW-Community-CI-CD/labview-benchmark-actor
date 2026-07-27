@@ -111,7 +111,8 @@ check('ring-buffer-mirror-replay-deterministic', () => {
   assert(/^[0-9a-f]{64}$/.test(replay.actionDigestSha256 || ''), 'actionDigestSha256 must be 64 hex chars');
   assert(replay.monotonicPacketSequence === true && replay.monotonicLogicalTimeline === true, 'replay timeline must be monotonic');
   assert(replay.fixtureManifestValidation?.passed === true, 'fixtureManifestValidation must pass');
-  return { actionDigestSha256: replay.actionDigestSha256 };
+  assert(/^[0-9a-f]{64}$/.test(receipt.crossPlaneMirror?.portableActionDigestSha256 || ''), 'portable cross-plane digest must be present');
+  return { actionDigestSha256: replay.actionDigestSha256, portable: receipt.crossPlaneMirror.portableActionDigestSha256 };
 });
 
 // 5. RTM structure + every "Proven" row cites at least one existing evidence path.

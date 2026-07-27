@@ -48,15 +48,28 @@ which legs remain Windows-bound.
 2. `$PSNativeCommandArgumentPassing='Standard'` + a single-quoted JSON for
    `--source-monitor-bounds-json` (bare `\"` escaping mangles the JSON).
 
-## Cross-plane diff protocol (parity step 2, LINUX half)
+## Cross-plane result (parity step 2) — MIRROR PROVEN
 
-LINUX runs the SAME recorder over `inputs/operator-events.jsonl` on
-linux-native with identical args (`--target-fps 12 --captured-frame-count 48
+Both planes ran the SAME recorder over `inputs/operator-events.jsonl` with
+identical args (`--target-fps 12 --captured-frame-count 48
 --source-monitor-bounds-json {"x":0,"y":0,"width":1280,"height":800}`), then the
-synthetic replay proof. **If `actionDigestSha256` equals
-`02a72020f8afaedefc71a09e463696bd70a3abdf454f812014b76a99f3c474e6`, the
-ring-buffer read/replay is byte-deterministic across planes — the mirror is
-proven.** The `inputs/` here are the pinned shared retained inputs so both
+synthetic replay proof. Every structural + semantic field matched byte-for-byte
+(timeline `0/101/121/151/152`, cursor `640/360`, `buttonId 1`, `keyCode 65`,
+`unicodeScalar 97`, `classificationCode 100/101`, capture-start/stop text).
+
+The raw `actionDigestSha256` differed (win `02a72020…` vs linux `9ce131fb…`)
+**only** because the script bakes the **absolute** `segmentPath` (each plane's
+output dir) into every action. Normalizing `segmentPath` to its basename yields
+an identical portable key on both planes:
+
+> **portable digest = `d152e51a0a275818824dfe6dbc7d9011ee8074d90f05d211015d4311b199602b`**
+> (windows-native == linux-native) ⇒ ring-buffer read/replay is
+> **byte-deterministic cross-plane**.
+
+**Tooling finding:** `runSyntheticVmReplayProof.actionDigestSha256` is not a
+portable cross-plane determinism key as-is (absolute `segmentPath` leak). The
+recommended one-line mprr fix is to normalize `segmentPath` to basename/relative
+before hashing. The `inputs/` here are the pinned shared retained inputs so both
 planes bind identical bytes.
 
 The `inputs/` mirror the mprr fixture contracts in

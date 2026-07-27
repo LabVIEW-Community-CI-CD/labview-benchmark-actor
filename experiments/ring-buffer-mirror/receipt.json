@@ -57,6 +57,15 @@
     "pre-author surface-metadata + ground-truth-ledger so ensureSurfaceArtifacts skips the net8.0-windows GDI surface launch that fails on native Windows (WSL-only path translation)",
     "$PSNativeCommandArgumentPassing='Standard' + single-quoted JSON for --source-monitor-bounds-json"
   ],
-  "crossPlaneDiffProtocol": "LINUX runs the same recorder over inputs/operator-events.jsonl on linux-native with identical args, then the synthetic replay proof; matching actionDigestSha256 proves byte-deterministic ring-buffer read/replay across planes.",
-  "conclusion": "The mprr ring-buffer WRITE (dual-packet TDMS), the transport RECORDER, and the READER replay projection are all cross-platform (net8.0 plain + Node) and proven end-to-end on a real native-Windows host. The linux-native mirror horizon is bounded to exactly two Windows-bound legs: surface-producer input generation and OCR image-derived-timing."
+  "crossPlaneMirror": {
+    "status": "PROVEN byte-deterministic (windows-native <-> linux-native)",
+    "portableActionDigestSha256": "d152e51a0a275818824dfe6dbc7d9011ee8074d90f05d211015d4311b199602b",
+    "portableDigestMethod": "actions.map(JSON.stringify).join(newline)+newline with segmentPath normalized to basename",
+    "windowsNativeRawDigest": "02a72020f8afaedefc71a09e463696bd70a3abdf454f812014b76a99f3c474e6",
+    "linuxNativeRawDigest": "9ce131fb (differs ONLY by the absolute segmentPath output-dir prefix)",
+    "allSemanticFieldsIdentical": true,
+    "toolingFinding": "runSyntheticVmReplayProof.actionDigestSha256 embeds an ABSOLUTE segmentPath, so the raw digest is not a portable cross-plane determinism key; normalizing segmentPath to basename/relative (a one-line mprr fix) yields the portable key d152e51a... identical on both planes."
+  },
+  "crossPlaneDiffProtocol": "Both planes ran the recorder over inputs/operator-events.jsonl with identical args then the synthetic replay proof; the PORTABLE key (segmentPath basename-normalized) d152e51a... matched byte-for-byte on windows-native and linux-native.",
+  "conclusion": "PROVEN: the mprr ring-buffer WRITE (dual-packet TDMS), the transport RECORDER, and the READER replay projection are all cross-platform (net8.0 plain + Node) and byte-deterministic across windows-native and linux-native (portable digest d152e51a...). The linux-native mirror horizon is bounded to exactly two Windows-bound legs: surface-producer input generation and OCR image-derived-timing."
 }
