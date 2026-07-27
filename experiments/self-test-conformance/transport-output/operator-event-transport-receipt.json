@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "operator-event-transport-receipt-v1",
+  "attemptId": "linux-conformance-prelim",
+  "transportSchemaId": "1.0",
+  "targetFps": 12,
+  "capturedFrameCount": 48,
+  "sourceMonitorBoundsJson": "{\u0022x\u0022:0,\u0022y\u0022:0,\u0022width\u0022:1280,\u0022height\u0022:800}",
+  "eventLogPath": "/run/media/sergio/Data/vihs-lba/prototype/labview-benchmark-actor/experiments/self-test-conformance/inputs/operator-events.jsonl",
+  "outputDirectory": "/run/media/sergio/Data/mprr-conformance-linux/transport-output",
+  "segmentPath": "capture-transport/linux-conformance-prelim-segment-0000.tdms",
+  "captureBusPath": "capture-bus.jsonl",
+  "fixtureManifestPath": "fixture-manifest.json",
+  "receiptPath": "operator-event-transport-receipt.json",
+  "packetCount": 5,
+  "firstPacketSequence": 1,
+  "lastPacketSequence": 5,
+  "cursorSampleCount": 1,
+  "clickCount": 1,
+  "keyboardCount": 1,
+  "governedTriggerCount": 2
+}

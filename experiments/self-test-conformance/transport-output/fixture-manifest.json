@@ -1,0 +1,15 @@
+{
+  "fixtureId": "linux-conformance-prelim",
+  "transportSchemaId": "1.0",
+  "expectedSegmentCount": 1,
+  "expectedPacketCount": 5,
+  "expectedFirstPacketSequence": 1,
+  "expectedLastPacketSequence": 5,
+  "expectedAuthoritativeOutcome": "authoritative",
+  "expectedCorruptionClass": "none",
+  "expectedRolloverBoundaryPresent": false,
+  "segmentPaths": [
+    "capture-transport/linux-conformance-prelim-segment-0000.tdms"
+  ],
+  "segmentExpectations": []
+}

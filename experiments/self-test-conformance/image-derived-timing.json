@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "mprr-self-test-image-derived-timing-v1",
+  "timingSamples": [
+    {
+      "sampleId": "stopwatch-010",
+      "observedRelativeMilliseconds": 100,
+      "observedCentiseconds": 10,
+      "observedText": "00:00:00.10",
+      "fidelity": {
+        "channel": "mprr-binary-strip-v1",
+        "stripBits": "1010010100000000000000000000101000001010",
+        "stripImage": "strips/stopwatch-010.pgm",
+        "decodeMethod": "extractBinaryStripReadingFromPortableGrayMap",
+        "colonOcr": "human-only-not-machine-timing"
+      }
+    },
+    {
+      "sampleId": "stopwatch-012",
+      "observedRelativeMilliseconds": 120,
+      "observedCentiseconds": 12,
+      "observedText": "00:00:00.12",
+      "fidelity": {
+        "channel": "mprr-binary-strip-v1",
+        "stripBits": "1010010100000000000000000000110000001100",
+        "stripImage": "strips/stopwatch-012.pgm",
+        "decodeMethod": "extractBinaryStripReadingFromPortableGrayMap",
+        "colonOcr": "human-only-not-machine-timing"
+      }
+    },
+    {
+      "sampleId": "stopwatch-015",
+      "observedRelativeMilliseconds": 150,
+      "observedCentiseconds": 15,
+      "observedText": "00:00:00.15",
+      "fidelity": {
+        "channel": "mprr-binary-strip-v1",
+        "stripBits": "1010010100000000000000000000111100001111",
+        "stripImage": "strips/stopwatch-015.pgm",
+        "decodeMethod": "extractBinaryStripReadingFromPortableGrayMap",
+        "colonOcr": "human-only-not-machine-timing"
+      }
+    }
+  ],
+  "expectedTransportEvents": [
+    {
+      "comparisonId": "capture-start",
+      "expectedKind": "governed-trigger",
+      "expectedRelativeMilliseconds": 0,
+      "expectedTextContains": "capture-start"
+    },
+    {
+      "comparisonId": "cursor-sample-1",
+      "expectedKind": "cursor-sample",
+      "expectedRelativeMilliseconds": 101
+    },
+    {
+      "comparisonId": "click-1",
+      "expectedKind": "click",
+      "expectedRelativeMilliseconds": 121
+    },
+    {
+      "comparisonId": "keyboard-1",
+      "expectedKind": "keyboard",
+      "expectedRelativeMilliseconds": 151
+    },
+    {
+      "comparisonId": "capture-stop",
+      "expectedKind": "governed-trigger",
+      "expectedRelativeMilliseconds": 152,
+      "expectedTextContains": "capture-stop"
+    }
+  ]
+}
