@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "mprr-self-test-surface-v1",
+  "surfaceId": "mprr-windows-primary-monitor-self-test",
+  "logicalSurface": { "width": 1600, "height": 900 },
+  "fiducials": {
+    "binaryStripRect": { "x": 96, "y": 96, "width": 1408, "height": 68 },
+    "cornerMarkers": [
+      { "markerId": "corner-top-left", "rect": { "x": 96, "y": 40, "width": 48, "height": 48 }, "insetPixels": 12 },
+      { "markerId": "corner-top-right", "rect": { "x": 1456, "y": 40, "width": 48, "height": 48 }, "insetPixels": 12 },
+      { "markerId": "corner-bottom-left", "rect": { "x": 96, "y": 812, "width": 48, "height": 48 }, "insetPixels": 12 },
+      { "markerId": "corner-bottom-right", "rect": { "x": 1456, "y": 812, "width": 48, "height": 48 }, "insetPixels": 12 }
+    ]
+  },
+  "labels": [
+    { "elementId": "label-alpha", "label": "LABEL ALPHA", "color": "#D1E3FF", "rect": { "x": 96, "y": 360, "width": 440, "height": 60 } },
+    { "elementId": "label-beta", "label": "LABEL BETA", "color": "#DDF4E4", "rect": { "x": 580, "y": 360, "width": 440, "height": 60 } },
+    { "elementId": "label-gamma", "label": "LABEL GAMMA", "color": "#FBE7C6", "rect": { "x": 1064, "y": 360, "width": 440, "height": 60 } }
+  ],
+  "clickTargets": [
+    { "elementId": "click-target-alpha", "label": "CLICK TARGET ALPHA", "color": "#2A6FDB", "rect": { "x": 96, "y": 452, "width": 440, "height": 118 } },
+    { "elementId": "click-target-beta", "label": "CLICK TARGET BETA", "color": "#2F8F5B", "rect": { "x": 580, "y": 452, "width": 440, "height": 118 } },
+    { "elementId": "click-target-gamma", "label": "CLICK TARGET GAMMA", "color": "#CE7B20", "rect": { "x": 1064, "y": 452, "width": 440, "height": 118 } }
+  ],
+  "triggers": [
+    { "elementId": "trigger-start", "label": "F1 / TRIGGER START", "color": "#F6E7A1", "keyBinding": "F1", "rect": { "x": 96, "y": 608, "width": 440, "height": 86 } },
+    { "elementId": "trigger-mark", "label": "F2 / TRIGGER MARK", "color": "#FAD7A0", "keyBinding": "F2", "rect": { "x": 580, "y": 608, "width": 440, "height": 86 } },
+    { "elementId": "trigger-stop", "label": "F3 / TRIGGER STOP", "color": "#F5C6C6", "keyBinding": "F3", "rect": { "x": 1064, "y": 608, "width": 440, "height": 86 } }
+  ]
+}

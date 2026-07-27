@@ -103,7 +103,18 @@ check('mprr-live-capture-shared-inputs-present', () => {
   return { dir: 'experiments/mprr-live-capture' };
 });
 
-// 4. RTM structure + every "Proven" row cites at least one existing evidence path.
+// 4. Ring-buffer mirror replay proof is deterministic and monotonic.
+check('ring-buffer-mirror-replay-deterministic', () => {
+  const receipt = readJson('experiments/ring-buffer-mirror/receipt.json');
+  const replay = receipt.chain?.syntheticReplayProof;
+  assert(replay, 'syntheticReplayProof missing');
+  assert(/^[0-9a-f]{64}$/.test(replay.actionDigestSha256 || ''), 'actionDigestSha256 must be 64 hex chars');
+  assert(replay.monotonicPacketSequence === true && replay.monotonicLogicalTimeline === true, 'replay timeline must be monotonic');
+  assert(replay.fixtureManifestValidation?.passed === true, 'fixtureManifestValidation must pass');
+  return { actionDigestSha256: replay.actionDigestSha256 };
+});
+
+// 5. RTM structure + every "Proven" row cites at least one existing evidence path.
 check('rtm-proven-rows-cite-existing-evidence', () => {
   const rows = readFileSync(join(pkgRoot, 'docs', 'requirements', 'rtm.csv'), 'utf8')
     .split(/\r?\n/)

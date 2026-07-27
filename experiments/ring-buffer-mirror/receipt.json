@@ -1,0 +1,62 @@
+{
+  "schema": "lba/ring-buffer-mirror@1",
+  "host": "windows-native",
+  "generatedContext": "WIN plane, real Windows 11 dev host; parity step 2 (windows half) for the linux-native ring-buffer mirror horizon",
+  "toolchain": {
+    "dotnetSdk": "8.0.423",
+    "node": "v24.16.0",
+    "reader": "ReviewCaptureTransportReader net8.0 (plain)",
+    "recorder": "review-capture-transport-recorder net8.0 (plain)",
+    "dualPacketWriter": "ReviewCaptureDualPacketSelfTestWriter net8.0 (plain)"
+  },
+  "chain": {
+    "dualPacketWriter": {
+      "script": "runReviewCaptureSelfTestDualPacketLiveCapture.js",
+      "authoritativeOutcome": "authoritative",
+      "packetSchemaId": "2.0",
+      "shortPacketCount": 20,
+      "longPacketCount": 4,
+      "surfaceArtifactsRefreshed": false
+    },
+    "recorder": {
+      "project": "review-capture-transport-recorder",
+      "transportSchemaId": "1.0",
+      "packetCount": 5,
+      "cursorSampleCount": 1,
+      "clickCount": 1,
+      "keyboardCount": 1,
+      "governedTriggerCount": 2
+    },
+    "syntheticReplayProof": {
+      "schemaVersion": "synthetic-vm-replay-proof-v1",
+      "transportSchemaId": "1.0",
+      "segmentCount": 1,
+      "packetCount": 5,
+      "actionCount": 5,
+      "firstLogicalReplayTimestamp": 0,
+      "lastLogicalReplayTimestamp": 152,
+      "monotonicPacketSequence": true,
+      "monotonicLogicalTimeline": true,
+      "fixtureManifestValidation": { "passed": true, "errors": 0 },
+      "actionDigestSha256": "02a72020f8afaedefc71a09e463696bd70a3abdf454f812014b76a99f3c474e6"
+    }
+  },
+  "mirrorBoundary": {
+    "crossPlatform": [
+      "dual-packet writer (TDMS ring buffer)",
+      "transport recorder (segment + fixtureManifest + captureBus)",
+      "reader replay projection",
+      "node comparator"
+    ],
+    "windowsBound": [
+      "surface-producer generation of ground-truth-ledger + surface-metadata (net8.0-windows GDI; also hits the WSL-only path-translation gap)",
+      "Windows.Media.Ocr image-derived-timing"
+    ]
+  },
+  "interopWorkarounds": [
+    "pre-author surface-metadata + ground-truth-ledger so ensureSurfaceArtifacts skips the net8.0-windows GDI surface launch that fails on native Windows (WSL-only path translation)",
+    "$PSNativeCommandArgumentPassing='Standard' + single-quoted JSON for --source-monitor-bounds-json"
+  ],
+  "crossPlaneDiffProtocol": "LINUX runs the same recorder over inputs/operator-events.jsonl on linux-native with identical args, then the synthetic replay proof; matching actionDigestSha256 proves byte-deterministic ring-buffer read/replay across planes.",
+  "conclusion": "The mprr ring-buffer WRITE (dual-packet TDMS), the transport RECORDER, and the READER replay projection are all cross-platform (net8.0 plain + Node) and proven end-to-end on a real native-Windows host. The linux-native mirror horizon is bounded to exactly two Windows-bound legs: surface-producer input generation and OCR image-derived-timing."
+}

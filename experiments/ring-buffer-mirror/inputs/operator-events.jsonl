@@ -1,0 +1,3 @@
+{"schemaVersion":"windows-host-operator-event-v1","kind":"cursor-sample","relativeMilliseconds":100,"sourceCursorX":640,"sourceCursorY":360,"pointerStatusFlags":1}
+{"schemaVersion":"windows-host-operator-event-v1","kind":"click","relativeMilliseconds":120,"sourceCursorX":640,"sourceCursorY":360,"buttonId":1,"transitionId":1,"modifierFlags":0}
+{"schemaVersion":"windows-host-operator-event-v1","kind":"keyboard","relativeMilliseconds":150,"keyTransitionId":1,"keyboardDeviceClass":1,"modifierFlags":0,"keyCode":65,"unicodeScalar":97}
