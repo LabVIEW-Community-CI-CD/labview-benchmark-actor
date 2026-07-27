@@ -78,7 +78,11 @@ the colon time.**
   glyphs — a complement, **not** a substitute for strip-anchored corroboration.
 - **Open:** the exact `corroborationConfidence` metric (e.g. the fraction of the
   fast-changing centisecond digits present in `rawOcrText`) — pin it against
-  mprr's `image-derived-timing` generator when the LINUX golden-VM ships it.
+  mprr's `image-derived-timing` generator when the LINUX golden-VM ships it. A
+  WIN reference implementation, validated against the real `ocr-primitive-proof`
+  readbacks, lives at
+  [`experiments/corroboration-confidence-reference.mjs`](../../../experiments/corroboration-confidence-reference.mjs)
+  (also exercised by the local gate).
 
 ## Evidence
 

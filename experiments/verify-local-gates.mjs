@@ -20,6 +20,7 @@
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import { corroborationConfidence, REAL_READBACK_CASES } from './corroboration-confidence-reference.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -183,6 +184,19 @@ check('adr-index-integrity', () => {
     assert(files.includes(l), `index links ${l} but the file does not exist`);
   }
   return { adrFiles: files.length, indexed: linked.length };
+});
+
+// 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
+check('corroboration-confidence-reference', () => {
+  for (const c of REAL_READBACK_CASES) {
+    const got = corroborationConfidence(c.canonicalObservedText, c.rawOcrText);
+    assert(got.corroborationConfidence === c.expect.corroborationConfidence, `${c.fontSizePt}pt confidence ${got.corroborationConfidence} != ${c.expect.corroborationConfidence}`);
+    assert(got.fractionalTailMatched === c.expect.fractionalTailMatched, `${c.fontSizePt}pt tailMatched ${got.fractionalTailMatched} != ${c.expect.fractionalTailMatched}`);
+  }
+  let threw = false;
+  try { corroborationConfidence('not-a-time', ''); } catch { threw = true; }
+  assert(threw, 'corroborationConfidence must reject a non hh:mm:ss.cc canonical');
+  return { cases: REAL_READBACK_CASES.length };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
