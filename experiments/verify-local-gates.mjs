@@ -236,6 +236,51 @@ check('image-derived-timing-colon-ocr-fidelity', () => {
   }
   return { samples: samples.length, colonOcrRecorded };
 });
+
+// 10. Plane-2 golden-VM colon-OCR corroboration sidecar reconciles byte-for-byte
+//     with the reference metric (honest ADR-0007 human-OCR evidence: the strip
+//     stays load-bearing; colon OCR is scored corroboration only). Optional until
+//     the golden-VM run lands, then actively re-scored here.
+check('colon-corroboration-plane2-scoring', () => {
+  const rel = join('experiments', 'self-test-conformance', 'colon-corroboration.json');
+  if (!existsSync(join(pkgRoot, rel))) {
+    return { present: false };
+  }
+  const entries = readJson(rel);
+  assert(Array.isArray(entries) && entries.length > 0, 'colon-corroboration must be a non-empty array');
+  let corroborated = 0;
+  for (const e of entries) {
+    const got = corroborationConfidence(e.observedText, e.rawOcrText);
+    for (const key of ['fast', 'matchedFastDigits', 'corroborationConfidence', 'fractionalTailMatched']) {
+      assert(e[key] === got[key], `${e.sampleId} ${key} ${JSON.stringify(e[key])} disagrees with reference ${JSON.stringify(got[key])}`);
+    }
+    if (got.corroborationConfidence > 0) corroborated += 1;
+  }
+  return { entries: entries.length, corroborated };
+});
+
+// 11. Every committed cross-plane conformance receipt is authoritative with zero
+//     skew -> the 3-plane byte-identical machine-timing claim is gate-enforced, not
+//     just prose (plane 1 Linux, plane 2 golden-VM, plane 3 native Windows).
+check('all-plane-receipts-authoritative-zero-skew', () => {
+  const dir = join('experiments', 'self-test-conformance');
+  const seen = [];
+  for (const name of ['receipt-linux.json', 'receipt-golden-vm.json', 'receipt-windows-crosscheck.json']) {
+    if (!existsSync(join(pkgRoot, dir, name))) {
+      continue;
+    }
+    const r = readJson(join(dir, name));
+    assert(r.schemaVersion === 'mprr-self-test-transport-conformance-v1', `${name} schemaVersion mismatch`);
+    assert(r.authoritativeOutcome === 'authoritative', `${name} authoritativeOutcome must be authoritative`);
+    assert(Array.isArray(r.missingComparisons) && r.missingComparisons.length === 0, `${name} missingComparisons must be empty`);
+    for (const leg of ['imageTimingComparison', 'tdmsShortPacketTimingComparison', 'readerProjectionComparison']) {
+      assert(r[leg]?.maxAbsoluteSkewMilliseconds === 0, `${name} ${leg}.maxAbsoluteSkewMilliseconds must be 0`);
+    }
+    seen.push(name);
+  }
+  assert(seen.length >= 1, 'at least one plane conformance receipt must be present');
+  return { receipts: seen };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
