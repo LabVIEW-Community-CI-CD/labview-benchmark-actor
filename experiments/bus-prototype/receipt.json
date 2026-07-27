@@ -1,0 +1,156 @@
+{
+  "schema": "lba-bus-prototype-receipt@1",
+  "ranAt": "2026-07-27T16:50:24.433Z",
+  "node": "v22.22.1",
+  "sessionId": "sess-ms3gqhrd",
+  "grounds": [
+    "ADR-0003",
+    "ADR-0004",
+    "LBA-REQ-006",
+    "LBA-REQ-007",
+    "T-007"
+  ],
+  "frameCapBytes": 1048576,
+  "total": 12,
+  "passed": 12,
+  "failed": 0,
+  "results": [
+    {
+      "name": "framing-roundtrip-embedded-control-chars",
+      "pass": true,
+      "detail": {
+        "decoded": {
+          "schema": "labview-benchmark-actor/bus-msg@1",
+          "senderId": "x",
+          "seq": 1,
+          "type": "NOTE",
+          "payload": {
+            "text": "line1\nline2\twith\ttabs and \"quotes\" and \\backslash"
+          }
+        }
+      }
+    },
+    {
+      "name": "framing-oversize-rejected-on-encode",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "framing-oversize-rejected-on-decode",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "tcp-total-order-identical-across-peers",
+      "pass": true,
+      "detail": {
+        "aSeqs": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bSeqs": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "typesAtA": [
+          "CLAIM",
+          "ACK",
+          "HANDOFF",
+          "DONE"
+        ]
+      }
+    },
+    {
+      "name": "leader-derived-state-from-log",
+      "pass": true,
+      "detail": {
+        "globalSeq": 4,
+        "claims": {},
+        "handoffOwner": "WIN-VITLT",
+        "logLen": 4
+      }
+    },
+    {
+      "name": "late-join-snapshot-plus-tail-reconstruct",
+      "pass": true,
+      "detail": {
+        "snapshot": {
+          "schema": "labview-benchmark-actor/bus-msg@1",
+          "type": "SNAPSHOT",
+          "sessionId": "sess-ms3gqhrd",
+          "globalSeqHead": 4,
+          "claims": {},
+          "handoffOwner": "WIN-VITLT",
+          "lastSeqBySender": {
+            "LINUX": 2,
+            "WIN-VITLT": 2
+          }
+        },
+        "replayedSeqs": [
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "name": "check-before-publish-rejects-stale",
+      "pass": true,
+      "detail": {
+        "reject": {
+          "schema": "labview-benchmark-actor/bus-msg@1",
+          "type": "REJECT",
+          "reason": "stale-lastSeenSeq",
+          "expectedHead": 4,
+          "got": 0,
+          "refSenderId": "LINUX",
+          "refSeq": 3
+        }
+      }
+    },
+    {
+      "name": "check-before-publish-accepts-fresh",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "udp-presence-beacons-flow",
+      "pass": true,
+      "detail": {
+        "aBeacons": 1,
+        "bBeacons": 1
+      }
+    },
+    {
+      "name": "udp-loss-does-not-corrupt-tcp-order",
+      "pass": true,
+      "detail": {
+        "headBefore": 5,
+        "headAfter": 6
+      }
+    },
+    {
+      "name": "presence-timeout-flags-silent-peers",
+      "pass": true,
+      "detail": {
+        "notPresent": [
+          "LINUX",
+          "WIN-VITLT"
+        ]
+      }
+    },
+    {
+      "name": "dropped-tcp-peer-detected",
+      "pass": true,
+      "detail": {
+        "closedEventsBefore": 0,
+        "closedEventsAfter": 1
+      }
+    }
+  ]
+}
