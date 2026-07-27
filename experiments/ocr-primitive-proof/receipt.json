@@ -1,0 +1,50 @@
+{
+  "schema": "lba/ocr-primitive-proof@1",
+  "host": "windows-native",
+  "generatedContext": "WIN plane, real Windows 11 dev host, ahead of the golden-VM transport conformance run",
+  "ocrEngine": {
+    "api": "Windows.Media.Ocr.OcrEngine.TryCreateFromUserProfileLanguages()",
+    "available": true,
+    "recognizerLanguages": ["en-US"],
+    "powerShell": "Windows PowerShell 5.1 (powershell.exe) required; pwsh 7 cannot load the WinRT projection",
+    "latencyMsPerFrameObserved": [432, 494, 531, 746],
+    "frame": { "width": 1600, "height": 500 }
+  },
+  "positiveReadback": {
+    "bitStream": {
+      "rendered": "1010010100000000000000000000000000000000",
+      "ocr": "1010010100000000000000000000000000000000",
+      "exact": true
+    },
+    "statusLine": {
+      "rendered": "Waiting for a controlled click target or trigger.",
+      "ocr": "Waiting for a controlled click target or trigger.",
+      "exact": true
+    }
+  },
+  "timeReadbackSensitivity": {
+    "note": "Bold colon-formatted monospace time is fragile for whole-image OCR; the same image's digit + word lines read exactly.",
+    "byFontSizePt": {
+      "64": "line dropped",
+      "48": "line dropped",
+      "40": "line dropped",
+      "32": "ee : ee:12.34 (bold leading 00 misread as ee; 12.34 read)"
+    },
+    "mitigation": "Use the surface producer's OCR-friendly time rendering plus readWindowsImageOcr cropRelativeJson + scale; treat OCR as a tolerant cross-check against the authoritative ground-truth-ledger."
+  },
+  "nativeWindowsInteropGaps": [
+    {
+      "id": "gap-translate-wsl-only",
+      "location": "scripts/runInstalledRuntimeVirtualBoxVmBootstrap.js#translateAnyPathToWindows",
+      "symptom": "native Windows path -> null -> spawnPowerShellScript throws 'Unable to translate PowerShell script path to a Windows path'",
+      "workaround": "inject identity translateAnyPathToWindowsImpl"
+    },
+    {
+      "id": "gap-cwd-mnt-c",
+      "location": "scripts/virtualBoxHostInterop.js#spawnPowerShellScript",
+      "symptom": "hardcoded cwd:'/mnt/c' absent on native Windows -> spawn fails silently -> 'Windows OCR execution failed.'",
+      "workaround": "inject spawnSyncImpl that forces a valid Windows cwd"
+    }
+  ],
+  "conclusion": "The Windows.Media.Ocr image-fidelity primitive is FUNCTIONAL on a real native-Windows host (en-US recognizer, sub-second per frame). The actionable variables for the golden-VM conformance run are (a) two WSL/VBox-host interop assumptions that break on native Windows PowerShell, and (b) surface-render + crop/scale tuning for reliable time OCR. The OCR engine itself is not the risk."
+}
