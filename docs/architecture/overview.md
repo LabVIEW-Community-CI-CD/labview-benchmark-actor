@@ -94,7 +94,7 @@ flowchart LR
 | AD-2 | One artifact, two install targets | Reproducible benchmarking baseline on Codespace and VM | LBA-REQ-002 |
 | AD-3 | Single schema-versioned run-result contract | Decouples actor from viewer; enables reproducibility checks | LBA-REQ-003 |
 | AD-4 | Single selected-time source of truth | Guarantees cursor↔picture synchronization | LBA-REQ-004/005 |
-| AD-5 | TCP for order, UDP for presence/time-sync | Reliability where needed, low latency where tolerable | LBA-REQ-007 |
+| AD-5 | TCP for order, UDP for presence/liveness (advisory time) | Reliability where needed, low latency where tolerable | LBA-REQ-007 |
 | AD-6 | Loopback / private-network bind by default | Offline, air-gapped, no public exposure | LBA-REQ-007 |
 | AD-7 | Mirror the collab-bus semantics on the new transport | Preserve a proven coordination model across a transport change | LBA-REQ-007 |
 | AD-8 | Store all run data in the VM-local mprr ring buffer; bus carries inter-actor comms only | Reuse mprr's governed bounded-RAM ring buffer; keep the bus data-agnostic; cleanroom isolation | LBA-REQ-009 |
@@ -103,8 +103,8 @@ flowchart LR
 ## 5. Risks and open questions
 
 - `[Resolved ADR-0003]` Bus wire format — length-prefixed JSON over TCP.
-- `[Resolved ADR-0004]` Cross-VM time-sync — UDP beacon cadence + clock-skew
-  bound.
+- `[Resolved ADR-0004]` UDP presence/liveness + advisory coordination time
+  (no cross-VM comparison).
 - `[Open]` Picture capture *source* and cadence per target (host vs container
   vs LabVIEW render). **Storage is resolved (ADR-0005): the VM-local mprr ring
   buffer**; the remaining open is the capture source/cadence and the
@@ -123,7 +123,7 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0005](adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md) | Image/frame storage via mprr ring buffer in the VM cleanroom (no image transport) | WIN |
 | [ADR-0006](adr/ADR-0006-run-concentration-ollama-comparison.md) | Run concentration to the host + ollama comparison (no cross-VM) | WIN |
 | [ADR-0003](adr/ADR-0003-coordination-bus-wire-format.md) | Coordination-bus wire format (length-prefixed JSON over TCP) | LINUX |
-| [ADR-0004](adr/ADR-0004-cross-vm-time-sync.md) | Cross-VM time-sync (UDP beacon cadence + skew bound) | LINUX |
+| [ADR-0004](adr/ADR-0004-cross-vm-time-sync.md) | UDP presence/liveness + advisory coordination time (no cross-VM comparison) | LINUX |
 
 Remaining open items: the picture-capture *source*/cadence (storage itself is
 resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded
