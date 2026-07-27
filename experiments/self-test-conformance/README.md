@@ -148,3 +148,17 @@ absolute-ref workaround is no longer needed.
   / reader `maxAbsoluteSkewMilliseconds` = 0 / 0 / 0.
 - Binds the byte-identical committed shared inputs (`a7e1182` shapes) end-to-end
   => mprr fix2 confirmed working on merged `develop`, not just the fix2 branch.
+
+### Native-Windows final confirmation (`receipt-windows-final-merged.json`)
+
+Symmetric to the LINUX final run above, the same conformance was re-run on
+**native Windows** (plane 3) from the merged `develop` (@ `057ce8d`), binding the
+committed `inputs/surface-metadata.json` **directly** -- fix2 resolves its RELATIVE
+`groundTruthLedgerPath` against `dirname(surfaceMetadataPath)` on win32 too.
+
+- `authoritativeOutcome`: **authoritative**; `missingComparisons`: 0; image / tdms
+  / reader `maxAbsoluteSkewMilliseconds` = 0 / 0 / 0 (all 29 skew fields 0).
+- Byte-identical with `receipt-final-merged.json` => both planes agree on the
+  MERGED baseline, not just the fix2 branch. The local gate
+  `all-plane-receipts-authoritative-zero-skew` now also validates both final
+  receipts (5 receipts total when present).

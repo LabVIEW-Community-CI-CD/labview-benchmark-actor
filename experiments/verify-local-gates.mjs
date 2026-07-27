@@ -265,7 +265,7 @@ check('colon-corroboration-plane2-scoring', () => {
 check('all-plane-receipts-authoritative-zero-skew', () => {
   const dir = join('experiments', 'self-test-conformance');
   const seen = [];
-  for (const name of ['receipt-linux.json', 'receipt-golden-vm.json', 'receipt-windows-crosscheck.json']) {
+  for (const name of ['receipt-linux.json', 'receipt-golden-vm.json', 'receipt-windows-crosscheck.json', 'receipt-final-merged.json', 'receipt-windows-final-merged.json']) {
     if (!existsSync(join(pkgRoot, dir, name))) {
       continue;
     }
