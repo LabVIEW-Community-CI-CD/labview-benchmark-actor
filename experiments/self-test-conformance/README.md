@@ -135,3 +135,16 @@ design so `image-derived-timing.json` stays byte-identical across all 3 planes
 string. The local gate `colon-corroboration-plane2-scoring` re-derives each entry
 via `experiments/corroboration-confidence-reference.mjs` and asserts byte-for-byte
 agreement (drift or tamper fails the gate).
+
+## Final post-merge run (fix2 on develop, `receipt-final-merged.json`)
+
+After mprr MR #137 merged to `develop` (@ `057ce8d`), the conformance was re-run
+on LINUX binding the **committed** `inputs/surface-metadata.json` **directly** --
+its RELATIVE `groundTruthLedgerPath` (`ground-truth-ledger.json`) is now resolved
+by the comparator's fix2 against `dirname(surfaceMetadataPath)`, so the pre-fix2
+absolute-ref workaround is no longer needed.
+
+- `authoritativeOutcome`: **authoritative**; `missingComparisons`: 0; image / tdms
+  / reader `maxAbsoluteSkewMilliseconds` = 0 / 0 / 0.
+- Binds the byte-identical committed shared inputs (`a7e1182` shapes) end-to-end
+  => mprr fix2 confirmed working on merged `develop`, not just the fix2 branch.
