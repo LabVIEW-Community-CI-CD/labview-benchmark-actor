@@ -93,3 +93,17 @@ flowchart LR
   vs LabVIEW render) and its storage footprint.
 - `[Risk]` Extraction scope creep — the moved-module manifest (AD-1) must be
   bounded before implementation to avoid dragging `vi-history-suite` internals.
+
+## 6. Decision records
+
+Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
+
+| ADR | Resolves | Owner |
+| --- | --- | --- |
+| [ADR-0001](adr/ADR-0001-run-result-schema.md) | Run-result schema (metrics + time-indexed pictures on one clock) | WIN |
+| [ADR-0002](adr/ADR-0002-viewer-cursor-picture-binding.md) | Viewer single selected-time source of truth | WIN |
+| ADR-0003 *(reserved)* | Coordination-bus wire format (the `[Open]` above) | LINUX |
+| ADR-0004 *(reserved)* | Cross-VM time-sync accuracy (the `[Open]` above) | LINUX |
+
+The picture-capture-source and extraction-scope `[Open]`/`[Risk]` items remain
+open pending a capture-source ADR and the bounded moved-module manifest.
