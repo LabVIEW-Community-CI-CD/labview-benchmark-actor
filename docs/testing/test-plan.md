@@ -40,10 +40,36 @@
   Node-level logic. `[Assumption]` browser harness stays out of hosted CI (it
   ships as a maintainer harness), consistent with `vi-history-suite`.
 
+## Local CI/CD verification (local gate)
+
+Local CI/CD **is** testing for this package: the retained experiment receipts
+and the RTM `Proven` evidence are re-validated by a real, re-runnable pass/fail
+gate rather than trusted as static files.
+
+- **Gate:** `node experiments/verify-local-gates.mjs` (dependency-free ESM). It
+  asserts the bus-prototype receipt is green (12/12), the OCR-primitive engine
+  is available with byte-exact readback, the shared retained inputs
+  (`ground-truth-ledger.json`, `surface-metadata.json`) are present, and every
+  RTM `Proven` row cites an existing evidence path. Exit code is non-zero on any
+  failure.
+- **Cross-platform by design.** The seeded workflow
+  `.github/workflows/lba-local-gates.yml` runs the gate on **both** a
+  `linux-native` and a `windows-native` runner. That parity is the near-term
+  horizon — linux-native mirroring the same mprr **ring-buffer** read/replay
+  capability windows-native has (best effort). The ring-buffer read/replay path
+  is already cross-platform (the mprr `ReviewCaptureTransportReader` targets
+  `net8.0` plain, build-proven on windows-native); only surface render and the
+  `Windows.Media.Ocr` image-derived-timing production remain windows-bound.
+- The workflow is **dormant** while the package is a subtree and activates at
+  the standalone repository root (LBA-REQ-008, `docs/cm/cm-plan.md` move step 2).
+
 ## Entry / exit criteria (29119-2)
 
 - **Entry:** the run-result schema and bus message schema are frozen for the
   slice under test.
 - **Exit:** every `LBA-REQ` under the slice has a passing deterministic test;
-  transport and deployment items are validated on the real targets and recorded
-  as maintainer evidence.
+  the local CI/CD gate (`experiments/verify-local-gates.mjs`) is green on both
+  runners; the deterministic-logic suites enforce a line-coverage **threshold**
+  of at least 75% (`fail-under` 75% in local CI/CD) once the actor logic is
+  implemented; transport and deployment items are validated on the real targets
+  and recorded as maintainer evidence.

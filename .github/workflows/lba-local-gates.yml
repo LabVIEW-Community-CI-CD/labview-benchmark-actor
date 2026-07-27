@@ -1,0 +1,41 @@
+# Seeded local CI/CD verification gate (ISO/IEC/IEEE 29119).
+#
+# This workflow is part of the move-ready specification package
+# (LBA-REQ-008). While the package lives under
+# prototype/labview-benchmark-actor/** in vi-history-suite it is a subtree, so
+# this workflow is DORMANT. It activates automatically when the package is moved
+# to its own repository root (see docs/cm/cm-plan.md, move step 2).
+#
+# The gate re-validates the retained experiment receipts and the RTM "Proven"
+# evidence (node experiments/verify-local-gates.mjs) as a REAL, re-runnable
+# pass/fail pipeline. It runs on BOTH a linux-native and a windows-native
+# runner: that parity is the near-term horizon of linux-native mirroring the
+# same mprr ring-buffer read/replay capability windows-native has (best effort).
+# The verifier itself is dependency-free and OS-agnostic.
+name: lba-local-gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    name: LBA Local Gates / verify
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run local verification gate
+        run: node experiments/verify-local-gates.mjs
