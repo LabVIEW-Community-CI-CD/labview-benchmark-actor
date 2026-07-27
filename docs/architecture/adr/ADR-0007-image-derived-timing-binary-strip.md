@@ -1,6 +1,6 @@
 # ADR-0007: Image-derived timing binds to the pixel-decoded binary strip (cross-platform); colon time is human-only
 
-- Status: Accepted (empirically de-risked cross-platform; agreed by WIN + LINUX on collab Discussion #2365)
+- Status: Accepted (empirically de-risked cross-platform on 3 authoritative planes — Linux, golden Win11 VM, native Windows; agreed by WIN + LINUX on collab Discussion #2365)
 - Owner: WIN
 - Traces to: LBA-REQ-003, LBA-REQ-005; constrains the self-test transport-conformance leg
 - Standards baseline: `repo-standards-review` v0.2.19
@@ -70,10 +70,12 @@ time.**
 - **+** The entire self-test transport conformance runs **cross-platform**:
   because the strip decode is pixel-intensity (pure Node + `runtime.linuxFfmpeg`)
   and needs no `Windows.Media.Ocr`, the machine timing channel is **not
-  windows-bound**. LINUX proved the full leg **AUTHORITATIVE end-to-end on
-  Linux** (all skews `0`); only a real primary-monitor screenshot stays
-  windows-bound, and the self-test does not need one. This directly advances the
-  horizon (linux mirrors the windows mprr capability).
+  windows-bound**. The full leg ran **AUTHORITATIVE on 3 planes** — Linux
+  (LINUX), golden Win11 VM (LINUX), and native Windows (WIN cross-check) —
+  **byte-identical** (all `maxAbsoluteSkew = 0` on every plane); only a real
+  primary-monitor screenshot stays windows-bound, and the self-test does not need
+  one. This directly advances the horizon (linux mirrors the windows mprr
+  capability).
 - **+** The strip round-trips deterministically: cs `10/12/15/999/123456`
   encoded → pixel-decoded through mprr's actual decoder with `0` errors.
 - **+** Authoritative timing stays the `ground-truth-ledger` clock; the strip
@@ -86,25 +88,45 @@ time.**
   mprr-native surface-producer render + native crop (fork **option 3**) is a
   later **fidelity upgrade** that tightens the crop but renders the same colon
   glyphs — a complement, **not** a substitute for strip-anchored corroboration.
-- **Open:** the exact `corroborationConfidence` metric (e.g. the fraction of the
-  fast-changing centisecond digits present in `rawOcrText`) — pin it against
-  mprr's `image-derived-timing` generator when the LINUX golden-VM ships it. A
-  WIN reference implementation, validated against the real `ocr-primitive-proof`
-  readbacks, lives at
+- **Resolved:** the `corroborationConfidence` metric is pinned as the fraction of
+  the fast-changing centisecond digits present (in order) in `rawOcrText`, plus a
+  `fractionalTailMatched` flag. The WIN reference
   [`experiments/corroboration-confidence-reference.mjs`](../../../experiments/corroboration-confidence-reference.mjs)
-  (also exercised by the local gate).
+  (validated against the real `ocr-primitive-proof` readbacks + synthetic OCR
+  failure modes) was **adopted verbatim by the LINUX golden-VM generator**; the
+  golden-VM readbacks re-score **byte-for-byte** on native Windows (the metric is
+  deterministic across the VM node and the native-Windows node). The corroboration
+  is recorded in the `colon-corroboration.json` **sidecar** — not embedded in the
+  machine channel, so `image-derived-timing.json` stays byte-identical across all
+  3 planes — and the local gate re-derives it (`colon-corroboration-plane2-scoring`).
 
 ## Evidence
 
 - WIN native: [`experiments/ocr-primitive-proof/receipt.json`](../../../experiments/ocr-primitive-proof/receipt.json)
   (`bitStream`/`statusLine` byte-exact; `timeReadbackSensitivity` shows the colon
   fragility by font size).
-- LINUX golden VM: headless `Windows.Media.Ocr` ~0.45 s/frame; the same colon
-  fragility reproduced (48 pt → fractional tail only; 120 pt → nothing).
-- LINUX cross-platform (the decisive result): `mprr-binary-strip-v1`
+- LINUX golden VM (plane 2): headless `Windows.Media.Ocr` ~0.45 s/frame; the same
+  colon fragility reproduced (`.10` dropped → confidence `0`; `.12`/`.15` →
+  confidence `1`, tail matched). Full conformance AUTHORITATIVE with all skews `0`
+  ([`experiments/self-test-conformance/receipt-golden-vm.json`](../../../experiments/self-test-conformance/receipt-golden-vm.json)),
+  the human-OCR corroboration recorded in
+  [`experiments/self-test-conformance/colon-corroboration.json`](../../../experiments/self-test-conformance/colon-corroboration.json).
+- LINUX cross-platform (plane 1, the decisive result): `mprr-binary-strip-v1`
   encoder→pixel-decoder round-trips cs `10/12/15/999/123456` through mprr's
   actual decoder with `0` errors; the **full** self-test transport conformance
   ran AUTHORITATIVE **on Linux** end-to-end against WIN's committed ground-truth
   inputs — `authoritativeOutcome = authoritative`, `missingComparisons = 0`, all
   `maxAbsoluteSkew = 0` (imageTiming 3, tdmsShort 5, readerProjection 5).
-- Fork decision accepted by both planes on collab Discussion #2365.
+- WIN native Windows (plane 3): the same comparator ran AUTHORITATIVE on native
+  Windows binding the committed relative-ref inputs against the LINUX-generated
+  timing/fixture/bus — all 29 skew fields `0`, byte-identical with plane 1
+  ([`experiments/self-test-conformance/receipt-windows-crosscheck.json`](../../../experiments/self-test-conformance/receipt-windows-crosscheck.json)).
+  This run also **pre-proved** the mprr relative-path portability fix (MR #137):
+  the relative `surfaceMetadata.groundTruthLedgerPath` and relative fixture
+  `segmentPaths` both resolved on the fix branch.
+- Local gate ([`experiments/verify-local-gates.mjs`](../../../experiments/verify-local-gates.mjs))
+  enforces the 3-plane result cross-platform (linux-x64 + win32): every plane
+  receipt authoritative/`0`-skew and the corroboration sidecar re-scored against
+  the reference.
+- Fork decision + the sidecar-vs-embedded corroboration design accepted by both
+  planes on collab Discussion #2365.
