@@ -1,0 +1,754 @@
+{
+  "schemaVersion": "mprr-dual-packet-short-analysis-summary-v1",
+  "analysisSource": "short-packet",
+  "packetCount": 92,
+  "frameCount": 20,
+  "countsByPacketKind": {
+    "click": 5,
+    "cursor-sample": 5,
+    "frame-end": 20,
+    "frame-start": 20,
+    "governed-trigger": 2,
+    "keyboard": 10,
+    "operator-annotation": 20,
+    "ungoverned-trigger": 10
+  },
+  "timeline": [
+    {
+      "writerLocalSequence": 1,
+      "packetKind": "governed-trigger",
+      "frameId": 0,
+      "timingTicks64": 0,
+      "payloadDescriptorId": 0,
+      "text": "mprr-self-test-dual-packet-live-20260727T170608z-capture-live"
+    },
+    {
+      "writerLocalSequence": 2,
+      "packetKind": "frame-start",
+      "frameId": 1,
+      "timingTicks64": 0,
+      "payloadDescriptorId": 1001,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 3,
+      "packetKind": "operator-annotation",
+      "frameId": 1,
+      "timingTicks64": 1,
+      "payloadDescriptorId": 1001,
+      "text": "label-alpha-visible"
+    },
+    {
+      "writerLocalSequence": 4,
+      "packetKind": "frame-end",
+      "frameId": 1,
+      "timingTicks64": 5,
+      "payloadDescriptorId": 1001,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 5,
+      "packetKind": "frame-start",
+      "frameId": 2,
+      "timingTicks64": 1000000,
+      "payloadDescriptorId": 1002,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 6,
+      "packetKind": "operator-annotation",
+      "frameId": 2,
+      "timingTicks64": 1000001,
+      "payloadDescriptorId": 1002,
+      "text": "label-beta-visible"
+    },
+    {
+      "writerLocalSequence": 7,
+      "packetKind": "keyboard",
+      "frameId": 2,
+      "timingTicks64": 1000002,
+      "payloadDescriptorId": 1002,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 8,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 2,
+      "timingTicks64": 1000004,
+      "payloadDescriptorId": 1002,
+      "text": "trigger-start fired"
+    },
+    {
+      "writerLocalSequence": 9,
+      "packetKind": "frame-end",
+      "frameId": 2,
+      "timingTicks64": 1000005,
+      "payloadDescriptorId": 1002,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 10,
+      "packetKind": "frame-start",
+      "frameId": 3,
+      "timingTicks64": 2000000,
+      "payloadDescriptorId": 1003,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 11,
+      "packetKind": "operator-annotation",
+      "frameId": 3,
+      "timingTicks64": 2000001,
+      "payloadDescriptorId": 1003,
+      "text": "label-gamma-visible"
+    },
+    {
+      "writerLocalSequence": 12,
+      "packetKind": "cursor-sample",
+      "frameId": 3,
+      "timingTicks64": 2000002,
+      "payloadDescriptorId": 1003,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 13,
+      "packetKind": "click",
+      "frameId": 3,
+      "timingTicks64": 2000003,
+      "payloadDescriptorId": 1003,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 14,
+      "packetKind": "frame-end",
+      "frameId": 3,
+      "timingTicks64": 2000005,
+      "payloadDescriptorId": 1003,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 15,
+      "packetKind": "frame-start",
+      "frameId": 4,
+      "timingTicks64": 3000000,
+      "payloadDescriptorId": 1004,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 16,
+      "packetKind": "operator-annotation",
+      "frameId": 4,
+      "timingTicks64": 3000001,
+      "payloadDescriptorId": 1004,
+      "text": "label-alpha-visible"
+    },
+    {
+      "writerLocalSequence": 17,
+      "packetKind": "keyboard",
+      "frameId": 4,
+      "timingTicks64": 3000002,
+      "payloadDescriptorId": 1004,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 18,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 4,
+      "timingTicks64": 3000004,
+      "payloadDescriptorId": 1004,
+      "text": "trigger-mark fired"
+    },
+    {
+      "writerLocalSequence": 19,
+      "packetKind": "frame-end",
+      "frameId": 4,
+      "timingTicks64": 3000005,
+      "payloadDescriptorId": 1004,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 20,
+      "packetKind": "frame-start",
+      "frameId": 5,
+      "timingTicks64": 4000000,
+      "payloadDescriptorId": 1005,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 21,
+      "packetKind": "operator-annotation",
+      "frameId": 5,
+      "timingTicks64": 4000001,
+      "payloadDescriptorId": 1005,
+      "text": "label-beta-visible"
+    },
+    {
+      "writerLocalSequence": 22,
+      "packetKind": "frame-end",
+      "frameId": 5,
+      "timingTicks64": 4000005,
+      "payloadDescriptorId": 1005,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 23,
+      "packetKind": "frame-start",
+      "frameId": 6,
+      "timingTicks64": 5000000,
+      "payloadDescriptorId": 1006,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 24,
+      "packetKind": "operator-annotation",
+      "frameId": 6,
+      "timingTicks64": 5000001,
+      "payloadDescriptorId": 1006,
+      "text": "label-gamma-visible"
+    },
+    {
+      "writerLocalSequence": 25,
+      "packetKind": "keyboard",
+      "frameId": 6,
+      "timingTicks64": 5000002,
+      "payloadDescriptorId": 1006,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 26,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 6,
+      "timingTicks64": 5000004,
+      "payloadDescriptorId": 1006,
+      "text": "trigger-start fired"
+    },
+    {
+      "writerLocalSequence": 27,
+      "packetKind": "frame-end",
+      "frameId": 6,
+      "timingTicks64": 5000005,
+      "payloadDescriptorId": 1006,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 28,
+      "packetKind": "frame-start",
+      "frameId": 7,
+      "timingTicks64": 6000000,
+      "payloadDescriptorId": 1007,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 29,
+      "packetKind": "operator-annotation",
+      "frameId": 7,
+      "timingTicks64": 6000001,
+      "payloadDescriptorId": 1007,
+      "text": "label-alpha-visible"
+    },
+    {
+      "writerLocalSequence": 30,
+      "packetKind": "cursor-sample",
+      "frameId": 7,
+      "timingTicks64": 6000002,
+      "payloadDescriptorId": 1007,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 31,
+      "packetKind": "click",
+      "frameId": 7,
+      "timingTicks64": 6000003,
+      "payloadDescriptorId": 1007,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 32,
+      "packetKind": "frame-end",
+      "frameId": 7,
+      "timingTicks64": 6000005,
+      "payloadDescriptorId": 1007,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 33,
+      "packetKind": "frame-start",
+      "frameId": 8,
+      "timingTicks64": 7000000,
+      "payloadDescriptorId": 1008,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 34,
+      "packetKind": "operator-annotation",
+      "frameId": 8,
+      "timingTicks64": 7000001,
+      "payloadDescriptorId": 1008,
+      "text": "label-beta-visible"
+    },
+    {
+      "writerLocalSequence": 35,
+      "packetKind": "keyboard",
+      "frameId": 8,
+      "timingTicks64": 7000002,
+      "payloadDescriptorId": 1008,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 36,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 8,
+      "timingTicks64": 7000004,
+      "payloadDescriptorId": 1008,
+      "text": "trigger-mark fired"
+    },
+    {
+      "writerLocalSequence": 37,
+      "packetKind": "frame-end",
+      "frameId": 8,
+      "timingTicks64": 7000005,
+      "payloadDescriptorId": 1008,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 38,
+      "packetKind": "frame-start",
+      "frameId": 9,
+      "timingTicks64": 8000000,
+      "payloadDescriptorId": 1009,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 39,
+      "packetKind": "operator-annotation",
+      "frameId": 9,
+      "timingTicks64": 8000001,
+      "payloadDescriptorId": 1009,
+      "text": "label-gamma-visible"
+    },
+    {
+      "writerLocalSequence": 40,
+      "packetKind": "frame-end",
+      "frameId": 9,
+      "timingTicks64": 8000005,
+      "payloadDescriptorId": 1009,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 41,
+      "packetKind": "frame-start",
+      "frameId": 10,
+      "timingTicks64": 9000000,
+      "payloadDescriptorId": 1010,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 42,
+      "packetKind": "operator-annotation",
+      "frameId": 10,
+      "timingTicks64": 9000001,
+      "payloadDescriptorId": 1010,
+      "text": "label-alpha-visible"
+    },
+    {
+      "writerLocalSequence": 43,
+      "packetKind": "keyboard",
+      "frameId": 10,
+      "timingTicks64": 9000002,
+      "payloadDescriptorId": 1010,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 44,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 10,
+      "timingTicks64": 9000004,
+      "payloadDescriptorId": 1010,
+      "text": "trigger-start fired"
+    },
+    {
+      "writerLocalSequence": 45,
+      "packetKind": "frame-end",
+      "frameId": 10,
+      "timingTicks64": 9000005,
+      "payloadDescriptorId": 1010,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 46,
+      "packetKind": "frame-start",
+      "frameId": 11,
+      "timingTicks64": 10000000,
+      "payloadDescriptorId": 1011,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 47,
+      "packetKind": "operator-annotation",
+      "frameId": 11,
+      "timingTicks64": 10000001,
+      "payloadDescriptorId": 1011,
+      "text": "label-beta-visible"
+    },
+    {
+      "writerLocalSequence": 48,
+      "packetKind": "cursor-sample",
+      "frameId": 11,
+      "timingTicks64": 10000002,
+      "payloadDescriptorId": 1011,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 49,
+      "packetKind": "click",
+      "frameId": 11,
+      "timingTicks64": 10000003,
+      "payloadDescriptorId": 1011,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 50,
+      "packetKind": "frame-end",
+      "frameId": 11,
+      "timingTicks64": 10000005,
+      "payloadDescriptorId": 1011,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 51,
+      "packetKind": "frame-start",
+      "frameId": 12,
+      "timingTicks64": 11000000,
+      "payloadDescriptorId": 1012,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 52,
+      "packetKind": "operator-annotation",
+      "frameId": 12,
+      "timingTicks64": 11000001,
+      "payloadDescriptorId": 1012,
+      "text": "label-gamma-visible"
+    },
+    {
+      "writerLocalSequence": 53,
+      "packetKind": "keyboard",
+      "frameId": 12,
+      "timingTicks64": 11000002,
+      "payloadDescriptorId": 1012,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 54,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 12,
+      "timingTicks64": 11000004,
+      "payloadDescriptorId": 1012,
+      "text": "trigger-mark fired"
+    },
+    {
+      "writerLocalSequence": 55,
+      "packetKind": "frame-end",
+      "frameId": 12,
+      "timingTicks64": 11000005,
+      "payloadDescriptorId": 1012,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 56,
+      "packetKind": "frame-start",
+      "frameId": 13,
+      "timingTicks64": 12000000,
+      "payloadDescriptorId": 1013,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 57,
+      "packetKind": "operator-annotation",
+      "frameId": 13,
+      "timingTicks64": 12000001,
+      "payloadDescriptorId": 1013,
+      "text": "label-alpha-visible"
+    },
+    {
+      "writerLocalSequence": 58,
+      "packetKind": "frame-end",
+      "frameId": 13,
+      "timingTicks64": 12000005,
+      "payloadDescriptorId": 1013,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 59,
+      "packetKind": "frame-start",
+      "frameId": 14,
+      "timingTicks64": 13000000,
+      "payloadDescriptorId": 1014,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 60,
+      "packetKind": "operator-annotation",
+      "frameId": 14,
+      "timingTicks64": 13000001,
+      "payloadDescriptorId": 1014,
+      "text": "label-beta-visible"
+    },
+    {
+      "writerLocalSequence": 61,
+      "packetKind": "keyboard",
+      "frameId": 14,
+      "timingTicks64": 13000002,
+      "payloadDescriptorId": 1014,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 62,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 14,
+      "timingTicks64": 13000004,
+      "payloadDescriptorId": 1014,
+      "text": "trigger-start fired"
+    },
+    {
+      "writerLocalSequence": 63,
+      "packetKind": "frame-end",
+      "frameId": 14,
+      "timingTicks64": 13000005,
+      "payloadDescriptorId": 1014,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 64,
+      "packetKind": "frame-start",
+      "frameId": 15,
+      "timingTicks64": 14000000,
+      "payloadDescriptorId": 1015,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 65,
+      "packetKind": "operator-annotation",
+      "frameId": 15,
+      "timingTicks64": 14000001,
+      "payloadDescriptorId": 1015,
+      "text": "label-gamma-visible"
+    },
+    {
+      "writerLocalSequence": 66,
+      "packetKind": "cursor-sample",
+      "frameId": 15,
+      "timingTicks64": 14000002,
+      "payloadDescriptorId": 1015,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 67,
+      "packetKind": "click",
+      "frameId": 15,
+      "timingTicks64": 14000003,
+      "payloadDescriptorId": 1015,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 68,
+      "packetKind": "frame-end",
+      "frameId": 15,
+      "timingTicks64": 14000005,
+      "payloadDescriptorId": 1015,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 69,
+      "packetKind": "frame-start",
+      "frameId": 16,
+      "timingTicks64": 15000000,
+      "payloadDescriptorId": 1016,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 70,
+      "packetKind": "operator-annotation",
+      "frameId": 16,
+      "timingTicks64": 15000001,
+      "payloadDescriptorId": 1016,
+      "text": "label-alpha-visible"
+    },
+    {
+      "writerLocalSequence": 71,
+      "packetKind": "keyboard",
+      "frameId": 16,
+      "timingTicks64": 15000002,
+      "payloadDescriptorId": 1016,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 72,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 16,
+      "timingTicks64": 15000004,
+      "payloadDescriptorId": 1016,
+      "text": "trigger-mark fired"
+    },
+    {
+      "writerLocalSequence": 73,
+      "packetKind": "frame-end",
+      "frameId": 16,
+      "timingTicks64": 15000005,
+      "payloadDescriptorId": 1016,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 74,
+      "packetKind": "frame-start",
+      "frameId": 17,
+      "timingTicks64": 16000000,
+      "payloadDescriptorId": 1017,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 75,
+      "packetKind": "operator-annotation",
+      "frameId": 17,
+      "timingTicks64": 16000001,
+      "payloadDescriptorId": 1017,
+      "text": "label-beta-visible"
+    },
+    {
+      "writerLocalSequence": 76,
+      "packetKind": "frame-end",
+      "frameId": 17,
+      "timingTicks64": 16000005,
+      "payloadDescriptorId": 1017,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 77,
+      "packetKind": "frame-start",
+      "frameId": 18,
+      "timingTicks64": 17000000,
+      "payloadDescriptorId": 1018,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 78,
+      "packetKind": "operator-annotation",
+      "frameId": 18,
+      "timingTicks64": 17000001,
+      "payloadDescriptorId": 1018,
+      "text": "label-gamma-visible"
+    },
+    {
+      "writerLocalSequence": 79,
+      "packetKind": "keyboard",
+      "frameId": 18,
+      "timingTicks64": 17000002,
+      "payloadDescriptorId": 1018,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 80,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 18,
+      "timingTicks64": 17000004,
+      "payloadDescriptorId": 1018,
+      "text": "trigger-start fired"
+    },
+    {
+      "writerLocalSequence": 81,
+      "packetKind": "frame-end",
+      "frameId": 18,
+      "timingTicks64": 17000005,
+      "payloadDescriptorId": 1018,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 82,
+      "packetKind": "frame-start",
+      "frameId": 19,
+      "timingTicks64": 18000000,
+      "payloadDescriptorId": 1019,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 83,
+      "packetKind": "operator-annotation",
+      "frameId": 19,
+      "timingTicks64": 18000001,
+      "payloadDescriptorId": 1019,
+      "text": "label-alpha-visible"
+    },
+    {
+      "writerLocalSequence": 84,
+      "packetKind": "cursor-sample",
+      "frameId": 19,
+      "timingTicks64": 18000002,
+      "payloadDescriptorId": 1019,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 85,
+      "packetKind": "click",
+      "frameId": 19,
+      "timingTicks64": 18000003,
+      "payloadDescriptorId": 1019,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 86,
+      "packetKind": "frame-end",
+      "frameId": 19,
+      "timingTicks64": 18000005,
+      "payloadDescriptorId": 1019,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 87,
+      "packetKind": "frame-start",
+      "frameId": 20,
+      "timingTicks64": 19000000,
+      "payloadDescriptorId": 1020,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 88,
+      "packetKind": "operator-annotation",
+      "frameId": 20,
+      "timingTicks64": 19000001,
+      "payloadDescriptorId": 1020,
+      "text": "label-beta-visible"
+    },
+    {
+      "writerLocalSequence": 89,
+      "packetKind": "keyboard",
+      "frameId": 20,
+      "timingTicks64": 19000002,
+      "payloadDescriptorId": 1020,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 90,
+      "packetKind": "ungoverned-trigger",
+      "frameId": 20,
+      "timingTicks64": 19000004,
+      "payloadDescriptorId": 1020,
+      "text": "trigger-mark fired"
+    },
+    {
+      "writerLocalSequence": 91,
+      "packetKind": "frame-end",
+      "frameId": 20,
+      "timingTicks64": 19000005,
+      "payloadDescriptorId": 1020,
+      "text": null
+    },
+    {
+      "writerLocalSequence": 92,
+      "packetKind": "governed-trigger",
+      "frameId": 0,
+      "timingTicks64": 19000010,
+      "payloadDescriptorId": 0,
+      "text": "mprr-self-test-dual-packet-live-20260727T170608z-capture-stop"
+    }
+  ]
+}
