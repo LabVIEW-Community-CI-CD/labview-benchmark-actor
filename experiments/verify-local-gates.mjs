@@ -198,6 +198,20 @@ check('corroboration-confidence-reference', () => {
   assert(threw, 'corroborationConfidence must reject a non hh:mm:ss.cc canonical');
   return { cases: REAL_READBACK_CASES.length };
 });
+
+// 8. WIN plane-3 native-Windows cross-check receipt is authoritative with zero skew (mirrors the LINUX receipt).
+check('windows-crosscheck-receipt-authoritative', () => {
+  const r = readJson(join('experiments', 'self-test-conformance', 'receipt-windows-crosscheck.json'));
+  assert(r.schemaVersion === 'mprr-self-test-transport-conformance-v1', 'crosscheck schemaVersion mismatch');
+  assert(r.authoritativeOutcome === 'authoritative', `authoritativeOutcome must be authoritative, got ${r.authoritativeOutcome}`);
+  assert(Array.isArray(r.missingComparisons) && r.missingComparisons.length === 0, 'missingComparisons must be empty');
+  assert(r.imageTimingComparison?.maxAbsoluteSkewMilliseconds === 0 && r.imageTimingComparison?.sampleCount === 3, 'image timing must be 3 samples, 0 skew');
+  assert(r.tdmsShortPacketTimingComparison?.maxAbsoluteSkewMilliseconds === 0 && r.tdmsShortPacketTimingComparison?.comparedEventCount === 5, 'tdms short-packet must be 5 events, 0 skew');
+  const reader = r.readerProjectionComparison;
+  assert(reader?.maxAbsoluteSkewMilliseconds === 0 && (reader.comparedEventCount ?? reader.sampleCount) === 5, 'reader projection must be 5 events, 0 skew');
+  assert(r.winCrossCheckProvenance?.crossCheckPlane, 'winCrossCheckProvenance.crossCheckPlane must be present');
+  return { outcome: r.authoritativeOutcome, packets: r.replayPlanPacketCount };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

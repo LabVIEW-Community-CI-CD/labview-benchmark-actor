@@ -76,3 +76,25 @@ therefore writes a local surface-metadata with an ABSOLUTE ledger ref. mprr MR
 #137 fix2 resolves a RELATIVE ledger ref against `dirname(surfaceMetadataPath)`,
 so the committed `inputs/surface-metadata.json` (relative ref) binds directly on
 the fix2 branch -- the basis of the plane-3 cross-check.
+
+## Plane-3 native-Windows cross-check RESULT (WIN, plane 3)
+
+Executed on native Windows 11 from the mprr `fix/absolute-path-portability-determinism`
+branch (fix2), binding the committed `inputs/ground-truth-ledger.json` +
+`inputs/surface-metadata.json` (RELATIVE `groundTruthLedgerPath`) against the
+LINUX-generated `image-derived-timing.json` + `transport-output/fixture-manifest.json`
++ `transport-output/capture-bus.jsonl`. Full receipt: `receipt-windows-crosscheck.json`.
+
+- `authoritativeOutcome`: **authoritative**; `missingComparisons`: 0; `replayPlanPacketCount`: 5
+- `imageTimingComparison.maxAbsoluteSkewMilliseconds`: 0 (3 samples)
+- `tdmsShortPacketTimingComparison.maxAbsoluteSkewMilliseconds`: 0 (5 events)
+- `readerProjectionComparison.maxAbsoluteSkewMilliseconds`: 0 (5 events)
+- Every skew-valued field (29 total) = 0 -> byte-for-byte agreement with plane 1 (LINUX).
+
+**fix2 pre-proven end-to-end on native Windows:** the run used the RELATIVE
+`surfaceMetadata.groundTruthLedgerPath` (`ground-truth-ledger.json`) and RELATIVE
+fixture `segmentPaths` (`capture-transport/...`), both resolved by the comparator
+on the fix2 branch -- concrete evidence for mprr MR #137 ahead of merge.
+
+Re-runnable: the committed receipt is validated by
+`experiments/verify-local-gates.mjs` (`windows-crosscheck-receipt-authoritative`).

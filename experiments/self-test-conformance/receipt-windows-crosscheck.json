@@ -1,0 +1,200 @@
+{
+  "winCrossCheckProvenance": {
+    "crossCheckPlane": "WIN-VITLT native Windows (plane 3)",
+    "crossCheckOf": "receipt-linux.json (LINUX authoritative, plane 1)",
+    "mprrBranch": "fix/absolute-path-portability-determinism@835c62e",
+    "proves": [
+      "byte-for-byte agreement with the LINUX authoritative receipt (all skews 0)",
+      "fix2 relative-ref resolution end-to-end on native Windows: surface-metadata.groundTruthLedgerPath and fixture-manifest.segmentPaths are both RELATIVE and resolved"
+    ],
+    "boundInputs": {
+      "groundTruthLedger": "inputs/ground-truth-ledger.json (WIN-committed, relative-ref shared input)",
+      "surfaceMetadata": "inputs/surface-metadata.json (WIN-committed, relative groundTruthLedgerPath)",
+      "generatedByLinux": [
+        "image-derived-timing.json",
+        "transport-output/fixture-manifest.json",
+        "transport-output/capture-bus.jsonl"
+      ]
+    }
+  },
+  "schemaVersion": "mprr-self-test-transport-conformance-v1",
+  "comparedAtUtc": "2026-07-27T18:58:41.462Z",
+  "authoritativeOutcome": "authoritative",
+  "groundTruthLedgerPath": "inputs/ground-truth-ledger.json",
+  "surfaceMetadataPath": "inputs/surface-metadata.json",
+  "imageDerivedTimingPath": "image-derived-timing.json",
+  "fixtureManifestPath": "transport-output/fixture-manifest.json",
+  "captureBusPath": "transport-output/capture-bus.jsonl",
+  "replayPlanPacketCount": 5,
+  "replayPlanSegmentCount": 1,
+  "imageTimingComparison": {
+    "expectedTickIntervalMilliseconds": 10,
+    "sampleCount": 3,
+    "meanSkewMilliseconds": 0,
+    "maxAbsoluteSkewMilliseconds": 0,
+    "jitterStandardDeviationMilliseconds": 0,
+    "samples": [
+      {
+        "sampleId": "stopwatch-010",
+        "observedRelativeMilliseconds": 100,
+        "expectedRelativeMilliseconds": 100,
+        "observedCentiseconds": 10,
+        "observedText": "00:00:00.10",
+        "skewMilliseconds": 0
+      },
+      {
+        "sampleId": "stopwatch-012",
+        "observedRelativeMilliseconds": 120,
+        "expectedRelativeMilliseconds": 120,
+        "observedCentiseconds": 12,
+        "observedText": "00:00:00.12",
+        "skewMilliseconds": 0
+      },
+      {
+        "sampleId": "stopwatch-015",
+        "observedRelativeMilliseconds": 150,
+        "expectedRelativeMilliseconds": 150,
+        "observedCentiseconds": 15,
+        "observedText": "00:00:00.15",
+        "skewMilliseconds": 0
+      }
+    ]
+  },
+  "tdmsShortPacketTimingComparison": {
+    "comparedEventCount": 5,
+    "meanSkewMilliseconds": 0,
+    "maxAbsoluteSkewMilliseconds": 0,
+    "jitterStandardDeviationMilliseconds": 0,
+    "samples": [
+      {
+        "comparisonId": "capture-start",
+        "expectedKind": "governed-trigger",
+        "expectedRelativeMilliseconds": 0,
+        "packetSequence": 1,
+        "tdmsTimestampRelativeToSegment": 0,
+        "logicalReplayTimestamp": 0,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 8,
+        "text": "linux-conformance-prelim-capture-start"
+      },
+      {
+        "comparisonId": "cursor-sample-1",
+        "expectedKind": "cursor-sample",
+        "expectedRelativeMilliseconds": 101,
+        "packetSequence": 2,
+        "tdmsTimestampRelativeToSegment": 101,
+        "logicalReplayTimestamp": 101,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 3,
+        "text": null
+      },
+      {
+        "comparisonId": "click-1",
+        "expectedKind": "click",
+        "expectedRelativeMilliseconds": 121,
+        "packetSequence": 3,
+        "tdmsTimestampRelativeToSegment": 121,
+        "logicalReplayTimestamp": 121,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 4,
+        "text": null
+      },
+      {
+        "comparisonId": "keyboard-1",
+        "expectedKind": "keyboard",
+        "expectedRelativeMilliseconds": 151,
+        "packetSequence": 4,
+        "tdmsTimestampRelativeToSegment": 151,
+        "logicalReplayTimestamp": 151,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 5,
+        "text": null
+      },
+      {
+        "comparisonId": "capture-stop",
+        "expectedKind": "governed-trigger",
+        "expectedRelativeMilliseconds": 152,
+        "packetSequence": 5,
+        "tdmsTimestampRelativeToSegment": 152,
+        "logicalReplayTimestamp": 152,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 8,
+        "text": "linux-conformance-prelim-capture-stop"
+      }
+    ]
+  },
+  "readerProjectionComparison": {
+    "comparedEventCount": 5,
+    "meanSkewMilliseconds": 0,
+    "maxAbsoluteSkewMilliseconds": 0,
+    "jitterStandardDeviationMilliseconds": 0,
+    "samples": [
+      {
+        "comparisonId": "capture-start",
+        "expectedKind": "governed-trigger",
+        "expectedRelativeMilliseconds": 0,
+        "packetSequence": 1,
+        "tdmsTimestampRelativeToSegment": 0,
+        "logicalReplayTimestamp": 0,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 8,
+        "text": "linux-conformance-prelim-capture-start"
+      },
+      {
+        "comparisonId": "cursor-sample-1",
+        "expectedKind": "cursor-sample",
+        "expectedRelativeMilliseconds": 101,
+        "packetSequence": 2,
+        "tdmsTimestampRelativeToSegment": 101,
+        "logicalReplayTimestamp": 101,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 3,
+        "text": null
+      },
+      {
+        "comparisonId": "click-1",
+        "expectedKind": "click",
+        "expectedRelativeMilliseconds": 121,
+        "packetSequence": 3,
+        "tdmsTimestampRelativeToSegment": 121,
+        "logicalReplayTimestamp": 121,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 4,
+        "text": null
+      },
+      {
+        "comparisonId": "keyboard-1",
+        "expectedKind": "keyboard",
+        "expectedRelativeMilliseconds": 151,
+        "packetSequence": 4,
+        "tdmsTimestampRelativeToSegment": 151,
+        "logicalReplayTimestamp": 151,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 5,
+        "text": null
+      },
+      {
+        "comparisonId": "capture-stop",
+        "expectedKind": "governed-trigger",
+        "expectedRelativeMilliseconds": 152,
+        "packetSequence": 5,
+        "tdmsTimestampRelativeToSegment": 152,
+        "logicalReplayTimestamp": 152,
+        "tdmsSlotSkewMilliseconds": 0,
+        "readerProjectionSkewMilliseconds": 0,
+        "packetKindCode": 8,
+        "text": "linux-conformance-prelim-capture-stop"
+      }
+    ]
+  },
+  "missingComparisons": []
+}
