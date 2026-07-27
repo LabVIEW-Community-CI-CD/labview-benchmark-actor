@@ -20,7 +20,7 @@
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-import { corroborationConfidence, REAL_READBACK_CASES } from './corroboration-confidence-reference.mjs';
+import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity } from './corroboration-confidence-reference.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -211,6 +211,30 @@ check('windows-crosscheck-receipt-authoritative', () => {
   assert(reader?.maxAbsoluteSkewMilliseconds === 0 && (reader.comparedEventCount ?? reader.sampleCount) === 5, 'reader projection must be 5 events, 0 skew');
   assert(r.winCrossCheckProvenance?.crossCheckPlane, 'winCrossCheckProvenance.crossCheckPlane must be present');
   return { outcome: r.authoritativeOutcome, packets: r.replayPlanPacketCount };
+});
+
+// 9. image-derived-timing binds to the pixel-decoded strip channel, observedText is
+//    the canonical encoding of observedCentiseconds, and any recorded colon OCR
+//    reconciles with the reference metric (placeholder today; plane-2 object auto-
+//    validated when the golden-VM run lands). ADR-0007.
+check('image-derived-timing-colon-ocr-fidelity', () => {
+  const doc = readJson(join('experiments', 'self-test-conformance', 'image-derived-timing.json'));
+  assert(doc.schemaVersion === 'mprr-self-test-image-derived-timing-v1', 'image-derived-timing schemaVersion mismatch');
+  const samples = doc.timingSamples;
+  assert(Array.isArray(samples) && samples.length > 0, 'timingSamples must be a non-empty array');
+  const canonical = /^(\d\d):(\d\d):(\d\d)\.(\d\d)$/;
+  let colonOcrRecorded = 0;
+  for (const s of samples) {
+    const m = canonical.exec(String(s.observedText));
+    assert(m, `sample ${s.sampleId} observedText ${JSON.stringify(s.observedText)} is not canonical hh:mm:ss.cc`);
+    const totalCentiseconds = ((Number(m[1]) * 60 + Number(m[2])) * 60 + Number(m[3])) * 100 + Number(m[4]);
+    assert(totalCentiseconds === s.observedCentiseconds, `sample ${s.sampleId} observedText encodes ${totalCentiseconds}cs but observedCentiseconds is ${s.observedCentiseconds}`);
+    assert(s.observedCentiseconds * 10 === s.observedRelativeMilliseconds, `sample ${s.sampleId} observedCentiseconds*10 != observedRelativeMilliseconds`);
+    assert(s.fidelity?.channel === 'mprr-binary-strip-v1', `sample ${s.sampleId} timing channel must be the pixel-decoded strip, not OCR`);
+    const verdict = validateColonOcrFidelity(s.fidelity.colonOcr, s.observedText);
+    if (!verdict.placeholder) colonOcrRecorded += 1;
+  }
+  return { samples: samples.length, colonOcrRecorded };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
