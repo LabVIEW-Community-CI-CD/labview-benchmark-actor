@@ -128,3 +128,12 @@ with `experiments/corroboration-confidence-reference.mjs` (WIN's metric):
 The fast centisecond tail corroborates (2 of 3 fully; the `.10` line dropped --
 exactly finding-3). This is recorded ONLY as auditable fidelity evidence; the
 authoritative `observedCentiseconds` stays strip-anchored (pixel-decoded, 0 skew).
+
+These values are embedded per sample as `fidelity.colonOcr` **objects** in
+`image-derived-timing.json` (WIN's `PLANE2_COLON_OCR_CONTRACT`: `role` +
+`engine` + `rawOcrText` + `matchedFastDigits` + `corroborationConfidence` +
+`fractionalTailMatched`), replacing the plane-1/3 placeholder string. They are
+gate-validated by `experiments/verify-local-gates.mjs`
+(`image-derived-timing-colon-ocr-fidelity`, `colonOcrRecorded` = 3), which
+recomputes the metric from `(observedText, rawOcrText)` and fails on any drift.
+`colon-corroboration.json` retains the raw capture (adds `rawOcrText` + `ocrMs`).
