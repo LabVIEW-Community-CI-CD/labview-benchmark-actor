@@ -23,6 +23,12 @@ requirement. This is planning material — no implementation is claimed.
 VM cleanroom. labview-benchmark-actor consumes mprr; it does not re-implement
 the ring buffer (see LBA-REQ-009, ADR-0005).
 
+The coordination bus carries **inter-actor communication only** (the
+GitHub-Discussion replacement); run data never crosses it. Agents do not compare
+runs across VMs — each reviews its own previous runs, and the operator
+concentrates runs onto the host for an ollama comparison layer (LBA-REQ-010,
+ADR-0006).
+
 ---
 
 ### LBA-REQ-001: Standalone extraction of hooking and agentic infrastructure
@@ -153,10 +159,10 @@ the ring buffer (see LBA-REQ-009, ADR-0005).
   - The bus degrades safely: a lost UDP beacon does not corrupt TCP-ordered
     state, and a dropped TCP peer is detected and surfaced.
   - No coordination path depends on `github.com` or a Discussion at run time.
-  - The bus carries **coordination and index/metadata only** — frame index,
-    run-relative timestamp, and run/session ids (mprr short-packet metadata).
-    **Image bytes are never transported over TCP or UDP** (LBA-REQ-009,
-    ADR-0005).
+  - The bus carries **inter-actor communication only** (claim / handoff / ack /
+    done / progress / note) — the GitHub-Discussion replacement. It carries
+    **no run data, run/frame metadata, or images**; the entire mprr ring buffer
+    stays VM-local (LBA-REQ-009, ADR-0005).
 - Change Guidance: Mirror the semantics of the GitHub-Discussion collab bus
   (claim / handoff / ack / done, check-before-publish) so the coordination model
   is preserved while the transport changes. `[Assumption]` bind to loopback or
@@ -190,8 +196,9 @@ the ring buffer (see LBA-REQ-009, ADR-0005).
   - Pictures are written to the VM-local mprr **long-packet** ring buffer;
     their index/timestamp is written to the **short-packet** stream, per mprr's
     governed dual-packet buffering policy (mprr ADR-0024).
-  - The coordination bus (LBA-REQ-007) carries only the short-packet
-    index/metadata needed to correlate frames across VMs — never image bytes.
+  - The mprr ring buffer (short **and** long packet) stays entirely VM-local;
+    **nothing from it is sent over the coordination bus**, which is inter-actor
+    communication only (LBA-REQ-007). Runs are not correlated across VMs.
   - mprr is consumed as an external canonical dependency
     (`svelderrainruiz/mprr`, frozen TDMS-compatible `1.0` replay contract),
     version-pinned; the ring buffer, transport, and buffering policy are reused,
@@ -202,6 +209,29 @@ the ring buffer (see LBA-REQ-009, ADR-0005).
 - Change Guidance: Treat mprr as the authority for the ring buffer and replay
   transport; an mprr schema move requires a successor ADR here (ADR-0005) before
   this contract can move.
+
+### LBA-REQ-010: Own-run review, host concentration, and the ollama comparison layer
+
+- Status: Proposed
+- Area: Analysis
+- Statement: Each actor shall review only its **own** previous runs; completed
+  runs shall be **concentrated onto the operator's host** out-of-band (not over
+  the coordination bus) to feed an **ollama-based comparison layer** that
+  compares previous runs.
+- Acceptance Criteria:
+  - The time-cursor viewer (LBA-REQ-004/005) operates over the **local** actor's
+    own run history; there is **no cross-VM run comparison** and no run data on
+    the bus.
+  - Completed runs are collected from each VM cleanroom to the operator's host
+    by an explicit concentration step (e.g. exporting/mounting the VM's mprr
+    review-capture store), **never** over the coordination bus.
+  - A host-side **ollama** layer compares previous runs (metrics and frames)
+    over the concentrated corpus to improve the analysis; it runs on the
+    operator's machine, not inside an actor VM.
+  - `[Open]` the concentration mechanism and the ollama layer's I/O contract are
+    follow-ups (ADR-0006).
+- Change Guidance: Keep coordination (bus) and run data (VM-local + host
+  concentration) strictly separate; the bus is never a run-data channel.
 
 ---
 
@@ -218,3 +248,4 @@ the ring buffer (see LBA-REQ-009, ADR-0005).
 | LBA-REQ-007 | Coordination transport | T-007 |
 | LBA-REQ-008 | CM / move | T-008 |
 | LBA-REQ-009 | Storage (mprr ring buffer) | T-009 |
+| LBA-REQ-010 | Analysis (concentration + ollama) | T-010 |

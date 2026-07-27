@@ -29,28 +29,31 @@ metadata goes to the **short-packet** stream. The run-result frame `ref`
 (ADR-0001) is a **local pointer** into that VM's mprr review-capture store and
 is resolved by the viewer **on the same VM**.
 
-- **Image bytes never leave the VM over TCP/UDP.** The coordination bus
-  (LBA-REQ-007) carries only **short-packet metadata** — frame index,
-  run-relative timestamp, run/session ids — enough to correlate and compare
-  across VMs, never the images. This is the answer to the ADR-0001 open
-  question and to the LINUX bus-lane frame-`ref`-transport question:
-  **metadata-only on the bus**.
+- **Nothing from the ring buffer leaves the VM.** The entire mprr ring buffer
+  (short-packet index/timing **and** long-packet payload) stays VM-local. The
+  coordination bus (LBA-REQ-007) carries **inter-actor communication only** —
+  the GitHub-Discussion replacement — never run data, run/frame metadata, or
+  images. This answers the ADR-0001 open item and supersedes the LINUX bus-lane
+  frame-transport question: **no run/frame data on the bus at all**.
 - **Reuse, don't reinvent.** labview-benchmark-actor **consumes mprr** as a
   canonical dependency (as `vi-history-suite` is mprr's first fixture repo); it
   does not re-implement the ring buffer, the TDMS transport, or the buffering
   policy. It maps a benchmark "frame" onto an mprr long-packet payload and its
   index onto a short-packet record.
-- **Cleanroom isolation.** Because images stay VM-local, a benchmarking session
-  is air-gapped: the bus is a coordination/index channel, not an image channel.
+- **Cleanroom isolation.** Because all run data stays VM-local, a benchmarking
+  session is air-gapped: the bus is an inter-actor coordination channel only,
+  not a data or image channel.
 
 ## Consequences
 
-- **+** The bus stays small and payload-agnostic — TCP/UDP carry coordination
-  and index metadata only, so bus sizing is decoupled from image volume.
+- **+** The bus stays small and data-agnostic — TCP/UDP carry inter-actor
+  coordination only, so bus sizing is fully decoupled from run/image volume.
 - **+** Reuses mprr's governed bounded-RAM ring buffer, degradation policy, and
   resilience proofs instead of a new store — one authoritative buffering model.
-- **+** Cross-VM comparison uses short-packet index/timing aligned by the UDP
-  time-sync (ADR-0004), without moving image bytes.
+- **+** No cross-VM run comparison: each actor reviews its **own** previous
+  runs locally; completed runs are concentrated to the operator's host
+  out-of-band (not the bus) for a host-side ollama comparison layer
+  (ADR-0006, LBA-REQ-010).
 - **−** Adds an external dependency on **mprr** (frozen TDMS `1.0` + ADR-0024);
   it must be **version-pinned**, and an mprr schema move requires a successor
   ADR here before this contract can move.
@@ -64,11 +67,12 @@ is resolved by the viewer **on the same VM**.
 
 This decision **supersedes ADR-0003 §5** (frame `ref` transport by
 content-addressed **FETCH** over a bulk TCP connection). Per the cleanroom
-directive, image bytes are **never** transported over the bus — neither inline
-nor fetched. The viewer reads a frame from the **same VM's** local mprr store;
-the bus carries frame **metadata only** (`{ index, t, ref, w, h }`, where `ref`
-resolves against the local mprr review-capture store, not a bus fetch).
-ADR-0003 §5 and its `FETCH`/`FETCH_REPLY` bulk-blob channel should be revised
-accordingly (LINUX lane). The rest of ADR-0003 — length-prefixed-JSON framing,
-the `bus-msg@1` envelope, leader-ordered late-join, and check-before-publish —
-is unaffected and remains the coordination contract.
+directive, **no run or frame data crosses the bus at all** — neither image
+bytes nor metadata. The bus is the **inter-actor communication channel only**
+(claim/handoff/ack/done/note — the GitHub-Discussion replacement). The viewer
+reads a frame from the **same VM's** local mprr store.
+ADR-0003 §5 and its `FETCH`/`FETCH_REPLY` bulk-blob channel should be removed
+(LINUX lane), and any `RESULT`-carries-frame-metadata should drop the run-data
+payload. The rest of ADR-0003 — length-prefixed-JSON framing, the `bus-msg@1`
+envelope, leader-ordered late-join, and check-before-publish — is unaffected
+and remains the coordination contract.

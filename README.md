@@ -17,7 +17,7 @@ Codespace** or a **Vagrant golden VM**, it lets an operator drive
 **benchmarking** through that agentic infrastructure and review results through
 a **time-cursor benchmark viewer**.
 
-Three capabilities distinguish it from the parent repo:
+Four capabilities distinguish it from the parent repo:
 
 1. **Benchmark time-cursor UI** — a benchmark chart with a draggable **vertical
    time cursor**; dragging it left↔right selects a point in time, and the
@@ -26,11 +26,18 @@ Three capabilities distinguish it from the parent repo:
 2. **TCP/UDP coordination bus** — multiple Vagrant VMs, each running the
    extension, coordinate over a **local TCP + UDP message bus** instead of a
    GitHub Discussion, so benchmarking runs offline / air-gapped and in parallel
-   across VMs. The bus carries **coordination + index metadata only**.
-3. **VM cleanroom image storage** — captured pictures are stored **locally in
-   each VM** via the existing **mprr** ring buffer (`svelderrainruiz/mprr`,
-   `develop`) as metadata-indexed payload; **image bytes never travel the bus**
-   (LBA-REQ-009, [ADR-0005](docs/architecture/adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md)).
+   across VMs. The bus carries **inter-actor communication only** — no run data
+   ever crosses it.
+3. **VM cleanroom storage** — a run's data (metrics **and** pictures) is stored
+   **locally in each VM** via the existing **mprr** ring buffer
+   (`svelderrainruiz/mprr`, `develop`); **no run data crosses the bus** — the
+   whole ring buffer is VM-local (LBA-REQ-009,
+   [ADR-0005](docs/architecture/adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md)).
+4. **Own-run review + host ollama comparison** — each actor reviews only its
+   **own** previous runs; there is **no cross-VM comparison**. The operator
+   concentrates runs onto the host (out-of-band) to improve an **ollama**
+   comparison layer over previous runs (LBA-REQ-010,
+   [ADR-0006](docs/architecture/adr/ADR-0006-run-concentration-ollama-comparison.md)).
 
 ## External dependency
 

@@ -24,9 +24,12 @@ Define a single **schema-versioned run-result** as the actor↔viewer contract.
 - **Metrics:** `metrics` is a list of named series, each an ordered array of
   `{ t, v }` sorted ascending by `t`. Multiple series may share the chart.
 - **Frames (pictures):** `frames` is an ordered array of
-  `{ index, t, ref, w, h }` sorted ascending by `t`, where `ref` is a
-  content-addressed pointer (path or hash) to the captured image and `index` is
-  its ordinal. Frames are **not** required to be evenly spaced.
+  `{ index, t, ref, w, h }` sorted ascending by `t`, where `ref` resolves the
+  captured image in the **same VM's local mprr review-capture store**
+  (ADR-0005) — a local store pointer, optionally carrying a content hash for
+  in-VM dedup/integrity. Because images never cross VMs (cleanroom), `ref` is
+  always same-VM and is never a cross-VM fetch handle. `index` is its ordinal;
+  frames are **not** required to be evenly spaced.
 - **Resolution rule:** the frame for a selected time `T` is the last frame with
   `t <= T` (nearest-at-or-before). With frames sorted by `t`, this is an
   O(log n) binary search. If `T < frames[0].t`, there is no frame (viewer shows
@@ -47,8 +50,9 @@ Define a single **schema-versioned run-result** as the actor↔viewer contract.
 - **−** Requires the actor to stamp every sample/frame on the run clock at
   capture time; a late/monotonic-clock bug would desync metrics and pictures
   (mitigated by a schema validation test, T-003).
-- **Resolved (ADR-0005):** frames are stored **VM-locally** in mprr's
-  long-packet ring buffer (cleanroom); `ref` is a **local** pointer resolved on
-  the same VM. Image bytes are **never** transported over the bus — the bus
-  carries only short-packet index/timestamp metadata. This settles the
-  frame-`ref`-transport question for the LINUX bus lane: **metadata-only**.
+- **Resolved (ADR-0005):** the whole run result — metrics and frames — stays
+  **VM-local** in mprr's ring buffer (cleanroom); `ref` is a **local** pointer
+  resolved on the same VM. **Nothing from the run result crosses the bus** (not
+  bytes, not metadata); the bus is inter-actor communication only. Completed
+  runs are concentrated to the operator's host out-of-band for the ollama
+  comparison layer (ADR-0006, LBA-REQ-010).

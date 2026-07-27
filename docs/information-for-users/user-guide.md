@@ -58,13 +58,16 @@ point in time (LBA-REQ-004/005).
 
 1. Spawn the multi-VM topology (N Vagrant VMs), each with the extension
    activated and a unique identity (LBA-REQ-006).
-2. VMs coordinate over a **local TCP/UDP bus** — no GitHub Discussion and no
-   internet required (LBA-REQ-007):
-   - reliable coordination (claims, handoffs, results) over **TCP**;
-   - presence and time-sync over **UDP**.
-3. Each VM runs benchmarks and publishes results into the shared session; a VM
-   that joins late reconstructs the current session state.
-4. Tear the topology down cleanly when finished.
+2. VMs **coordinate** over a **local TCP/UDP bus** — no GitHub Discussion and no
+   internet required (LBA-REQ-007). The bus carries **inter-actor communication
+   only** (claims, handoffs, acks, dones); **no run data crosses it**. Run data
+   (metrics + pictures) stays VM-local in each VM's mprr ring buffer.
+3. Each VM runs benchmarks independently and reviews its **own** previous runs
+   locally — there is **no cross-VM comparison**.
+4. To compare across runs, the operator **concentrates** completed runs onto the
+   host (out-of-band) and uses the **ollama comparison layer** over the
+   concentrated corpus (LBA-REQ-010).
+5. Tear the topology down cleanly when finished.
 
 ## 5. Where to look next
 
