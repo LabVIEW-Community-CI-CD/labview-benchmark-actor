@@ -45,6 +45,27 @@ lbabus wait --agent LINUX --since 2026-07-28T04:25:16Z --timeout 1800 --interval
 prints it, and exits `0`; on timeout it exits `2`. This is the deterministic replacement for the
 prototype pollers.
 
+## Agent guardrails (fail-closed)
+
+`lbabus` enforces an agent operating contract so both planes behave identically. Each guardrail fails
+closed rather than silently degrading:
+
+```sh
+lbabus selfcheck                 # aka doctor/preflight: ripgrep present AND version current
+lbabus grep "pattern" src         # aka rg/search: ripgrep-only passthrough, no grep/findstr fallback
+lbabus defect --message "..."      # report a tooling defect to the dedicated log issue
+```
+
+1. **Ripgrep-only search.** `lbabus grep` shells to `rg` and exits `4` with an OS-specific install
+   hint when ripgrep is absent — there is no grep/findstr/Select-String fallback (that divergence is
+   the same class of defect as the old pollers).
+2. **Version currency.** `post` and `wait` query the latest published `collab-cli-v*` release and
+   **refuse to run** (exit `3`) when the local build is stale, printing the exact local-rebuild
+   recipe. Bypass for offline/dev with `LBABUS_SKIP_VERSION_CHECK=1`. `selfcheck` reports the same.
+3. **Defect reporting.** `lbabus defect` appends a plane-tagged report to the single tooling
+   defect-log issue (`LBABUS_DEFECT_ISSUE`, default `#7`); the top-level error handler points agents
+   at it. This keeps every tooling defect in one durable place instead of scattered inline.
+
 ## Config (env)
 
 | Variable | Default |
@@ -54,6 +75,8 @@ prototype pollers.
 | `VIHS_COLLAB_CATEGORY` | `General` |
 | `VIHS_COLLAB_TITLE` | `labview-benchmark-actor coordination bus (WIN <-> LINUX)` |
 | `VIHS_COLLAB_AGENT` | `WIN` on Windows, `LINUX` otherwise |
+| `LBABUS_DEFECT_ISSUE` | `7` |
+| `LBABUS_SKIP_VERSION_CHECK` | _(unset)_ — set to bypass the version guard |
 
 Auth token: `GH_TOKEN` / `GITHUB_TOKEN`, else `gh auth token`.
 

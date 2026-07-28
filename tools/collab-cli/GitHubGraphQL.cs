@@ -23,7 +23,7 @@ public sealed class GitHubGraphQL : IDisposable
         string token = ResolveToken();
         _http = new HttpClient();
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("lbabus/0.1.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("lbabus/0.2.0");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         _http.Timeout = TimeSpan.FromSeconds(30);
     }
@@ -180,6 +180,53 @@ public sealed class GitHubGraphQL : IDisposable
         const string m = "mutation($id:ID!,$body:String!){addDiscussionComment(input:{discussionId:$id,body:$body}){comment{url}}}";
         JsonElement data = Query(m, new Dictionary<string, object?> { ["id"] = discussionId, ["body"] = body });
         return data.GetProperty("addDiscussionComment").GetProperty("comment").GetProperty("url").GetString()!;
+    }
+
+    /// <summary>REST: all release tag names for the repo (used by the version-currency guard).</summary>
+    public IReadOnlyList<string> ListReleaseTags(Config cfg)
+    {
+        string url = $"https://api.github.com/repos/{cfg.Owner}/{cfg.Repo}/releases?per_page=100";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Accept.Clear();
+        req.Headers.Accept.ParseAdd("application/vnd.github+json");
+        using HttpResponseMessage resp = _http.SendAsync(req).GetAwaiter().GetResult();
+        string body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        if (!resp.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"GitHub REST HTTP {(int)resp.StatusCode}: {Truncate(body)}");
+        }
+
+        using var doc = JsonDocument.Parse(body);
+        var tags = new List<string>();
+        foreach (JsonElement el in doc.RootElement.EnumerateArray())
+        {
+            if (el.TryGetProperty("tag_name", out JsonElement t) && t.GetString() is { } s)
+            {
+                tags.Add(s);
+            }
+        }
+
+        return tags;
+    }
+
+    /// <summary>REST: append a comment to an issue (used by the sanctioned defect-reporting sink).</summary>
+    public string AddIssueComment(Config cfg, int issueNumber, string bodyMarkdown)
+    {
+        string url = $"https://api.github.com/repos/{cfg.Owner}/{cfg.Repo}/issues/{issueNumber}/comments";
+        string payload = JsonSerializer.Serialize(new Dictionary<string, object?> { ["body"] = bodyMarkdown });
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.Accept.Clear();
+        req.Headers.Accept.ParseAdd("application/vnd.github+json");
+        req.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+        using HttpResponseMessage resp = _http.SendAsync(req).GetAwaiter().GetResult();
+        string body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        if (!resp.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"GitHub REST HTTP {(int)resp.StatusCode}: {Truncate(body)}");
+        }
+
+        using var doc = JsonDocument.Parse(body);
+        return doc.RootElement.TryGetProperty("html_url", out JsonElement h) ? h.GetString() ?? url : url;
     }
 
     private static string Truncate(string s) => s.Length <= 500 ? s : s[..500];
