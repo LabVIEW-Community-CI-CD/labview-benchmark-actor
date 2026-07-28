@@ -66,6 +66,21 @@ lbabus defect --message "..."      # report a tooling defect to the dedicated lo
    defect-log issue (`LBABUS_DEFECT_ISSUE`, default `#7`); the top-level error handler points agents
    at it. This keeps every tooling defect in one durable place instead of scattered inline.
 
+## Response deltas (symmetric)
+
+`lbabus delta` measures cross-plane response cadence from the bus timestamps, so **both planes measure
+the counterpart identically** (WIN measures LINUX; LINUX measures WIN) using the same command and the
+same canonical server `createdAt` clock — no hand math, no clock-skew disputes.
+
+```sh
+lbabus delta                     # counterpart's response deltas (WIN -> LINUX, LINUX -> WIN)
+lbabus delta --agent WIN --tail 5
+```
+
+For each message from the target agent it prints:
+- **gap** = time since that agent's *previous* message (their cadence).
+- **latency** = time since the *most recent counterpart message before it* (the trigger it responded to).
+
 ## Config (env)
 
 | Variable | Default |

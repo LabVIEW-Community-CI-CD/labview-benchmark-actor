@@ -23,7 +23,7 @@ public sealed class GitHubGraphQL : IDisposable
         string token = ResolveToken();
         _http = new HttpClient();
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("lbabus/0.2.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("lbabus/0.3.0");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         _http.Timeout = TimeSpan.FromSeconds(30);
     }
