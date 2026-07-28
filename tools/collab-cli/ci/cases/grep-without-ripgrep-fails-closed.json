@@ -1,0 +1,14 @@
+{
+  "name": "grep-without-ripgrep-fails-closed",
+  "owner": "WIN",
+  "description": "Search is ripgrep-only with NO fallback. When rg is absent (the dedicated no-rg Docker stage), lbabus grep must fail closed with exit 4 and an install hint — never silently degrade to grep/findstr/Select-String, which diverge across planes. Runs ONLY when ripgrep is absent.",
+  "requiresMock": false,
+  "requiresNoRipgrep": true,
+  "env": { "LBABUS_SKIP_VERSION_CHECK": "1" },
+  "args": ["grep", "coordination", "ci/fixtures/sample.txt"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 4,
+    "stderrContains": ["ripgrep"]
+  }
+}

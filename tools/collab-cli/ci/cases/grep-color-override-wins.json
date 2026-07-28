@@ -1,0 +1,14 @@
+{
+  "name": "grep-color-override-wins",
+  "owner": "WIN",
+  "description": "ripgrep is last-wins, so a caller can still force colour on despite the injected --color=never default. Proves the determinism default is overridable, not hard-coded.",
+  "requiresMock": false,
+  "requiresRipgrep": true,
+  "env": { "LBABUS_SKIP_VERSION_CHECK": "1" },
+  "args": ["grep", "--color=always", "--line-number", "benchmark", "ci/fixtures/sample.txt"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["\u001b["]
+  }
+}

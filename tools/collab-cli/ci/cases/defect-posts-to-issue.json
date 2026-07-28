@@ -1,0 +1,18 @@
+{
+  "name": "defect-posts-to-issue",
+  "owner": "WIN",
+  "description": "The sanctioned defect sink: `lbabus defect` appends a plane-tagged comment to the tooling defect-log issue via REST POST /repos/{owner}/{repo}/issues/{n}/comments. Mock accepts the POST for lbabus-ci/fixture-defect issue #7 and returns { html_url } → exit 0 and the URL is echoed.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-defect",
+    "LBABUS_DEFECT_ISSUE": "7"
+  },
+  "args": ["defect", "--title", "harness self-test", "--message", "CI harness exercising the defect sink against the mock."],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["defect reported to #7"]
+  }
+}

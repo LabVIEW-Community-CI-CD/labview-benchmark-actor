@@ -1,0 +1,18 @@
+{
+  "name": "grep-deterministic-no-heading",
+  "owner": "WIN",
+  "description": "lbabus grep injects --color=never --no-heading, so with an explicit filename (-H) the match prints inline as 'path:line:text' with no ANSI escapes and no grouped heading block — identical whether stdout is a TTY or a pipe. The basename tail 'sample.txt:1:...' is asserted so the check is stable across the Windows/Linux path separator.",
+  "requiresMock": false,
+  "requiresRipgrep": true,
+  "env": { "LBABUS_SKIP_VERSION_CHECK": "1" },
+  "args": ["grep", "-H", "--line-number", "coordination", "ci/fixtures/sample.txt"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": [
+      "sample.txt:1:alpha coordination line one",
+      "sample.txt:2:beta coordination line two"
+    ],
+    "stdoutNotContains": ["\u001b["]
+  }
+}

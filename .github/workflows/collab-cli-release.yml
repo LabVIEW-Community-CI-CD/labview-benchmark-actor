@@ -14,7 +14,21 @@ permissions:
   contents: write
 
 jobs:
+  harness:
+    # Gate the release on the Docker-CI edge-case harness. Each target runs the runner INSIDE the image
+    # build (RUN lbabus-ci ...), so a failing case fails the build and blocks the publish below.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Harness — ripgrep present (offline cases pass, mock cases skip)
+        run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-rg .
+
+      - name: Harness — ripgrep absent (ripgrep-only fail-closed case runs)
+        run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-no-rg .
+
   release:
+    needs: harness
     runs-on: ubuntu-latest
     defaults:
       run:

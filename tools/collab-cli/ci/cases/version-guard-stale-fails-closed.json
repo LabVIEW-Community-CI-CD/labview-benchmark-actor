@@ -1,0 +1,17 @@
+{
+  "name": "version-guard-stale-fails-closed",
+  "owner": "WIN",
+  "description": "Version-currency guard: when the mock advertises a NEWER collab-cli-v* release than the running build, a bus command (wait) must refuse to run and exit 3 with a STALE banner. Mock serves GET /repos/lbabus-ci/fixture-stale/releases with a tag_name far ahead of the current version (e.g. collab-cli-v99.0.0).",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-stale"
+  },
+  "args": ["wait", "--agent", "LINUX", "--timeout", "5", "--interval", "5"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 3,
+    "stderrContains": ["STALE"]
+  }
+}
