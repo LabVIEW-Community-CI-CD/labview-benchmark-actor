@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "labview-benchmark-actor/benchmark-store-receipt-v1",
+  "storeSchema": "labview-benchmark-actor/benchmark-store@v1",
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "sampleCompare": {
+    "schema": "labview-benchmark-actor/cross-plane-compare@v1",
+    "benchmarkId": "vi-render-8vi",
+    "linux": {
+      "cpuMeanPct": 48,
+      "ramMeanMiB": 640,
+      "durationMs": 1360,
+      "framesRendered": 465
+    },
+    "win": {
+      "cpuMeanPct": 57,
+      "ramMeanMiB": 720,
+      "durationMs": 1560,
+      "framesRendered": 465
+    },
+    "deltas": {
+      "cpuMeanPct": {
+        "linux": 48,
+        "win": 57,
+        "delta": 9,
+        "pctOfLinux": 18.8
+      },
+      "ramMeanMiB": {
+        "linux": 640,
+        "win": 720,
+        "delta": 80,
+        "pctOfLinux": 12.5
+      },
+      "durationMs": {
+        "linux": 1360,
+        "win": 1560,
+        "delta": 200,
+        "pctOfLinux": 14.7
+      },
+      "framesRendered": {
+        "linux": 465,
+        "win": 465,
+        "delta": 0,
+        "pctOfLinux": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "name": "register + read a LINUX run (ring buffer referenced, not copied)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "register a WIN run for the same benchmarkId",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "cross-plane compare reports LINUX-vs-WIN metric deltas",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "single-plane benchmark cannot be cross-plane compared (teeth)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "invalid plane + missing benchmarkId are rejected (teeth)",
+      "pass": true,
+      "detail": null
+    }
+  ]
+}
