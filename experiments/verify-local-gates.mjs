@@ -24,6 +24,7 @@ import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity 
 import { ingestShortPackets, MPRR_RING_SCHEMA } from './mprr-ring/mprrRing.mjs';
 import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
 import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
+import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -638,6 +639,17 @@ check('mprr-dual-packet-degradation-green', () => {
   const blocked = correlateDualStream(frames.map((f) => ({ ...f, shortBytes: 600 })), { capacityBytes: 4096 });
   assert(blocked.outcome === 'short-protection-blocked', 'shorts over capacity fail closed');
   return { frames: degraded.frameCount, authoritativeFrames: degraded.authoritativeFrames };
+});
+check('vi-analyzer-result-model-green', () => {
+  // The VI Analyzer result model (operator VI-Analyzer directive) is deterministic + order-independent, so a
+  // VI Analyzer run is cross-plane comparable: same VIs + config => same resultHash on both planes.
+  const report = readJson(join('experiments', 'vi-analyzer', 'fixtures', 'sample-report.json'));
+  const a = summarizeViAnalyzerReport(report);
+  const b = summarizeViAnalyzerReport(report);
+  assert(a.schema === 'labview-benchmark-actor/vi-analyzer-result@v1', 'vi-analyzer schema');
+  assert(a.resultHash === b.resultHash && /^[0-9a-f]{64}$/.test(a.resultHash), 'resultHash deterministic 64-hex');
+  assert(a.totalTests === 8 && a.failedTests === 2 && a.errorTests === 1 && a.pass === false, 'counts + verdict');
+  return { vis: a.totalVis, tests: a.totalTests };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

@@ -1,0 +1,30 @@
+{
+  "_comment": "Deterministic normalized VI Analyzer report for the result-model gate. Shape a WIN-plane parser emits from a real LabVIEWCLI RunVIAnalyzer report (ni/labview-icon-editor .viancfg pattern): per-VI test results (pass|fail|error). Content only; nothing licensed.",
+  "schema": "vi-analyzer-report@v1",
+  "config": "icon-editor.viancfg",
+  "vis": [
+    {
+      "viPath": "resource/plugins/lv_icon.vi",
+      "tests": [
+        { "test": "Backwards Wired Terminals", "result": "pass" },
+        { "test": "Icon Overlap", "result": "pass" },
+        { "test": "Spelling", "result": "fail" }
+      ]
+    },
+    {
+      "viPath": "resource/plugins/lv_iconTemplate.vi",
+      "tests": [
+        { "test": "Icon Overlap", "result": "pass" },
+        { "test": "Unsaved Changes", "result": "pass" }
+      ]
+    },
+    {
+      "viPath": "Main.vi",
+      "tests": [
+        { "test": "Block Diagram Size", "result": "pass" },
+        { "test": "Spelling", "result": "fail" },
+        { "test": "VI Documentation", "result": "error" }
+      ]
+    }
+  ]
+}

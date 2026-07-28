@@ -352,6 +352,35 @@ ADR-0006).
   witness, not a failure. Do NOT mark Proven until a REAL second-plane (WIN) run
   is registered and compared against the LINUX run.
 
+### LBA-REQ-015: VI Analyzer as a cross-plane benchmark
+
+- Status: Proposed
+- Area: Analysis / quality (extends LBA-REQ-014; operator VI-Analyzer directive)
+- Statement: The system shall install the LabVIEW VI Analyzer Toolkit in the
+  Windows clean room and summarize a VI Analyzer run over a repo's VIs into a
+  deterministic, ORDER-INDEPENDENT result (per-VI pass/fail/error counts + a
+  resultHash), so a VI Analyzer run becomes a cross-plane-comparable benchmark:
+  two planes analyzing the same VIs with the same config produce the same
+  resultHash.
+- Acceptance Criteria:
+  - The Windows docker clean room installs the VI Analyzer toolkit license
+    (`ni-labview-vi-analyzer-toolkit-lic`) from the LabVIEW offline feed,
+    enabling `LabVIEWCLI -OperationName RunVIAnalyzer`
+    (`cleanroom/docker-windows/install-vi-analyzer.ps1`; Vagrant-reusable).
+  - `summarizeViAnalyzerReport()` normalizes a VI Analyzer report to
+    `{ totalVis, totalTests, passedTests, failedTests, errorTests, pass,
+    failuresByVi, resultHash }`; the `resultHash` is deterministic and
+    ORDER-INDEPENDENT (canonicalized), so identical VIs + config produce an
+    identical `resultHash` on both planes.
+  - The summary projects to benchmark-store metrics (numeric counts + the
+    `resultHash` digest), so `crossPlaneCompare` reports test-count deltas + the
+    `resultHash` agreement (the `resultHash` MUST match cross-plane).
+  - Gated: `verify-vi-analyzer-result` (6/6), local gate #30.
+- Change Guidance: Keep `summarizeViAnalyzerReport` deterministic +
+  order-independent (the cross-plane anchor is the `resultHash`). Do NOT mark
+  Proven until a REAL `LabVIEWCLI RunVIAnalyzer` report (WIN plane) is summarized
+  and cross-plane compared.
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -372,3 +401,4 @@ ADR-0006).
 | LBA-REQ-012 | Agentic infra (base instructions) | T-012 |
 | LBA-REQ-013 | Agentic infra (coordination bus) | T-013 |
 | LBA-REQ-014 | Analysis (cross-plane compare) | T-014 |
+| LBA-REQ-015 | Analysis (VI Analyzer benchmark) | T-015 |
