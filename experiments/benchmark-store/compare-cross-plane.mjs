@@ -40,17 +40,33 @@ if (linux.rec.benchmarkId !== win.rec.benchmarkId) {
 
 const benchmarkId = linux.rec.benchmarkId;
 const comparison = compareRuns(benchmarkId, linux.rec.metrics, win.rec.metrics);
-const seriesHashDigest = comparison.digests.seriesHash || null;
-const seriesHashMatch = Boolean(seriesHashDigest && seriesHashDigest.match);
+
+// Auto-detect the deterministic ANCHOR digest that MUST match cross-plane: seriesHash (mprr, LBA-REQ-014) or
+// resultHash (VI Analyzer, LBA-REQ-015). The anchor is the acceptance; other digests (e.g. the screenshot
+// pngSha256) are witnesses that may legitimately differ across OSes.
+const ANCHORS = [
+  { key: 'seriesHash', requirement: 'LBA-REQ-014', label: 'mprr series' },
+  { key: 'resultHash', requirement: 'LBA-REQ-015', label: 'VI Analyzer result' },
+];
+const anchor = ANCHORS.find((a) => comparison.digests[a.key]);
+if (!anchor) {
+  console.error(`no known anchor digest (seriesHash|resultHash) in the comparison for '${benchmarkId}'`);
+  process.exit(2);
+}
+const anchorDigest = comparison.digests[anchor.key];
+const anchorMatch = Boolean(anchorDigest && anchorDigest.match);
 
 const receipt = {
   schema: 'labview-benchmark-actor/cross-plane-comparison-receipt@v1',
-  requirement: 'LBA-REQ-014',
+  requirement: anchor.requirement,
   benchmarkId,
   producedAt: new Date().toISOString(),
   linuxRunId: linux.rec.runId,
   winRunId: win.rec.runId,
-  seriesHashMatch,
+  anchorDigest: anchor.key,
+  anchorMatch,
+  // Back-compat: LBA-REQ-014 evidence + gate read seriesHashMatch; keep it when the anchor is seriesHash.
+  ...(anchor.key === 'seriesHash' ? { seriesHashMatch: anchorMatch } : {}),
   screenshotWitness: comparison.digests.pngSha256
     ? { linux: comparison.digests.pngSha256.linux, win: comparison.digests.pngSha256.win, identical: comparison.digests.pngSha256.match }
     : null,
@@ -61,10 +77,10 @@ writeFileSync(outPath, `${JSON.stringify(receipt, null, 2)}\n`);
 console.log(`cross-plane comparison for '${benchmarkId}' (LINUX ${linux.rec.runId} vs WIN ${win.rec.runId}):`);
 console.log(`  deltas=${JSON.stringify(comparison.deltas)}`);
 console.log(`  digests=${JSON.stringify(comparison.digests)}`);
-console.log(`  seriesHash match (LBA-REQ-014 acceptance): ${seriesHashMatch ? 'PASS' : 'FAIL'}`);
+console.log(`  ${anchor.key} match (${anchor.requirement} acceptance): ${anchorMatch ? 'PASS' : 'FAIL'}`);
 console.log(`  wrote ${outPath}`);
-if (!seriesHashMatch) {
-  console.error('FAIL -- the deterministic seriesHash does NOT match cross-plane; the mprr input or projection diverged.');
+if (!anchorMatch) {
+  console.error(`FAIL -- the deterministic ${anchor.key} does NOT match cross-plane; the ${anchor.label} input diverged.`);
   process.exit(1);
 }
-console.log('PASS -- deterministic seriesHash matches cross-plane; the screenshot pngSha256 is the visual witness.');
+console.log(`PASS -- deterministic ${anchor.key} matches cross-plane (${anchor.requirement}).`);
