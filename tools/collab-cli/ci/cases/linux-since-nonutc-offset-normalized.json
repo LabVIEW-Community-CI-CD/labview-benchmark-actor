@@ -1,0 +1,17 @@
+{
+  "name": "linux-since-nonutc-offset-normalized",
+  "owner": "LINUX",
+  "description": "`--since` accepts an RFC3339 timestamp with a non-UTC offset; it must be normalized to the correct UTC instant before comparison (DateTimeStyles.AssumeUniversal | AdjustToUniversal). The mock's fixture-since discussion has one WIN message at server-time 2020-06-01T10:00:00Z. With --since 2020-06-01T14:00:00+05:30 (== 08:30:00Z, BEFORE the message) wait must MATCH and exit 0; a naive parse that dropped the +05:30 offset would treat --since as 14:00Z (AFTER the message) and time out (exit 2). Exit 0 proves offset-aware comparison. Version guard passes because fixture-since advertises the running build.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-since"
+  },
+  "args": ["wait", "--agent", "WIN", "--since", "2020-06-01T14:00:00+05:30", "--timeout", "8", "--interval", "5"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["since-offset benchmark probe"]
+  }
+}

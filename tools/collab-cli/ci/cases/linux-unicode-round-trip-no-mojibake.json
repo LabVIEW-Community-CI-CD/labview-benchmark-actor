@@ -1,0 +1,18 @@
+{
+  "name": "linux-unicode-round-trip-no-mojibake",
+  "owner": "LINUX",
+  "description": "A message body with multibyte UTF-8 (Latin-1 accent, CJK, arrows) must survive the GraphQL transport and render byte-faithful through `poll --full` — no mojibake, no ? substitution, no U+FFFD replacement. The mock's fixture-parse discussion returns a canned vihs-collab-msg@v1 whose msg carries the unicode; poll must echo it intact.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-parse"
+  },
+  "args": ["poll", "--full", "--agent", "WIN", "--tail", "5"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["café", "日本語", "↔", "→ benchmark actor unicode probe"],
+    "stdoutNotContains": ["\uFFFD"]
+  }
+}

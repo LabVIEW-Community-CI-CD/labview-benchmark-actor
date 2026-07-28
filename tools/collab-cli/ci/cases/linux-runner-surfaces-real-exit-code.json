@@ -1,0 +1,12 @@
+{
+  "name": "linux-runner-surfaces-real-exit-code",
+  "owner": "LINUX",
+  "description": "The runner must surface lbabus's real process exit code — never a shell/pipe-masked 0 (the classic `lbabus wait | tail` hazard where $? is tail's, not lbabus's). An unknown subcommand exits 1 with a diagnostic on stderr; the runner must observe exactly exit 1 AND the diagnostic, proving it reads the child's real ExitCode with no pipe in the path. Fully offline: no network, no mock, no ripgrep.",
+  "env": {},
+  "args": ["wibble-not-a-command"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 1,
+    "stderrContains": ["unknown command 'wibble-not-a-command'"]
+  }
+}

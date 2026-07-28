@@ -1,0 +1,18 @@
+{
+  "name": "linux-defect-unicode-body-posts",
+  "owner": "LINUX",
+  "description": "The sanctioned defect sink (REST POST /repos/{owner}/{repo}/issues/{n}/comments) must accept a non-ASCII, multi-line defect body and echo the returned html_url — complementing WIN's ASCII defect case by proving the issue-comment REST path is UTF-8 clean end to end. Mock accepts the POST for lbabus-ci/fixture-defect issue #7 and returns { html_url } -> exit 0 with the confirmation line.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-defect",
+    "LBABUS_DEFECT_ISSUE": "7"
+  },
+  "args": ["defect", "--title", "unicode sink café ↔ 日本語", "--message", "Line one → arrow.\nLine two accent café.\nLine three CJK 日本語 tail-preserved."],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["defect reported to #7"]
+  }
+}

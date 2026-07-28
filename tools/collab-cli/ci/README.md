@@ -9,8 +9,9 @@ add cases** (one file per case, so nobody edits a shared manifest and there are 
 | Path | Purpose |
 |------|---------|
 | `LbaBus.Ci/` | Dependency-free .NET runner (`lbabus-ci`). Reads `cases/*.json`, runs `lbabus` once per case, writes `results/<name>.json`, exits non-zero if any case fails. No NuGet packages, no bash. |
+| `LbaBus.Ci.Mock/` | Dependency-free in-container GitHub mock (`lbabus-mock`, `System.Net.HttpListener`). Its `run-harness` mode starts the loopback endpoint, exports `LBABUS_GITHUB_API`, runs the runner, and exits with its code — flipping the mock-requiring cases from SKIP to RUN. No NuGet packages, no bash. |
 | `cases/*.json` | One declarative case per file (args + env + expected exit/stdout/stderr). |
-| `fixtures/` | Stable input corpus for offline cases (e.g. `sample.txt` for grep). |
+| `fixtures/` | Stable input corpus for offline cases (e.g. `sample.txt` + `sample2.txt` for grep). |
 | `Dockerfile` | Multi-stage: `build` → `ci-rg` (ripgrep present) and `ci-no-rg` (ripgrep absent). The harness runs *inside* the build, so a failing case fails the image. |
 | `results/` | Per-run output (git-ignored). |
 
@@ -22,6 +23,12 @@ dotnet build -c Release tools/collab-cli/LbaBus.csproj
 dotnet build -c Release tools/collab-cli/ci/LbaBus.Ci/LbaBus.Ci.csproj
 dotnet tools/collab-cli/ci/LbaBus.Ci/bin/Release/net8.0/lbabus-ci.dll \
   --repo-root "$PWD" --lbabus tools/collab-cli/bin/Release/net8.0/lbabus.dll
+
+# ...or with the in-container mock wired (flips the version-guard-* / defect-* cases from SKIP to RUN):
+dotnet build -c Release tools/collab-cli/ci/LbaBus.Ci.Mock/LbaBus.Ci.Mock.csproj
+dotnet tools/collab-cli/ci/LbaBus.Ci.Mock/bin/Release/net8.0/lbabus-mock.dll run-harness --port 8099 \
+  --repo-root "$PWD" --lbabus tools/collab-cli/bin/Release/net8.0/lbabus.dll \
+  --runner tools/collab-cli/ci/LbaBus.Ci/bin/Release/net8.0/lbabus-ci.dll
 
 # hermetic (both runtime stages):
 docker build -f tools/collab-cli/ci/Dockerfile --target ci-rg    .
@@ -66,6 +73,9 @@ declares the fixture repo it targets via `VIHS_COLLAB_OWNER` / `VIHS_COLLAB_REPO
   `LBABUS_GITHUB_API` so the mock-requiring cases run.
 
 ## Mock contract (`LBABUS_GITHUB_API`)
+
+> Implemented by `ci/LbaBus.Ci.Mock` (`lbabus-mock`) — a dependency-free `System.Net.HttpListener`
+> server, routed as a pure function of the request path + GraphQL variables, per fixture repo.
 
 `lbabus` sends **every** GitHub call to `LBABUS_GITHUB_API` as its base URL. There are exactly two
 surfaces — this answers the REST-vs-GraphQL question directly:
