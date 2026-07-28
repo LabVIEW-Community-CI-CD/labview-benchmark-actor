@@ -584,6 +584,21 @@ check('viewer-webview-surface-wired', () => {
   }
   return { command: 'openViewer', reusesCursorCore: true };
 });
+
+// 27. The benchmark ring-buffer store receipt is green (operator big-drive / cross-plane direction): the store
+//     registers LINUX + WIN runs of a shared benchmarkId, reads them back with the ring-buffer REFERENCED (not
+//     copied), cross-plane-compares metric deltas, and REJECTS drift (bad plane, missing benchmarkId, a
+//     single-plane compare). Deterministic (temp root); the live large captures land on the big drive.
+check('benchmark-store-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'benchmark-store', 'receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/benchmark-store-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  assert(receipt.storeSchema === 'labview-benchmark-actor/benchmark-store@v1', 'store schema mismatch');
+  const c = receipt.sampleCompare;
+  assert(c && c.schema === 'labview-benchmark-actor/cross-plane-compare@v1', 'sample cross-plane-compare schema mismatch');
+  assert(c.deltas && typeof (c.deltas.cpuMeanPct && c.deltas.cpuMeanPct.delta) === 'number', 'compare must report a LINUX-vs-WIN cpu delta');
+  return { checks: receipt.total, benchmark: c.benchmarkId };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
