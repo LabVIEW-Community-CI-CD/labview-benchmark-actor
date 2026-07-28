@@ -1,0 +1,59 @@
+{
+  "schema": "labview-benchmark-actor/ollama-bus-receipt@v1",
+  "task": "cross-plane-ollama-bus",
+  "producedBy": "LINUX",
+  "producedAt": "2026-07-28T19:13:00Z",
+  "busWireSchema": "labview-benchmark-actor/bus-msg@1",
+  "selfContainedBinary": {
+    "publish": "dotnet publish tools/collab-cli/LbaBus.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true",
+    "approxBytes": 67108864,
+    "ranOn": "bare ubuntu:22.04 container (no .NET runtime, no downloads), mounted read-only"
+  },
+  "coordinator": {
+    "cmd": "lbabus net listen --tcp 7420 --echo",
+    "agent": "CONTAINER",
+    "reach": "-p 7420:7420 (Linux docker port-publish; host seen at the docker0 bridge 172.17.0.1)"
+  },
+  "governor": {
+    "cmd": "lbabus net send --tcp 7420 --type HELLO|NOTE --task ollama-gov",
+    "agent": "LINUX-HOST",
+    "governedBy": "ollama llama3.1:8b (num_ctx 8192, RTX PRO 1000 Blackwell), http://127.0.0.1:11434"
+  },
+  "roundTrip": {
+    "sent": 4,
+    "acked": 4,
+    "types": ["HELLO", "NOTE", "NOTE", "NOTE"],
+    "ackFormat": "CONTAINER #<n> ACK ackOf:<sender.seq> -- received <TYPE> from LINUX-HOST",
+    "ollamaGeneratedDiagnostics": [
+      "container health=OK CPU=50% mem=34% ...",
+      "HEART_RATE_42B normal",
+      "HVY_C01_MAL_TEMP_43C"
+    ]
+  },
+  "crossPlaneParity": {
+    "envelope": "identical (both planes build from tools/collab-cli/Net.cs)",
+    "winInfra": "172.21.96.1 nat gateway (Windows container, Hyper-V isolation)",
+    "linuxInfra": "172.17.0.1 docker0 bridge (native docker)",
+    "note": "only the infra addressing differs; the BusWire envelope + semantics are identical. Linux port-publish works cleanly (no Windows hnsCall 0x490 glitch)."
+  },
+  "lessonStore": {
+    "model": "lba-coordinator",
+    "create": "ollama create lba-coordinator -f lba-coordinator.Modelfile (FROM llama3.1:8b, temperature 0.3)",
+    "bankedLessons": ["WIN-DOCKER-NET", "SELF-CONTAINED", "OLLAMA-GOV-LOOP", "COORD-STREAM", "XPLANE-ENVELOPE"],
+    "recallVerbatim": true,
+    "syncProtocol": "append a [TAG] block to the SYSTEM then ollama create lba-coordinator then post the delta on the bus so the other plane re-banks it (ollama IS the durable cross-plane lesson store, not agent memory files)"
+  },
+  "governedLoop": {
+    "governor": "lba-coordinator (durable lesson store + governor)",
+    "ticks": 5,
+    "type": "PROGRESS",
+    "await": 4,
+    "pacing": "governor's own gen-latency, NO artificial sleep (~5s for 5 ticks)",
+    "lessonApplying": true,
+    "note": "the governor emitted bus-aware, lesson-APPLYING coordination (not generic filler): it retrieved WIN-DOCKER-NET (with the folded Linux fact) and OLLAMA-GOV-LOOP as actionable diagnostics driving the container coordinator",
+    "sample": [
+      "Container NAT repair needed on WIN-DOCKER-NET: remove stale HNS nat network, restart hns + WinNAT",
+      "lbabus net send --host <nat-ip> --tcp 7420 --type PROGRESS --task <t> --message Container coordinator online"
+    ]
+  }
+}
