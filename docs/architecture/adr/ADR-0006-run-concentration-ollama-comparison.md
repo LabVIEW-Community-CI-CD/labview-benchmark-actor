@@ -3,7 +3,8 @@
 - Status: Proposed
 - Owner: WIN
 - Traces to: LBA-REQ-010; relates to LBA-REQ-004/005 (viewer over own runs),
-  LBA-REQ-007 (bus is comms-only), ADR-0005 (VM-local storage)
+  LBA-REQ-007 (bus is comms-only), ADR-0005 (VM-local storage). Extended by
+  ADR-0008 (interactive host-Ollama drive + mirrored build-coordination).
 - Standards baseline: `repo-standards-review` v0.2.19
 
 ## Context
