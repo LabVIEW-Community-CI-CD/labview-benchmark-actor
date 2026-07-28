@@ -1,0 +1,96 @@
+{
+  "schema": "labview-benchmark-actor/cross-plane-comparison-receipt@v1",
+  "requirement": "LBA-REQ-014",
+  "benchmarkId": "mprr-short-ring-fixture",
+  "producedAt": "2026-07-28T19:44:38.333Z",
+  "linuxRunId": "mprr-short-ring-fixture-linux",
+  "winRunId": "mprr-short-ring-fixture-win",
+  "seriesHashMatch": true,
+  "screenshotWitness": {
+    "linux": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
+    "win": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
+    "identical": true
+  },
+  "comparison": {
+    "schema": "labview-benchmark-actor/cross-plane-compare@v1",
+    "benchmarkId": "mprr-short-ring-fixture",
+    "linux": {
+      "totalBytes": 1608,
+      "packetCount": 12,
+      "blockCount": 4,
+      "worstBoundaryVariationPct": 0,
+      "capacityBytes": 58000,
+      "ringHeadPublished": 1608,
+      "authoritative": 1,
+      "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+      "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8"
+    },
+    "win": {
+      "totalBytes": 1608,
+      "packetCount": 12,
+      "blockCount": 4,
+      "worstBoundaryVariationPct": 0,
+      "capacityBytes": 58000,
+      "ringHeadPublished": 1608,
+      "authoritative": 1,
+      "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+      "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8"
+    },
+    "deltas": {
+      "totalBytes": {
+        "linux": 1608,
+        "win": 1608,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "packetCount": {
+        "linux": 12,
+        "win": 12,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "blockCount": {
+        "linux": 4,
+        "win": 4,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "worstBoundaryVariationPct": {
+        "linux": 0,
+        "win": 0,
+        "delta": 0,
+        "pctOfLinux": null
+      },
+      "capacityBytes": {
+        "linux": 58000,
+        "win": 58000,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "ringHeadPublished": {
+        "linux": 1608,
+        "win": 1608,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "authoritative": {
+        "linux": 1,
+        "win": 1,
+        "delta": 0,
+        "pctOfLinux": 0
+      }
+    },
+    "digests": {
+      "seriesHash": {
+        "linux": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+        "win": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+        "match": true
+      },
+      "pngSha256": {
+        "linux": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
+        "win": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
+        "match": true
+      }
+    }
+  }
+}
