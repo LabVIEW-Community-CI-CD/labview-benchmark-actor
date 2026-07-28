@@ -1,17 +1,20 @@
 {
-  "_comment": "LabVIEW ISO map for the Docker Windows-container clean room -- MIRRORED from ni/labview-icon-editor .lv-iso-map.json (the reference example). Maps a version key -> per-OS/arch offline ISO + NIPM package id. 'x86' is 32-bit LabVIEW. The Docker Windows-container lane installs LabVIEW 2026 32-bit from the 2026q1 windows.x86 entry (install-labview.ps1). ISOs are licensed/community artifacts fetched FROM NI at build time on a Windows host; nothing licensed is committed here.",
+  "_comment": "LabVIEW ISO map for the Docker Windows-container clean room -- MIRRORED from ni/labview-icon-editor .lv-iso-map.json, then CORRECTED against the REAL LabVIEW 2026 offline ISO + nipkg 26.5.0 by the WIN plane. 'x86' = 32-bit LabVIEW. 'package' is the real installable nipkg META-package name (version-tolerant; the ISO has NO standalone nipkg.exe and NO 'LabVIEW_COM_PKG' package -- NIPM is bootstrapped from the ISO first). LabVIEWCLI ships as a SEPARATE NI product/ISO ('cli_package'), so a labview-cli=yes clean room installs BOTH. Nothing licensed is committed here; ISOs are fetched from NI / staged by the maintainer on a Windows host.",
   "default": "2026q1",
   "versions": {
     "2025q3": {
       "windows": {
         "x86": "https://download.ni.com/support/softlib/labview/labview_development_system/2025_Q3/ni-labview-2025-community-x86_25.3.3_offline.iso",
-        "package_id": "LabVIEW_COM_PKG 25.0300"
+        "package": "ni-labview-2025-community-x86"
       }
     },
     "2026q1": {
       "windows": {
-        "x86": "https://download.ni.com/support/softlib/labview/labview_development_system/2026_Q1/ni-labview-2026-community-x86_26.1.0_offline.iso",
-        "package_id": "LabVIEW_COM_PKG 26.0100"
+        "x86": "https://download.ni.com/support/softlib/labview/labview_development_system/2026_Q1/ni-labview-2026-community-x86_26.1.2_offline.iso",
+        "package": "ni-labview-2026-community-x86",
+        "feed_subdir": "feeds/ni-labview-2026-community-x86",
+        "cli_iso_name": "ni-labview-command-line-interface-x86_26.1.0_offline.iso",
+        "cli_package": "ni-labview-command-line-interface-x86"
       }
     }
   }

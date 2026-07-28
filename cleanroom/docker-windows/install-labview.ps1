@@ -1,85 +1,113 @@
-# install-labview.ps1 -- install LabVIEW (32-bit by default) into the Docker WINDOWS-CONTAINER clean room from
-# an NI offline ISO, resolved through the labview-icon-editor .lv-iso-map.json pattern (lv-iso-map.json here).
+# install-labview.ps1 -- install LabVIEW (32-bit) + the LabVIEW CLI into the Docker WINDOWS-CONTAINER clean
+# room from an NI offline FEED, resolved through the labview-icon-editor .lv-iso-map.json pattern. CORRECTED
+# against the REAL LabVIEW 2026 offline ISO + nipkg 26.5.0 (WIN-plane live validation, PR #62 follow-up):
+#   * the ISO ships NO standalone nipkg.exe -- NIPM is BOOTSTRAPPED from the ISO's Install.exe first;
+#   * there is NO 'LabVIEW_COM_PKG' package -- the real meta-package is ni-labview-<year>-community-x86;
+#   * in-container Mount-DiskImage FAILS under Hyper-V isolation ("A virtual disk support provider for the
+#     specified file was not found") -- the Win11-client default -- so a HOST-EXTRACTED feed is the PRIMARY
+#     path and Mount-DiskImage is a process-isolation-only fallback;
+#   * LabVIEWCLI is a SEPARATE NI product (its own ISO/feed) -- labview-cli=yes installs it too.
 #
-# This is the EXPANSION over the Vagrant clean room: the Vagrant lane inherits LabVIEW from a pre-baked licensed
-# base box, whereas the Docker Windows-container lane INSTALLS LabVIEW into the image from the ISO map. Windows
-# hosts only (a Windows-container engine + a Windows base image are required).
+# Usage (inside the Windows container build, or on a Windows host):
+#   # PRIMARY (Hyper-V isolation): stage HOST-extracted offline feeds and point the installer at them:
+#   $env:LV_EXTRACTED_FEED     = 'C:\lv-feed'       # the ISO's feeds\ + pool\ + NIPM bootstrap, host-extracted
+#   $env:LV_CLI_EXTRACTED_FEED = 'C:\lv-cli-feed'   # the LabVIEW CLI product's extracted feed (labview-cli=yes)
+#   ./install-labview.ps1 -Version 2026q1 -Arch x86
+#   # FALLBACK (process isolation only, e.g. Windows Server): let it Mount-DiskImage an ISO via LV_ISO_PATH.
 #
-# Usage (inside the Windows container build, or standalone on a Windows host):
-#   ./install-labview.ps1 -Version 2026q1 -Arch x86            # LabVIEW 2026 Community, 32-bit (x86)
-#   $env:LV_ISO_PATH = 'C:\iso\ni-labview-2026-community-x86.iso'; ./install-labview.ps1   # offline/licensed ISO
-#
-# The ISO is a licensed/community artifact obtained FROM NI at build time (download per the map, or an
-# operator-supplied LV_ISO_PATH). Nothing licensed is committed to the repo -- only the map + this installer.
+# Nothing licensed is committed to the repo -- only the map + this installer; feeds/ISOs are staged from NI on
+# the Windows host.
 
 [CmdletBinding()]
 param(
     [string]$Version = $(if ($env:LV_VERSION) { $env:LV_VERSION } else { '2026q1' }),
     [ValidateSet('x86', 'x64')] [string]$Arch = $(if ($env:LV_ARCH) { $env:LV_ARCH } else { 'x86' }), # x86 = 32-bit
     [string]$IsoMap = (Join-Path $PSScriptRoot 'lv-iso-map.json'),
-    [string]$IsoPath = $env:LV_ISO_PATH   # optional pre-supplied (offline/licensed) ISO; else downloaded from the map
+    [string]$ExtractedFeed = $env:LV_EXTRACTED_FEED,        # host-extracted offline feed dir (PRIMARY under Hyper-V)
+    [string]$CliExtractedFeed = $env:LV_CLI_EXTRACTED_FEED, # host-extracted LabVIEW CLI feed dir (labview-cli=yes)
+    [string]$IsoPath = $env:LV_ISO_PATH                     # process-isolation fallback: an ISO to Mount-DiskImage
 )
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-# 1. Resolve the ISO URL + NIPM package id from the map (ni/labview-icon-editor .lv-iso-map.json shape).
+# 1. Resolve the real nipkg META-package names from the map (version-tolerant; NOT a pinned 'LabVIEW_COM_PKG').
 if (-not (Test-Path $IsoMap)) { throw "[lv-install] iso map not found: $IsoMap" }
 $map = Get-Content -Raw $IsoMap | ConvertFrom-Json
 $entry = $map.versions.$Version.windows
 if (-not $entry) { throw "[lv-install] no windows entry for version '$Version' in $IsoMap" }
-$isoUrl = $entry.$Arch
-$packageId = $entry.package_id
-if (-not $isoUrl) { throw "[lv-install] no '$Arch' ISO for version '$Version' (x86 = 32-bit) in $IsoMap" }
-Write-Host "[lv-install] version=$Version arch=$Arch package='$packageId'"
-Write-Host "[lv-install] iso=$isoUrl"
+$package = $entry.package
+$cliPackage = $entry.cli_package
+if (-not $package) { throw "[lv-install] no 'package' (nipkg meta-package) for '$Version'/$Arch in $IsoMap" }
+Write-Host "[lv-install] version=$Version arch=$Arch package=$package cli=$cliPackage"
 
-# 2. Obtain the ISO: prefer an operator-supplied local ISO (offline / licensed); else download from the map URL.
-if (-not $IsoPath) {
-    $IsoPath = Join-Path 'C:\lv-iso' "$Version-$Arch.iso"
-    New-Item -ItemType Directory -Force (Split-Path $IsoPath) | Out-Null
-    if (-not (Test-Path $IsoPath)) {
-        Write-Host "[lv-install] downloading ISO from NI ..."
-        Invoke-WebRequest -UseBasicParsing $isoUrl -OutFile $IsoPath
+# 2. Resolve the offline FEED directory. PRIMARY = a host-extracted feed (works under Hyper-V isolation).
+#    Mount-DiskImage is ONLY a process-isolation fallback: WIN confirmed it throws inside a Hyper-V-isolated
+#    container ("A virtual disk support provider for the specified file was not found").
+$feedDir = $null
+$mounted = $null
+if ($ExtractedFeed -and (Test-Path $ExtractedFeed)) {
+    $feedDir = $ExtractedFeed
+    Write-Host "[lv-install] using host-extracted feed: $feedDir"
+}
+elseif ($IsoPath -and (Test-Path $IsoPath)) {
+    Write-Host "[lv-install] no extracted feed; attempting Mount-DiskImage (process-isolation only) ..."
+    try {
+        $mounted = Mount-DiskImage -ImagePath $IsoPath -PassThru
+        $feedDir = ($mounted | Get-Volume).DriveLetter + ':'
+    }
+    catch {
+        throw "[lv-install] Mount-DiskImage failed ($($_.Exception.Message)). Under Hyper-V isolation the disk-image provider is absent in-container -- set LV_EXTRACTED_FEED to a HOST-extracted offline feed (feeds\ + pool\ + NIPM bootstrap) instead."
     }
 }
-if (-not (Test-Path $IsoPath)) { throw "[lv-install] ISO not available at $IsoPath" }
+else {
+    throw "[lv-install] provide LV_EXTRACTED_FEED (host-extracted offline feed -- REQUIRED under Hyper-V isolation) or LV_ISO_PATH (process-isolation fallback)."
+}
 
-# 3. Mount the ISO and locate its NIPM feed / installer (Windows-container hosts support Mount-DiskImage on the
-#    process-isolation engine; on hyperV-isolation prefer an extracted ISO via 7-Zip -- see README).
-Write-Host "[lv-install] mounting $IsoPath ..."
-$image = Mount-DiskImage -ImagePath $IsoPath -PassThru
 try {
-    $drive = ($image | Get-Volume).DriveLetter + ':'
-    Write-Host "[lv-install] ISO mounted at $drive"
+    # 3. Ensure NIPM (nipkg) exists -- the ISO ships NO standalone nipkg.exe; it is bootstrapped by the ISO's
+    #    Install.exe / the ni-package-manager packages. Reuse nipkg if already on PATH.
+    $nipkg = (Get-Command nipkg.exe -ErrorAction SilentlyContinue).Source
+    if (-not $nipkg) {
+        $bootstrap = @((Join-Path $feedDir 'Install.exe'), (Join-Path $feedDir 'bin\Install.exe')) |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($bootstrap) {
+            Write-Host "[lv-install] bootstrapping NI Package Manager via $bootstrap (passive) ..."
+            & $bootstrap --passive --accept-eulas --prevent-reboot
+        }
+        $nipkg = (Get-Command nipkg.exe -ErrorAction SilentlyContinue).Source
+        if (-not $nipkg) {
+            $nipkg = @("$env:ProgramFiles\National Instruments\NI Package Manager\nipkg.exe",
+                       "${env:ProgramFiles(x86)}\National Instruments\NI Package Manager\nipkg.exe") |
+                Where-Object { Test-Path $_ } | Select-Object -First 1
+        }
+    }
+    if (-not $nipkg) { throw "[lv-install] nipkg unavailable after NIPM bootstrap -- add the ni-package-manager packages to the staged feed or run the ISO Install.exe." }
+    Write-Host "[lv-install] nipkg: $nipkg"
 
-    # 4. Headless install of the 32-bit LabVIEW package. NI offline ISOs ship NI Package Manager (nipkg) + an
-    #    Install.exe bootstrapper. Prefer nipkg feed-add + install (deterministic, package-id targeted); fall
-    #    back to the ISO Install.exe with silent flags. WIN validates the exact flags against the real ISO.
-    $nipkg = Get-Command nipkg.exe -ErrorAction SilentlyContinue
-    if (-not $nipkg -and (Test-Path "$drive\nipkg.exe")) { $nipkg = "$drive\nipkg.exe" }
-    if ($nipkg) {
-        $feed = if (Test-Path "$drive\feeds") { "$drive\feeds" } else { $drive }
-        Write-Host "[lv-install] nipkg feed-add $feed + install '$packageId' (32-bit) ..."
-        & $nipkg feed-add --system --name lv-cleanroom-offline $feed
-        & $nipkg update --system
-        & $nipkg install --system --accept-eulas --yes --include-recommends $packageId
+    # 4. Add the offline feed + install the LabVIEW 32-bit meta-package. Flags CORRECTED vs nipkg 26.5.0
+    #    (WIN-confirmed): --system is feed-add-only (NOT valid on install/update); the flag is
+    #    --include-recommended (not --include-recommends).
+    & $nipkg feed-add --system --name lv-cleanroom-offline $feedDir
+    & $nipkg update
+    & $nipkg install --accept-eulas --yes --include-recommended $package
+
+    # 5. LabVIEWCLI is a SEPARATE product -> install it too for the labview-cli=yes parity goal (its own feed).
+    if ($cliPackage -and $CliExtractedFeed -and (Test-Path $CliExtractedFeed)) {
+        & $nipkg feed-add --system --name lv-cli-cleanroom-offline $CliExtractedFeed
+        & $nipkg update
+        & $nipkg install --accept-eulas --yes --include-recommended $cliPackage
     }
-    elseif (Test-Path "$drive\Install.exe") {
-        Write-Host "[lv-install] running $drive\Install.exe (passive, no reboot) ..."
-        & "$drive\Install.exe" --passive --accept-eulas --prevent-reboot
-    }
-    else {
-        throw "[lv-install] neither nipkg nor Install.exe found on the ISO at $drive"
+    elseif ($cliPackage) {
+        Write-Host "[lv-install] WARN: LV_CLI_EXTRACTED_FEED not set -- LabVIEWCLI ($cliPackage) is a separate NI product; labview-cli=yes needs its feed staged too."
     }
 }
 finally {
-    Write-Host "[lv-install] dismounting $IsoPath ..."
-    Dismount-DiskImage -ImagePath $IsoPath | Out-Null
+    if ($mounted) { Dismount-DiskImage -ImagePath $IsoPath | Out-Null }
 }
 
-# 5. Prove LabVIEW is present: LabVIEWCLI on PATH (the clean-room labview-cli capability) or a known install dir.
-$lvcli = Get-Command LabVIEWCLI.exe -ErrorAction SilentlyContinue
+# 6. Prove LabVIEW is present: LabVIEWCLI on PATH (the clean-room labview-cli capability) or a known install dir.
+$lvcli = (Get-Command LabVIEWCLI.exe -ErrorAction SilentlyContinue).Source
 $lvDir = @(
     'C:\Program Files (x86)\National Instruments\LabVIEW 2026',
     'C:\Program Files\National Instruments\LabVIEW 2026'
@@ -87,4 +115,4 @@ $lvDir = @(
 if (-not $lvcli -and -not $lvDir) {
     throw "[lv-install] LabVIEW install not verified (no LabVIEWCLI on PATH and no LabVIEW 2026 install dir)."
 }
-Write-Host "[lv-install] OK -- LabVIEW $Version ($Arch) installed. CLI: $($lvcli.Source); dir: $lvDir"
+Write-Host "[lv-install] OK -- LabVIEW $Version ($Arch) installed. CLI: $lvcli; dir: $lvDir"

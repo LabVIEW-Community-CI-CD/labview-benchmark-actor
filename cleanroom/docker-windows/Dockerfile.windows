@@ -4,14 +4,18 @@
 # WINDOWS HOSTS ONLY: requires the Windows-container engine (Docker Desktop switched to Windows containers, or a
 # Windows Server host). It CANNOT build on a Linux Docker engine -- this lane is Windows-specific by design
 # (its counterpart is the Vagrant VMware/VirtualBox lane). Build from the REPO ROOT so the shared bootstrap and
-# the collab-cli source are in the build context:
+# the collab-cli source are in the build context. First HOST-EXTRACT the NI offline feed(s) into the build
+# context (Hyper-V isolation cannot Mount-DiskImage in-container -- see README.md), then:
 #
+#   # stage the extracted feeds (licensed/community artifacts; gitignored):
+#   7z x ni-labview-2026-community-x86_26.1.2_offline.iso -ocleanroom/docker-windows/.lv-feed
+#   7z x ni-labview-command-line-interface-x86_26.1.0_offline.iso -ocleanroom/docker-windows/.lv-cli-feed
 #   docker build -f cleanroom/docker-windows/Dockerfile.windows `
 #     --build-arg LV_VERSION=2026q1 --build-arg LV_ARCH=x86 -t vihs/labview-cleanroom-win .
 #
 # The layers MIRROR the Vagrant bootstrap contract (same bootstrap.ps1), then EXPAND it by installing LabVIEW
-# 2026 32-bit from the NI ISO map (install-labview.ps1 + lv-iso-map.json, the ni/labview-icon-editor pattern):
-# the Vagrant lane inherits LabVIEW from a pre-baked licensed base box; this lane builds LabVIEW INTO the image.
+# 2026 32-bit + the LabVIEW CLI from the NI feed (install-labview.ps1 + lv-iso-map.json, the ni/labview-icon-
+# editor pattern): the Vagrant lane inherits LabVIEW from a pre-baked licensed base box; this lane builds it in.
 
 ARG WINDOWS_BASE=mcr.microsoft.com/windows/servercore:ltsc2022
 FROM ${WINDOWS_BASE}
@@ -20,13 +24,16 @@ SHELL ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "$E
 
 # git is required by the shared bootstrap (the Vagrant base box ships it; a bare servercore does not). Install
 # MinGit up front so bootstrap.ps1 can be reused VERBATIM -- that verbatim reuse is the whole point of a mirror.
+# NOTE (WIN-verified): the PATH concat MUST use single-quote ($p + ';...') form -- a double-quoted "$p;..."
+# collides with the powershell SHELL's own double-quote wrapping and dies at build with "Missing ')' in method
+# call". Do not "simplify" it back to a double-quoted string.
 ARG MINGIT_URL=https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/MinGit-2.53.0-64-bit.zip
 RUN New-Item -ItemType Directory -Force C:\tools\git | Out-Null; `
     Invoke-WebRequest -UseBasicParsing $env:MINGIT_URL -OutFile C:\tools\git.zip; `
     Expand-Archive C:\tools\git.zip -DestinationPath C:\tools\git -Force; `
     Remove-Item C:\tools\git.zip -Force; `
     $p = [Environment]::GetEnvironmentVariable('PATH', 'Machine'); `
-    [Environment]::SetEnvironmentVariable('PATH', "$p;C:\tools\git\cmd", 'Machine')
+    [Environment]::SetEnvironmentVariable('PATH', ($p + ';C:\tools\git\cmd'), 'Machine')
 
 # Shared clean-room assets: the SAME bootstrap.ps1 the Vagrant lanes run, the Docker-Windows-only scripts, and
 # the collab-cli source (built in the clean room, never downloaded -- "build it on bootstrap", per Vagrant lane).
@@ -34,13 +41,24 @@ COPY cleanroom/bootstrap.ps1 C:/cleanroom/bootstrap.ps1
 COPY cleanroom/docker-windows/ C:/cleanroom/docker-windows/
 COPY tools/collab-cli/ C:/cleanroom-src/tools/collab-cli/
 
-# 1. EXPANSION -- install LabVIEW 2026 32-bit from the NI ISO map (the capability the Vagrant base box pre-bakes).
-#    Provide the (licensed/community) ISO offline by bind-mounting or COPYing it in and setting LV_ISO_PATH, or
-#    let install-labview.ps1 download it per lv-iso-map.json (a multi-GB, slow layer). See README.md.
+# 1. EXPANSION -- install LabVIEW 2026 32-bit + the LabVIEW CLI from a HOST-EXTRACTED NI offline feed.
+#    Under Hyper-V isolation (the Win11-client default) in-container Mount-DiskImage FAILS ("A virtual disk
+#    support provider for the specified file was not found" -- WIN-confirmed live), so the maintainer HOST-
+#    extracts the ISO feed(s) into the build context and the installer consumes them via LV_EXTRACTED_FEED /
+#    LV_CLI_EXTRACTED_FEED. install-labview.ps1 bootstraps NIPM from the feed (the ISO ships no standalone
+#    nipkg.exe), then nipkg feed-add + install the real meta-package ni-labview-2026-community-x86 (+ the
+#    separate ni-labview-command-line-interface-x86). The staged feed dirs are licensed/community artifacts --
+#    gitignored, never committed; see README.md.
 ARG LV_VERSION=2026q1
 ARG LV_ARCH=x86
+ARG LV_FEED_DIR=cleanroom/docker-windows/.lv-feed
+ARG LV_CLI_FEED_DIR=cleanroom/docker-windows/.lv-cli-feed
+COPY ${LV_FEED_DIR}/ C:/lv-feed/
+COPY ${LV_CLI_FEED_DIR}/ C:/lv-cli-feed/
 ENV LV_VERSION=$LV_VERSION `
-    LV_ARCH=$LV_ARCH
+    LV_ARCH=$LV_ARCH `
+    LV_EXTRACTED_FEED=C:\lv-feed `
+    LV_CLI_EXTRACTED_FEED=C:\lv-cli-feed
 RUN C:\cleanroom\docker-windows\install-labview.ps1
 
 # 2. MIRROR -- the pinned collab-cli toolchain (dotnet/rg/gh/glab) + BUILD lbabus, exactly the Vagrant bootstrap.
