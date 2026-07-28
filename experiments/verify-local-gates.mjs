@@ -343,6 +343,24 @@ check('cleanroom-bootstrap-is-winget-free', () => {
   );
   return { wingetFree: true };
 });
+
+// 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
+//     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
+//     over a real multi-VM concentrated corpus stays the maintainer/VM step.
+check('host-concentration-core-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'host-concentration', 'receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/host-concentration-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  const corpus = receipt.corpus;
+  assert(corpus && corpus.schema === 'labview-benchmark-actor/host-concentration@v1', 'corpus schema mismatch');
+  assert(/^[0-9a-f]{8}$/.test(corpus.corpusDigest || ''), 'corpus must carry an 8-hex corpusDigest');
+  assert(Array.isArray(corpus.runs) && corpus.runs.length === corpus.runCount, 'runCount must match the runs length');
+  for (const run of corpus.runs) {
+    assert(corpus.actors.includes(run.actorId), `run ${run.runId} actorId ${run.actorId} not in the actor list (isolation)`);
+    assert('metricsRef' in run && 'framesRef' in run, `run ${run.runId} must expose metricsRef + framesRef for the ollama layer`);
+  }
+  return { checks: receipt.total, actors: corpus.actors.length, runs: corpus.runCount };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
