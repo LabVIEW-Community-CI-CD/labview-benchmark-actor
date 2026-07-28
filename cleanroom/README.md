@@ -55,6 +55,20 @@ vagrant up --provider vmware_desktop
 it as a global tool, and runs `lbabus capabilities` + `lbabus selfcheck` (which fails closed if any pinned
 tool is missing/below-pin). A green `selfcheck` proves the clean room is a valid coordination environment.
 
+### Provisioner notes (verified)
+
+The provisioner is **winget-free by design**: `winget` is an MSIX app-execution alias that is *not*
+resolvable in the non-interactive WinRM provisioner session, so the toolchain installs via the official
+`dotnet-install` script (.NET SDK) + direct release archives (`rg`/`gh`/`glab`); `git` ships in the base
+box. `bootstrap.ps1` is kept **pure ASCII** because Vagrant uploads it and PowerShell 5.1 reads a BOM-less
+file as ANSI, so a non-ASCII byte (e.g. an em-dash) corrupts and breaks the parse. Verified end to end via
+`vagrant provision`: toolchain installed, `lbabus` built, `selfcheck: PASS` (rg/git/gh/glab/dotnet all
+above-pin), and `AGENTS.md` materialized in the guest home.
+
+For an **unattended** boot (CI-style smoke, no host SMB credential prompt) set `VIHS_CLEANROOM_NO_SYNC=1`
+to disable the synced folder; the collab-cli source must then be pre-staged in the guest at
+`C:\vagrant-src\tools\collab-cli` (the default SMB sync provides it interactively otherwise).
+
 ## Knobs (env)
 
 | var | default | meaning |
@@ -62,6 +76,7 @@ tool is missing/below-pin). A green `selfcheck` proves the clean room is a valid
 | `VIHS_CLEANROOM_BOX` | `vihs/labview-cleanroom` | operator-supplied base box (licensed LabVIEW) |
 | `VIHS_CLEANROOM_MEM` | `8192` | guest RAM (MB) |
 | `VIHS_CLEANROOM_CPUS` | `4` | guest vCPUs |
+| `VIHS_CLEANROOM_NO_SYNC` | (unset) | when set, disable the SMB synced folder (unattended boot, no host credential prompt); pre-stage source at `C:\vagrant-src` |
 
 ## LINUX / VirtualBox parity (`Vagrantfile.virtualbox`)
 

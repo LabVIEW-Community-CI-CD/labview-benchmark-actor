@@ -15,8 +15,14 @@ Vagrant.configure("2") do |config|
   config.winrm.timeout = 1800
 
   # Sync the collab-cli source into the guest so the bootstrap can BUILD it in the clean room.
-  config.vm.synced_folder "..", "C:\\vagrant-src", type: "smb",
-    mount_options: ["mfsymlinks", "dir_mode=0775", "file_mode=0664"]
+  # Skippable for unattended smoke boots (avoids the host SMB credential prompt) via
+  # VIHS_CLEANROOM_NO_SYNC=1 — the source share is only needed by the bootstrap provisioner.
+  if ENV["VIHS_CLEANROOM_NO_SYNC"].to_s.empty?
+    config.vm.synced_folder "..", "C:\\vagrant-src", type: "smb",
+      mount_options: ["mfsymlinks", "dir_mode=0775", "file_mode=0664"]
+  else
+    config.vm.synced_folder ".", "/vagrant", disabled: true
+  end
 
   config.vm.provider "vmware_desktop" do |v|
     v.gui = true
