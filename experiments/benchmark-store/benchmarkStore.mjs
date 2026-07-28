@@ -108,10 +108,15 @@ export function crossPlaneCompare(store, benchmarkId) {
   const w = readRun(store, 'WIN', win.runId).metrics;
   const keys = [...new Set([...Object.keys(l), ...Object.keys(w)])];
   const deltas = {};
+  const digests = {};
   for (const k of keys) {
     if (typeof l[k] === 'number' && typeof w[k] === 'number') {
       deltas[k] = { linux: l[k], win: w[k], delta: w[k] - l[k], pctOfLinux: l[k] ? +(((w[k] - l[k]) / l[k]) * 100).toFixed(1) : null };
+    } else if (typeof l[k] === 'string' && typeof w[k] === 'string') {
+      // String metrics are content digests (e.g. seriesHash MUST match cross-plane; the per-plane screenshot
+      // pngSha256 is a visual witness that may differ across OSes). Report agreement, not a numeric delta.
+      digests[k] = { linux: l[k], win: w[k], match: l[k] === w[k] };
     }
   }
-  return { schema: 'labview-benchmark-actor/cross-plane-compare@v1', benchmarkId, linux: l, win: w, deltas };
+  return { schema: 'labview-benchmark-actor/cross-plane-compare@v1', benchmarkId, linux: l, win: w, deltas, digests };
 }

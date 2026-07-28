@@ -27,8 +27,10 @@ into `benchmarkStore.mjs`; only the maintainer `init-store-on-drive.mjs` knows t
 - `registerRun(store, { plane, runId, benchmarkId, metrics, ringBufferRef, ... })` — LINUX|WIN only.
 - `listRuns` / `readRun`.
 - `crossPlaneCompare(store, benchmarkId)` — pairs the LINUX run and the WIN run of the same benchmark and
-  reports the metric deltas (WIN vs LINUX, absolute + % of LINUX). Throws unless BOTH planes have registered
-  the benchmark — so a comparison never silently runs against one plane.
+  reports: `deltas` (numeric metrics, WIN vs LINUX, absolute + % of LINUX) **and** `digests` (string metrics —
+  the deterministic `seriesHash` MUST match cross-plane; the per-plane screenshot `pngSha256` is a visual
+  witness reported with `match: false` when the rasters differ, which is expected across OSes). Throws unless
+  BOTH planes have registered the benchmark — so a comparison never silently runs against one plane.
 
 ## Cross-plane workflow (LINUX ⇄ WIN)
 
@@ -45,6 +47,11 @@ into `benchmarkStore.mjs`; only the maintainer `init-store-on-drive.mjs` knows t
   `ollama-comparison` explains the run-over-run / cross-plane change.
 - Paired with the **deterministic screenshot** harness (`playwright/`), a benchmark can be compared both
   numerically (metric deltas) and visually (byte-identical PNG per plane) for full cross-plane repeatability.
+- The absorbed **mprr ring** (`experiments/mprr-ring/`) is the first real producer: `register-mprr-run.mjs`
+  ingests the committed short-packet fixture, stages the derived ring-buffer capture on the drive by
+  reference, and registers a run under `benchmarkId=mprr-short-ring-fixture` carrying `seriesHash` (the
+  deterministic cross-plane anchor) and, when present, the screenshot `pngSha256` witness.
 
 Run the self-test: `node experiments/benchmark-store/verify-benchmark-store.mjs` (gated by verify-local-gates).
 Instantiate on this box's drive: `node experiments/benchmark-store/init-store-on-drive.mjs`.
+Register the mprr benchmark run (each plane): `node experiments/benchmark-store/register-mprr-run.mjs`.

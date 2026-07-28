@@ -42,9 +42,12 @@ let sampleCompare = null;
 try {
   const store = openStore(root);
 
-  // A LINUX capture and a WIN capture of the SAME benchmark (a render regression between planes).
-  const linuxMetrics = { cpuMeanPct: 48, ramMeanMiB: 640, durationMs: 1360, framesRendered: 465 };
-  const winMetrics = { cpuMeanPct: 57, ramMeanMiB: 720, durationMs: 1560, framesRendered: 465 };
+  // A LINUX capture and a WIN capture of the SAME benchmark (a render regression between planes). The
+  // seriesHash is the deterministic cross-plane anchor (IDENTICAL on both planes); the per-plane screenshot
+  // pngSha256 is a visual witness that legitimately differs across OSes (fonts/AA).
+  const sharedSeriesHash = '7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa';
+  const linuxMetrics = { cpuMeanPct: 48, ramMeanMiB: 640, durationMs: 1360, framesRendered: 465, seriesHash: sharedSeriesHash, pngSha256: 'aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888' };
+  const winMetrics = { cpuMeanPct: 57, ramMeanMiB: 720, durationMs: 1560, framesRendered: 465, seriesHash: sharedSeriesHash, pngSha256: '9999000011112222333344445555666677778888999900001111222233334444' };
 
   check('register + read a LINUX run (ring buffer referenced, not copied)', () => {
     const rec = registerRun(store, {
@@ -79,6 +82,14 @@ try {
     assert(sampleCompare.deltas.cpuMeanPct.delta === 9, `cpu delta 57-48=9, got ${sampleCompare.deltas.cpuMeanPct.delta}`);
     assert(sampleCompare.deltas.durationMs.delta === 200, `duration delta 1560-1360=200, got ${sampleCompare.deltas.durationMs.delta}`);
     assert(sampleCompare.deltas.cpuMeanPct.pctOfLinux === 18.8, `cpu pct 9/48=18.8, got ${sampleCompare.deltas.cpuMeanPct.pctOfLinux}`);
+  });
+
+  // Digest agreement: the deterministic seriesHash MUST match cross-plane; the screenshot witness may differ.
+  check('cross-plane compare reports content-digest agreement (seriesHash match, screenshot witness)', () => {
+    const d = sampleCompare.digests;
+    assert(d && d.seriesHash && d.seriesHash.match === true, 'seriesHash must match cross-plane (deterministic data)');
+    assert(d.pngSha256 && d.pngSha256.match === false, 'differing screenshot witness is surfaced, not deltafied');
+    assert(sampleCompare.deltas.seriesHash === undefined, 'string digests are not treated as numeric deltas');
   });
 
   // Teeth 1: comparing a benchmark present on only one plane must throw.

@@ -599,6 +599,8 @@ check('benchmark-store-receipt-green', () => {
   const c = receipt.sampleCompare;
   assert(c && c.schema === 'labview-benchmark-actor/cross-plane-compare@v1', 'sample cross-plane-compare schema mismatch');
   assert(c.deltas && typeof (c.deltas.cpuMeanPct && c.deltas.cpuMeanPct.delta) === 'number', 'compare must report a LINUX-vs-WIN cpu delta');
+  assert(c.digests && c.digests.seriesHash && c.digests.seriesHash.match === true,
+    'compare must confirm the deterministic seriesHash matches cross-plane');
   return { checks: receipt.total, benchmark: c.benchmarkId };
 });
 check('mprr-short-ring-model-green', () => {
