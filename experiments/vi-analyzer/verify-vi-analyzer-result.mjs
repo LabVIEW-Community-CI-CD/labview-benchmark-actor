@@ -5,6 +5,7 @@
 // Run: node experiments/vi-analyzer/verify-vi-analyzer-result.mjs
 
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
@@ -105,6 +106,27 @@ check('rejects-invalid-result-and-duplicate-vi', () => {
     b = /duplicate viPath/.test(err.message);
   }
   assert(b, 'duplicate viPath rejected');
+});
+
+// 7. Cross-plane determinism: the canonical order is UTF-16 code-unit order, NOT locale collation (which
+// differs between Windows and Linux and would make the resultHash platform-dependent). 'Z' (0x5A) sorts
+// BEFORE 'a' (0x61) by code unit but AFTER under typical locale collation, and 'A.vi' vs 'b.vi' likewise.
+check('resultHash-is-code-unit-order-not-locale', () => {
+  const localeSensitive = {
+    config: 'x.viancfg',
+    vis: [
+      { viPath: 'b.vi', tests: [{ test: 'Z', result: 'pass' }, { test: 'a', result: 'fail' }] },
+      { viPath: 'A.vi', tests: [{ test: 'm', result: 'pass' }] },
+    ],
+  };
+  const s = summarizeViAnalyzerReport(localeSensitive);
+  // Independently recompute over an EXPLICIT code-unit canonical form (the cross-plane-stable order).
+  const expectCanonical = [
+    { viPath: 'A.vi', tests: [{ test: 'm', result: 'pass' }] }, // 'A'(0x41) < 'b'(0x62)
+    { viPath: 'b.vi', tests: [{ test: 'Z', result: 'pass' }, { test: 'a', result: 'fail' }] }, // 'Z'(0x5A) < 'a'(0x61)
+  ];
+  const expectHash = createHash('sha256').update(JSON.stringify(expectCanonical)).digest('hex');
+  assert(s.resultHash === expectHash, `resultHash must use code-unit order (cross-plane stable); got ${s.resultHash} want ${expectHash}`);
 });
 
 const passed = checks.filter((c) => c.pass).length;
