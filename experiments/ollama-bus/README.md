@@ -74,6 +74,9 @@ big agent (Claude) --intent + iterate model--> lba-coordinator (ollama) --collab
 node bus-agent.mjs "<intent>" --type NOTE --tail 3
 # send it (the engine posts via collab-cli):
 node bus-agent.mjs "<intent>" --type NOTE --prio P1 --post
+# autonomous watch (the constantly-iterated engine): monitor the peer + draft a governed reply to each NEW
+# message. Draft-only by default; --post autoposts (capped by --max-posts):
+node bus-agent.mjs "<standing intent>" --watch --interval 30 --rounds 0
 ```
 
 It reads the peer's recent posts (`lbabus poll --agent <peer>`), feeds them + the intent to `lba-coordinator`
