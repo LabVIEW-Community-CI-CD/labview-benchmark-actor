@@ -2,16 +2,17 @@
   "schema": "labview-benchmark-actor/multi-vm-corpus-export-receipt-v1",
   "requirement": "LBA-REQ-010",
   "test": "T-010",
-  "ranAt": "2026-07-28T15:17:05.804Z",
-  "transport": "out-of-band WinRM file-fetch (vagrant winrm Get-Content) -- NOT lbabus net; the coordination bus stays comms-only (ADR-0006/0008)",
-  "core": "experiments/host-concentration/hostConcentration.mjs concentrate()/reviewOwnRuns() (shipped, imported verbatim)",
+  "ranAt": "2026-07-28T15:48:05.645Z",
+  "transport": "out-of-band WinRM file-fetch (vagrant winrm -> base64) -- NOT lbabus net; the coordination bus stays comms-only (ADR-0006/0008)",
+  "boundary": "experiments/host-concentration/ingestCorpusManifest.mjs concentrateManifest()/dereferenceMetrics() (shipped, imported verbatim)",
+  "manifestSchema": "labview-benchmark-actor/corpus-manifest@v1",
   "coreSchema": "labview-benchmark-actor/host-concentration@v1",
   "actors": [
     "ACTOR-A",
     "ACTOR-B"
   ],
   "runCount": 4,
-  "corpusDigest": "0b583228",
+  "corpusDigest": "2dc4ea84",
   "perActorIsolation": {
     "ACTOR-A": 2,
     "ACTOR-B": 2
@@ -19,6 +20,14 @@
   "busShapedRejected": true,
   "busRejectionMessage": "corpus for ACTOR-A is bus-shaped: run data only, never bus traffic",
   "deterministicDigest": true,
+  "dereferencedMetrics": true,
+  "metricSummarySample": "cpuMean=48pct, ramMeanMiB=640, durationMs=1360, framesRendered=465",
+  "comparisonPlan": {
+    "comparisonCount": 2,
+    "sameActorOnly": true
+  },
+  "driveReady": true,
+  "driveCommand": "node experiments/ollama-comparison/drive-real-corpus.mjs --manifest experiments/multi-vm-topology/corpus-export/fetched/manifest.json",
   "pass": true,
   "concentratedCorpus": {
     "schema": "labview-benchmark-actor/host-concentration@v1",
@@ -33,31 +42,31 @@
         "actorId": "ACTOR-A",
         "runId": "actor-a-run-1",
         "completedAt": "2026-07-28T15:01:00.000Z",
-        "metricsRef": "C:\\actor-runs\\actor-a-run-1\\metrics.json",
-        "framesRef": "C:\\actor-runs\\actor-a-run-1"
+        "metricsRef": "cpuMean=48pct, ramMeanMiB=640, durationMs=1360, framesRendered=465",
+        "framesRef": "ACTOR-A/actor-a-run-1/frames.txt"
       },
       {
         "actorId": "ACTOR-A",
         "runId": "actor-a-run-2",
         "completedAt": "2026-07-28T15:02:00.000Z",
-        "metricsRef": "C:\\actor-runs\\actor-a-run-2\\metrics.json",
-        "framesRef": "C:\\actor-runs\\actor-a-run-2"
+        "metricsRef": "cpuMean=57pct, ramMeanMiB=720, durationMs=1560, framesRendered=430",
+        "framesRef": "ACTOR-A/actor-a-run-2/frames.txt"
       },
       {
         "actorId": "ACTOR-B",
         "runId": "actor-b-run-1",
         "completedAt": "2026-07-28T15:01:00.000Z",
-        "metricsRef": "C:\\actor-runs\\actor-b-run-1\\metrics.json",
-        "framesRef": "C:\\actor-runs\\actor-b-run-1"
+        "metricsRef": "cpuMean=48pct, ramMeanMiB=640, durationMs=1360, framesRendered=465",
+        "framesRef": "ACTOR-B/actor-b-run-1/frames.txt"
       },
       {
         "actorId": "ACTOR-B",
         "runId": "actor-b-run-2",
         "completedAt": "2026-07-28T15:02:00.000Z",
-        "metricsRef": "C:\\actor-runs\\actor-b-run-2\\metrics.json",
-        "framesRef": "C:\\actor-runs\\actor-b-run-2"
+        "metricsRef": "cpuMean=39pct, ramMeanMiB=560, durationMs=1160, framesRendered=500",
+        "framesRef": "ACTOR-B/actor-b-run-2/frames.txt"
       }
     ],
-    "corpusDigest": "0b583228"
+    "corpusDigest": "2dc4ea84"
   }
 }
