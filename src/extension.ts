@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -46,6 +47,39 @@ function getNonce(): string {
   return text;
 }
 
+// The demo benchmark metric (cpu% shaped) used only when the bundled mprr series is unavailable.
+const DEMO_SERIES: Array<{ t: number; v: number }> = [
+  { t: 0, v: 40 },
+  { t: 100, v: 44 },
+  { t: 200, v: 58 },
+  { t: 300, v: 63 },
+  { t: 400, v: 55 },
+  { t: 500, v: 71 },
+  { t: 600, v: 66 },
+  { t: 700, v: 48 },
+];
+
+// Load the benchmark series the viewer renders. The build (scripts/stage-media.mjs) generates
+// media/mprr-series.json from the committed mprr short-packet fixture via the absorbed ring core, so the
+// DEPLOYED viewer renders REAL mprr ring-buffer data. Falls back to the demo series if the bundled file is
+// missing/unreadable (e.g. a bare test harness), so the viewer always has a valid series.
+function loadSeries(extensionUri: vscode.Uri): Array<{ t: number; v: number }> {
+  try {
+    const path = vscode.Uri.joinPath(extensionUri, 'media', 'mprr-series.json').fsPath;
+    const parsed = JSON.parse(readFileSync(path, 'utf8'));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length > 0 &&
+      parsed.every((s) => s && typeof s.t === 'number' && typeof s.v === 'number')
+    ) {
+      return parsed;
+    }
+  } catch {
+    /* fall back to the demo series */
+  }
+  return DEMO_SERIES;
+}
+
 // Build the LBA-REQ-004 benchmark-viewer webview HTML: a strict CSP (default-src 'none'; scripts only via the
 // nonce + the webview resource origin), a non-executed JSON series data block, and the media/viewer.js module
 // (which imports the shipped, unit-tested media/viewerCursor.mjs and renders the draggable time cursor).
@@ -53,17 +87,8 @@ function viewerHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const nonce = getNonce();
   const viewerJs = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'viewer.js'));
   const cspSource = webview.cspSource;
-  // Demo benchmark metric (e.g. cpu%) sampled over the run window; a real run supplies its own series.
-  const series = [
-    { t: 0, v: 40 },
-    { t: 100, v: 44 },
-    { t: 200, v: 58 },
-    { t: 300, v: 63 },
-    { t: 400, v: 55 },
-    { t: 500, v: 71 },
-    { t: 600, v: 66 },
-    { t: 700, v: 48 },
-  ];
+  // The deployed viewer renders the real mprr ring-buffer series (build-generated); demo is the fallback.
+  const series = loadSeries(extensionUri);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
