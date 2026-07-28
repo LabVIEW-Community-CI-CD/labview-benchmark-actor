@@ -24,11 +24,15 @@ if (!existsSync(compiled)) {
 // Mock the `vscode` module (host-provided at runtime; unavailable in plain node).
 const registered = [];
 const panels = [];
+const errorMessages = [];
 const mockVscode = {
   window: {
     createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
     showInputBox: async () => undefined,
-    showErrorMessage: () => undefined,
+    showErrorMessage: (message) => {
+      errorMessages.push(message);
+      return undefined;
+    },
     createWebviewPanel: (viewType, title) => {
       const panel = {
         viewType,
@@ -61,9 +65,25 @@ const mockVscode = {
   },
 };
 
+// Mock `node:child_process` so the CLI-backed commands exercise the prerequisite-absent branch
+// deterministically -- execFile always fails with ENOENT (as if `lbabus` is not installed), regardless
+// of whether the coordination CLI happens to be on the test host's PATH.
+const childProcessMock = {
+  execFile: (_file, _args, optionsOrCallback, maybeCallback) => {
+    const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
+    callback(Object.assign(new Error('spawn lbabus ENOENT'), { code: 'ENOENT' }));
+  },
+};
+
 const originalLoad = Module._load;
 Module._load = function patchedLoad(request, parent, isMain) {
-  return request === 'vscode' ? mockVscode : originalLoad.call(this, request, parent, isMain);
+  if (request === 'vscode') {
+    return mockVscode;
+  }
+  if (request === 'node:child_process' || request === 'child_process') {
+    return childProcessMock;
+  }
+  return originalLoad.call(this, request, parent, isMain);
 };
 
 function assert(cond, msg) {
@@ -117,6 +137,19 @@ try {
   assert(/id="lba-series"/.test(html) && /"t":0/.test(html), 'viewer HTML seeds the benchmark series data block');
   assert(/<svg id="chart"/.test(html), 'viewer HTML renders the chart svg surface');
 
+  // Prerequisite-remediation (LBA-REQ-002 / T-002): invoking a CLI-backed command when the `lbabus`
+  // prerequisite is absent must surface actionable remediation via showErrorMessage rather than fail
+  // silently. child_process is mocked to fail with ENOENT, standing in for a missing coordination CLI.
+  const showCapabilities = registered.find((r) => r.id === 'labviewBenchmarkActor.showCapabilities');
+  assert(showCapabilities, 'showCapabilities command is registered');
+  await showCapabilities.handler();
+  assert(errorMessages.length === 1, 'a missing-CLI failure surfaces exactly one error message');
+  assert(/lbabus failed/.test(errorMessages[0]), 'the remediation names the failing prerequisite CLI (lbabus)');
+  assert(
+    /Install the coordination CLI/.test(errorMessages[0]),
+    'the remediation tells the operator to install the coordination CLI'
+  );
+
   ext.deactivate(); // must not throw
 } finally {
   Module._load = originalLoad;
@@ -124,6 +157,6 @@ try {
 
 console.log(
   `extension-activation: PASS -- activate() registered ${registered.length} commands ` +
-    `(${registered.map((r) => r.id).join(', ')}); deactivate() clean.`
+    `(${registered.map((r) => r.id).join(', ')}); prerequisite-remediation surfaced; deactivate() clean.`
 );
 process.exit(0);
