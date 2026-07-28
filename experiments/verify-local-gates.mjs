@@ -298,6 +298,31 @@ check('resource-usage-correlation-receipt-green', () => {
   }
   return { checks: receipt.total, triggerFrameIndex: c.triggerFrameIndex };
 });
+
+// 13. Vagrant clean-room provisioner scripts stay pure ASCII. Vagrant uploads the script and PowerShell 5.1
+//     reads a BOM-less file as the system ANSI codepage, so a non-ASCII byte (e.g. an em-dash) corrupts on
+//     upload and breaks the parse -> a SILENT `vagrant up` provisioner failure. Enforce it so a future edit
+//     cannot regress the fix (see cleanroom/README.md "Provisioner notes").
+check('cleanroom-provisioner-scripts-pure-ascii', () => {
+  const dir = join(pkgRoot, 'cleanroom');
+  if (!existsSync(dir)) {
+    return { skipped: 'no cleanroom/ directory' };
+  }
+  const scripts = readdirSync(dir).filter((n) => n.toLowerCase().endsWith('.ps1'));
+  assert(scripts.length > 0, 'expected at least one cleanroom/*.ps1 provisioner script');
+  const scanned = [];
+  for (const name of scripts) {
+    const bytes = readFileSync(join(dir, name));
+    for (let i = 0; i < bytes.length; i += 1) {
+      assert(
+        bytes[i] <= 0x7f,
+        `cleanroom/${name}: non-ASCII byte 0x${bytes[i].toString(16)} at offset ${i} -- Vagrant provisioner scripts must be pure ASCII (Vagrant upload + PS 5.1 ANSI read silently breaks the parse)`
+      );
+    }
+    scanned.push(name);
+  }
+  return { scripts: scanned };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
