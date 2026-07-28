@@ -31,6 +31,9 @@ into `benchmarkStore.mjs`; only the maintainer `init-store-on-drive.mjs` knows t
   the deterministic `seriesHash` MUST match cross-plane; the per-plane screenshot `pngSha256` is a visual
   witness reported with `match: false` when the rasters differ, which is expected across OSes). Throws unless
   BOTH planes have registered the benchmark — so a comparison never silently runs against one plane.
+- `compareRuns(benchmarkId, linuxMetrics, winMetrics)` — the pure comparison over two loose run records (the
+  store-free core `crossPlaneCompare` delegates to). Lets `compare-cross-plane.mjs` compare a LINUX run.json
+  against a WIN run.json the other plane sends over, without both being in one store.
 
 ## Cross-plane workflow (LINUX ⇄ WIN)
 
@@ -55,3 +58,6 @@ into `benchmarkStore.mjs`; only the maintainer `init-store-on-drive.mjs` knows t
 Run the self-test: `node experiments/benchmark-store/verify-benchmark-store.mjs` (gated by verify-local-gates).
 Instantiate on this box's drive: `node experiments/benchmark-store/init-store-on-drive.mjs`.
 Register the mprr benchmark run (each plane): `node experiments/benchmark-store/register-mprr-run.mjs`.
+Compare two planes' runs (the LBA-REQ-014 evidence): `node experiments/benchmark-store/compare-cross-plane.mjs
+<linux-run.json> <win-run.json>` — emits `cross-plane-comparison-receipt.json` and exits non-zero unless the
+deterministic `seriesHash` matches across planes.

@@ -94,18 +94,15 @@ export function readRun(store, plane, runId) {
 }
 
 /**
- * Cross-plane compare: pair the LINUX run and the WIN run of the same benchmarkId and report the metric deltas
- * (candidate WIN vs baseline LINUX). This is the "compare against the Windows benchmark" core -- deterministic,
- * so the next agent can repeat it. Throws if the benchmark is not present on both planes.
+ * Compare two runs' metrics (baseline LINUX vs candidate WIN) of the same benchmarkId: numeric `deltas` +
+ * string `digests` (the deterministic seriesHash MUST match cross-plane; the per-plane screenshot pngSha256 is
+ * a witness). Pure + deterministic -- works on two loose run records (e.g. WIN sends its run.json), not only a
+ * store, so the next agent can repeat the comparison anywhere.
  */
-export function crossPlaneCompare(store, benchmarkId) {
-  const idx = readIndex(store);
-  const entries = idx.runs.filter((r) => r.benchmarkId === benchmarkId);
-  const linux = entries.find((r) => r.plane === 'LINUX');
-  const win = entries.find((r) => r.plane === 'WIN');
-  assert(linux && win, `benchmark ${benchmarkId} needs a LINUX and a WIN run to compare (have ${entries.map((e) => e.plane).join(',') || 'none'})`);
-  const l = readRun(store, 'LINUX', linux.runId).metrics;
-  const w = readRun(store, 'WIN', win.runId).metrics;
+export function compareRuns(benchmarkId, linuxMetrics, winMetrics) {
+  assert(typeof benchmarkId === 'string' && benchmarkId, 'benchmarkId required');
+  const l = linuxMetrics || {};
+  const w = winMetrics || {};
   const keys = [...new Set([...Object.keys(l), ...Object.keys(w)])];
   const deltas = {};
   const digests = {};
@@ -119,4 +116,18 @@ export function crossPlaneCompare(store, benchmarkId) {
     }
   }
   return { schema: 'labview-benchmark-actor/cross-plane-compare@v1', benchmarkId, linux: l, win: w, deltas, digests };
+}
+
+/**
+ * Cross-plane compare: pair the LINUX run and the WIN run of the same benchmarkId and report the metric deltas
+ * (candidate WIN vs baseline LINUX). This is the "compare against the Windows benchmark" core -- deterministic,
+ * so the next agent can repeat it. Throws if the benchmark is not present on both planes.
+ */
+export function crossPlaneCompare(store, benchmarkId) {
+  const idx = readIndex(store);
+  const entries = idx.runs.filter((r) => r.benchmarkId === benchmarkId);
+  const linux = entries.find((r) => r.plane === 'LINUX');
+  const win = entries.find((r) => r.plane === 'WIN');
+  assert(linux && win, `benchmark ${benchmarkId} needs a LINUX and a WIN run to compare (have ${entries.map((e) => e.plane).join(',') || 'none'})`);
+  return compareRuns(benchmarkId, readRun(store, 'LINUX', linux.runId).metrics, readRun(store, 'WIN', win.runId).metrics);
 }
