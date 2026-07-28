@@ -2,3 +2,6 @@ node_modules/
 out/
 *.vsix
 media/viewerCursor.mjs
+# host-extracted NI LabVIEW offline feeds (licensed/community artifacts staged for the docker-windows mirror)
+cleanroom/docker-windows/.lv-feed/
+cleanroom/docker-windows/.lv-cli-feed/
