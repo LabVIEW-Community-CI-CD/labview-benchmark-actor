@@ -323,6 +323,26 @@ check('cleanroom-provisioner-scripts-pure-ascii', () => {
   }
   return { scripts: scanned };
 });
+
+// 14. The clean-room bootstrap installs its toolchain winget-free. `winget` is an MSIX app-execution alias
+//     that is NOT resolvable on the non-interactive WinRM provisioner PATH, so `winget install ...` in the
+//     bootstrap fails over Vagrant. Enforce winget-free installs (dotnet-install + release archives) so the
+//     fix cannot regress. (The word may still appear in an explanatory comment; only a real invocation fails.)
+check('cleanroom-bootstrap-is-winget-free', () => {
+  const bootstrap = join(pkgRoot, 'cleanroom', 'bootstrap.ps1');
+  if (!existsSync(bootstrap)) {
+    return { skipped: 'no cleanroom/bootstrap.ps1' };
+  }
+  const codeOnly = readFileSync(bootstrap, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/#.*$/, '')) // drop trailing PowerShell comments
+    .join('\n');
+  assert(
+    !/\bwinget\s+(install|upgrade|search|list|source|export|import)\b/i.test(codeOnly),
+    'cleanroom/bootstrap.ps1 invokes winget -- winget is not resolvable in the WinRM provisioner session; install winget-free (dotnet-install + direct release archives)'
+  );
+  return { wingetFree: true };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
