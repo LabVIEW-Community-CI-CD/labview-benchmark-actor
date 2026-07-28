@@ -37,6 +37,9 @@ function arg(flag, fallback) {
 const host = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 const model = arg('--model', process.env.M || 'llama3.1:8b');
 const outPath = arg('--out', null);
+// Cap the ollama context so the KV cache fits smaller-RAM planes (cross-plane finding, see
+// model-faithfulness-sweep.mjs); default null = the model's own context.
+const numCtx = Number(arg('--num-ctx', process.env.OLLAMA_CONTEXT_LENGTH || '')) || null;
 const manifestPath = resolve(
   process.cwd(),
   arg('--manifest', join(here, '..', 'host-concentration', 'fixtures', 'complete-corpus', 'manifest.json'))
@@ -54,7 +57,7 @@ const drive = async (prompt) => {
   const res = await fetch(`${host}/api/generate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: 180 } }),
+    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: 180, ...(numCtx ? { num_ctx: numCtx } : {}) } }),
   });
   if (!res.ok) {
     throw new Error(`ollama ${res.status} at ${host} -- is 'ollama serve' running with model ${model}?`);

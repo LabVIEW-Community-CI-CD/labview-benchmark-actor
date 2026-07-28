@@ -31,6 +31,11 @@ const models = arg('--models', 'llama3.1:8b,qwen2.5:14b,vichange8b-2shot,vichang
   .filter(Boolean);
 const repeats = Number(arg('--repeats', '3'));
 const outPath = arg('--out', null);
+// Cap the ollama context so the KV cache fits smaller-RAM planes. Cross-plane finding (WIN, 32GB box): llama3.1's
+// default 131072 context balloons the KV cache to ~23GB -> breaches a 32GB RAM safeguard AND starves the GPU
+// (CPU-bound, ~9% util) because it cannot fit the 8GB VRAM; a cap like 8192 keeps the 4.6GB models fully on the
+// 8GB VRAM = high GPU util AND RAM-safe. Default null = the model's own context (unchanged on large-RAM boxes).
+const numCtx = Number(arg('--num-ctx', process.env.OLLAMA_CONTEXT_LENGTH || '')) || null;
 const corpusDir = join(here, '..', 'host-concentration', 'fixtures', 'complete-corpus');
 const manifestPath = join(corpusDir, 'manifest.json');
 
@@ -64,7 +69,7 @@ async function drive(model, prompt) {
   const res = await fetch(`${host}/api/generate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: 180, temperature: 0 } }),
+    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: 180, temperature: 0, ...(numCtx ? { num_ctx: numCtx } : {}) } }),
   });
   if (!res.ok) {
     throw new Error(`ollama ${res.status} for ${model} at ${host}`);
