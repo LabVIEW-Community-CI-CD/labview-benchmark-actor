@@ -26,6 +26,18 @@ node ollamaDrive.mjs relay --port 11511 --ollama 127.0.0.1:11434 [--models llama
 node ollamaDrive.mjs drive --host 127.0.0.1 --port 11511 --model llama3.1:8b --prompt "..." [--token <secret>]
 ```
 
+## Verify (no GPU / no live ollama)
+`verify-ollama-drive.mjs` is a dependency-free self-test: it stands up a **mock** ollama endpoint,
+spawns the real relay + client, and asserts the full wire behaviour — so either plane can reproduce
+the relay + authz proof in CI / Codespaces without a GPU or a pulled model.
+
+```sh
+node verify-ollama-drive.mjs        # 7/7 checks, exit 0 (add --json for a machine-readable receipt)
+```
+
+It covers: an authorized drive streams the completion and reaches ollama; a bad token and a disallowed
+model are each rejected (exit 2) **before** any forward; an unconfigured relay is open by default.
+
 ## Proven (2026-07-28, real hardware)
 Host: ollama 0.32.3 on an NVIDIA RTX PRO 1000 Blackwell (8 GB); models `llama3.1:8b`, `qwen2.5:14b`,
 `vichange8b-2shot|fewshot`.
