@@ -536,6 +536,25 @@ check('multi-vm-corpus-export-receipt-green', () => {
   assert(receipt.deterministicDigest === true && /^[0-9a-f]{8}$/.test(receipt.corpusDigest || ''), 'corpusDigest must be deterministic 8-hex');
   return { actors: receipt.actors.length, runs: receipt.runCount, digest: receipt.corpusDigest };
 });
+
+// 25. The LBA-REQ-004 benchmark-viewer webview surface is wired and CSP-safe (T-004): the extension
+//     contributes the openViewer command, the extension source builds a strict-CSP nonce-scoped webview that
+//     loads media/viewer.js, and media/viewer.js delegates ALL cursor math to the shipped viewerCursor core
+//     (imported verbatim -- no duplicated snap logic). The interactive browser render/drag is the maintainer step.
+check('viewer-webview-surface-wired', () => {
+  const pkg = readJson('package.json');
+  const commands = (pkg.contributes && Array.isArray(pkg.contributes.commands) ? pkg.contributes.commands : []).map((c) => c.command);
+  assert(commands.includes('labviewBenchmarkActor.openViewer'), 'the manifest must contribute the openViewer command');
+  const ext = readFileSync(join(pkgRoot, 'src', 'extension.ts'), 'utf8');
+  assert(/default-src 'none'/.test(ext) && /script-src 'nonce-/.test(ext), 'the viewer webview must set a strict nonce CSP');
+  assert(/viewer\.js/.test(ext), 'the viewer webview must load media/viewer.js');
+  const viewer = readFileSync(join(pkgRoot, 'media', 'viewer.js'), 'utf8');
+  assert(/from '\.\/viewerCursor\.mjs'/.test(viewer), 'media/viewer.js must import the shipped viewerCursor core (no duplicated snap math)');
+  for (const fn of ['createCursor', 'setPointer', 'step', 'jump']) {
+    assert(new RegExp(`\\b${fn}\\b`).test(viewer), `media/viewer.js must use the proven ${fn}`);
+  }
+  return { command: 'openViewer', reusesCursorCore: true };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

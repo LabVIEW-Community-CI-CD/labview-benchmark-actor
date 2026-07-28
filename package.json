@@ -29,12 +29,16 @@
       {
         "command": "labviewBenchmarkActor.postNote",
         "title": "LabVIEW Benchmark Actor: Post Coordination Note"
+      },
+      {
+        "command": "labviewBenchmarkActor.openViewer",
+        "title": "LabVIEW Benchmark Actor: Open Benchmark Viewer"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && node -e \"const fs=require('fs');fs.mkdirSync('media',{recursive:true});fs.copyFileSync('experiments/viewer-cursor/viewerCursor.mjs','media/viewerCursor.mjs')\"",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node test/extension-activation.mjs",
     "package": "vsce package --out labview-benchmark-actor.vsix"
