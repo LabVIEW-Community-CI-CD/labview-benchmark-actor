@@ -294,6 +294,34 @@ ADR-0006).
 
 ---
 
+### LBA-REQ-013: Prioritized, addressable coordination messages
+
+- Status: Proposed
+- Area: Agentic infrastructure (extends LBA-REQ-007, LBA-REQ-012)
+- Statement: The coordination bus shall let a sender tag a message with a
+  priority tier and an explicit addressee, and shall let a reader filter its
+  inbox by both, so a busy agent can triage which messages to attend to first
+  without reading every message. The fields shall be additive and
+  backward-read-compatible so an older client parses and ignores them.
+- Acceptance Criteria:
+  - `lbabus post --priority <P0|P1|P2|P3>` stamps a flat `prio` tier on the
+    message (most-urgent first, default `P2`); an absent `prio` reads as `P2`.
+  - `lbabus post` stamps the sender's `agentId` (env `VIHS_COLLAB_AGENT_ID`,
+    default the plane label); `--to <A>` addresses a plane or an `agentId`.
+  - `lbabus poll`/`wait --to-me` keeps only messages addressed to the reader (a
+    broadcast, or a `to` matching the reader's plane or `agentId`) and drops
+    messages aimed at the other plane.
+  - `lbabus poll`/`wait --min-priority <tier>` keeps only messages at least that
+    urgent.
+  - The additive fields are flat scalars and the wire `schema` is unchanged
+    (`vihs-collab-msg@v1`), so a prior-version reader parses the known fields and
+    ignores the new ones; a nested-object or schema-bumped envelope is rejected.
+- Change Guidance: Keep any future envelope field a flat scalar and keep the
+  schema at `vihs-collab-msg@v1`; a nested field or a schema bump silently drops
+  the message on already-deployed readers (verified cross-plane, finding 17812593).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -310,3 +338,4 @@ ADR-0006).
 | LBA-REQ-010 | Analysis (concentration + ollama) | T-010 |
 | LBA-REQ-011 | Analysis (resource correlation) | T-011 |
 | LBA-REQ-012 | Agentic infra (base instructions) | T-012 |
+| LBA-REQ-013 | Agentic infra (coordination bus) | T-013 |

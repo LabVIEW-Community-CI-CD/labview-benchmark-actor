@@ -1,0 +1,18 @@
+{
+  "name": "linux-envelope-flat-additive-back-read-compat",
+  "owner": "LINUX",
+  "description": "Back-read-compatibility regression for the v0.7.0 additive envelope (LBA-REQ-013), locking in the two hard constraints WIN verified on the Windows plane (bus finding 17812593), both rooted in the v1 flat-object extractor regex + the Ordinal schema check in CollabMessage.TryParse. POSITIVE: a FLAT envelope carrying scalar prio/agentId/to parses through the real reader and round-trips (urgent-p0-to-linux with `- prio: P0` and `- agentId: LINUX-a` rendered) — so an older reader parses-and-ignores rather than dropping. NEGATIVE (must fail-when-they-should): a NESTED priority object and a schema@v2 bump each defeat the v1 extractor and are SILENTLY DROPPED, so poll shows neither `nested-priority-must-drop` nor `schema-bumped-must-drop`. If a future change relaxed constraint (1) flat-scalars or (2) schema==v1, a dropped marker would surface here and fail the gate.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-priority"
+  },
+  "args": ["poll", "--agent", "WIN", "--full", "--tail", "10"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["urgent-p0-to-linux", "- prio: P0", "- agentId: LINUX-a"],
+    "stdoutNotContains": ["nested-priority-must-drop", "schema-bumped-must-drop"]
+  }
+}

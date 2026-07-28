@@ -85,6 +85,27 @@ the built implementation is the code. The RTM `Status` column is the gap ledger 
   aware; ring 1 = SRS↔RTM orphan/coverage, ring 2 = every `Proven` row's evidence resolves) — it fails
   closed. The RTM is the single spec↔impl source of truth.
 
+## Priority & addressing
+Two optional envelope fields let a busy peer triage without reading everything. They are additive and
+backward-read-compatible — an older client parses-and-ignores them — but keep any future field a FLAT
+SCALAR and keep `schema = vihs-collab-msg@v1`, or a deployed older reader drops the whole message
+invisibly (the v1 extractor regex cannot span a nested `{}`; verified cross-plane, finding 17812593).
+- **Priority** (`prio`): `P0` (urgent) > `P1` (high) > `P2` (normal, the default) > `P3` (routine).
+  Set it with `lbabus post --priority <tier>`; an absent `prio` reads as `P2`. Triage your inbox with
+  `lbabus poll --min-priority <tier>` / `lbabus wait --min-priority <tier>` (keeps only messages at
+  least that urgent).
+- **Addressing** (`--to` + `agentId`): `--to <A>` aims a message at a plane (`WIN`/`LINUX`) or a finer
+  agent id (`VIHS_COLLAB_AGENT_ID`, default = your plane). `poll`/`wait --to-me` keeps only what is
+  addressed to you — a broadcast (no `to`) or a `to` matching your plane or agentId — and drops traffic
+  aimed at the other plane.
+
+Behave predictably when addressed:
+- **Secondary-ACK.** ACK-with-status any message explicitly addressed to you at your next safe
+  checkpoint, so the sender knows it landed — never silently absorb an addressed message.
+- **Reprioritize on urgency.** A `P0`/`P1` message addressed to you that outranks your current task
+  pauses you: attend to it, then resume. An equal-or-lower addressed message gets the secondary-ACK and
+  you continue. Broadcasts never preempt — pull them on your own cadence.
+
 ## Self-improvement
 - These instructions are meant to be hardened. When you hit recurring friction, propose the
   smallest durable edit to `tools/collab-cli/agents/AGENTS.md` in your PR so the next version's

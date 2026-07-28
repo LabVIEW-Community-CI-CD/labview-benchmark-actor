@@ -109,9 +109,21 @@ internal static class CommandRouter
             message = File.ReadAllText(messageFile);
         }
 
+        string? priorityArg = a.Get("priority");
+        string? prio = null;
+        if (priorityArg is not null)
+        {
+            prio = Priority.TryNormalize(priorityArg);
+            if (prio is null)
+            {
+                return Fail($"invalid --priority '{priorityArg}'. Valid: {string.Join(", ", Priority.Tiers)} (default {Priority.Default}).");
+            }
+        }
+
         var msg = new CollabMessage
         {
             Agent = cfg.Agent,
+            AgentId = cfg.AgentId,
             Ts = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture),
             Type = type,
             Task = a.Get("task"),
@@ -119,6 +131,7 @@ internal static class CommandRouter
             Ref = a.Get("ref"),
             Next = a.Get("next"),
             To = a.Get("to"),
+            Prio = prio,
         };
 
         using var gh = new GitHubGraphQL();
@@ -159,6 +172,12 @@ internal static class CommandRouter
         string? type = a.Get("type");
         DateTimeOffset? since = a.GetTimestamp("since");
         bool full = a.Get("full") is not null;
+        bool toMe = a.Get("to-me") is not null;
+        string? minPrio = a.Get("min-priority");
+        if (minPrio is not null && Priority.TryNormalize(minPrio) is null)
+        {
+            return Fail($"invalid --min-priority '{minPrio}'. Valid: {string.Join(", ", Priority.Tiers)}.");
+        }
 
         using var gh = new GitHubGraphQL();
         DiscussionRef? disc = gh.FindDiscussion(cfg);
@@ -172,6 +191,8 @@ internal static class CommandRouter
             .Where(m => agent is null || Eq(m.Agent, agent))
             .Where(m => type is null || Eq(m.Type, type))
             .Where(m => since is null || m.CreatedAt > since)
+            .Where(m => !toMe || cfg.AddressesMe(m.To))
+            .Where(m => minPrio is null || Priority.MeetsThreshold(m.Prio, minPrio))
             .ToList();
 
         Console.WriteLine($"# {disc.Url}  ({messages.Count} message(s))");
@@ -190,6 +211,12 @@ internal static class CommandRouter
         DateTimeOffset since = a.GetTimestamp("since") ?? DateTimeOffset.UtcNow;
         int timeoutSec = a.GetInt("timeout", 1800);
         int intervalSec = Math.Max(a.GetInt("interval", 20), 5);
+        bool toMe = a.Get("to-me") is not null;
+        string? minPrio = a.Get("min-priority");
+        if (minPrio is not null && Priority.TryNormalize(minPrio) is null)
+        {
+            return Fail($"invalid --min-priority '{minPrio}'. Valid: {string.Join(", ", Priority.Tiers)}.");
+        }
 
         using var gh = new GitHubGraphQL();
         int? staleExit = EnforceVersionOrNull(gh, cfg);
@@ -226,6 +253,8 @@ internal static class CommandRouter
 
             List<CollabMessage> hits = ParseAll(gh.ListComments(cfg, disc.Number, 50))
                 .Where(m => Eq(m.Agent, target) && m.CreatedAt > since)
+                .Where(m => !toMe || cfg.AddressesMe(m.To))
+                .Where(m => minPrio is null || Priority.MeetsThreshold(m.Prio, minPrio))
                 .OrderBy(m => m.CreatedAt)
                 .ToList();
 
@@ -601,9 +630,9 @@ internal static class CommandRouter
               lbabus version
               lbabus capabilities                    # aka caps - pinned toolchain + host capabilities (Docker/Vagrant/VMware/LabVIEW)
               lbabus init
-              lbabus post --type <T> [--task <id>] [--message <m> | --message-file <f>] [--ref <sha>] [--next <n>] [--to <A>]
-              lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>] [--full]
-              lbabus wait [--agent LINUX|WIN] [--since <iso>] [--timeout <sec>] [--interval <sec>]
+              lbabus post --type <T> [--task <id>] [--message <m> | --message-file <f>] [--ref <sha>] [--next <n>] [--to <A>] [--priority P0|P1|P2|P3]
+              lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>] [--full] [--to-me] [--min-priority P0|P1|P2|P3]
+              lbabus wait [--agent LINUX|WIN] [--since <iso>] [--timeout <sec>] [--interval <sec>] [--to-me] [--min-priority P0|P1|P2|P3]
               lbabus selfcheck                       # aka doctor/preflight — pinned deps + version current
               lbabus grep <ripgrep args...>          # aka rg/search — ripgrep-only, no fallback
               lbabus defect --message <m> | --message-file <f> [--title <t>]
@@ -628,6 +657,7 @@ internal static class CommandRouter
               VIHS_COLLAB_CATEGORY   default General
               VIHS_COLLAB_TITLE      default 'labview-benchmark-actor coordination bus (WIN <-> LINUX)'
               VIHS_COLLAB_AGENT      default WIN on Windows, LINUX otherwise
+              VIHS_COLLAB_AGENT_ID   default = plane label; a finer per-plane agent id for --to / --to-me
               LBABUS_DEFECT_ISSUE    default #7   LBABUS_SKIP_VERSION_CHECK   bypass version guard
               LBABUS_GITHUB_API      override the GitHub API base (hermetic CI mock; fail-closed if unreachable)
 
