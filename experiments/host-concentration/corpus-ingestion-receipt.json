@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "labview-benchmark-actor/corpus-ingestion-receipt-v1",
+  "manifestSchema": "labview-benchmark-actor/corpus-manifest@v1",
+  "total": 6,
+  "passed": 6,
+  "failed": 0,
+  "concentrated": {
+    "actors": 2,
+    "runCount": 4,
+    "comparisonCount": 2
+  },
+  "results": [
+    {
+      "name": "sample-manifest-file-ingests-preserving-isolation",
+      "pass": true,
+      "detail": {
+        "actors": 2,
+        "runs": 4,
+        "digest": "f5175e26"
+      }
+    },
+    {
+      "name": "ingested-corpus-yields-same-actor-comparison-pairs",
+      "pass": true,
+      "detail": {
+        "comparisons": 2
+      }
+    },
+    {
+      "name": "bare-array-manifest-normalizes-like-the-envelope",
+      "pass": true,
+      "detail": {
+        "corpora": 1
+      }
+    },
+    {
+      "name": "malformed-manifest-missing-runId-is-rejected",
+      "pass": true,
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "non-manifest-object-is-rejected",
+      "pass": true,
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "missing-manifest-file-fails-with-the-path",
+      "pass": true,
+      "detail": {
+        "rejected": true
+      }
+    }
+  ]
+}

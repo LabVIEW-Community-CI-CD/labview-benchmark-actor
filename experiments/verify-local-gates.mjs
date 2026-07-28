@@ -481,6 +481,23 @@ check('devcontainer-codespace-install-route', () => {
   );
   return { image: dc.image };
 });
+
+// 22. The corpus-manifest ingestion boundary receipt is green: the run-topology.ps1 -> host-concentration
+//     contract ingests the sample manifest (2 golden-box actors, 4 runs), concentrates it preserving
+//     per-actor isolation, and yields a same-actor-only comparison plan (LBA-REQ-010, T-010). This is the
+//     glue that lets WIN's emitted corpus manifest feed the concentrate -> ollama-compare path with no hand
+//     editing; the live host-side ollama drive over the REAL concentrated corpus stays the maintainer step.
+check('corpus-ingestion-contract-green', () => {
+  const receipt = readJson(join('experiments', 'host-concentration', 'corpus-ingestion-receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/corpus-ingestion-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  assert(receipt.manifestSchema === 'labview-benchmark-actor/corpus-manifest@v1', 'manifest schema mismatch');
+  const c = receipt.concentrated;
+  assert(c && c.actors >= 2, `ingestion must concentrate >= 2 actors, got ${c && c.actors}`);
+  assert(c.runCount >= c.actors, 'runCount must be at least one run per actor');
+  assert(c.comparisonCount === c.runCount - c.actors, 'comparisons must equal (runs - actors) for consecutive same-actor pairing');
+  return { checks: receipt.total, actors: c.actors, runs: c.runCount, comparisons: c.comparisonCount };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
