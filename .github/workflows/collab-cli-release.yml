@@ -33,6 +33,9 @@ jobs:
       - name: Harness — musl RID contract (glibc self-contained native fails on musl)
         run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-musl-native .
 
+      - name: Harness — cross-process lease mutual-exclusion (concurrency gate)
+        run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-stress .
+
   release:
     needs: harness
     runs-on: ubuntu-latest
