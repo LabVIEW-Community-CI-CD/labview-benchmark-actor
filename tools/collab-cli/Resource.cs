@@ -159,8 +159,22 @@ internal static class LeaseStore
         }
     }
 
+    /// <summary>Atomically replace a lease (temp file + rename) so a reader never observes an empty/torn file.</summary>
     public static void Write(ResourceLease lease)
-        => File.WriteAllText(PathFor(lease.Resource), JsonSerializer.Serialize(lease, Json));
+    {
+        string path = PathFor(lease.Resource);
+        string tmp = path + ".tmp." + Guid.NewGuid().ToString("N");
+        File.WriteAllText(tmp, JsonSerializer.Serialize(lease, Json));
+        try
+        {
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tmp); } catch { /* best effort */ }
+            throw;
+        }
+    }
 
     public static void Delete(string resource)
     {
@@ -297,16 +311,49 @@ internal static class ResourceCommands
             return (AcquireResult.Acquired, null);
         }
 
-        ResourceLease? existing = LeaseStore.Read(LeaseStore.PathFor(name));
-        if (existing is null || LeaseStore.IsStale(existing, out _))
+        // The exclusive create failed — a lease file exists. Read it.
+        string path = LeaseStore.PathFor(name);
+        ResourceLease? existing = LeaseStore.Read(path);
+
+        // A torn/empty/locked read means another agent is creating or writing its lease RIGHT NOW. Treat it as
+        // held and NEVER reclaim it — reclaiming on null is what let a racer delete an in-flight winner's
+        // still-empty lease and steal it, cascading to N winners (LINUX #15 concurrency-stress finding).
+        if (existing is null)
         {
-            // Reclaim: delete the stale/torn lease and retry the atomic create. If another agent wins the
-            // race, its exclusive-create beats ours and we report Held.
-            LeaseStore.Delete(name);
-            return LeaseStore.TryCreate(lease) ? (AcquireResult.Stolen, null) : (AcquireResult.Held, LeaseStore.Read(LeaseStore.PathFor(name)));
+            return (AcquireResult.Held, null);
         }
 
-        return (AcquireResult.Held, existing);
+        // A valid, live lease — held by its holder.
+        if (!LeaseStore.IsStale(existing, out _))
+        {
+            return (AcquireResult.Held, existing);
+        }
+
+        // A valid but STALE lease (TTL expired or dead pid). Reclaim via a rename compare-and-swap instead of
+        // Delete+Create (which raced): exactly one racer wins moving THIS file aside.
+        string reclaimTmp = path + ".reclaim." + Guid.NewGuid().ToString("N");
+        try
+        {
+            File.Move(path, reclaimTmp);
+        }
+        catch (IOException)
+        {
+            // Lost the reclaim race (another agent moved it first) or it is in-flight — held.
+            return (AcquireResult.Held, LeaseStore.Read(path));
+        }
+
+        // Guard: verify what we moved aside is still stale. If it was refreshed between our read and our move,
+        // restore it and report held so we never reclaim a live lease.
+        ResourceLease? moved = LeaseStore.Read(reclaimTmp);
+        if (moved is not null && !LeaseStore.IsStale(moved, out _))
+        {
+            try { File.Move(reclaimTmp, path); }
+            catch { try { File.Delete(reclaimTmp); } catch { /* best effort */ } }
+            return (AcquireResult.Held, moved);
+        }
+
+        try { File.Delete(reclaimTmp); } catch { /* already gone */ }
+        return LeaseStore.TryCreate(lease) ? (AcquireResult.Stolen, null) : (AcquireResult.Held, LeaseStore.Read(path));
     }
 
     private static int Release(string? name, string agent)
