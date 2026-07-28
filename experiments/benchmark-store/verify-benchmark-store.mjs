@@ -17,6 +17,7 @@ import {
   listRuns,
   readRun,
   crossPlaneCompare,
+  compareRuns,
 } from './benchmarkStore.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -90,6 +91,14 @@ try {
     assert(d && d.seriesHash && d.seriesHash.match === true, 'seriesHash must match cross-plane (deterministic data)');
     assert(d.pngSha256 && d.pngSha256.match === false, 'differing screenshot witness is surfaced, not deltafied');
     assert(sampleCompare.deltas.seriesHash === undefined, 'string digests are not treated as numeric deltas');
+  });
+
+  // compareRuns is a pure function over two loose run records (WIN sends its run.json) -> same result as the
+  // store-backed crossPlaneCompare. This is what compare-cross-plane.mjs uses to flip LBA-REQ-014.
+  check('compareRuns pairs two loose records identically to the store-backed compare', () => {
+    const direct = compareRuns('vi-render-8vi', linuxMetrics, winMetrics);
+    assert(JSON.stringify(direct) === JSON.stringify(sampleCompare), 'compareRuns == crossPlaneCompare');
+    assert(direct.digests.seriesHash.match === true, 'compareRuns reports the seriesHash agreement');
   });
 
   // Teeth 1: comparing a benchmark present on only one plane must throw.

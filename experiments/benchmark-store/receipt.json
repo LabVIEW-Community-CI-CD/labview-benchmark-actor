@@ -1,8 +1,8 @@
 {
   "schemaVersion": "labview-benchmark-actor/benchmark-store-receipt-v1",
   "storeSchema": "labview-benchmark-actor/benchmark-store@v1",
-  "total": 6,
-  "passed": 6,
+  "total": 7,
+  "passed": 7,
   "failed": 0,
   "sampleCompare": {
     "schema": "labview-benchmark-actor/cross-plane-compare@v1",
@@ -80,6 +80,11 @@
     },
     {
       "name": "cross-plane compare reports content-digest agreement (seriesHash match, screenshot witness)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "compareRuns pairs two loose records identically to the store-backed compare",
       "pass": true,
       "detail": null
     },
