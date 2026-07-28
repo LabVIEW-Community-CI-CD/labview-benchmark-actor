@@ -60,10 +60,11 @@ Install-ToolArchive 'glab'    'https://gitlab.com/api/v4/projects/gitlab-org%2Fc
 # Make the .NET global-tools dir (where lbabus installs below) visible on PATH.
 Add-MachinePath "$env:USERPROFILE\.dotnet\tools"
 
-# Locate the synced collab-cli source (SMB mount from the host repo).
-$src = @('C:\vagrant-src\tools\collab-cli', 'C:\vagrant\tools\collab-cli') |
+# Locate the collab-cli source. Prefer a box-baked copy (self-contained: no host repo / SMB / creds),
+# then fall back to the SMB synced folder for a dev host that syncs its working tree.
+$src = @('C:\cleanroom-src\tools\collab-cli', 'C:\vagrant-src\tools\collab-cli', 'C:\vagrant\tools\collab-cli') |
     Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $src) { throw '[cleanroom] collab-cli source not found in the synced folder.' }
+if (-not $src) { throw '[cleanroom] collab-cli source not found (bake it into C:\cleanroom-src or sync it).' }
 
 Write-Host "[cleanroom] building collab-cli from $src ..."
 Push-Location $src
