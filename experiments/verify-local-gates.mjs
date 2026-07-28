@@ -281,6 +281,23 @@ check('all-plane-receipts-authoritative-zero-skew', () => {
   assert(seen.length >= 1, 'at least one plane conformance receipt must be present');
   return { receipts: seen };
 });
+
+// 12. Resource-usage correlation receipt is green and the CPU/RAM/disk pre/post
+//     window analysis is well-formed (LBA-REQ-011, T-011).
+check('resource-usage-correlation-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'resource-usage-correlation', 'receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/resource-usage-correlation-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  const c = receipt.correlation;
+  assert(c && c.schema === 'labview-benchmark-actor/resource-usage-correlation@v1', 'correlation schema mismatch');
+  assert(typeof c.triggerFrameIndex === 'number', 'triggerFrameIndex must be a number');
+  for (const metric of ['cpu', 'ram', 'disk']) {
+    const w = c.windows && c.windows[metric];
+    assert(w && typeof w.deltaMean === 'number', `windows.${metric}.deltaMean must be a number`);
+    assert(w.pre && w.post && typeof w.pre.mean === 'number' && typeof w.post.mean === 'number', `windows.${metric} pre/post mean must be numeric`);
+  }
+  return { checks: receipt.total, triggerFrameIndex: c.triggerFrameIndex };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

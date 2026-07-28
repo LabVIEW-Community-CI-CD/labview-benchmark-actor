@@ -30,6 +30,7 @@
 | T-008 | LBA-REQ-008 | Static / CM | Assert `README.md` and `docs/cm/cm-plan.md` name `repo-standards-review` v0.2.19 (commit `d44f210d`); assert the `docs/` lane layout matches the standards runner; assert requirement IDs are unchanged after a simulated move. |
 | T-009 | LBA-REQ-009 | Integration | Assert captured pictures are written to the VM-local mprr **long-packet** ring buffer and their index/timestamp to the **short-packet** stream (per mprr ADR-0024); assert the run-result frame `ref` resolves against the local mprr review-capture store; assert **nothing from the ring buffer crosses the bus** (the bus is inter-actor comms only). |
 | T-010 | LBA-REQ-010 | Integration + static | Assert the viewer operates over the actor's own local run history (no cross-VM read, no run data on the bus); assert completed runs are concentrated to the operator's host by an explicit out-of-band step (not the bus); assert the host-side ollama comparison layer consumes the concentrated corpus. |
+| T-011 | LBA-REQ-011 | Unit (deterministic logic) | Build the correlation over a synthetic CPU/RAM/disk series with a pre/post trigger; assert each sample maps to the correct frame index (null before frame zero), the trigger resolves to a frame index, samples split pre/post correctly, and each metric's pre/post window (count/mean/min/max) and post-minus-pre delta are correct; assert null counters are skipped and invalid input fails closed. |
 
 ## Browser / UI validation
 
@@ -49,9 +50,10 @@ gate rather than trusted as static files.
 - **Gate:** `node experiments/verify-local-gates.mjs` (dependency-free ESM). It
   asserts the bus-prototype receipt is green (12/12), the OCR-primitive engine
   is available with byte-exact readback, the shared retained inputs
-  (`ground-truth-ledger.json`, `surface-metadata.json`) are present, and every
-  RTM `Proven` row cites an existing evidence path. Exit code is non-zero on any
-  failure.
+  (`ground-truth-ledger.json`, `surface-metadata.json`) are present, every
+  RTM `Proven` row cites an existing evidence path, and the CPU/RAM/disk
+  resource-usage correlation receipt is green (LBA-REQ-011). Exit code is
+  non-zero on any failure.
 - **Cross-platform by design.** The seeded workflow
   `.github/workflows/lba-local-gates.yml` runs the gate on **both** a
   `linux-native` and a `windows-native` runner. That parity is the near-term

@@ -244,6 +244,33 @@ ADR-0006).
 - Change Guidance: Keep coordination (bus) and run data (VM-local + host
   concentration) strictly separate; the bus is never a run-data channel.
 
+### LBA-REQ-011: CPU/RAM/disk usage correlation with a pre/post-trigger window
+
+- Status: Proposed
+- Area: Analysis / Resource correlation
+- Statement: The system shall correlate **CPU, RAM, and disk** usage samples to
+  the benchmark **frame timeline** on a shared epoch-ms / frame axis and, anchored
+  on a **trigger** instant (e.g. the LabVIEW Getting-Started-Window-visible frame
+  or the benchmark-start marker), shall compute a **pre/post-trigger window
+  analysis** — count, mean, min, max and the post-minus-pre delta — for each
+  metric.
+- Acceptance Criteria:
+  - Every resource sample resolves to a frame index (floor of elapsed / frame
+    interval; null before frame zero, never clamped), matching the frame-index
+    rule the picture-cursor viewer uses (LBA-REQ-005).
+  - The trigger instant resolves to a `triggerFrameIndex`, and each sample is
+    classified `pre` or `post` relative to it, with `sinceTriggerMs` recorded.
+  - Per metric (CPU %, RAM MB, disk %) a pre-window and a post-window summary
+    (count, mean, min, max) and a `deltaMean = post.mean − pre.mean` are emitted;
+    a sample whose counter was absent (null) is skipped in that metric's summary.
+  - The core is pure and deterministic (no I/O, no capture dependency) so the
+    local gate re-validates it: `[Confirmed 2026-07-28]` the self-test is 9/9
+    green over a canonical series with a Getting-Started-Window-visible trigger at
+    frame 12 (see `experiments/resource-usage-correlation/`).
+- Change Guidance: Sampling (typeperf / logman / Get-Counter) and the live
+  Getting-Started-Window capture live in the capture harness (the maintainer / VM
+  step); keep this module pure so it stays a re-runnable gate artifact.
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -260,3 +287,4 @@ ADR-0006).
 | LBA-REQ-008 | CM / move | T-008 |
 | LBA-REQ-009 | Storage (mprr ring buffer) | T-009 |
 | LBA-REQ-010 | Analysis (concentration + ollama) | T-010 |
+| LBA-REQ-011 | Analysis (resource correlation) | T-011 |

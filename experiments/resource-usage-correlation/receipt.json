@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "labview-benchmark-actor/resource-usage-correlation-receipt-v1",
+  "generatedBy": "experiments/resource-usage-correlation/verify-resource-correlation.mjs",
+  "total": 9,
+  "passed": 9,
+  "failed": 0,
+  "results": [
+    {
+      "name": "schema-and-shape",
+      "pass": true
+    },
+    {
+      "name": "trigger-lands-on-frame-12",
+      "pass": true
+    },
+    {
+      "name": "samples-sorted-and-frame-index-monotonic",
+      "pass": true
+    },
+    {
+      "name": "phase-split-on-trigger",
+      "pass": true
+    },
+    {
+      "name": "cpu-ram-disk-window-means-and-deltas",
+      "pass": true
+    },
+    {
+      "name": "every-metric-window-well-formed-and-rising",
+      "pass": true
+    },
+    {
+      "name": "null-counter-samples-skipped-in-window",
+      "pass": true
+    },
+    {
+      "name": "frame-index-null-before-frame-zero",
+      "pass": true
+    },
+    {
+      "name": "fail-closed-on-invalid-input",
+      "pass": true
+    }
+  ],
+  "correlation": {
+    "schema": "labview-benchmark-actor/resource-usage-correlation@v1",
+    "schemaVersion": 1,
+    "frameRateHz": 12,
+    "frameIntervalMs": 83.33333333333333,
+    "epochMsAtFrameZero": 1000,
+    "triggerEpochMs": 2000,
+    "triggerFrameIndex": 12,
+    "sampleCount": 6,
+    "preSampleCount": 2,
+    "postSampleCount": 4,
+    "correlatedSamples": [
+      {
+        "epochMs": 1000,
+        "frameIndex": 0,
+        "sinceTriggerMs": -1000,
+        "phase": "pre",
+        "cpuPct": 5,
+        "ramMb": 400,
+        "diskPct": 2
+      },
+      {
+        "epochMs": 1500,
+        "frameIndex": 6,
+        "sinceTriggerMs": -500,
+        "phase": "pre",
+        "cpuPct": 8,
+        "ramMb": 410,
+        "diskPct": 3
+      },
+      {
+        "epochMs": 2000,
+        "frameIndex": 12,
+        "sinceTriggerMs": 0,
+        "phase": "post",
+        "cpuPct": 60,
+        "ramMb": 500,
+        "diskPct": 40
+      },
+      {
+        "epochMs": 2500,
+        "frameIndex": 18,
+        "sinceTriggerMs": 500,
+        "phase": "post",
+        "cpuPct": 55,
+        "ramMb": 650,
+        "diskPct": 35
+      },
+      {
+        "epochMs": 3000,
+        "frameIndex": 24,
+        "sinceTriggerMs": 1000,
+        "phase": "post",
+        "cpuPct": 40,
+        "ramMb": 700,
+        "diskPct": 20
+      },
+      {
+        "epochMs": 3500,
+        "frameIndex": 30,
+        "sinceTriggerMs": 1500,
+        "phase": "post",
+        "cpuPct": 20,
+        "ramMb": 680,
+        "diskPct": 10
+      }
+    ],
+    "windows": {
+      "cpu": {
+        "field": "cpuPct",
+        "pre": {
+          "count": 2,
+          "mean": 6.5,
+          "min": 5,
+          "max": 8
+        },
+        "post": {
+          "count": 4,
+          "mean": 43.75,
+          "min": 20,
+          "max": 60
+        },
+        "deltaMean": 37.25
+      },
+      "ram": {
+        "field": "ramMb",
+        "pre": {
+          "count": 2,
+          "mean": 405,
+          "min": 400,
+          "max": 410
+        },
+        "post": {
+          "count": 4,
+          "mean": 632.5,
+          "min": 500,
+          "max": 700
+        },
+        "deltaMean": 227.5
+      },
+      "disk": {
+        "field": "diskPct",
+        "pre": {
+          "count": 2,
+          "mean": 2.5,
+          "min": 2,
+          "max": 3
+        },
+        "post": {
+          "count": 4,
+          "mean": 26.25,
+          "min": 10,
+          "max": 40
+        },
+        "deltaMean": 23.75
+      }
+    }
+  }
+}
