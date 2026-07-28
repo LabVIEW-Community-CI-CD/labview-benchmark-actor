@@ -26,6 +26,7 @@ import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mj
 import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
 import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
 import { validateViAnalyzerReport } from './vi-analyzer/validate-vi-analyzer-report.mjs';
+import { parseAsciiReport } from './vi-analyzer/parse-vi-analyzer-ascii.mjs';
 import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -679,6 +680,25 @@ check('vi-analyzer-report-schema-green', () => {
   });
   assert(bad.ok === false && bad.errors.length === 4, `malformed report rejected with 4 errors, got ${bad.errors.length}`);
   return { schemaId: schema.$id, fixtureValid: good.ok };
+});
+check('vi-analyzer-ascii-parser-green', () => {
+  // The reference ASCII parser (WIN's convenience) turns a REAL LabVIEWCLI RunVIAnalyzer ASCII report into the
+  // v2 shape. Proven: an all-pass completion line -> summary + empty findings; a with-findings report ->
+  // consistent findings. Both validate and summarize to a resultHash.
+  const allpass = parseAsciiReport('VI Analyzer completed. 452 tests passed, 0 failed, 0 skipped, 0 unloadable, 0 error\n', 'lv_icon_editor.viancfg');
+  assert(allpass.summary.passed === 452 && allpass.summary.failed === 0 && allpass.findings.length === 0, 'all-pass completion line parsed');
+  assert(validateViAnalyzerReport(allpass).ok === true, 'parsed all-pass report validates');
+  const withF = parseAsciiReport(
+    'VI Analyzer completed. 5 tests passed, 2 failed, 0 skipped, 0 unloadable, 1 error\n\nFailed Tests (sorted by VI)\nMain.vi\n  Spelling\nresource/plugins/lv_icon.vi\n  Spelling\n\nTesting Errors\nMain.vi\n  VI Documentation\n',
+    'icon.viancfg',
+  );
+  assert(withF.summary.failed === 2 && withF.summary.error === 1, 'with-findings counts parsed');
+  assert(withF.findings.length === 3, `3 findings extracted, got ${withF.findings.length}`);
+  const v = validateViAnalyzerReport(withF);
+  assert(v.ok === true, `parsed with-findings report validates (consistency): ${v.errors.join('; ')}`);
+  const s = summarizeViAnalyzerReport(withF);
+  assert(/^[0-9a-f]{64}$/.test(s.resultHash), 'parsed report yields a resultHash');
+  return { allPassTests: allpass.summary.passed, findings: withF.findings.length };
 });
 check('mprr-packet-harness-profiles-green', () => {
   // The mprr rate profiles (MPRR-REQ-115-119) drive the absorbed ring across load shapes: steady is
