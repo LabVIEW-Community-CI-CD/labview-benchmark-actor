@@ -1,6 +1,6 @@
 {
   "name": "labview-benchmark-actor",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22",
   "features": {
     "ghcr.io/devcontainers/features/dotnet:2": {
       "version": "8.0"
