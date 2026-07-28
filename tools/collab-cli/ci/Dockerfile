@@ -99,3 +99,14 @@ RUN if /usr/local/bin/lbabus version >/dev/null 2>&1; then \
     else \
         echo "OK: glibc self-contained native correctly fails on musl (RID contract holds, exit $?)"; \
     fi
+
+# ---- ci-reqs: spec<->impl requirements-coverage gate (the RTM gap ledger, enforced) ----------------
+# Runs the dependency-free reqs-coverage check (ring 1: SRS<->RTM orphan/coverage both directions;
+# ring 2: every Status=Proven row's TestID + CodeRef resolve) so a release fails closed if the built
+# specification and the built implementation drift apart. Node-only (the check is dep-free ESM); the
+# hosted mirror of the local `node experiments/reqs-coverage/verify-reqs-coverage.mjs`, alongside the
+# ci-agents / ci-docs embed gates.
+FROM node:20-alpine AS ci-reqs
+WORKDIR /repo
+COPY . .
+RUN node experiments/reqs-coverage/verify-reqs-coverage.mjs

@@ -42,6 +42,9 @@ jobs:
       - name: Harness — documentation package embed round-trip + drift detection
         run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-docs .
 
+      - name: Harness — spec-vs-impl requirements-coverage (RTM gap ledger enforced)
+        run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-reqs .
+
   release:
     needs: harness
     runs-on: ubuntu-latest
