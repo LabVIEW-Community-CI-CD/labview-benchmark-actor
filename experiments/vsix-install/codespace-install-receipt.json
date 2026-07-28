@@ -1,0 +1,21 @@
+{
+  "schema": "labview-benchmark-actor/codespace-install-receipt@v1",
+  "requirement": "LBA-REQ-002",
+  "testItem": "T-002",
+  "producedBy": "LINUX",
+  "producedAt": "2026-07-28T17:15:00Z",
+  "target": {
+    "kind": "devcontainer-codespace",
+    "spec": ".devcontainer/devcontainer.json",
+    "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22",
+    "node": "v22",
+    "method": "docker run of the devcontainer base image over a clean `git archive HEAD` tree, executing the devcontainer postCreateCommand (npm install && npm run compile) + npm test"
+  },
+  "result": {
+    "postCreate": "npm install && npm run compile -> OK (tsc + stage media/viewerCursor.mjs)",
+    "activation": "extension-activation.mjs PASS -- activate() registered 4 commands (showCapabilities/pollBus/postNote/openViewer) + prerequisite-remediation surfaced + deactivate() clean",
+    "render": "viewer-render.mjs PASS -- media/viewer.js renders the metric svg + draggable time cursor and tracks pointer + keyboard in jsdom",
+    "pass": true
+  },
+  "notes": "Proves the Codespace install/activation route (AC #1): the extension compiles + ACTIVATES + renders in the ACTUAL devcontainer base image that .devcontainer/devcontainer.json specifies; a real GitHub-hosted Codespace uses the same image + spec + postCreate. Paired with the WIN golden-VM install (golden-vm-install-receipt.json, AC #2) this closes 'install on a Codespace AND a Vagrant golden VM'. The devcontainer image was bumped 1-20 -> 1-22 to match the repo Node baseline (jsdom 30 needs Node 21+; Node 20 threw undici markAsUncloneable). snap-Docker gotcha: the @devcontainers/cli build uses a /tmp context that snap-confined Docker cannot read -- TMPDIR=$HOME fixes the CLI path, but a direct docker-run of the image is the robust local proof. The interactive real-desktop UI render (Electron in a headless session) remains the LBA-REQ-004 UI/maintainer sliver, not a 002 install gap."
+}
