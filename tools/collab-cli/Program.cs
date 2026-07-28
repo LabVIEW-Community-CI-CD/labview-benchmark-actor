@@ -34,6 +34,7 @@ internal static class CommandRouter
                 "grep" or "rg" or "search" => CmdGrep(tail),
                 "defect" => CmdDefect(rest),
                 "delta" => CmdDelta(rest),
+                "net" => NetCommands.Run(tail),
                 _ => Fail($"unknown command '{command}'"),
             };
         }
@@ -604,6 +605,7 @@ internal static class CommandRouter
               lbabus grep <ripgrep args...>          # aka rg/search — ripgrep-only, no fallback
               lbabus defect --message <m> | --message-file <f> [--title <t>]
               lbabus delta [--agent <A>] [--tail <N>] [--since <iso>]   # CLI-measured response deltas (symmetric)
+              lbabus net <listen|send|beacon|ping> ...   # local TCP/UDP coordination bus (LBA-REQ-007, ADR-0003/0004)
 
             AGENT GUARDRAILS (fail-closed)
               * pinned toolchain: `selfcheck`/`doctor`/`preflight` require rg>=13, git>=2.30, gh>=2.20,
