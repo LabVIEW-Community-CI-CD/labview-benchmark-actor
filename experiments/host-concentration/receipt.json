@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "labview-benchmark-actor/host-concentration-receipt-v1",
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "corpus": {
+    "schema": "labview-benchmark-actor/host-concentration@v1",
+    "concentratedAt": "2026-07-28T11:00:00.000Z",
+    "actors": [
+      "vm-a",
+      "vm-b"
+    ],
+    "runCount": 3,
+    "runs": [
+      {
+        "actorId": "vm-a",
+        "runId": "r1",
+        "completedAt": "2026-07-28T10:00:01Z",
+        "metricsRef": "a/r1/metrics.tdms",
+        "framesRef": "a/r1/frames"
+      },
+      {
+        "actorId": "vm-a",
+        "runId": "r2",
+        "completedAt": "2026-07-28T10:00:02Z",
+        "metricsRef": "a/r2/metrics.tdms",
+        "framesRef": "a/r2/frames"
+      },
+      {
+        "actorId": "vm-b",
+        "runId": "r1",
+        "completedAt": "2026-07-28T10:00:03Z",
+        "metricsRef": "b/r1/metrics.tdms",
+        "framesRef": "b/r1/frames"
+      }
+    ],
+    "corpusDigest": "7633b6c2"
+  },
+  "results": [
+    {
+      "name": "deterministic-concentration",
+      "pass": true,
+      "detail": {
+        "corpusDigest": "7633b6c2",
+        "runCount": 3
+      }
+    },
+    {
+      "name": "per-actor-isolation-own-run-review",
+      "pass": true,
+      "detail": {
+        "vmA": 2,
+        "vmB": 1
+      }
+    },
+    {
+      "name": "comms-only-invariant-rejects-bus-input",
+      "pass": true,
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "rejects-duplicate-actor-concentration",
+      "pass": true,
+      "detail": {
+        "rejected": true
+      }
+    },
+    {
+      "name": "ollama-comparison-input-contract",
+      "pass": true,
+      "detail": {
+        "schema": "labview-benchmark-actor/host-concentration@v1",
+        "actors": [
+          "vm-a",
+          "vm-b"
+        ]
+      }
+    }
+  ]
+}
