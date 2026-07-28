@@ -1,7 +1,21 @@
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using LabViewBenchmarkActor.CollabBus;
+
+// Windows defaults stdout to the OEM/ANSI codepage, which corrupts multibyte-UTF-8 message
+// bodies on write (cafe -> caf?, CJK -> ??). Force UTF-8 (no BOM) so unicode round-trips on
+// every plane; a no-op where UTF-8 is already the console encoding (Linux/macOS). Best-effort:
+// a redirected or closed console can refuse reconfiguration and must not crash the CLI.
+try
+{
+    Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+}
+catch (IOException)
+{
+    // stdout does not support reconfiguration (e.g. detached) - proceed with the default.
+}
 
 return CommandRouter.Run(args);
 
