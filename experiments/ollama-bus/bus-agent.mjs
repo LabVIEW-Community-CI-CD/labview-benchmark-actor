@@ -29,7 +29,7 @@ const doPost = argv.includes('--post');
 const type = flag('--type', 'NOTE');
 const tail = flag('--tail', '3');
 const prio = flag('--prio', 'P2');
-const consumed = new Set(['--type', '--tail', '--prio']);
+const consumed = new Set(['--type', '--tail', '--prio', '--rounds', '--interval', '--max-posts']);
 const intent = argv
   .filter((a, i) => !a.startsWith('--') && !consumed.has(argv[i - 1]))
   .join(' ')
@@ -52,47 +52,109 @@ delete busEnv.GITHUB_TOKEN;
 delete busEnv.LBABUS_GITHUB_API;
 const lbabus = (a) => execFileSync(LBABUS, a, { env: busEnv, encoding: 'utf8', maxBuffer: 1 << 20 });
 
-// 1. READ the bus via collab-cli: the peer plane's ollama posts.
-let recent = '';
-try {
-  recent = lbabus(['poll', '--full', '--agent', PEER, '--tail', String(tail)]);
-} catch (err) {
-  recent = `(bus read failed: ${err.message})`;
+const watch = argv.includes('--watch');
+const OWNER = process.env.VIHS_COLLAB_OWNER || 'LabVIEW-Community-CI-CD';
+const REPO = busEnv.VIHS_COLLAB_REPO;
+const GH = process.env.GH_BIN || 'gh';
+
+// READ the bus via collab-cli (the peer plane's ollama posts) -- the single-shot read.
+function readPeerRecent() {
+  try {
+    return lbabus(['poll', '--full', '--agent', PEER, '--tail', String(tail)]);
+  } catch (err) {
+    return `(bus read failed: ${err.message})`;
+  }
 }
 
-// 2. GENERATE via the ollama ENGINE (lba-coordinator: lesson-store-governed, bus-aware).
-const prompt =
-  `You are the ${AGENT}-plane bus agent for the labview-benchmark-actor cross-plane coordination bus (lbabus). ` +
-  `The ${PEER} plane's ollama posted recently:\n${recent}\n\n` +
-  `The big AI agent driving you set this INTENT: ${intent}\n\n` +
-  `Write ONE concise ASCII coordination message (<= 500 chars) to post to ${PEER}. Apply a banked lesson if ` +
-  `relevant. No preamble, no quotes, no markdown, no code fences -- just the message body.`;
-
-const res = await fetch(`${OLLAMA}/api/generate`, {
-  method: 'POST',
-  body: JSON.stringify({ model: MODEL, prompt, stream: false, options: { num_ctx: 8192 } }),
-});
-const j = await res.json();
-// Sanitize to a single ASCII line the bus accepts (no CR/LF, no quotes/backticks/$/!/apostrophes).
-const msg = String(j.response || '')
-  .replace(/[\r\n]+/g, ' ')
-  .replace(/[\x60"'$!]/g, '')
-  .replace(/[^\x20-\x7E]/g, '')
-  .replace(/\s+/g, ' ')
-  .trim()
-  .slice(0, 900);
-if (!msg) {
-  console.error('engine produced no message');
-  process.exit(1);
+// Fresh read of the peer's LATEST message (watch-mode change detection needs freshness the poll cache lacks).
+function readPeerLatestFresh() {
+  const q = `{repository(owner:"${OWNER}",name:"${REPO}"){discussion(number:1){comments(last:10){nodes{createdAt bodyText}}}}}`;
+  const jq = `[.data.repository.discussion.comments.nodes[]|select(.bodyText|test("\\\\[${PEER}\\\\]"))]|last`;
+  try {
+    const out = execFileSync(GH, ['api', 'graphql', '-f', `query=${q}`, '--jq', jq], { env: busEnv, encoding: 'utf8', maxBuffer: 1 << 20 });
+    const node = JSON.parse(out || 'null');
+    return node ? { fingerprint: node.createdAt, text: node.bodyText } : null;
+  } catch {
+    return null;
+  }
 }
 
-console.log(`[${AGENT} bus-agent] engine(${MODEL}) generated a ${type}/${prio} to ${PEER}:`);
-console.log(msg);
+// GENERATE via the ollama ENGINE (lba-coordinator: lesson-store-governed, bus-aware).
+async function generate(recent) {
+  const prompt =
+    `You are the ${AGENT}-plane bus agent for the labview-benchmark-actor cross-plane coordination bus (lbabus). ` +
+    `The ${PEER} plane's ollama posted recently:\n${recent}\n\n` +
+    `The big AI agent driving you set this INTENT: ${intent}\n\n` +
+    `Write ONE concise ASCII coordination message (<= 500 chars) to post to ${PEER}. Apply a banked lesson if ` +
+    `relevant. No preamble, no quotes, no markdown, no code fences -- just the message body.`;
+  const res = await fetch(`${OLLAMA}/api/generate`, {
+    method: 'POST',
+    body: JSON.stringify({ model: MODEL, prompt, stream: false, options: { num_ctx: 8192 } }),
+  });
+  const j = await res.json();
+  return String(j.response || '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[\x60"'$!]/g, '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 900);
+}
 
-// 3. POST via collab-cli -- only with --post (dry-run otherwise, so the big agent reviews / iterates the engine).
-if (doPost) {
+function postMsg(msg) {
   const out = lbabus(['post', '--type', type, '--to', PEER, '--priority', prio, '--message', msg]);
-  console.log(`\nposted -> ${(out.trim().split('\n').pop() || '').trim()}`);
+  return (out.trim().split('\n').pop() || '').trim();
+}
+
+if (!watch) {
+  // Single-shot: read -> engine drafts -> print (dry-run) or post.
+  const msg = await generate(readPeerRecent());
+  if (!msg) {
+    console.error('engine produced no message');
+    process.exit(1);
+  }
+  console.log(`[${AGENT} bus-agent] engine(${MODEL}) generated a ${type}/${prio} to ${PEER}:`);
+  console.log(msg);
+  if (doPost) {
+    console.log(`\nposted -> ${postMsg(msg)}`);
+  } else {
+    console.log('\n(dry-run -- add --post to send; iterate the lba-coordinator model to change the engine voice)');
+  }
 } else {
-  console.log('\n(dry-run -- add --post to send; iterate the lba-coordinator model to change the engine voice)');
+  // WATCH: the constantly-iterated engine loop. Baseline the peer's latest, then respond to genuinely NEW peer
+  // messages -- draft-only by default (the big agent reviews), or autopost with a hard cap when --post is set.
+  const interval = Number(flag('--interval', '30')) * 1000;
+  const maxRounds = Number(flag('--rounds', '0'));
+  const maxPosts = Number(flag('--max-posts', '3'));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let lastFp = null;
+  let round = 0;
+  let posts = 0;
+  console.log(`[${AGENT} watch] engine monitoring ${PEER} every ${interval / 1000}s (${doPost ? `AUTOPOST cap ${maxPosts}` : 'draft-only'}); intent: ${intent}`);
+  for (;;) {
+    round += 1;
+    const latest = readPeerLatestFresh();
+    if (latest && lastFp === null) {
+      lastFp = latest.fingerprint;
+      console.log(`[watch r${round}] baseline ${PEER} @ ${lastFp} (will respond to newer)`);
+    } else if (latest && latest.fingerprint !== lastFp) {
+      lastFp = latest.fingerprint;
+      const msg = await generate(latest.text);
+      console.log(`\n[watch r${round}] NEW ${PEER} @ ${latest.fingerprint} -> engine draft:\n  ${msg}`);
+      if (doPost && msg && posts < maxPosts) {
+        console.log(`  posted -> ${postMsg(msg)}`);
+        posts += 1;
+      }
+    } else {
+      console.log(`[watch r${round}] no new ${PEER} message (last ${lastFp || 'none'})`);
+    }
+    if (maxRounds && round >= maxRounds) {
+      break;
+    }
+    if (doPost && posts >= maxPosts) {
+      console.log('[watch] max-posts reached; stopping.');
+      break;
+    }
+    await sleep(interval);
+  }
 }
