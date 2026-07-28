@@ -31,6 +31,7 @@ internal static class CommandRouter
                 "selfcheck" or "doctor" or "preflight" => CmdSelfCheck(),
                 "grep" or "rg" or "search" => CmdGrep(tail),
                 "defect" => CmdDefect(rest),
+                "delta" => CmdDelta(rest),
                 _ => Fail($"unknown command '{command}'"),
             };
         }
@@ -123,6 +124,7 @@ internal static class CommandRouter
         string? agent = a.Get("agent");
         string? type = a.Get("type");
         DateTimeOffset? since = a.GetTimestamp("since");
+        bool full = a.Get("full") is not null;
 
         using var gh = new GitHubGraphQL();
         DiscussionRef? disc = gh.FindDiscussion(cfg);
@@ -141,7 +143,7 @@ internal static class CommandRouter
         Console.WriteLine($"# {disc.Url}  ({messages.Count} message(s))");
         foreach (CollabMessage m in messages.TakeLast(tail))
         {
-            Console.WriteLine(m.ToLine());
+            Console.WriteLine(full ? m.ToFull() : m.ToLine());
         }
 
         return 0;
@@ -176,6 +178,18 @@ internal static class CommandRouter
         while (true)
         {
             poll++;
+
+            // Re-check version currency EACH iteration: `wait` is long-lived, so a release can be
+            // published mid-loop (the norm in our workflow). The start-only check cannot see it.
+            // On a newer release, fail closed and force a restart with the updated CLI (fail-open on
+            // network error so a transient blip does not kill an otherwise-valid waiter).
+            int? staleMidLoop = EnforceVersionOrNull(gh, cfg);
+            if (staleMidLoop is not null)
+            {
+                Console.Error.WriteLine($"[wait] a newer release was published mid-wait (after {poll} poll(s)) — STOP and restart the loop with the updated CLI.");
+                return staleMidLoop.Value;
+            }
+
             List<CollabMessage> hits = ParseAll(gh.ListComments(cfg, disc.Number, 50))
                 .Where(m => Eq(m.Agent, target) && m.CreatedAt > since)
                 .OrderBy(m => m.CreatedAt)
@@ -364,6 +378,77 @@ internal static class CommandRouter
         $"  gh release download collab-cli-v{latest} --repo {cfg.Owner}/{cfg.Repo} --pattern '*.nupkg' --dir <dir> && " +
         $"dotnet tool update --global LabViewBenchmarkActor.CollabBus --version {latest} --add-source <dir>";
 
+    private static int CmdDelta(ArgMap a)
+    {
+        Config cfg = Config.FromEnvironment();
+        string target = (a.Get("agent") ?? cfg.Counterpart).ToUpperInvariant();
+        int tail = a.GetInt("tail", 5);
+        DateTimeOffset? since = a.GetTimestamp("since");
+
+        using var gh = new GitHubGraphQL();
+        DiscussionRef? disc = gh.FindDiscussion(cfg);
+        if (disc is null)
+        {
+            Console.Error.WriteLine("lbabus: bus discussion not found (run `lbabus init`).");
+            return 2;
+        }
+
+        // All parsed messages in chronological order (server createdAt).
+        List<CollabMessage> all = ParseAll(gh.ListComments(cfg, disc.Number, Math.Max(tail * 6, 60)));
+
+        var rows = new List<string>();
+        for (int i = 0; i < all.Count; i++)
+        {
+            CollabMessage m = all[i];
+            if (!Eq(m.Agent, target))
+            {
+                continue;
+            }
+
+            if (since is not null && m.CreatedAt <= since)
+            {
+                continue;
+            }
+
+            // gap: previous message from the same agent before m.
+            CollabMessage? prevSame = null;
+            // latency trigger: most recent message from a DIFFERENT agent before m.
+            CollabMessage? trigger = null;
+            for (int j = i - 1; j >= 0; j--)
+            {
+                if (prevSame is null && Eq(all[j].Agent, target))
+                {
+                    prevSame = all[j];
+                }
+
+                if (trigger is null && !Eq(all[j].Agent, target))
+                {
+                    trigger = all[j];
+                }
+
+                if (prevSame is not null && trigger is not null)
+                {
+                    break;
+                }
+            }
+
+            string gap = prevSame is null ? "n/a" : "+" + Dur((m.CreatedAt - prevSame.CreatedAt).GetValueOrDefault());
+            string latency = trigger is null
+                ? "n/a"
+                : $"{Dur((m.CreatedAt - trigger.CreatedAt).GetValueOrDefault())} (trigger: {trigger.Agent} {trigger.Type} {trigger.CreatedAt:yyyy-MM-ddTHH:mm:ss.fffZ})";
+
+            rows.Add($"{m.CreatedAt:yyyy-MM-ddTHH:mm:ss.fffZ}  {m.Type}/{m.Task ?? "-"}  gap={gap}  latency={latency}");
+        }
+
+        Console.WriteLine($"# response deltas: {target} on {disc.Url}  ({rows.Count} response(s))");
+        foreach (string row in rows.TakeLast(tail))
+        {
+            Console.WriteLine(row);
+        }
+
+        return 0;
+    }
+
     private static List<CollabMessage> ParseAll(IReadOnlyList<DiscussionComment> comments)
     {
         var list = new List<CollabMessage>();
@@ -385,6 +470,27 @@ internal static class CommandRouter
         "(`lbabus post|poll|wait`). One versioned binary, one deterministic protocol.";
 
     private static bool Eq(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    private static string Dur(TimeSpan t)
+    {
+        double sec = Math.Abs(t.TotalSeconds);
+        if (sec >= 3600)
+        {
+            int h = (int)(sec / 3600);
+            int m = (int)(sec % 3600 / 60);
+            int s = (int)(sec % 60);
+            return $"{h}h{m:00}m{s:00}s";
+        }
+
+        if (sec >= 60)
+        {
+            int m = (int)(sec / 60);
+            double s = sec - (m * 60);
+            return $"{m}m{s:00.0}s";
+        }
+
+        return $"{sec:0.0}s";
+    }
 
     private static string CurrentVersion()
     {
@@ -415,11 +521,12 @@ internal static class CommandRouter
               lbabus version
               lbabus init
               lbabus post --type <T> [--task <id>] [--message <m> | --message-file <f>] [--ref <sha>] [--next <n>] [--to <A>]
-              lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>]
+              lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>] [--full]
               lbabus wait [--agent LINUX|WIN] [--since <iso>] [--timeout <sec>] [--interval <sec>]
               lbabus selfcheck                       # aka doctor/preflight — ripgrep present + version current
               lbabus grep <ripgrep args...>          # aka rg/search — ripgrep-only, no fallback
               lbabus defect --message <m> | --message-file <f> [--title <t>]
+              lbabus delta [--agent <A>] [--tail <N>] [--since <iso>]   # CLI-measured response deltas (symmetric)
 
             AGENT GUARDRAILS (fail-closed)
               * search is ripgrep-only (`lbabus grep`); rg absent => exit 4 + install hint.
