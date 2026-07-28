@@ -6,9 +6,9 @@
 // ADR-0006/0008), and runs it through LINUX's SHIPPED ingestion boundary + cores, imported verbatim (no
 // reimplementation):
 //
-//   fetched/manifest.json (corpus-manifest@v1)
+//   exported-corpus/manifest.json (corpus-manifest@v1)
 //     --concentrateManifest--> concentrate (per-actor isolation)
-//     --dereferenceMetrics(fetchedDir)--> each run's VM-local metrics file -> a real metric summary
+//     --dereferenceMetrics(exportedDir)--> each run's VM-local metrics file -> a real metric summary
 //     --buildComparisonPlan--> same-actor run-over-run plan whose prompts embed the REAL values
 //     --compareOverCorpus(stub)--> one same-actor verdict per comparison
 //
@@ -32,7 +32,7 @@ function argOf(name, fallback) {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : fallback;
 }
-const manifestPath = resolve(here, argOf('--manifest', 'fetched/manifest.json'));
+const manifestPath = resolve(here, argOf('--manifest', 'exported-corpus/manifest.json'));
 const manifestDir = dirname(manifestPath);
 const outPath = resolve(here, argOf('--out', 'receipt.json'));
 
@@ -145,7 +145,7 @@ const receipt = {
   metricSummarySample: corpus.runs[0].metricsRef,
   comparisonPlan: { comparisonCount: plan.comparisonCount, sameActorOnly: true },
   driveReady: true,
-  driveCommand: 'node experiments/ollama-comparison/drive-real-corpus.mjs --manifest experiments/multi-vm-topology/corpus-export/fetched/manifest.json',
+  driveCommand: 'node experiments/ollama-comparison/drive-real-corpus.mjs --manifest experiments/multi-vm-topology/corpus-export/exported-corpus/manifest.json',
   pass: true,
   concentratedCorpus: corpus,
 };

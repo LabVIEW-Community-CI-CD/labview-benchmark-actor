@@ -5,8 +5,8 @@
 # OWN completed-run corpus VM-local (metrics in the shipped { cpuMeanPct, ramMeanMiB, durationMs,
 # framesRendered } shape + a frame), the host fetches BOTH bundles OUT-OF-BAND over WinRM (a file read,
 # explicitly NOT lbabus net -- the coordination bus stays comms-only per ADR-0006/0008), materializes the
-# on-disk layout fetched/<actorId>/<runId>/metrics.json + a corpus-manifest@v1 (metricsRefs RELATIVE to
-# fetched/), and feeds that manifest through LINUX's SHIPPED ingestion boundary
+# COMMITTED on-disk layout exported-corpus/<actorId>/<runId>/metrics.json + a corpus-manifest@v1 (metricsRefs
+# RELATIVE to exported-corpus/), and feeds that manifest through LINUX's SHIPPED ingestion boundary
 # (../../host-concentration/ingestCorpusManifest.mjs concentrateManifest + dereferenceMetrics) via
 # concentrate-corpora.mjs. The emitted manifest is drive-ready for the live ollama drive
 # (../../ollama-comparison/drive-real-corpus.mjs --manifest), the remaining maintainer/GPU step.
@@ -44,10 +44,12 @@ try {
   $ErrorActionPreference = 'Stop'
   if ($upExit -ne 0) { throw "vagrant up failed (exit $upExit)" }
 
-  $fetched = Join-Path $here 'fetched'
-  New-Item -ItemType Directory -Force -Path $fetched | Out-Null
-  Remove-Item $fetched -Recurse -Force -ErrorAction SilentlyContinue
-  New-Item -ItemType Directory -Force -Path $fetched | Out-Null
+  # exported-corpus/ is COMMITTED (the live GPU drive runs on a host WITHOUT these Windows VMs), so a run
+  # regenerates it in place. Clean it first so a run that was removed never lingers.
+  $exported = Join-Path $here 'exported-corpus'
+  New-Item -ItemType Directory -Force -Path $exported | Out-Null
+  Remove-Item $exported -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $exported | Out-Null
 
   $corpora = @()
   foreach ($vm in $Vms) {
@@ -96,7 +98,7 @@ foreach (`$i in 1..$RunsPerActor) {
 
     $runsManifest = @()
     foreach ($run in @($bundle.runs)) {
-      $runDir = Join-Path $fetched (Join-Path $actor $run.runId)
+      $runDir = Join-Path $exported (Join-Path $actor $run.runId)
       New-Item -ItemType Directory -Force -Path $runDir | Out-Null
       $metricsObj = [ordered]@{
         cpuMeanPct     = $run.metrics.cpuMeanPct
@@ -106,8 +108,8 @@ foreach (`$i in 1..$RunsPerActor) {
       }
       [IO.File]::WriteAllText((Join-Path $runDir 'metrics.json'), ($metricsObj | ConvertTo-Json -Compress), $utf8NoBom)
       [IO.File]::WriteAllText((Join-Path $runDir 'frames.txt'), [string]$run.frame, $utf8NoBom)
-      # metricsRef/framesRef are RELATIVE to fetched/ (the manifest dir) with forward slashes so the ingestion
-      # boundary + the Linux maintainer host resolve them identically.
+      # metricsRef/framesRef are RELATIVE to exported-corpus/ (the manifest dir) with forward slashes so the
+      # ingestion boundary + the Linux maintainer host resolve them identically.
       $runsManifest += [ordered]@{
         runId      = $run.runId
         completedAt = $run.completedAt
@@ -116,7 +118,7 @@ foreach (`$i in 1..$RunsPerActor) {
       }
     }
     $corpora += [ordered]@{ actorId = $actor; runs = $runsManifest }
-    Write-Host "[export] $vm -> $actor corpus fetched OUT-OF-BAND over WinRM ($($b64.Length) b64 chars); $($runsManifest.Count) runs materialized under fetched/$actor/"
+    Write-Host "[export] $vm -> $actor corpus fetched OUT-OF-BAND over WinRM ($($b64.Length) b64 chars); $($runsManifest.Count) runs materialized under exported-corpus/$actor/"
   }
 
   # Assemble the corpus-manifest@v1 the ingestion boundary consumes (metricsRefs point at the VM-local
@@ -127,7 +129,7 @@ foreach (`$i in 1..$RunsPerActor) {
     topology    = 'multi-vm corpus export (2 golden-box VMs, VM-local dereferenceable metrics)'
     corpora     = $corpora
   }
-  $manifestPath = Join-Path $fetched 'manifest.json'
+  $manifestPath = Join-Path $exported 'manifest.json'
   [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 8), $utf8NoBom)
   Write-Host "[export] manifest -> $manifestPath (corpus-manifest@v1, $($corpora.Count) actors)"
 }
@@ -137,7 +139,7 @@ finally {
 
 Write-Host '[export] ingesting via the shipped concentrateManifest + dereferenceMetrics boundary...'
 $receiptPath = Join-Path $here 'receipt.json'
-$manifestPath = Join-Path $here 'fetched\manifest.json'
+$manifestPath = Join-Path $here 'exported-corpus\manifest.json'
 & node (Join-Path $here 'concentrate-corpora.mjs') --manifest $manifestPath --out $receiptPath
 if ($LASTEXITCODE -ne 0) { throw "concentrate-corpora.mjs failed (exit $LASTEXITCODE)" }
-Write-Host "[export] done -> $receiptPath (drive-ready: node ../../ollama-comparison/drive-real-corpus.mjs --manifest fetched/manifest.json)"
+Write-Host "[export] done -> $receiptPath (drive-ready: node ../../ollama-comparison/drive-real-corpus.mjs --manifest exported-corpus/manifest.json)"

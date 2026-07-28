@@ -541,7 +541,29 @@ check('multi-vm-corpus-export-receipt-green', () => {
   assert(receipt.dereferencedMetrics === true, 'the host must dereference each run VM-local metrics file (the out-of-band read)');
   assert(receipt.comparisonPlan?.sameActorOnly === true && receipt.comparisonPlan.comparisonCount >= receipt.actors.length, 'must build a same-actor comparison plan over the real corpus');
   assert(receipt.driveReady === true && /drive-real-corpus\.mjs/.test(receipt.driveCommand || ''), 'the manifest must be drive-ready for the live ollama drive');
-  return { actors: receipt.actors.length, runs: receipt.runCount, digest: receipt.corpusDigest, comparisons: receipt.comparisonPlan.comparisonCount };
+  // Leg 3 needs the drive-ready corpus itself COMMITTED (manifest + metrics), so the maintainer runs the live
+  // GPU drive on a host WITHOUT these Windows VMs -- assert it is present and every metricsRef resolves + is real.
+  const exportRootRel = join('experiments', 'multi-vm-topology', 'corpus-export', 'exported-corpus');
+  const exportedManifestRel = join(exportRootRel, 'manifest.json');
+  assert(existsSync(join(pkgRoot, exportedManifestRel)), 'the drive-ready exported corpus manifest must be committed for the maintainer GPU drive');
+  const exported = readJson(exportedManifestRel);
+  assert(exported.schema === 'labview-benchmark-actor/corpus-manifest@v1', 'exported manifest must be corpus-manifest@v1');
+  assert(Array.isArray(exported.corpora) && exported.corpora.length >= 2, 'exported corpus must carry >= 2 per-actor corpora');
+  let committedMetricFiles = 0;
+  for (const corpusEntry of exported.corpora) {
+    for (const run of corpusEntry.runs) {
+      const metricRel = join(exportRootRel, run.metricsRef);
+      assert(existsSync(join(pkgRoot, metricRel)), `exported metricsRef must resolve to a committed file: ${run.metricsRef}`);
+      const m = readJson(metricRel);
+      assert(
+        typeof m.cpuMeanPct === 'number' && typeof m.ramMeanMiB === 'number' && typeof m.durationMs === 'number',
+        `committed metrics incomplete for the drive: ${run.metricsRef}`
+      );
+      committedMetricFiles += 1;
+    }
+  }
+  assert(committedMetricFiles === receipt.runCount, 'every concentrated run must have a committed metrics file for the live drive');
+  return { actors: receipt.actors.length, runs: receipt.runCount, digest: receipt.corpusDigest, comparisons: receipt.comparisonPlan.comparisonCount, committedMetrics: committedMetricFiles };
 });
 
 // 25. The LBA-REQ-004 benchmark-viewer webview surface is wired and CSP-safe (T-004): the extension

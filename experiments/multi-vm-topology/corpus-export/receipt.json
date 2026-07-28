@@ -2,7 +2,7 @@
   "schema": "labview-benchmark-actor/multi-vm-corpus-export-receipt-v1",
   "requirement": "LBA-REQ-010",
   "test": "T-010",
-  "ranAt": "2026-07-28T15:48:05.645Z",
+  "ranAt": "2026-07-28T16:02:48.504Z",
   "transport": "out-of-band WinRM file-fetch (vagrant winrm -> base64) -- NOT lbabus net; the coordination bus stays comms-only (ADR-0006/0008)",
   "boundary": "experiments/host-concentration/ingestCorpusManifest.mjs concentrateManifest()/dereferenceMetrics() (shipped, imported verbatim)",
   "manifestSchema": "labview-benchmark-actor/corpus-manifest@v1",
@@ -27,7 +27,7 @@
     "sameActorOnly": true
   },
   "driveReady": true,
-  "driveCommand": "node experiments/ollama-comparison/drive-real-corpus.mjs --manifest experiments/multi-vm-topology/corpus-export/fetched/manifest.json",
+  "driveCommand": "node experiments/ollama-comparison/drive-real-corpus.mjs --manifest experiments/multi-vm-topology/corpus-export/exported-corpus/manifest.json",
   "pass": true,
   "concentratedCorpus": {
     "schema": "labview-benchmark-actor/host-concentration@v1",
