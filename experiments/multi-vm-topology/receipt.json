@@ -1,0 +1,67 @@
+{
+  "schema": "labview-benchmark-actor/multi-vm-topology-receipt-v1",
+  "requirement": "LBA-REQ-006",
+  "test": "T-006",
+  "ranAt": "2026-07-28T14:32:07.7117492Z",
+  "transport": "lbabus net -- labview-benchmark-actor/bus-msg@1, ADR-0003/0004 (4-byte BE length-prefixed JSON over TCP + UDP datagrams)",
+  "topology": {
+    "collector": {
+      "vm": "actor-a",
+      "ip": "192.168.198.135",
+      "identity": "ACTOR-A"
+    },
+    "sender": {
+      "vm": "actor-b",
+      "ip": "192.168.198.136",
+      "identity": "ACTOR-B"
+    },
+    "tcpPort": 7420,
+    "udpPort": 7421,
+    "network": "VMware host-only private_network (VM<->VM)",
+    "box": "vihs/labview-cleanroom-sc (self-contained golden box)"
+  },
+  "asserts": {
+    "udpPresenceBeacons": 2,
+    "tcpClaim": true,
+    "tcpHandoff": true,
+    "tcpDone": true,
+    "echoedAcks": 3,
+    "listenerCleanStop": true,
+    "commsOnly": true
+  },
+  "pass": true,
+  "collectorReceived": [
+    "lbabus.exe : [net] listen session=default bind=0.0.0.0 tcp=7420 udp=7421 echo=True count=5",
+    "    + CategoryInfo          : NotSpecified: ([net] listen se...ho=True count=5:String) [], RemoteException",
+    "    + FullyQualifiedErrorId : NativeCommandError",
+    "UDP 192.168.198.136  [2026-07-28T14:32:05.390Z] ACTOR-B #1 PROGRESS task:presence - ACTOR-B present",
+    "",
+    "UDP 192.168.198.136  [2026-07-28T14:32:06.436Z] ACTOR-B #2 PROGRESS task:presence - ACTOR-B present",
+    "",
+    "TCP 192.168.198.136:49902  [2026-07-28T14:32:06.496Z] ACTOR-B #1785249126 CLAIM task:benchmark - actor-b claims benchmark slot",
+    "",
+    "TCP 192.168.198.136:49903  [2026-07-28T14:32:06.601Z] ACTOR-B #1785249126 HANDOFF task:benchmark - actor-b hands off to actor-a",
+    "",
+    "TCP 192.168.198.136:49904  [2026-07-28T14:32:06.698Z] ACTOR-B #1785249126 DONE task:benchmark - actor-b done",
+    "",
+    "[net] listener stopped; received 5 message(s)"
+  ],
+  "senderLog": [
+    "beacon -> 192.168.198.135:7421  [2026-07-28T14:32:05.390Z] ACTOR-B #1 PROGRESS task:presence - ACTOR-B present",
+    "",
+    "beacon -> 192.168.198.135:7421  [2026-07-28T14:32:06.436Z] ACTOR-B #2 PROGRESS task:presence - ACTOR-B present",
+    "",
+    "sent -> 192.168.198.135:7420  [2026-07-28T14:32:06.496Z] ACTOR-B #1785249126 CLAIM task:benchmark - actor-b claims benchmark slot",
+    "",
+    "reply <- 192.168.198.135:7420  [2026-07-28T14:32:06.835Z] ACTOR-A #3 ACK task:benchmark ackOf:1785249126 - received CLAIM from ACTOR-B",
+    "",
+    "sent -> 192.168.198.135:7420  [2026-07-28T14:32:06.601Z] ACTOR-B #1785249126 HANDOFF task:benchmark - actor-b hands off to actor-a",
+    "",
+    "reply <- 192.168.198.135:7420  [2026-07-28T14:32:06.942Z] ACTOR-A #4 ACK task:benchmark ackOf:1785249126 - received HANDOFF from ACTOR-B",
+    "",
+    "sent -> 192.168.198.135:7420  [2026-07-28T14:32:06.698Z] ACTOR-B #1785249126 DONE task:benchmark - actor-b done",
+    "",
+    "reply <- 192.168.198.135:7420  [2026-07-28T14:32:07.036Z] ACTOR-A #5 ACK task:benchmark ackOf:1785249126 - received DONE from ACTOR-B",
+    ""
+  ]
+}
