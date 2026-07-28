@@ -1,0 +1,19 @@
+{
+  "name": "linux-to-me-recipient-filter",
+  "owner": "LINUX",
+  "description": "`poll --to-me` is the recipient filter (LBA-REQ-013): from the LINUX plane it keeps a message addressed `to: LINUX` and a broadcast (no `to`), and DROPS one addressed `to: WIN`. The mock fixture-priority discussion has three WIN messages — P0 to LINUX (urgent-p0-to-linux), P1 to WIN (high-p1-to-win), P3 broadcast (routine-p3-broadcast). With --to-me the LINUX reader must see the LINUX-addressed and the broadcast but NOT the WIN-addressed one. Proves addressing is enforced, not cosmetic.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_AGENT": "LINUX",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-priority"
+  },
+  "args": ["poll", "--agent", "WIN", "--to-me", "--tail", "10"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["urgent-p0-to-linux", "routine-p3-broadcast"],
+    "stdoutNotContains": ["high-p1-to-win"]
+  }
+}

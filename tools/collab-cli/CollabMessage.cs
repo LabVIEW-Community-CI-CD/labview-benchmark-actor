@@ -26,6 +26,13 @@ public sealed class CollabMessage
     [JsonPropertyName("next")] public string? Next { get; set; }
     [JsonPropertyName("to")] public string? To { get; set; }
 
+    /// <summary>Priority tier (LBA-REQ-013): P0/P1/P2/P3, absent == P2. See <see cref="Priority"/>.</summary>
+    [JsonPropertyName("prio")] public string? Prio { get; set; }
+
+    /// <summary>Sender's fine-grained agent id (LBA-REQ-013); defaults to the plane label, so a
+    /// message with no <c>agentId</c> is addressed by plane. Enables multiple agents per plane.</summary>
+    [JsonPropertyName("agentId")] public string? AgentId { get; set; }
+
     /// <summary>Server-side comment creation time (populated when read back from a discussion).</summary>
     [JsonIgnore] public DateTimeOffset? CreatedAt { get; set; }
 
@@ -72,10 +79,31 @@ public sealed class CollabMessage
             sb.Append("- to: ").Append(To).Append('\n');
         }
 
+        if (!string.IsNullOrEmpty(Prio))
+        {
+            sb.Append("- prio: ").Append(Prio).Append('\n');
+        }
+
+        if (!string.IsNullOrEmpty(AgentId) && !string.Equals(AgentId, Agent, StringComparison.OrdinalIgnoreCase))
+        {
+            sb.Append("- agentId: ").Append(AgentId).Append('\n');
+        }
+
         sb.Append("\n```json\n").Append(JsonSerializer.Serialize(this, JsonOptions)).Append("\n```\n");
         return sb.ToString();
     }
 
+    // WIRE-COMPAT GUARDRAIL (verified on the Windows plane, bus finding 17812593). This extractor
+    // matches a FLAT JSON object only: [^{}]* cannot span a nested brace, and the schema literal is
+    // hard-coded to @v1 and re-checked Ordinally in TryParse. Two hard constraints follow for every
+    // additive envelope field, so an already-deployed older reader parses-and-ignores unknown fields
+    // instead of silently dropping the WHOLE message:
+    //   (1) additive fields MUST stay FLAT SCALARS (string/number/bool) - never a nested object or an
+    //       array of objects; a nested {} makes this regex fail to match and the message vanishes.
+    //   (2) keep schema == vihs-collab-msg@v1 - do NOT bump to @v2 for an additive change.
+    // The ci fixture-priority cases lock this in: flat prio/agentId parse, while a nested-priority
+    // object and a schema@v2 message each return null (dropped). Never relax (1)/(2) without a
+    // coordinated cross-plane schema migration.
     private static readonly Regex JsonBlock = new(
         "\\{[^{}]*\"schema\"\\s*:\\s*\"vihs-collab-msg@v1\"[^{}]*\\}",
         RegexOptions.Singleline | RegexOptions.Compiled);
@@ -119,13 +147,14 @@ public sealed class CollabMessage
     {
         string ts = CreatedAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ") ?? Ts;
         string task = string.IsNullOrEmpty(Task) ? "" : " " + Task;
+        string prio = !string.IsNullOrEmpty(Prio) && !string.Equals(Prio, Priority.Default, StringComparison.OrdinalIgnoreCase) ? " [" + Prio.ToUpperInvariant() + "]" : "";
         string body = (Msg ?? "").Replace("\r", " ").Replace("\n", " ");
         if (body.Length > 240)
         {
             body = body[..240] + "…";
         }
 
-        return $"[{ts}] {Agent} {Type}{task} — {body}".TrimEnd();
+        return $"[{ts}] {Agent} {Type}{task}{prio} — {body}".TrimEnd();
     }
 
     /// <summary>Complete, untruncated rendering for <c>poll --full</c> — never drops the message tail.</summary>
@@ -149,6 +178,16 @@ public sealed class CollabMessage
         if (!string.IsNullOrEmpty(To))
         {
             sb.Append("\n- to: ").Append(To);
+        }
+
+        if (!string.IsNullOrEmpty(Prio))
+        {
+            sb.Append("\n- prio: ").Append(Prio);
+        }
+
+        if (!string.IsNullOrEmpty(AgentId) && !string.Equals(AgentId, Agent, StringComparison.OrdinalIgnoreCase))
+        {
+            sb.Append("\n- agentId: ").Append(AgentId);
         }
 
         return sb.ToString();

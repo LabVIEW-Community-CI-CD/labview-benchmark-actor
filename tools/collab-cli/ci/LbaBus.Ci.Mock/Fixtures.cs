@@ -59,6 +59,25 @@ internal static class Fixtures
                     "since-offset benchmark probe", "\n"));
         }
 
+        if (EndsWith(repo, "fixture-priority"))
+        {
+            // Three FLAT additive envelopes (prio/agentId/to are flat scalars) that parse through the
+            // real TryParse so the --to-me and --min-priority filters can slice them, plus two negatives
+            // that MUST silently drop (bus finding 17812593): a NESTED priority object and a schema@v2
+            // bump each defeat the v1 flat-object extractor regex, so an older reader never sees them.
+            string a = CommentNode("2020-06-01T11:00:00Z",
+                PriorityMsgBlock("2020-06-01T11:00:00.000Z", "urgent-p0-to-linux", "LINUX", "P0", "LINUX-a"));
+            string b = CommentNode("2020-06-01T11:01:00Z",
+                PriorityMsgBlock("2020-06-01T11:01:00.000Z", "high-p1-to-win", "WIN", "P1", null));
+            string c = CommentNode("2020-06-01T11:02:00Z",
+                PriorityMsgBlock("2020-06-01T11:02:00.000Z", "routine-p3-broadcast", null, "P3", null));
+            string nested = CommentNode("2020-06-01T11:03:00Z", RawJsonBody("nested-priority-must-drop",
+                "{\"schema\":\"vihs-collab-msg@v1\",\"v\":1,\"agent\":\"WIN\",\"ts\":\"2020-06-01T11:03:00.000Z\",\"type\":\"NOTE\",\"msg\":\"nested-priority-must-drop\",\"priority\":{\"tier\":\"P0\"}}"));
+            string bumped = CommentNode("2020-06-01T11:04:00Z", RawJsonBody("schema-bumped-must-drop",
+                "{\"schema\":\"vihs-collab-msg@v2\",\"v\":2,\"agent\":\"WIN\",\"ts\":\"2020-06-01T11:04:00.000Z\",\"type\":\"NOTE\",\"msg\":\"schema-bumped-must-drop\"}"));
+            return string.Join(",", new[] { a, b, c, nested, bumped });
+        }
+
         // fixture-current + everything else: an empty discussion -> wait finds no match -> timeout (exit 2).
         return string.Empty;
     }
@@ -75,6 +94,30 @@ internal static class Fixtures
                msg + sep + sep +
                "```json" + sep + json + sep + "```" + sep;
     }
+
+    /// <summary>
+    /// A rendered <c>vihs-collab-msg@v1</c> body whose flat JSON also carries the additive
+    /// <c>to</c>/<c>prio</c>/<c>agentId</c> scalars (null fields are omitted). Used by the
+    /// priority/addressing cases; the fields are FLAT so the v1 extractor still matches.
+    /// </summary>
+    private static string PriorityMsgBlock(string ts, string msg, string? to, string? prio, string? agentId)
+    {
+        string json =
+            "{\"schema\":\"vihs-collab-msg@v1\",\"v\":1,\"agent\":\"WIN\",\"ts\":\"" + ts +
+            "\",\"type\":\"NOTE\",\"msg\":" + Json.Str(msg) +
+            (to is null ? "" : ",\"to\":" + Json.Str(to)) +
+            (prio is null ? "" : ",\"prio\":" + Json.Str(prio)) +
+            (agentId is null ? "" : ",\"agentId\":" + Json.Str(agentId)) +
+            "}";
+        return "### [WIN] NOTE \u00b7 " + ts + "\n\n" + msg + "\n\n```json\n" + json + "\n```\n";
+    }
+
+    /// <summary>
+    /// A comment body carrying an ARBITRARY raw JSON block (used for the negative back-read-compat
+    /// cases: a nested-object envelope and a schema@v2 bump that must both fail the v1 extractor).
+    /// </summary>
+    private static string RawJsonBody(string msg, string rawJson) =>
+        "### [WIN] NOTE\n\n" + msg + "\n\n```json\n" + rawJson + "\n```\n";
 
     /// <summary>A GraphQL discussion comment node: <c>{ createdAt, body, author{ login } }</c>.</summary>
     private static string CommentNode(string createdAt, string body) =>

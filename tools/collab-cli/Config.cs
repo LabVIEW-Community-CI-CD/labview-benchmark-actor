@@ -13,14 +13,16 @@ public sealed class Config
     public string Category { get; }
     public string Title { get; }
     public string Agent { get; }
+    public string AgentId { get; }
 
-    private Config(string owner, string repo, string category, string title, string agent)
+    private Config(string owner, string repo, string category, string title, string agent, string agentId)
     {
         Owner = owner;
         Repo = repo;
         Category = category;
         Title = title;
         Agent = agent;
+        AgentId = agentId;
     }
 
     public static Config FromEnvironment()
@@ -30,11 +32,29 @@ public sealed class Config
         string category = Env("VIHS_COLLAB_CATEGORY", "General");
         string title = Env("VIHS_COLLAB_TITLE", "labview-benchmark-actor coordination bus (WIN <-> LINUX)");
         string agent = DeriveAgent();
-        return new Config(owner, repo, category, title, agent);
+        string agentId = Env("VIHS_COLLAB_AGENT_ID", agent);
+        return new Config(owner, repo, category, title, agent, agentId);
     }
 
     /// <summary>The counterpart agent label (the one this agent waits on by default).</summary>
     public string Counterpart => Agent.Equals("LINUX", StringComparison.OrdinalIgnoreCase) ? "WIN" : "LINUX";
+
+    /// <summary>
+    /// True when a message's <c>to</c> field addresses THIS agent (LBA-REQ-013): a broadcast
+    /// (empty/absent <c>to</c>) reaches everyone, otherwise the <c>to</c> must equal this agent's
+    /// plane label or its fine-grained <see cref="AgentId"/>. Backs the <c>--to-me</c> filter.
+    /// </summary>
+    public bool AddressesMe(string? to)
+    {
+        if (string.IsNullOrWhiteSpace(to))
+        {
+            return true;
+        }
+
+        string t = to.Trim();
+        return t.Equals(Agent, StringComparison.OrdinalIgnoreCase)
+            || t.Equals(AgentId, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string DeriveAgent()
     {

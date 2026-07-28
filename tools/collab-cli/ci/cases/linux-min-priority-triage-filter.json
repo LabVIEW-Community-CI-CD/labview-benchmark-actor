@@ -1,0 +1,19 @@
+{
+  "name": "linux-min-priority-triage-filter",
+  "owner": "LINUX",
+  "description": "`poll --min-priority <tier>` is the urgency triage filter (LBA-REQ-013): P0 > P1 > P2(default) > P3. The mock fixture-priority discussion has WIN messages at P0 (urgent-p0-to-linux), P1 (high-p1-to-win) and P3 (routine-p3-broadcast). With --min-priority P1 the reader must keep the P0 and P1 messages (at least that urgent) and DROP the P3 one. Proves the priority ranking is applied, and that an above-threshold message is never hidden by a lower-priority one.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_AGENT": "LINUX",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-priority"
+  },
+  "args": ["poll", "--agent", "WIN", "--min-priority", "P1", "--tail", "10"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["urgent-p0-to-linux", "high-p1-to-win"],
+    "stdoutNotContains": ["routine-p3-broadcast"]
+  }
+}
