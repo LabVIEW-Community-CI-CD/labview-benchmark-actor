@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "labview-benchmark-actor/ollama-comparison-receipt-v1",
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "plan": {
+    "schema": "labview-benchmark-actor/ollama-comparison@v1",
+    "comparisonCount": 1,
+    "comparisons": [
+      {
+        "actorId": "vm-a",
+        "baselineRunId": "r1",
+        "candidateRunId": "r2",
+        "prompt": "Compare benchmark runs for actor vm-a: baseline r1 (metrics a/r1/metrics.tdms, frames a/r1/frames) vs candidate r2 (metrics a/r2/metrics.tdms, frames a/r2/frames). Summarize the run-over-run change in performance."
+      }
+    ]
+  },
+  "results": [
+    {
+      "name": "plan-determinism",
+      "pass": true,
+      "detail": {
+        "comparisonCount": 1
+      }
+    },
+    {
+      "name": "same-actor-pairing-no-cross-vm",
+      "pass": true,
+      "detail": {
+        "pairs": [
+          "vm-a:r1->r2"
+        ]
+      }
+    },
+    {
+      "name": "output-contract",
+      "pass": true,
+      "detail": {
+        "comparisonCount": 1
+      }
+    },
+    {
+      "name": "comms-only-driver-sees-run-data-only",
+      "pass": true,
+      "detail": {
+        "prompts": 1
+      }
+    }
+  ]
+}
