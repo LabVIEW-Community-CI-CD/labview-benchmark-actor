@@ -1,0 +1,41 @@
+{
+  "schema": "labview-benchmark-actor/corpus-manifest@v1",
+  "generatedAt": "2026-07-28T00:00:00.000Z",
+  "topology": "multi-vm-topology (2 golden-box actors)",
+  "corpora": [
+    {
+      "actorId": "actor-1",
+      "runs": [
+        {
+          "runId": "run-001",
+          "completedAt": "2026-07-28T10:00:00.000Z",
+          "metricsRef": "actor-1/run-001/metrics.json",
+          "framesRef": "actor-1/run-001/frames.ndjson"
+        },
+        {
+          "runId": "run-002",
+          "completedAt": "2026-07-28T10:05:00.000Z",
+          "metricsRef": "actor-1/run-002/metrics.json",
+          "framesRef": "actor-1/run-002/frames.ndjson"
+        }
+      ]
+    },
+    {
+      "actorId": "actor-2",
+      "runs": [
+        {
+          "runId": "run-001",
+          "completedAt": "2026-07-28T10:01:00.000Z",
+          "metricsRef": "actor-2/run-001/metrics.json",
+          "framesRef": "actor-2/run-001/frames.ndjson"
+        },
+        {
+          "runId": "run-002",
+          "completedAt": "2026-07-28T10:06:00.000Z",
+          "metricsRef": "actor-2/run-002/metrics.json",
+          "framesRef": "actor-2/run-002/frames.ndjson"
+        }
+      ]
+    }
+  ]
+}

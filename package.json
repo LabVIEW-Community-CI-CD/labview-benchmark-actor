@@ -1,0 +1,48 @@
+{
+  "name": "labview-benchmark-actor",
+  "displayName": "LabVIEW Benchmark Actor",
+  "description": "Standalone agentic benchmark-actor infrastructure with cross-plane coordination (lbabus) for LabVIEW benchmarking.",
+  "version": "0.1.0",
+  "publisher": "labview-community-ci-cd",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "labviewBenchmarkActor.showCapabilities",
+        "title": "LabVIEW Benchmark Actor: Show Host Capabilities"
+      },
+      {
+        "command": "labviewBenchmarkActor.pollBus",
+        "title": "LabVIEW Benchmark Actor: Poll Coordination Bus"
+      },
+      {
+        "command": "labviewBenchmarkActor.postNote",
+        "title": "LabVIEW Benchmark Actor: Post Coordination Note"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node test/extension-activation.mjs",
+    "package": "vsce package --out labview-benchmark-actor.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.4.5"
+  }
+}

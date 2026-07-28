@@ -437,10 +437,88 @@ check('multi-vm-topology-receipt-green', () => {
   return { collector: t.collector?.identity, sender: t.sender?.identity, acks: a.echoedAcks };
 });
 
-// 20. Multi-VM out-of-band corpus export receipt is green (LBA-REQ-010, T-010 leg 2). The two golden-box
+// 20. The standalone .vsix extension manifest declares its command surface and carries NO vi-history-suite
+//     dependency, and the moved-module manifest enumerates surfaces that exist (LBA-REQ-001, T-001). Static
+//     boundary check on package.json + docs/cm/moved-module-manifest.json. The full .vsix publish + install
+//     activation on Codespace/golden-VM (LBA-REQ-002) is the packaging/maintainer step.
+check('extension-manifest-boundary', () => {
+  const pkg = readJson('package.json');
+  assert(pkg.name === 'labview-benchmark-actor', 'extension name must be labview-benchmark-actor');
+  assert(pkg.engines && typeof pkg.engines.vscode === 'string', 'the manifest must declare engines.vscode');
+  assert(typeof pkg.main === 'string' && pkg.main.length > 0, 'the manifest must declare the extension main entry');
+  const commands = pkg.contributes?.commands;
+  assert(Array.isArray(commands) && commands.length > 0, 'the manifest must contribute at least one command (the agentic surface)');
+  // Boundary: no vi-history-suite-private module on the packaged dependency graph (AC #1).
+  const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+  for (const dep of Object.keys(deps)) {
+    assert(!/vi-history-suite/i.test(dep), `dependency ${dep} leaks a vi-history-suite-private module`);
+  }
+  // Moved-module manifest (AC #3): every enumerated surface exists on disk.
+  const manifest = readJson(join('docs', 'cm', 'moved-module-manifest.json'));
+  assert(manifest.schemaVersion === 'labview-benchmark-actor/moved-module-manifest-v1', 'moved-module manifest schemaVersion mismatch');
+  assert(Array.isArray(manifest.modules) && manifest.modules.length > 0, 'the moved-module manifest must enumerate modules');
+  for (const m of manifest.modules) {
+    assert(typeof m.surface === 'string' && existsSync(join(pkgRoot, m.surface)), `moved-module surface ${m.surface} must exist`);
+  }
+  return { name: pkg.name, commands: commands.length, movedModules: manifest.modules.length };
+});
+
+// 21. A GitHub Codespace install route is defined: the .devcontainer provisions node + dotnet and builds
+//     the extension via postCreate, so it activates in a Codespace with no host-specific patching
+//     (LBA-REQ-002 AC #1, T-002). The Vagrant golden-VM install of the same artifact + the first-run
+//     activation signal is the maintainer/VM step (the LBA-REQ-006 topology / install lane).
+check('devcontainer-codespace-install-route', () => {
+  const dc = readJson(join('.devcontainer', 'devcontainer.json'));
+  assert(typeof dc.image === 'string' && dc.image.length > 0, 'the devcontainer must declare a base image');
+  assert(
+    dc.features && Object.keys(dc.features).some((f) => /dotnet/i.test(f)),
+    'the devcontainer must provision dotnet (the agentic component runs in Codespaces Linux)'
+  );
+  const post = dc.postCreateCommand;
+  assert(
+    typeof post === 'string' && /npm\s+install/.test(post) && /compile/.test(post),
+    'postCreateCommand must install deps + compile the extension'
+  );
+  return { image: dc.image };
+});
+
+// 22. The corpus-manifest ingestion boundary receipt is green: the run-topology.ps1 -> host-concentration
+//     contract ingests the sample manifest (2 golden-box actors, 4 runs), concentrates it preserving
+//     per-actor isolation, and yields a same-actor-only comparison plan (LBA-REQ-010, T-010). This is the
+//     glue that lets WIN's emitted corpus manifest feed the concentrate -> ollama-compare path with no hand
+//     editing; the live host-side ollama drive over the REAL concentrated corpus stays the maintainer step.
+check('corpus-ingestion-contract-green', () => {
+  const receipt = readJson(join('experiments', 'host-concentration', 'corpus-ingestion-receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/corpus-ingestion-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  assert(receipt.manifestSchema === 'labview-benchmark-actor/corpus-manifest@v1', 'manifest schema mismatch');
+  const c = receipt.concentrated;
+  assert(c && c.actors >= 2, `ingestion must concentrate >= 2 actors, got ${c && c.actors}`);
+  assert(c.runCount >= c.actors, 'runCount must be at least one run per actor');
+  assert(c.comparisonCount === c.runCount - c.actors, 'comparisons must equal (runs - actors) for consecutive same-actor pairing');
+  return { checks: receipt.total, actors: c.actors, runs: c.runCount, comparisons: c.comparisonCount };
+});
+
+// 23. The REAL-corpus wiring receipt is green: the complete-corpus manifest ingests -> concentrates ->
+//     dereferences each run's VM-local metrics file into a real summary -> builds a same-actor plan whose
+//     prompts embed the REAL values -> a mock drive yields same-actor verdicts (LBA-REQ-010, T-010). This
+//     gates the fixture + dereference wiring that drive-real-corpus.mjs runs LIVE on GPU, so the host-side
+//     pipeline stays regression-proof without a GPU. The live LLM verdict is the maintainer step.
+check('real-corpus-wiring-green', () => {
+  const receipt = readJson(join('experiments', 'ollama-comparison', 'real-corpus-wiring-receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/real-corpus-wiring-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  // The wiring proof must include the dereference (path->summary) and the prompt-embeds-real-values checks.
+  const names = new Set(receipt.results.map((r) => r.name));
+  assert(names.has('dereference-replaces-path-with-real-metric-summary'), 'must prove dereference replaces the path with a summary');
+  assert(names.has('comparison-plan-prompts-embed-real-values'), 'must prove the plan prompts embed the real dereferenced values');
+  return { checks: receipt.total };
+});
+
+// 24. Multi-VM out-of-band corpus export receipt is green (LBA-REQ-010, T-010 leg 2). The two golden-box
 //     VMs each produced their own-run corpus, the host fetched both OUT-OF-BAND (not over the bus), and the
 //     SHIPPED host-concentration core merged them with per-actor isolation + run-data-only rejection --
-//     proving the real multi-VM concentrated corpus that feeds the ollama layer.
+//     proving the real multi-VM concentrated corpus that feeds the ollama layer. WIN topology + LINUX core.
 check('multi-vm-corpus-export-receipt-green', () => {
   const receipt = readJson(join('experiments', 'multi-vm-topology', 'corpus-export', 'receipt.json'));
   assert(receipt.schema === 'labview-benchmark-actor/multi-vm-corpus-export-receipt-v1', 'receipt schema mismatch');
