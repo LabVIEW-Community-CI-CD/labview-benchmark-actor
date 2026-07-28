@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Cross-plane concurrency stress gate for `lbabus resource` (LINUX #15 slice, PR #18).
+    Spawns many REAL concurrent `lbabus resource` processes and asserts the cross-process lease
+    invariants (mutual exclusion on free + stale, TTL/pid steal, idempotent release, wait). Dep-free
+    (BCL only), runs on Windows AND Linux — the regression gate that a 3-round manual check misses.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>lbabus-stress</AssemblyName>
+    <RootNamespace>LabViewBenchmarkActor.CollabBus.Ci.Stress</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

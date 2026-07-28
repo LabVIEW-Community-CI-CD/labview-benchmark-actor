@@ -35,6 +35,7 @@ internal static class CommandRouter
                 "defect" => CmdDefect(rest),
                 "delta" => CmdDelta(rest),
                 "net" => NetCommands.Run(tail),
+                "resource" or "res" => ResourceCommands.Run(tail),
                 _ => Fail($"unknown command '{command}'"),
             };
         }
@@ -606,6 +607,7 @@ internal static class CommandRouter
               lbabus defect --message <m> | --message-file <f> [--title <t>]
               lbabus delta [--agent <A>] [--tail <N>] [--since <iso>]   # CLI-measured response deltas (symmetric)
               lbabus net <listen|send|beacon|ping> ...   # local TCP/UDP coordination bus (LBA-REQ-007, ADR-0003/0004)
+              lbabus resource <list|status|acquire|release|renew> [name] [--agent <id>] [--ttl <sec>] [--wait [--timeout <sec>]]
 
             AGENT GUARDRAILS (fail-closed)
               * pinned toolchain: `selfcheck`/`doctor`/`preflight` require rg>=13, git>=2.30, gh>=2.20,

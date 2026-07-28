@@ -18,7 +18,8 @@ WORKDIR /src
 COPY . .
 RUN dotnet publish tools/collab-cli/LbaBus.csproj -c Release -o /out/cli \
  && dotnet publish tools/collab-cli/ci/LbaBus.Ci/LbaBus.Ci.csproj -c Release -o /out/ci \
- && dotnet publish tools/collab-cli/ci/LbaBus.Ci.Mock/LbaBus.Ci.Mock.csproj -c Release -o /out/mock
+ && dotnet publish tools/collab-cli/ci/LbaBus.Ci.Mock/LbaBus.Ci.Mock.csproj -c Release -o /out/mock \
+ && dotnet publish tools/collab-cli/ci/LbaBus.Ci.Stress/LbaBus.Ci.Stress.csproj -c Release -o /out/stress
 
 # ---- ci-rg: ripgrep present -> offline + mock cases RUN and PASS, no-rg case SKIP ------------------
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS ci-rg
@@ -39,6 +40,15 @@ COPY tools/collab-cli/ci /repo/tools/collab-cli/ci
 # stage as well and prove the seam is independent of the search toolchain.
 RUN dotnet /out/mock/lbabus-mock.dll run-harness --port 8099 \
       --repo-root /repo --lbabus /out/cli/lbabus.dll --runner /out/ci/lbabus-ci.dll
+
+# ---- ci-stress: cross-process lease mutual-exclusion regression gate (LINUX #15 stress) -----------
+# Spawns many concurrent `lbabus resource acquire` processes and asserts mutual exclusion holds on a
+# FREE and a STALE lease (+ ttl/pid steal, idempotent release, wait). This is the gate for the
+# concurrency mutex break the LINUX stress corpus found in PR #18 — a low-round manual check passes it
+# by luck, so the release must run the intense version.
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS ci-stress
+COPY --from=build /out /out
+RUN dotnet /out/stress/lbabus-stress.dll --lbabus /out/cli/lbabus.dll --agents 16 --rounds 30
 
 # ---- ci-musl: framework-dependent lbabus on musl (Alpine) -> harness runs GREEN (portable IL) ------
 # Proves the SHIPPED nupkg / framework-dependent path (portable lbabus.dll + runner + HttpListener mock)
