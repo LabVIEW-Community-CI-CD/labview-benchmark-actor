@@ -1,0 +1,17 @@
+{
+  "name": "linux-crlf-message-block-parse",
+  "owner": "LINUX",
+  "description": "GitHub normalizes stored comment bodies to CRLF; the parser and `poll --full` must handle a CRLF-terminated body and a msg value containing escaped CRLF without dropping the tail or leaking a stray carriage return. The mock's fixture-parse discussion returns a CRLF-bodied vihs-collab-msg@v1 whose msg is a multi-line block; poll --full must render every line including the final tail (the ToFull 'never drops the tail' contract).",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-parse"
+  },
+  "args": ["poll", "--full", "--agent", "WIN", "--tail", "5"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["crlf-line-one", "crlf-line-two", "crlf-tail-preserved"]
+  }
+}

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using LabViewBenchmarkActor.CollabBus;
 
 return CommandRouter.Run(args);
@@ -23,6 +24,7 @@ internal static class CommandRouter
             return command switch
             {
                 "version" or "--version" or "-v" => CmdVersion(),
+                "capabilities" or "caps" => CmdCapabilities(),
                 "help" or "--help" or "-h" => PrintUsage(),
                 "init" => CmdInit(),
                 "post" => CmdPost(rest),
@@ -46,6 +48,34 @@ internal static class CommandRouter
     private static int CmdVersion()
     {
         Console.WriteLine(CurrentVersion());
+        return 0;
+    }
+
+    /// <summary>
+    /// Prints host capabilities for agent awareness - the pinned toolchain (with detected versions) plus
+    /// optional capabilities (Docker, Vagrant, VMware, host LabVIEW). Informational; always exits 0 so an
+    /// agent can always query "what can this machine do?" the same way it reads the CLI version.
+    /// </summary>
+    private static int CmdCapabilities()
+    {
+        Config cfg = Config.FromEnvironment();
+        Console.WriteLine($"lbabus v{CurrentVersion()} - {cfg.Agent} plane on {RuntimeInformation.OSDescription.Trim()} / {RuntimeInformation.OSArchitecture}");
+        Console.WriteLine();
+        Console.WriteLine("pinned toolchain:");
+        foreach (DependencyCheck dc in Preflight.CheckAll())
+        {
+            string tag = dc.AdvisoryAbsent ? "skip" : dc.Ok ? "ok" : "MISS";
+            string ver = dc.Found ? (dc.Parsed?.ToString() ?? dc.RawVersion ?? "?") : "-";
+            Console.WriteLine($"  [{tag,4}] {dc.Dep.Command,-7} {"v" + ver,-10} (pin >= v{dc.Dep.MinVersion})");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("host capabilities:");
+        foreach (HostCapability c in Capabilities.Detect())
+        {
+            Console.WriteLine($"  [{(c.Available ? "yes" : "no"),3}] {c.Name,-12} {c.Detail}");
+        }
+
         return 0;
     }
 
@@ -221,15 +251,35 @@ internal static class CommandRouter
         Config cfg = Config.FromEnvironment();
         bool ok = true;
 
-        // Guardrail 1: ripgrep is mandatory (search is ripgrep-only, no fallback).
-        if (Ripgrep.TryLocate(out string rgVersion))
+        // Guardrail 1: pinned external dependencies — fail closed if a REQUIRED tool is missing or below its
+        // pinned minimum version. Advisory tools (e.g. glab on this GitHub-only repo) are reported but their
+        // absence is not fatal; if present they must still meet the pin.
+        foreach (DependencyCheck dc in Preflight.CheckAll())
         {
-            Console.WriteLine($"[ok]   ripgrep: {rgVersion}");
-        }
-        else
-        {
-            ok = false;
-            Console.Error.WriteLine("[FAIL] ripgrep (rg) not found — search is ripgrep-only. " + Ripgrep.InstallHint());
+            if (dc.AdvisoryAbsent)
+            {
+                Console.WriteLine($"[skip] {dc.Dep.Command}: not installed (advisory, pin >= v{dc.Dep.MinVersion})");
+            }
+            else if (dc.Ok)
+            {
+                Console.WriteLine($"[ok]   {dc.Dep.Command}: v{dc.Parsed} (pin >= v{dc.Dep.MinVersion})");
+            }
+            else
+            {
+                ok = false;
+                if (!dc.Found)
+                {
+                    Console.Error.WriteLine($"[FAIL] {dc.Dep.Command}: not found — required at >= v{dc.Dep.MinVersion}. {dc.Dep.InstallHint}");
+                }
+                else if (dc.Parsed is null)
+                {
+                    Console.Error.WriteLine($"[FAIL] {dc.Dep.Command}: version unparseable from \"{dc.RawVersion}\" — required >= v{dc.Dep.MinVersion}.");
+                }
+                else
+                {
+                    Console.Error.WriteLine($"[FAIL] {dc.Dep.Command}: v{dc.Parsed} is below the pinned minimum v{dc.Dep.MinVersion}. {dc.Dep.InstallHint}");
+                }
+            }
         }
 
         // Guardrail 2: version currency against the latest published release.
@@ -279,6 +329,23 @@ internal static class CommandRouter
         {
             Console.Error.WriteLine("lbabus grep: pass ripgrep arguments, e.g. `lbabus grep \"pattern\" src`.");
             return 1;
+        }
+
+        // Fail closed if ripgrep is missing OR below its pinned minimum version — a too-old rg can diverge
+        // in output/flags across planes, defeating the point of a single deterministic search tool.
+        DependencyCheck rg = Preflight.Probe(DependencyPolicy.All.First(d => d.Command == "rg"));
+        if (!rg.Ok)
+        {
+            if (!rg.Found)
+            {
+                Console.Error.WriteLine("lbabus: ripgrep (rg) not found — search in this toolchain is ripgrep-only, no fallback. " + Ripgrep.InstallHint());
+            }
+            else
+            {
+                Console.Error.WriteLine($"lbabus: ripgrep v{rg.Parsed?.ToString() ?? rg.RawVersion} is below the pinned minimum v{rg.Dep.MinVersion} — refusing to run. " + Ripgrep.InstallHint());
+            }
+
+            return 4;
         }
 
         return Ripgrep.Run(tail);
@@ -334,7 +401,16 @@ internal static class CommandRouter
         }
         catch
         {
-            // Fail open on network/release-lookup errors so an offline plane is not wedged.
+            // When LBABUS_GITHUB_API is pinned (hermetic CI), an unreachable endpoint is a hard
+            // misconfiguration — fail closed rather than silently proceeding as if offline.
+            if (GitHubGraphQL.ApiOverridden)
+            {
+                Console.Error.WriteLine(
+                    $"lbabus: LBABUS_GITHUB_API={GitHubGraphQL.ApiBase} is set but the release lookup failed — refusing to proceed (fail-closed).");
+                return 3;
+            }
+
+            // Otherwise fail open on network/release-lookup errors so an offline plane is not wedged.
             return null;
         }
 
@@ -519,17 +595,20 @@ internal static class CommandRouter
 
             USAGE
               lbabus version
+              lbabus capabilities                    # aka caps - pinned toolchain + host capabilities (Docker/Vagrant/VMware/LabVIEW)
               lbabus init
               lbabus post --type <T> [--task <id>] [--message <m> | --message-file <f>] [--ref <sha>] [--next <n>] [--to <A>]
               lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>] [--full]
               lbabus wait [--agent LINUX|WIN] [--since <iso>] [--timeout <sec>] [--interval <sec>]
-              lbabus selfcheck                       # aka doctor/preflight — ripgrep present + version current
+              lbabus selfcheck                       # aka doctor/preflight — pinned deps + version current
               lbabus grep <ripgrep args...>          # aka rg/search — ripgrep-only, no fallback
               lbabus defect --message <m> | --message-file <f> [--title <t>]
               lbabus delta [--agent <A>] [--tail <N>] [--since <iso>]   # CLI-measured response deltas (symmetric)
 
             AGENT GUARDRAILS (fail-closed)
-              * search is ripgrep-only (`lbabus grep`); rg absent => exit 4 + install hint.
+              * pinned toolchain: `selfcheck`/`doctor`/`preflight` require rg>=13, git>=2.30, gh>=2.20,
+                glab>=1.25 — a missing or below-pin tool exits 4 with an install hint.
+              * search is ripgrep-only (`lbabus grep`); rg absent or below its pin => exit 4 + install hint.
               * `post`/`wait` refuse to run when a newer collab-cli-v* release is published (exit 3);
                 bypass offline/dev with LBABUS_SKIP_VERSION_CHECK=1.
               * report tooling defects via `lbabus defect` to the dedicated log issue
@@ -542,6 +621,7 @@ internal static class CommandRouter
               VIHS_COLLAB_TITLE      default 'labview-benchmark-actor coordination bus (WIN <-> LINUX)'
               VIHS_COLLAB_AGENT      default WIN on Windows, LINUX otherwise
               LBABUS_DEFECT_ISSUE    default #7   LBABUS_SKIP_VERSION_CHECK   bypass version guard
+              LBABUS_GITHUB_API      override the GitHub API base (hermetic CI mock; fail-closed if unreachable)
 
             AUTH: GH_TOKEN / GITHUB_TOKEN, else `gh auth token`.
             """);

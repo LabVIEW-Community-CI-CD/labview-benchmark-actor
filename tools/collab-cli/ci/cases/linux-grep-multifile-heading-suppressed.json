@@ -1,0 +1,17 @@
+{
+  "name": "linux-grep-multifile-heading-suppressed",
+  "owner": "LINUX",
+  "description": "ripgrep's --heading and color are isatty-sensitive: piped it prints inline path:line:text with no color, but on a TTY it groups matches under per-file heading blocks in color. lbabus grep prepends --color=never --no-heading so the output is byte-identical either way. Across TWO input files (where the TTY default would group under headings), assert every match is inline path-prefixed (basename tails sample.txt: and sample2.txt:) with no ANSI escape — the TTY-determinism guarantee, extended to the multi-file heading path.",
+  "requiresRipgrep": true,
+  "env": { "LBABUS_SKIP_VERSION_CHECK": "1" },
+  "args": ["grep", "--line-number", "coordination", "ci/fixtures/sample.txt", "ci/fixtures/sample2.txt"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": [
+      "sample.txt:1:alpha coordination line one",
+      "sample2.txt:2:second coordination file line two"
+    ],
+    "stdoutNotContains": ["\u001b["]
+  }
+}

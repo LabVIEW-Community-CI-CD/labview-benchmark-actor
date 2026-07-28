@@ -15,7 +15,24 @@ public sealed record DiscussionComment(DateTimeOffset CreatedAt, string AuthorLo
 /// </summary>
 public sealed class GitHubGraphQL : IDisposable
 {
-    private const string Endpoint = "https://api.github.com/graphql";
+    private const string DefaultApiBase = "https://api.github.com";
+
+    /// <summary>
+    /// Base URL for all GitHub API calls (GraphQL at <c>{base}/graphql</c>, REST at <c>{base}/repos/...</c>).
+    /// Overridable via <c>LBABUS_GITHUB_API</c> so a hermetic Docker-CI harness can point every call at an
+    /// in-container mock with no real network. Trailing slash is trimmed. When set, the tool is fail-closed:
+    /// an unreachable override is a hard error, never a silent fall-back to the real api.github.com.
+    /// </summary>
+    public static string ApiBase =>
+        Environment.GetEnvironmentVariable("LBABUS_GITHUB_API") is { Length: > 0 } o
+            ? o.Trim().TrimEnd('/')
+            : DefaultApiBase;
+
+    /// <summary>True when <c>LBABUS_GITHUB_API</c> is set — the caller has pinned a specific endpoint.</summary>
+    public static bool ApiOverridden =>
+        Environment.GetEnvironmentVariable("LBABUS_GITHUB_API") is { Length: > 0 };
+
+    private static string GraphQlEndpoint => $"{ApiBase}/graphql";
     private readonly HttpClient _http;
 
     public GitHubGraphQL()
@@ -23,7 +40,7 @@ public sealed class GitHubGraphQL : IDisposable
         string token = ResolveToken();
         _http = new HttpClient();
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("lbabus/0.3.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("lbabus/0.4.0");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         _http.Timeout = TimeSpan.FromSeconds(30);
     }
@@ -79,7 +96,7 @@ public sealed class GitHubGraphQL : IDisposable
 
         string json = JsonSerializer.Serialize(payload);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using HttpResponseMessage resp = _http.PostAsync(Endpoint, content).GetAwaiter().GetResult();
+        using HttpResponseMessage resp = _http.PostAsync(GraphQlEndpoint, content).GetAwaiter().GetResult();
         string body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
 
         if (!resp.IsSuccessStatusCode)
@@ -185,7 +202,7 @@ public sealed class GitHubGraphQL : IDisposable
     /// <summary>REST: all release tag names for the repo (used by the version-currency guard).</summary>
     public IReadOnlyList<string> ListReleaseTags(Config cfg)
     {
-        string url = $"https://api.github.com/repos/{cfg.Owner}/{cfg.Repo}/releases?per_page=100";
+        string url = $"{ApiBase}/repos/{cfg.Owner}/{cfg.Repo}/releases?per_page=100";
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Accept.Clear();
         req.Headers.Accept.ParseAdd("application/vnd.github+json");
@@ -212,7 +229,7 @@ public sealed class GitHubGraphQL : IDisposable
     /// <summary>REST: append a comment to an issue (used by the sanctioned defect-reporting sink).</summary>
     public string AddIssueComment(Config cfg, int issueNumber, string bodyMarkdown)
     {
-        string url = $"https://api.github.com/repos/{cfg.Owner}/{cfg.Repo}/issues/{issueNumber}/comments";
+        string url = $"{ApiBase}/repos/{cfg.Owner}/{cfg.Repo}/issues/{issueNumber}/comments";
         string payload = JsonSerializer.Serialize(new Dictionary<string, object?> { ["body"] = bodyMarkdown });
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Accept.Clear();

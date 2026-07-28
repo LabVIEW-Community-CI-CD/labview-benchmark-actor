@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Dependency-free case runner for the lbabus Docker-CI edge-case harness.
+    NO NuGet packages, NO bash: everything is BCL (System.Text.Json). Reads declarative
+    cases/*.json, runs the lbabus binary once per case (optionally against an in-container
+    GitHub mock via LBABUS_GITHUB_API), and writes one result file per case. Gate-only:
+    a non-zero exit fails the release pipeline before publish.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>lbabus-ci</AssemblyName>
+    <RootNamespace>LabViewBenchmarkActor.CollabBus.Ci</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,18 @@
+{
+  "name": "seam-unreachable-fails-closed",
+  "owner": "WIN",
+  "description": "When LBABUS_GITHUB_API is pinned but unreachable, a version-gated command (wait) must FAIL CLOSED (exit 3) instead of silently proceeding as if offline. Fully hermetic: the endpoint is a closed local port, so no real network and no mock are needed.",
+  "requiresMock": false,
+  "env": {
+    "LBABUS_GITHUB_API": "http://127.0.0.1:59999",
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-unreachable"
+  },
+  "args": ["wait", "--agent", "LINUX", "--timeout", "5", "--interval", "5"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 3,
+    "stderrContains": ["fail-closed"]
+  }
+}

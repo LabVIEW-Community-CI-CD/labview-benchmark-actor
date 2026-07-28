@@ -1,0 +1,13 @@
+{
+  "name": "grep-no-match-passes-through-rg-exit-1",
+  "owner": "WIN",
+  "description": "lbabus grep is a ripgrep passthrough — when nothing matches, ripgrep's exit code 1 must propagate unchanged (no swallowing, no fallback search engine).",
+  "requiresMock": false,
+  "requiresRipgrep": true,
+  "env": { "LBABUS_SKIP_VERSION_CHECK": "1" },
+  "args": ["grep", "this-string-appears-in-no-fixture-line", "ci/fixtures/sample.txt"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 1
+  }
+}
