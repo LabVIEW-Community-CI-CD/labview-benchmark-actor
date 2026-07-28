@@ -24,6 +24,19 @@ Runs the dependency-free self-test (no GPU / no live ollama) and writes `receipt
 determinism, same-actor pairing (no cross-VM), the output contract, and the comms-only invariant (the driver
 only ever sees run-derived prompts). Re-validated by `experiments/verify-local-gates.mjs`.
 
+## Live drive (maintainer)
+
+`drive-ollama-live.mjs` drives the pipeline over a corpus through the **live** ollama HTTP API (needs a real
+ollama + GPU; not a CI gate):
+
+```
+node experiments/ollama-comparison/drive-ollama-live.mjs [--model llama3.1:8b] [--out <path>]
+```
+
+It proves the host-side comparison layer produces a real run-over-run analysis on real hardware (e.g.
+`llama3.1:8b` reads a cpu/ram/duration regression and explains it in a few seconds). The output is
+non-deterministic **maintainer evidence**, never committed as a gate receipt.
+
 ## Scope
 
 The deterministic planning + output contract are proven here (keeps LBA-REQ-010 Partial, alongside the
