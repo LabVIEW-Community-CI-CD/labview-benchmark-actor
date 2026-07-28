@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "labview-benchmark-actor/vi-analyzer-report@v1",
+  "title": "VI Analyzer normalized report (cross-plane input, LBA-REQ-015)",
+  "description": "The normalized shape a plane's parser emits from a real LabVIEWCLI RunVIAnalyzer report (ni/labview-icon-editor .viancfg pattern). summarizeViAnalyzerReport canonicalizes this into comparable metrics + a deterministic, order-independent, locale-independent resultHash (the LBA-REQ-015 cross-plane anchor). Two planes summarizing the SAME committed report produce byte-identical resultHash, so a VI Analyzer run becomes a cross-plane-comparable benchmark. To keep the committed report portable and the digest stable, viPath SHOULD be repo-relative with forward slashes and stable casing; the resultHash canonicalizes over the exact viPath and test strings.",
+  "type": "object",
+  "required": ["vis"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "description": "Optional shape tag, e.g. 'vi-analyzer-report@v1'."
+    },
+    "config": {
+      "type": ["string", "object", "null"],
+      "description": "The VI Analyzer configuration identity (e.g. the .viancfg name). Carried through as summary.config; does not affect the resultHash."
+    },
+    "vis": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Per-VI results. Each viPath MUST be unique (a duplicate makes the resultHash ambiguous).",
+      "items": {
+        "type": "object",
+        "required": ["viPath", "tests"],
+        "properties": {
+          "viPath": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repo-relative, forward-slash, case-stable path. MUST be normalized identically cross-plane."
+          },
+          "tests": {
+            "type": "array",
+            "description": "Per-test results for this VI. An empty array means the VI was analyzed with no findings surfaced.",
+            "items": {
+              "type": "object",
+              "required": ["test", "result"],
+              "properties": {
+                "test": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The VI Analyzer test name (e.g. 'Icon Overlap')."
+                },
+                "result": {
+                  "type": "string",
+                  "enum": ["pass", "fail", "error"],
+                  "description": "pass = the test passed; fail = the test flagged the VI; error = the test could not evaluate."
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}

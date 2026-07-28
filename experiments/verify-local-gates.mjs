@@ -25,6 +25,7 @@ import { ingestShortPackets, MPRR_RING_SCHEMA } from './mprr-ring/mprrRing.mjs';
 import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
 import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
 import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
+import { validateViAnalyzerReport } from './vi-analyzer/validate-vi-analyzer-report.mjs';
 import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -651,6 +652,29 @@ check('vi-analyzer-result-model-green', () => {
   assert(a.resultHash === b.resultHash && /^[0-9a-f]{64}$/.test(a.resultHash), 'resultHash deterministic 64-hex');
   assert(a.totalTests === 8 && a.failedTests === 2 && a.errorTests === 1 && a.pass === false, 'counts + verdict');
   return { vis: a.totalVis, tests: a.totalTests };
+});
+check('vi-analyzer-report-schema-green', () => {
+  // The normalized VI Analyzer report is the LBA-REQ-015 cross-plane INPUT contract: WIN's parser must emit this
+  // exact shape so the resultHash matches LINUX on the first compare. The committed JSON Schema documents it and
+  // the dep-free validator (WIN's pre-send self-check) enforces it with path-annotated errors.
+  const schema = readJson(join('experiments', 'vi-analyzer', 'vi-analyzer-report.schema.json'));
+  assert(schema.$id === 'labview-benchmark-actor/vi-analyzer-report@v1', 'schema $id');
+  assert(Array.isArray(schema.required) && schema.required.includes('vis'), 'schema requires vis');
+  const resultEnum = schema.properties.vis.items.properties.tests.items.properties.result.enum;
+  assert(JSON.stringify(resultEnum) === JSON.stringify(['pass', 'fail', 'error']), 'result enum pass|fail|error');
+  // The fixture validates OK.
+  const fixture = readJson(join('experiments', 'vi-analyzer', 'fixtures', 'sample-report.json'));
+  const good = validateViAnalyzerReport(fixture);
+  assert(good.ok === true && good.errors.length === 0, `fixture must validate: ${good.errors.join('; ')}`);
+  // Teeth: a malformed report (bad result enum, unknown key, duplicate viPath, empty test name) is rejected.
+  const bad = validateViAnalyzerReport({
+    vis: [
+      { viPath: 'A.vi', tests: [{ test: 'T', result: 'skipped' }], extra: 1 },
+      { viPath: 'A.vi', tests: [{ test: '', result: 'pass' }] },
+    ],
+  });
+  assert(bad.ok === false && bad.errors.length === 4, `malformed report rejected with 4 errors, got ${bad.errors.length}`);
+  return { schemaId: schema.$id, fixtureValid: good.ok };
 });
 check('mprr-packet-harness-profiles-green', () => {
   // The mprr rate profiles (MPRR-REQ-115-119) drive the absorbed ring across load shapes: steady is
