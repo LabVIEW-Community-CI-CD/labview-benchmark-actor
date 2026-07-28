@@ -15,7 +15,7 @@
     <PackageId>LabViewBenchmarkActor.CollabBus</PackageId>
 
     <!-- SemVer: the single source of truth for `lbabus version` and the released package. -->
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
     <Authors>LabVIEW-Community-CI-CD</Authors>
     <Description>Shared cross-plane coordination bus CLI for labview-benchmark-actor (WIN &lt;-&gt; LINUX). One versioned binary, one deterministic protocol, pulled from an immutable SemVer release.</Description>
     <PackageProjectUrl>https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor</PackageProjectUrl>
@@ -34,5 +34,19 @@
     <Content Remove="ci/**/*" />
     <EmbeddedResource Remove="ci/**/*" />
   </ItemGroup>
+
+  <!--
+    Version-pinned agent base instructions. Embedding AGENTS.md means every install of THIS lbabus
+    version carries byte-identical instructions (surfaced by the `lbabus agents` command), so "same
+    version => same base instructions" holds by construction. It is also copied to the build output
+    as a known post-build location; sessions materialize it via the `lbabus agents` command.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="agents/AGENTS.md" />
+  </ItemGroup>
+
+  <Target Name="CopyAgentsToOutput" AfterTargets="Build">
+    <Copy SourceFiles="agents/AGENTS.md" DestinationFiles="$(OutDir)AGENTS.md" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
