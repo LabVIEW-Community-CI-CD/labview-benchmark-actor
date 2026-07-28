@@ -15,10 +15,19 @@ pinned `rg`/`git`/`gh`/`glab`/`dotnet` toolchain + a freshly built `lbabus`).
 
 1. **VMware Workstation** (this host has it — `vmrun` under `C:\Program Files (x86)\VMware\VMware Workstation`).
 2. **Vagrant** (`winget install Hashicorp.Vagrant` — 2.4.9 verified here).
-3. **Vagrant VMware Utility** — `winget install Hashicorp.VagrantVMwareUtility` (a local service the provider talks to).
-4. **VMware provider plugin** — `vagrant plugin install vagrant-vmware-desktop`.
+3. **VMware provider plugin** — `vagrant plugin install vagrant-vmware-desktop` (3.0.5 installed here).
+4. **Vagrant VMware Utility** — NOT in winget; download the signed MSI from HashiCorp and install elevated
+   (it registers a local service + certs the provider talks to). Verify the checksum first:
+   ```powershell
+   $v="1.0.24"; $b="https://releases.hashicorp.com/vagrant-vmware-utility/$v"
+   iwr "$b/vagrant-vmware-utility_${v}_windows_amd64.msi" -OutFile "$env:TEMP\vvu.msi"
+   # verify against $b/vagrant-vmware-utility_${v}_SHA256SUMS, then:
+   Start-Process msiexec -ArgumentList '/i',"$env:TEMP\vvu.msi",'/qn' -Verb RunAs -Wait
+   ```
+   (1.0.24 installed + SHA-256-verified here; service `VagrantVMware` runs and `vagrant validate` passes.)
 
-Verify the host is ready with `lbabus capabilities` — it reports `[yes] vmware` and `[yes] vagrant`.
+Verify the host is ready with `lbabus capabilities` (reports `[yes] vagrant` / `[yes] vmware`) and, from
+this folder, `vagrant validate` (→ `Vagrantfile validated successfully.`).
 
 ## Package a base box from an existing VMware VM
 
