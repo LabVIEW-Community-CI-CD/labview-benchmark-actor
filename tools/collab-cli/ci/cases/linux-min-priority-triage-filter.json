@@ -5,6 +5,7 @@
   "requiresMock": true,
   "env": {
     "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_AGENT": "LINUX",
     "VIHS_COLLAB_OWNER": "lbabus-ci",
     "VIHS_COLLAB_REPO": "fixture-priority"
   },
