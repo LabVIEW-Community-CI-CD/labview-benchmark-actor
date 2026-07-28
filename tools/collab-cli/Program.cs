@@ -177,6 +177,18 @@ internal static class CommandRouter
         while (true)
         {
             poll++;
+
+            // Re-check version currency EACH iteration: `wait` is long-lived, so a release can be
+            // published mid-loop (the norm in our workflow). The start-only check cannot see it.
+            // On a newer release, fail closed and force a restart with the updated CLI (fail-open on
+            // network error so a transient blip does not kill an otherwise-valid waiter).
+            int? staleMidLoop = EnforceVersionOrNull(gh, cfg);
+            if (staleMidLoop is not null)
+            {
+                Console.Error.WriteLine($"[wait] a newer release was published mid-wait (after {poll} poll(s)) — STOP and restart the loop with the updated CLI.");
+                return staleMidLoop.Value;
+            }
+
             List<CollabMessage> hits = ParseAll(gh.ListComments(cfg, disc.Number, 50))
                 .Where(m => Eq(m.Agent, target) && m.CreatedAt > since)
                 .OrderBy(m => m.CreatedAt)
