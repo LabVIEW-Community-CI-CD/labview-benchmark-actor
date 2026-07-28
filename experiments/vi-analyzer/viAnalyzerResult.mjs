@@ -19,6 +19,12 @@ function assert(cond, msg) {
 export const VI_ANALYZER_RESULT_SCHEMA = 'labview-benchmark-actor/vi-analyzer-result@v1';
 const RESULTS = new Set(['pass', 'fail', 'error']);
 
+// Cross-plane determinism: sort by UTF-16 code unit, NOT String.localeCompare. localeCompare with no locale
+// argument uses the runtime's default locale collation, which can differ between Windows and Linux -- that
+// would canonicalize the same report differently on each plane and make the resultHash platform-dependent,
+// breaking cross-plane parity. Code-unit order is byte-stable on every platform.
+const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
 /**
  * Summarize a normalized VI Analyzer report `{ config?, vis: [{ viPath, tests: [{ test, result }] }] }` into
  * comparable metrics + a deterministic resultHash. `result` is `pass` | `fail` | `error`. The summary is
@@ -44,7 +50,7 @@ export function summarizeViAnalyzerReport(report) {
           assert(RESULTS.has(t.result), `vi ${vi.viPath} test ${t.test} has invalid result '${t.result}'`);
           return { test: t.test, result: t.result };
         })
-        .sort((a, b) => a.test.localeCompare(b.test));
+        .sort((a, b) => byCodeUnit(a.test, b.test));
       let viFail = 0;
       for (const t of tests) {
         totalTests += 1;
@@ -63,13 +69,13 @@ export function summarizeViAnalyzerReport(report) {
       }
       return { viPath: vi.viPath, tests };
     })
-    .sort((a, b) => a.viPath.localeCompare(b.viPath));
+    .sort((a, b) => byCodeUnit(a.viPath, b.viPath));
 
   // A viPath must be unique (a duplicate would make the resultHash ambiguous).
   for (let i = 1; i < canonicalVis.length; i += 1) {
     assert(canonicalVis[i].viPath !== canonicalVis[i - 1].viPath, `duplicate viPath: ${canonicalVis[i].viPath}`);
   }
-  failuresByVi.sort((a, b) => a.viPath.localeCompare(b.viPath));
+  failuresByVi.sort((a, b) => byCodeUnit(a.viPath, b.viPath));
 
   const resultHash = createHash('sha256').update(JSON.stringify(canonicalVis)).digest('hex');
   const pass = failedTests === 0 && errorTests === 0;
