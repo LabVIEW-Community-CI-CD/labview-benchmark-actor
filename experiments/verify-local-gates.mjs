@@ -404,6 +404,19 @@ check('docs-stamp-and-no-id-renumbering', () => {
   }
   return { ids: ids.length, lanes: ['architecture', 'cm', 'requirements', 'testing'] };
 });
+
+// 18. Viewer time-cursor logic receipt is green: pointer + keyboard map to an in-bounds sample and no
+//     operation selects outside the run window (LBA-REQ-004, T-004). The browser/webview render is the
+//     maintainer step.
+check('viewer-cursor-logic-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'viewer-cursor', 'receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/viewer-cursor-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  const axis = receipt.timeAxis;
+  assert(axis && Array.isArray(axis.samples) && axis.samples.length > 0, 'receipt must record the time axis');
+  assert(axis.start === axis.samples[0] && axis.end === axis.samples[axis.samples.length - 1], 'axis start/end must match the samples');
+  return { checks: receipt.total, samples: axis.samples.length };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
