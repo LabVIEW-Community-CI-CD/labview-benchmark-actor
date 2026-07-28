@@ -498,6 +498,22 @@ check('corpus-ingestion-contract-green', () => {
   assert(c.comparisonCount === c.runCount - c.actors, 'comparisons must equal (runs - actors) for consecutive same-actor pairing');
   return { checks: receipt.total, actors: c.actors, runs: c.runCount, comparisons: c.comparisonCount };
 });
+
+// 23. The REAL-corpus wiring receipt is green: the complete-corpus manifest ingests -> concentrates ->
+//     dereferences each run's VM-local metrics file into a real summary -> builds a same-actor plan whose
+//     prompts embed the REAL values -> a mock drive yields same-actor verdicts (LBA-REQ-010, T-010). This
+//     gates the fixture + dereference wiring that drive-real-corpus.mjs runs LIVE on GPU, so the host-side
+//     pipeline stays regression-proof without a GPU. The live LLM verdict is the maintainer step.
+check('real-corpus-wiring-green', () => {
+  const receipt = readJson(join('experiments', 'ollama-comparison', 'real-corpus-wiring-receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/real-corpus-wiring-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  // The wiring proof must include the dereference (path->summary) and the prompt-embeds-real-values checks.
+  const names = new Set(receipt.results.map((r) => r.name));
+  assert(names.has('dereference-replaces-path-with-real-metric-summary'), 'must prove dereference replaces the path with a summary');
+  assert(names.has('comparison-plan-prompts-embed-real-values'), 'must prove the plan prompts embed the real dereferenced values');
+  return { checks: receipt.total };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

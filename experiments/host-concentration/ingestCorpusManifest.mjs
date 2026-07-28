@@ -12,6 +12,7 @@
 // inside concentrate() -- so WIN gets fast, actionable feedback if run-topology.ps1 output shape ever moves.
 
 import { readFileSync } from 'node:fs';
+import { join, isAbsolute } from 'node:path';
 import { concentrate } from './hostConcentration.mjs';
 
 export const MANIFEST_SCHEMA = 'labview-benchmark-actor/corpus-manifest@v1';
@@ -70,4 +71,32 @@ export function ingestFile(path) {
 export function concentrateManifest(source, opts = {}) {
   const corpora = typeof source === 'string' ? ingestFile(source) : normalizeManifest(source);
   return concentrate(corpora, opts);
+}
+
+/**
+ * Dereference each run's VM-local metricsRef (a path, relative to baseDir) into a compact metric summary
+ * string in place, so buildComparisonPlan embeds the REAL metric values in each prompt. This is the host-side
+ * out-of-band read: the manifest carries a PATH to VM-local run data, and the host resolves + reads it here
+ * before prompting -- run data never travels over the coordination bus (ADR-0006 / ADR-0008). A missing or
+ * unreadable metrics file throws with the offending actor/run/path so a broken export surfaces clearly.
+ */
+export function dereferenceMetrics(corpus, baseDir) {
+  for (const run of corpus.runs) {
+    if (!run.metricsRef) {
+      continue;
+    }
+    const metricsPath = isAbsolute(run.metricsRef) ? run.metricsRef : join(baseDir, run.metricsRef);
+    let m;
+    try {
+      m = JSON.parse(readFileSync(metricsPath, 'utf8'));
+    } catch (err) {
+      throw new Error(
+        `cannot dereference metricsRef for ${run.actorId}/${run.runId} at ${metricsPath}: ${err.message}`
+      );
+    }
+    run.metricsRef =
+      `cpuMean=${m.cpuMeanPct}pct, ramMeanMiB=${m.ramMeanMiB}, durationMs=${m.durationMs}` +
+      (m.framesRendered != null ? `, framesRendered=${m.framesRendered}` : '');
+  }
+  return corpus;
 }
