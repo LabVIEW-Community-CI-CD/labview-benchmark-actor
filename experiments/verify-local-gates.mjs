@@ -25,6 +25,7 @@ import { ingestShortPackets, MPRR_RING_SCHEMA } from './mprr-ring/mprrRing.mjs';
 import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
 import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
 import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
+import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -650,6 +651,17 @@ check('vi-analyzer-result-model-green', () => {
   assert(a.resultHash === b.resultHash && /^[0-9a-f]{64}$/.test(a.resultHash), 'resultHash deterministic 64-hex');
   assert(a.totalTests === 8 && a.failedTests === 2 && a.errorTests === 1 && a.pass === false, 'counts + verdict');
   return { vis: a.totalVis, tests: a.totalTests };
+});
+check('mprr-packet-harness-profiles-green', () => {
+  // The mprr rate profiles (MPRR-REQ-115-119) drive the absorbed ring across load shapes: steady is
+  // authoritative; reclaim-pressure trips admission control on a small ring.
+  const P = { count: 24, frameIntervalTicks: 1_000_000, baseBytes: 120, blockDurationTicks: 3_000_000 };
+  assert(RATE_PROFILES.length === 5, 'five rate profiles');
+  const steady = runProfile('steady', P);
+  assert(steady.authoritative === true && steady.worstBoundaryVariationPct === 0, 'steady authoritative');
+  const pressure = runProfile('reclaim-pressure', { ...P, capacityBytes: 4096 });
+  assert(pressure.admission.outcome === 'admission-control-blocked', 'reclaim-pressure trips admission');
+  return { profiles: RATE_PROFILES.length };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
