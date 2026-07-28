@@ -514,6 +514,28 @@ check('real-corpus-wiring-green', () => {
   assert(names.has('comparison-plan-prompts-embed-real-values'), 'must prove the plan prompts embed the real dereferenced values');
   return { checks: receipt.total };
 });
+
+// 24. Multi-VM out-of-band corpus export receipt is green (LBA-REQ-010, T-010 leg 2). The two golden-box
+//     VMs each produced their own-run corpus, the host fetched both OUT-OF-BAND (not over the bus), and the
+//     SHIPPED host-concentration core merged them with per-actor isolation + run-data-only rejection --
+//     proving the real multi-VM concentrated corpus that feeds the ollama layer. WIN topology + LINUX core.
+check('multi-vm-corpus-export-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'multi-vm-topology', 'corpus-export', 'receipt.json'));
+  assert(receipt.schema === 'labview-benchmark-actor/multi-vm-corpus-export-receipt-v1', 'receipt schema mismatch');
+  assert(receipt.requirement === 'LBA-REQ-010' && receipt.test === 'T-010', 'receipt must bind LBA-REQ-010 / T-010');
+  assert(receipt.pass === true, 'receipt pass must be true');
+  assert(receipt.coreSchema === 'labview-benchmark-actor/host-concentration@v1', 'must concentrate through the shipped host-concentration core');
+  assert(/out-of-band/i.test(receipt.transport) && !/lbabus net/i.test(receipt.transport.replace(/not lbabus net/i, '')), 'transport must be out-of-band, not the bus');
+  assert(Array.isArray(receipt.actors) && receipt.actors.length >= 2, 'must concentrate >= 2 actors');
+  assert(receipt.runCount >= receipt.actors.length, 'runCount must cover every actor');
+  const iso = receipt.perActorIsolation || {};
+  const isoTotal = Object.values(iso).reduce((a, b) => a + b, 0);
+  assert(Object.keys(iso).length === receipt.actors.length, 'per-actor isolation must cover every actor');
+  assert(isoTotal === receipt.runCount, 'per-actor own-runs must partition the concentrated corpus');
+  assert(receipt.busShapedRejected === true, 'a bus-shaped corpus must be rejected (run data only)');
+  assert(receipt.deterministicDigest === true && /^[0-9a-f]{8}$/.test(receipt.corpusDigest || ''), 'corpusDigest must be deterministic 8-hex');
+  return { actors: receipt.actors.length, runs: receipt.runCount, digest: receipt.corpusDigest };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

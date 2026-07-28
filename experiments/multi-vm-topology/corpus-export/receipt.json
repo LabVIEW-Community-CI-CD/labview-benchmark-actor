@@ -1,0 +1,63 @@
+{
+  "schema": "labview-benchmark-actor/multi-vm-corpus-export-receipt-v1",
+  "requirement": "LBA-REQ-010",
+  "test": "T-010",
+  "ranAt": "2026-07-28T15:17:05.804Z",
+  "transport": "out-of-band WinRM file-fetch (vagrant winrm Get-Content) -- NOT lbabus net; the coordination bus stays comms-only (ADR-0006/0008)",
+  "core": "experiments/host-concentration/hostConcentration.mjs concentrate()/reviewOwnRuns() (shipped, imported verbatim)",
+  "coreSchema": "labview-benchmark-actor/host-concentration@v1",
+  "actors": [
+    "ACTOR-A",
+    "ACTOR-B"
+  ],
+  "runCount": 4,
+  "corpusDigest": "0b583228",
+  "perActorIsolation": {
+    "ACTOR-A": 2,
+    "ACTOR-B": 2
+  },
+  "busShapedRejected": true,
+  "busRejectionMessage": "corpus for ACTOR-A is bus-shaped: run data only, never bus traffic",
+  "deterministicDigest": true,
+  "pass": true,
+  "concentratedCorpus": {
+    "schema": "labview-benchmark-actor/host-concentration@v1",
+    "concentratedAt": "1970-01-01T00:00:00.000Z",
+    "actors": [
+      "ACTOR-A",
+      "ACTOR-B"
+    ],
+    "runCount": 4,
+    "runs": [
+      {
+        "actorId": "ACTOR-A",
+        "runId": "actor-a-run-1",
+        "completedAt": "2026-07-28T15:01:00.000Z",
+        "metricsRef": "C:\\actor-runs\\actor-a-run-1\\metrics.json",
+        "framesRef": "C:\\actor-runs\\actor-a-run-1"
+      },
+      {
+        "actorId": "ACTOR-A",
+        "runId": "actor-a-run-2",
+        "completedAt": "2026-07-28T15:02:00.000Z",
+        "metricsRef": "C:\\actor-runs\\actor-a-run-2\\metrics.json",
+        "framesRef": "C:\\actor-runs\\actor-a-run-2"
+      },
+      {
+        "actorId": "ACTOR-B",
+        "runId": "actor-b-run-1",
+        "completedAt": "2026-07-28T15:01:00.000Z",
+        "metricsRef": "C:\\actor-runs\\actor-b-run-1\\metrics.json",
+        "framesRef": "C:\\actor-runs\\actor-b-run-1"
+      },
+      {
+        "actorId": "ACTOR-B",
+        "runId": "actor-b-run-2",
+        "completedAt": "2026-07-28T15:02:00.000Z",
+        "metricsRef": "C:\\actor-runs\\actor-b-run-2\\metrics.json",
+        "framesRef": "C:\\actor-runs\\actor-b-run-2"
+      }
+    ],
+    "corpusDigest": "0b583228"
+  }
+}
