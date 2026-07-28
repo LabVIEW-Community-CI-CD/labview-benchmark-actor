@@ -36,6 +36,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node test/extension-activation.mjs",
     "package": "vsce package --out labview-benchmark-actor.vsix"
   },
   "devDependencies": {
