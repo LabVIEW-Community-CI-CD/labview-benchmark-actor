@@ -1,0 +1,39 @@
+{
+  "schema": "labview-benchmark-actor/ollama-bus-receipt@v1",
+  "task": "cross-plane-ollama-bus",
+  "producedBy": "LINUX",
+  "producedAt": "2026-07-28T19:13:00Z",
+  "busWireSchema": "labview-benchmark-actor/bus-msg@1",
+  "selfContainedBinary": {
+    "publish": "dotnet publish tools/collab-cli/LbaBus.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true",
+    "approxBytes": 67108864,
+    "ranOn": "bare ubuntu:22.04 container (no .NET runtime, no downloads), mounted read-only"
+  },
+  "coordinator": {
+    "cmd": "lbabus net listen --tcp 7420 --echo",
+    "agent": "CONTAINER",
+    "reach": "-p 7420:7420 (Linux docker port-publish; host seen at the docker0 bridge 172.17.0.1)"
+  },
+  "governor": {
+    "cmd": "lbabus net send --tcp 7420 --type HELLO|NOTE --task ollama-gov",
+    "agent": "LINUX-HOST",
+    "governedBy": "ollama llama3.1:8b (num_ctx 8192, RTX PRO 1000 Blackwell), http://127.0.0.1:11434"
+  },
+  "roundTrip": {
+    "sent": 4,
+    "acked": 4,
+    "types": ["HELLO", "NOTE", "NOTE", "NOTE"],
+    "ackFormat": "CONTAINER #<n> ACK ackOf:<sender.seq> -- received <TYPE> from LINUX-HOST",
+    "ollamaGeneratedDiagnostics": [
+      "container health=OK CPU=50% mem=34% ...",
+      "HEART_RATE_42B normal",
+      "HVY_C01_MAL_TEMP_43C"
+    ]
+  },
+  "crossPlaneParity": {
+    "envelope": "identical (both planes build from tools/collab-cli/Net.cs)",
+    "winInfra": "172.21.96.1 nat gateway (Windows container, Hyper-V isolation)",
+    "linuxInfra": "172.17.0.1 docker0 bridge (native docker)",
+    "note": "only the infra addressing differs; the BusWire envelope + semantics are identical. Linux port-publish works cleanly (no Windows hnsCall 0x490 glitch)."
+  }
+}
