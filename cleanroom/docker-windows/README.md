@@ -47,6 +47,29 @@ the installer; the feed is staged from NI at build time on the Windows host.
 > **nipkg flag corrections (WIN, nipkg 26.5.0):** `--system` is valid on `feed-add` **only** (not on
 > `install`/`update`); the install flag is **`--include-recommended`** (not `--include-recommends`).
 
+## VI Analyzer Toolkit
+
+The container also **installs the LabVIEW VI Analyzer Toolkit** ([`install-vi-analyzer.ps1`](install-vi-analyzer.ps1)),
+so the clean room can run static VI analysis the way [ni/labview-icon-editor](https://github.com/ni/labview-icon-editor)
+does in a LabVIEW container (`LabVIEWCLI -OperationName RunVIAnalyzer -ConfigPath <.viancfg>`). WIN-confirmed
+against the real 2026 community offline feed:
+
+- The VI Analyzer toolkit **content** ships **bundled in LabVIEW Community** (under `<LV>\project\_VI Analyzer`);
+  it is present after `install-labview.ps1` but **unlicensed/disabled** until the license package is installed.
+- The **sole** VI Analyzer package on the community feed is **`ni-labview-vi-analyzer-toolkit-lic`** (DisplayName
+  *"LabVIEW VI Analyzer Toolkit License Files"*, `vi_analyzer_package` in the map). The community LabVIEW
+  meta-package does **not** auto-pull it, so `install-vi-analyzer.ps1` installs it **explicitly** from the
+  **same** `LV_EXTRACTED_FEED` — which **enables** the bundled toolkit.
+
+`install-vi-analyzer.ps1` runs **after** `install-labview.ps1` (it needs LabVIEW + NIPM) and reuses the
+already-registered `lv-cleanroom-offline` feed (re-adding is idempotent, so it also stands alone on the Vagrant
+clean room). Opt out of the container step with `--build-arg LV_INSTALL_VI_ANALYZER=false`. It uses the same
+corrected nipkg flags (`--include-recommended`; `--system` is feed-add-only).
+
+> **Leverage on Vagrant** (the intended follow-on): once the Windows-container path is validated, the same
+> `install-vi-analyzer.ps1` enables VI Analyzer on the Vagrant clean room (stage the LabVIEW feed, run the
+> script), then `LabVIEWCLI RunVIAnalyzer` produces reports the same way in both lanes.
+
 ## Build (WIN, Windows host)
 
 Switch Docker Desktop to **Windows containers**, then **host-extract the NI offline feed(s)** into the build

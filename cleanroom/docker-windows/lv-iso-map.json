@@ -1,5 +1,5 @@
 {
-  "_comment": "LabVIEW ISO map for the Docker Windows-container clean room -- MIRRORED from ni/labview-icon-editor .lv-iso-map.json, then CORRECTED against the REAL LabVIEW 2026 offline ISO + nipkg 26.5.0 by the WIN plane. 'x86' = 32-bit LabVIEW. 'package' is the real installable nipkg META-package name (version-tolerant; the ISO has NO standalone nipkg.exe and NO 'LabVIEW_COM_PKG' package -- NIPM is bootstrapped from the ISO first). LabVIEWCLI ships as a SEPARATE NI product/ISO ('cli_package'), so a labview-cli=yes clean room installs BOTH. Nothing licensed is committed here; ISOs are fetched from NI / staged by the maintainer on a Windows host.",
+  "_comment": "LabVIEW ISO map for the Docker Windows-container clean room -- MIRRORED from ni/labview-icon-editor .lv-iso-map.json, then CORRECTED against the REAL LabVIEW 2026 offline ISO + nipkg 26.5.0 by the WIN plane. 'x86' = 32-bit LabVIEW. 'package' is the real installable nipkg META-package name (version-tolerant; the ISO has NO standalone nipkg.exe and NO 'LabVIEW_COM_PKG' package -- NIPM is bootstrapped from the ISO first). LabVIEWCLI ships as a SEPARATE NI product/ISO ('cli_package'), so a labview-cli=yes clean room installs BOTH. 'vi_analyzer_package' is the VI Analyzer Toolkit LICENSE package on the SAME LabVIEW community feed (WIN-confirmed the sole vi-analyzer package on the 2026 community feed; the toolkit CONTENT ships bundled in LabVIEW Community and this license ENABLES it -- the community meta-package does not auto-pull it, so install-vi-analyzer.ps1 installs it explicitly). Nothing licensed is committed here; ISOs are fetched from NI / staged by the maintainer on a Windows host.",
   "default": "2026q1",
   "versions": {
     "2025q3": {
@@ -14,7 +14,8 @@
         "package": "ni-labview-2026-community-x86",
         "feed_subdir": "feeds/ni-labview-2026-community-x86",
         "cli_iso_name": "ni-labview-command-line-interface-x86_26.1.0_offline.iso",
-        "cli_package": "ni-labview-command-line-interface-x86"
+        "cli_package": "ni-labview-command-line-interface-x86",
+        "vi_analyzer_package": "ni-labview-vi-analyzer-toolkit-lic"
       }
     }
   }
