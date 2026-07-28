@@ -49,7 +49,7 @@ coordinator's diagnostics). Verified on this plane: the model recalls `[COORD-ST
 **verbatim**, and the governed loop emitted lesson-APPLYING coordination (e.g. it retrieved the `[WIN-DOCKER-NET]`
 NAT-repair steps), not generic filler.
 
-Banked tags: `[WIN-DOCKER-NET]` `[SELF-CONTAINED]` `[OLLAMA-GOV-LOOP]` `[COORD-STREAM]` `[XPLANE-ENVELOPE]`.
+Banked tags: `[WIN-DOCKER-NET]` `[SELF-CONTAINED]` `[OLLAMA-GOV-LOOP]` `[COORD-STREAM]` `[XPLANE-ENVELOPE]` `[XPLANE-PARITY]`.
 
 **Sync protocol (cross-plane):** when either plane learns a lesson, append a new `[TAG] ...` block to the
 SYSTEM, re-run `ollama create lba-coordinator`, and post the new `[TAG]` block on the coordination bus so the
