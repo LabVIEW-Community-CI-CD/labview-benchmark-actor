@@ -21,6 +21,7 @@ import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity } from './corroboration-confidence-reference.mjs';
+import { ingestShortPackets, MPRR_RING_SCHEMA } from './mprr-ring/mprrRing.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -598,6 +599,21 @@ check('benchmark-store-receipt-green', () => {
   assert(c && c.schema === 'labview-benchmark-actor/cross-plane-compare@v1', 'sample cross-plane-compare schema mismatch');
   assert(c.deltas && typeof (c.deltas.cpuMeanPct && c.deltas.cpuMeanPct.delta) === 'number', 'compare must report a LINUX-vs-WIN cpu delta');
   return { checks: receipt.total, benchmark: c.benchmarkId };
+});
+check('mprr-short-ring-model-green', () => {
+  // Re-validate the absorbed mprr zero-copy short-ring model directly (import + ingest the fixture) so every
+  // CI run on BOTH planes exercises the ring/block/boundary/admission authority, not a static receipt.
+  const fixture = readJson(join('experiments', 'mprr-ring', 'fixtures', 'short-packet-run.json'));
+  const opts = { blockDurationTicks: fixture.blockDurationTicks, capacityBytes: fixture.capacityBytes };
+  const a = ingestShortPackets(fixture.packets, opts);
+  const b = ingestShortPackets(fixture.packets, opts);
+  assert(JSON.stringify(a) === JSON.stringify(b), 'mprr ingest is not deterministic');
+  assert(a.schema === MPRR_RING_SCHEMA, 'mprr ring schema mismatch');
+  assert(a.authoritative === true, 'block-aligned fixture must be authoritative');
+  assert(a.worstBoundaryVariationPct === 0, 'aligned fixture boundary variation must be 0');
+  assert(a.admission.admitted === true, 'fixture must pass admission control');
+  assert(a.series.length === fixture.packets.length, 'series must cover every packet');
+  return { blocks: a.blockCount, packets: a.packetCount };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

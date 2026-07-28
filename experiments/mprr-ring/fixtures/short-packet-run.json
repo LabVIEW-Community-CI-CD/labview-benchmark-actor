@@ -1,0 +1,22 @@
+{
+  "_comment": "Deterministic mprr short-packet timing run for the ring-ingest gate + the viewer/store drivers. 100ns ticks (timingTicks64). Packets are block-aligned (interval 1_000_000 ticks = 100ms; blockDurationTicks 3_000_000 = 300ms) so the realized block-boundary variation is 0 pct => authoritative. bytes vary deterministically so cumulative-bytes is a non-trivial series.",
+  "schema": "labview-benchmark-actor/mprr-short-ring-fixture@v1",
+  "timingAuthorityId": "mprr-self-test-synthetic-monotonic-100ns",
+  "frameIntervalTicks": 1000000,
+  "blockDurationTicks": 3000000,
+  "capacityBytes": 58000,
+  "packets": [
+    { "timingTicks64": 0, "bytes": 120 },
+    { "timingTicks64": 1000000, "bytes": 128 },
+    { "timingTicks64": 2000000, "bytes": 136 },
+    { "timingTicks64": 3000000, "bytes": 144 },
+    { "timingTicks64": 4000000, "bytes": 152 },
+    { "timingTicks64": 5000000, "bytes": 120 },
+    { "timingTicks64": 6000000, "bytes": 128 },
+    { "timingTicks64": 7000000, "bytes": 136 },
+    { "timingTicks64": 8000000, "bytes": 144 },
+    { "timingTicks64": 9000000, "bytes": 152 },
+    { "timingTicks64": 10000000, "bytes": 120 },
+    { "timingTicks64": 11000000, "bytes": 128 }
+  ]
+}
