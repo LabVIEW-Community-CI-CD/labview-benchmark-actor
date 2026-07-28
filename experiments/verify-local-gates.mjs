@@ -361,6 +361,24 @@ check('host-concentration-core-receipt-green', () => {
   }
   return { checks: receipt.total, actors: corpus.actors.length, runs: corpus.runCount };
 });
+
+// 16. Ollama-comparison core receipt is green and every comparison pairs runs within a single actor
+//     (LBA-REQ-010 AC #3, T-010). The deterministic planning + output contract are proven here (mock ollama
+//     driver); the live host-side ollama drive over a real concentrated corpus stays the maintainer step.
+check('ollama-comparison-core-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'ollama-comparison', 'receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/ollama-comparison-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  const plan = receipt.plan;
+  assert(plan && plan.schema === 'labview-benchmark-actor/ollama-comparison@v1', 'plan schema mismatch');
+  assert(Array.isArray(plan.comparisons) && plan.comparisons.length === plan.comparisonCount, 'comparisonCount must match the comparisons length');
+  for (const c of plan.comparisons) {
+    assert(typeof c.actorId === 'string' && c.actorId, 'each comparison must name its actor');
+    assert(c.baselineRunId !== c.candidateRunId, 'a comparison must pair two distinct runs');
+    assert(typeof c.prompt === 'string' && c.prompt.includes(`actor ${c.actorId}`), 'each comparison must carry an actor-scoped prompt');
+  }
+  return { checks: receipt.total, comparisons: plan.comparisonCount };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
