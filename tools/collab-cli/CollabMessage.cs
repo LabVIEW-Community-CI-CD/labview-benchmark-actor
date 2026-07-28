@@ -127,4 +127,30 @@ public sealed class CollabMessage
 
         return $"[{ts}] {Agent} {Type}{task} — {body}".TrimEnd();
     }
+
+    /// <summary>Complete, untruncated rendering for <c>poll --full</c> — never drops the message tail.</summary>
+    public string ToFull()
+    {
+        string ts = CreatedAt?.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ") ?? Ts;
+        string task = string.IsNullOrEmpty(Task) ? "" : "  task: " + Task;
+        var sb = new StringBuilder();
+        sb.Append("=== [").Append(ts).Append("] ").Append(Agent).Append(' ').Append(Type).Append(task).Append(" ===\n");
+        sb.Append(Msg ?? "");
+        if (!string.IsNullOrEmpty(Ref))
+        {
+            sb.Append("\n- ref: ").Append(Ref);
+        }
+
+        if (!string.IsNullOrEmpty(Next))
+        {
+            sb.Append("\n- next: ").Append(Next);
+        }
+
+        if (!string.IsNullOrEmpty(To))
+        {
+            sb.Append("\n- to: ").Append(To);
+        }
+
+        return sb.ToString();
+    }
 }

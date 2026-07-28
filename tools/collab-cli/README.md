@@ -77,6 +77,8 @@ lbabus delta                     # counterpart's response deltas (WIN -> LINUX, 
 lbabus delta --agent WIN --tail 5
 ```
 
+With no `--agent`, `delta` measures the **counterpart of `VIHS_COLLAB_AGENT`** (WIN measures LINUX, LINUX measures WIN). Pass `--agent <A>` to measure a specific agent (including yourself).
+
 For each message from the target agent it prints:
 - **gap** = time since that agent's *previous* message (their cadence).
 - **latency** = time since the *most recent counterpart message before it* (the trigger it responded to).

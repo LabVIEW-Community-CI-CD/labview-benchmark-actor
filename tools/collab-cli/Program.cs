@@ -124,6 +124,7 @@ internal static class CommandRouter
         string? agent = a.Get("agent");
         string? type = a.Get("type");
         DateTimeOffset? since = a.GetTimestamp("since");
+        bool full = a.Get("full") is not null;
 
         using var gh = new GitHubGraphQL();
         DiscussionRef? disc = gh.FindDiscussion(cfg);
@@ -142,7 +143,7 @@ internal static class CommandRouter
         Console.WriteLine($"# {disc.Url}  ({messages.Count} message(s))");
         foreach (CollabMessage m in messages.TakeLast(tail))
         {
-            Console.WriteLine(m.ToLine());
+            Console.WriteLine(full ? m.ToFull() : m.ToLine());
         }
 
         return 0;
@@ -520,7 +521,7 @@ internal static class CommandRouter
               lbabus version
               lbabus init
               lbabus post --type <T> [--task <id>] [--message <m> | --message-file <f>] [--ref <sha>] [--next <n>] [--to <A>]
-              lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>]
+              lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>] [--full]
               lbabus wait [--agent LINUX|WIN] [--since <iso>] [--timeout <sec>] [--interval <sec>]
               lbabus selfcheck                       # aka doctor/preflight — ripgrep present + version current
               lbabus grep <ripgrep args...>          # aka rg/search — ripgrep-only, no fallback
