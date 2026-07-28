@@ -1,0 +1,29 @@
+{
+  "schema": "labview-benchmark-actor/viewer-render-browser-receipt@v1",
+  "requirement": "LBA-REQ-004",
+  "testItem": "T-004",
+  "producedBy": "LINUX",
+  "engine": "headless chromium (playwright)",
+  "producedAt": "2026-07-28T17:28:19.155Z",
+  "pass": true,
+  "checks": [
+    {
+      "name": "render",
+      "pass": true,
+      "detail": "sample 1/8  t=0  value=40"
+    },
+    {
+      "name": "keyboard",
+      "pass": true
+    },
+    {
+      "name": "pointer-drag",
+      "pass": true,
+      "detail": "sample 8/8  t=700  value=48"
+    },
+    {
+      "name": "no-console-errors",
+      "pass": true
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "labview-benchmark-actor-playwright",
+  "private": true,
+  "type": "module",
+  "description": "Maintainer-only Playwright browser render harness for LBA-REQ-004. NOT shipped in the .vsix and NOT a hosted CI gate (hosted CI stays browser-free) -- mirrors vi-history-suite's vagrant/playwright viewer harness.",
+  "scripts": {
+    "test": "node viewer-render.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
