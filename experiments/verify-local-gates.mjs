@@ -23,6 +23,7 @@ import { dirname, join, resolve } from 'node:path';
 import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity } from './corroboration-confidence-reference.mjs';
 import { ingestShortPackets, MPRR_RING_SCHEMA } from './mprr-ring/mprrRing.mjs';
 import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
+import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -623,6 +624,20 @@ check('mprr-short-ring-model-green', () => {
   assert(JSON.stringify(s1) === JSON.stringify(s2), 'viewer-series projection not deterministic');
   assert(seriesHash(s1) === seriesHash(s2) && /^[0-9a-f]{64}$/.test(seriesHash(s1)), 'seriesHash unstable');
   return { blocks: a.blockCount, packets: a.packetCount };
+});
+check('mprr-dual-packet-degradation-green', () => {
+  // SHORT-packet continuity is protected BEFORE long completeness (MPRR-REQ-094/110/111): with no pressure
+  // every long is admitted (authoritative); under pressure longs are DEFERRED (missing-long-payload) but every
+  // short is still counted; shorts over capacity FAIL CLOSED (never overwrite a pinned short).
+  const frames = Array.from({ length: 8 }, (_, i) => ({ frameIndex: i, shortBytes: 100, longBytes: 400 }));
+  const ok = correlateDualStream(frames, { capacityBytes: 100000 });
+  assert(ok.authoritative === true && ok.frames.every((f) => f.driftClass === 'none'), 'no-pressure authoritative');
+  const degraded = correlateDualStream(frames, { capacityBytes: 2000 });
+  assert(degraded.shortTotal === 800, 'shorts stay protected under pressure');
+  assert(degraded.authoritative === false && degraded.admittedLong === 1200, 'longs deferred under pressure');
+  const blocked = correlateDualStream(frames.map((f) => ({ ...f, shortBytes: 600 })), { capacityBytes: 4096 });
+  assert(blocked.outcome === 'short-protection-blocked', 'shorts over capacity fail closed');
+  return { frames: degraded.frameCount, authoritativeFrames: degraded.authoritativeFrames };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
