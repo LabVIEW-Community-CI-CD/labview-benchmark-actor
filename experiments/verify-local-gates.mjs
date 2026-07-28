@@ -379,6 +379,31 @@ check('ollama-comparison-core-receipt-green', () => {
   }
   return { checks: receipt.total, comparisons: plan.comparisonCount };
 });
+
+// 17. The documentation package carries the repo-standards-review stamp and the requirement IDs are
+//     contiguous with no renumbering after the standalone-repo move (LBA-REQ-008, T-008). Static/CM.
+check('docs-stamp-and-no-id-renumbering', () => {
+  // (a) Stamp: README + cm-plan name repo-standards-review v0.2.19 (commit d44f210d).
+  for (const rel of ['README.md', join('docs', 'cm', 'cm-plan.md')]) {
+    const text = readFileSync(join(pkgRoot, rel), 'utf8');
+    assert(/repo-standards-review/.test(text), `${rel} must name repo-standards-review`);
+    assert(/v0\.2\.19/.test(text), `${rel} must name the v0.2.19 baseline`);
+    assert(/d44f210d/.test(text), `${rel} must cite the d44f210d commit`);
+  }
+  // (b) The docs/ lane layout the standards runner expects.
+  for (const lane of ['architecture', 'cm', 'requirements', 'testing']) {
+    assert(existsSync(join(pkgRoot, 'docs', lane)), `docs/${lane} lane must exist`);
+  }
+  // (c) No renumbering: the LBA-REQ ids in srs.md form a contiguous 1..N set (no gaps, no duplicates).
+  const srs = readFileSync(join(pkgRoot, 'docs', 'requirements', 'srs.md'), 'utf8');
+  const ids = [...new Set([...srs.matchAll(/LBA-REQ-(\d{3})/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
+  assert(ids.length > 0, 'srs.md must define LBA-REQ ids');
+  assert(ids[0] === 1, 'requirement ids must start at 001 (no renumbering)');
+  for (let i = 0; i < ids.length; i += 1) {
+    assert(ids[i] === i + 1, `requirement ids must be contiguous 1..N; expected ${i + 1}, got ${ids[i]}`);
+  }
+  return { ids: ids.length, lanes: ['architecture', 'cm', 'requirements', 'testing'] };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
