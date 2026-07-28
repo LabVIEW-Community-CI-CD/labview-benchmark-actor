@@ -33,9 +33,10 @@ internal sealed record DependencyCheck(PinnedDependency Dep, bool Found, string?
 /// <summary>The pinned-dependency policy for the coordination toolchain. Single source of truth.</summary>
 internal static class DependencyPolicy
 {
-    // ripgrep/git/gh/glab are all required by the cross-plane coordination workflow: ripgrep (deterministic
-    // search), git (branch/PR flow + token-injected GitLab pulls of mprr), gh (GitHub PRs/releases/issues),
-    // and glab (GitLab CLI). Every plane must have the pinned toolchain installed or the preflight fails closed.
+    // ripgrep/git/gh/glab/dotnet are all required by the cross-plane coordination workflow: ripgrep
+    // (deterministic search), git (branch/PR flow + token-injected GitLab pulls of mprr), gh (GitHub
+    // PRs/releases/issues), glab (GitLab CLI), and the .NET SDK (builds lbabus itself, incl. on clean-room
+    // bootstrap). Every plane must have the pinned toolchain installed or the preflight fails closed.
     public static readonly IReadOnlyList<PinnedDependency> All = new[]
     {
         new PinnedDependency("rg", new[] { "--version" }, @"ripgrep\s+(\d+\.\d+(?:\.\d+)?)", "13.0.0",
@@ -46,6 +47,8 @@ internal static class DependencyPolicy
             "https://github.com/cli/cli#installation"),
         new PinnedDependency("glab", new[] { "--version" }, @"glab\s+(\d+\.\d+(?:\.\d+)?)", "1.25.0",
             "winget install GLab.GLab  |  https://gitlab.com/gitlab-org/cli#installation"),
+        new PinnedDependency("dotnet", new[] { "--version" }, @"(\d+\.\d+(?:\.\d+)?)", "8.0.0",
+            "winget install Microsoft.DotNet.SDK.8  |  https://dotnet.microsoft.com/download/dotnet/8.0"),
     };
 }
 

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using LabViewBenchmarkActor.CollabBus;
 
 return CommandRouter.Run(args);
@@ -23,6 +24,7 @@ internal static class CommandRouter
             return command switch
             {
                 "version" or "--version" or "-v" => CmdVersion(),
+                "capabilities" or "caps" => CmdCapabilities(),
                 "help" or "--help" or "-h" => PrintUsage(),
                 "init" => CmdInit(),
                 "post" => CmdPost(rest),
@@ -46,6 +48,34 @@ internal static class CommandRouter
     private static int CmdVersion()
     {
         Console.WriteLine(CurrentVersion());
+        return 0;
+    }
+
+    /// <summary>
+    /// Prints host capabilities for agent awareness - the pinned toolchain (with detected versions) plus
+    /// optional capabilities (Docker, Vagrant, VMware, host LabVIEW). Informational; always exits 0 so an
+    /// agent can always query "what can this machine do?" the same way it reads the CLI version.
+    /// </summary>
+    private static int CmdCapabilities()
+    {
+        Config cfg = Config.FromEnvironment();
+        Console.WriteLine($"lbabus v{CurrentVersion()} - {cfg.Agent} plane on {RuntimeInformation.OSDescription.Trim()} / {RuntimeInformation.OSArchitecture}");
+        Console.WriteLine();
+        Console.WriteLine("pinned toolchain:");
+        foreach (DependencyCheck dc in Preflight.CheckAll())
+        {
+            string tag = dc.AdvisoryAbsent ? "skip" : dc.Ok ? "ok" : "MISS";
+            string ver = dc.Found ? (dc.Parsed?.ToString() ?? dc.RawVersion ?? "?") : "-";
+            Console.WriteLine($"  [{tag,4}] {dc.Dep.Command,-7} {"v" + ver,-10} (pin >= v{dc.Dep.MinVersion})");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("host capabilities:");
+        foreach (HostCapability c in Capabilities.Detect())
+        {
+            Console.WriteLine($"  [{(c.Available ? "yes" : "no"),3}] {c.Name,-12} {c.Detail}");
+        }
+
         return 0;
     }
 
@@ -565,6 +595,7 @@ internal static class CommandRouter
 
             USAGE
               lbabus version
+              lbabus capabilities                    # aka caps - pinned toolchain + host capabilities (Docker/Vagrant/VMware/LabVIEW)
               lbabus init
               lbabus post --type <T> [--task <id>] [--message <m> | --message-file <f>] [--ref <sha>] [--next <n>] [--to <A>]
               lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>] [--full]
