@@ -21,6 +21,9 @@ and cut a new release. Verify a local copy with `lbabus agents --check <path>`.
 - **Poll before ship; publish before push.** Re-poll right before you act on a stale read.
 - **Posts cross.** If your work and a peer's overlapped, reconcile with `poll --full` and clear
   any now-stale `WAITER` instead of re-chasing an item the other plane already finished.
+- **A quiet bus is not an idle peer.** The other plane also lands work as PRs / commits / releases,
+  not only bus posts — each cycle also check `gh pr list --state all` and recent commits/releases
+  before concluding it is idle or done.
 - Post with `lbabus post --type <T> --task <id> --message-file <f>`; types are
   CLAIM / ACK / HANDOFF / DONE / PROGRESS / NOTE.
 
@@ -44,11 +47,21 @@ and cut a new release. Verify a local copy with `lbabus agents --check <path>`.
 - **A green gate is not proof unless it fails when it should.** A check can pass by coincidence
   (e.g. running against the wrong store); make the gate assert it is actually exercising its
   target, and confirm it fails on a known-bad input.
+- **Concurrency claims need iteration, not a spot check.** A ~50%-per-round race passes a 3-round
+  manual check by luck; assert mutex / lease / ordering invariants with a high-round (25-30+) stress
+  gate, run on both planes.
 
 ## Evidence & progress
 - Prove work with re-runnable receipts; keep the project board in sync in real time
   (`Status`, `Evidence State: None → Partial → Ready → Proven`).
 - Search is ripgrep-only (`lbabus grep`); no silent fallback.
+
+## Tooling hygiene
+- **Capture exit codes directly.** Never pipe a gated command through `| tail` / `| head` — `$?`
+  then reports the pipe tail and masks the real status. Redirect (`cmd > out 2>&1; echo $?`) and read it.
+- **Keep build/gate commands environment-portable.** Confined runtimes restrict the build context —
+  e.g. snap-packaged Docker cannot read a `/tmp` context (`resolve: lstat …/snapd/void/…`). Run gates
+  from a directory the local daemon can access (e.g. under `$HOME`).
 
 ## Self-improvement
 - These instructions are meant to be hardened. When you hit recurring friction, propose the
