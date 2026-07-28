@@ -358,28 +358,45 @@ ADR-0006).
 - Area: Analysis / quality (extends LBA-REQ-014; operator VI-Analyzer directive)
 - Statement: The system shall install the LabVIEW VI Analyzer Toolkit in the
   Windows clean room and summarize a VI Analyzer run over a repo's VIs into a
-  deterministic, ORDER-INDEPENDENT result (per-VI pass/fail/error counts + a
-  resultHash), so a VI Analyzer run becomes a cross-plane-comparable benchmark:
-  two planes analyzing the same VIs with the same config produce the same
-  resultHash.
+  deterministic, ORDER-INDEPENDENT result (per-run pass/fail/error counts + the
+  enumerated per-VI findings + a resultHash), so a VI Analyzer run becomes a
+  cross-plane-comparable benchmark: two planes summarizing the same run produce
+  the same resultHash.
 - Acceptance Criteria:
   - The Windows docker clean room installs the VI Analyzer toolkit license
     (`ni-labview-vi-analyzer-toolkit-lic`) from the LabVIEW offline feed,
     enabling `LabVIEWCLI -OperationName RunVIAnalyzer`
     (`cleanroom/docker-windows/install-vi-analyzer.ps1`; Vagrant-reusable).
-  - `summarizeViAnalyzerReport()` normalizes a VI Analyzer report to
-    `{ totalVis, totalTests, passedTests, failedTests, errorTests, pass,
-    failuresByVi, resultHash }`; the `resultHash` is deterministic and
-    ORDER-INDEPENDENT (canonicalized), so identical VIs + config produce an
-    identical `resultHash` on both planes.
+  - The REAL `LabVIEWCLI RunVIAnalyzer` report (ASCII/HTML) is FAILURE-ORIENTED:
+    it emits a run summary of counts and enumerates ONLY the failures + testing
+    errors per VI -- passes are never listed. So the normalized report is the
+    faithful shape `{ config?, summary: { passed, failed, error, skipped?,
+    unloadable? }, findings: [{ viPath, test, result: fail|error }] }`; a clean
+    all-pass run (e.g. the icon-editor CI gate) is the summary counts with an
+    EMPTY findings array.
+  - `summarizeViAnalyzerReport()` normalizes that report to
+    `{ totalTests, passedTests, failedTests, errorTests, skippedTests,
+    unloadableTests, totalFindings, findingsByVi, pass, resultHash }`; the
+    `resultHash` is deterministic, ORDER-INDEPENDENT, and LOCALE-INDEPENDENT
+    (code-unit canonical order over the counts + sorted findings), so an
+    identical report produces an identical `resultHash` on both planes.
+    Consistency teeth: the fail/error findings counts MUST equal the summary
+    failed/error counts.
+  - A committed JSON Schema (`vi-analyzer-report.schema.json`) + a dependency-free
+    validator (`validate-vi-analyzer-report.mjs`, the producing plane's pre-send
+    self-check) lock the normalized-report input contract.
   - The summary projects to benchmark-store metrics (numeric counts + the
-    `resultHash` digest), so `crossPlaneCompare` reports test-count deltas + the
+    `resultHash` digest), so `crossPlaneCompare` reports count deltas + the
     `resultHash` agreement (the `resultHash` MUST match cross-plane).
-  - Gated: `verify-vi-analyzer-result` (6/6), local gate #30.
+  - Gated: `verify-vi-analyzer-result` (7/7), local gates
+    `vi-analyzer-result-model-green` + `vi-analyzer-report-schema-green`.
 - Change Guidance: Keep `summarizeViAnalyzerReport` deterministic +
-  order-independent (the cross-plane anchor is the `resultHash`). Do NOT mark
-  Proven until a REAL `LabVIEWCLI RunVIAnalyzer` report (WIN plane) is summarized
-  and cross-plane compared.
+  order-independent + locale-independent (the cross-plane anchor is the
+  `resultHash`; sort by code unit, never `localeCompare`). The normalized shape
+  mirrors the tool's real failure-oriented output; do NOT reintroduce a
+  per-test-pass enumeration the CLI cannot emit. Do NOT mark Proven until a REAL
+  `LabVIEWCLI RunVIAnalyzer` report (WIN plane) is summarized and cross-plane
+  compared.
 
 ---
 
