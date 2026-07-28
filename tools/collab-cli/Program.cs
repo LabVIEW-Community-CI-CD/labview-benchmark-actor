@@ -37,6 +37,7 @@ internal static class CommandRouter
                 "net" => NetCommands.Run(tail),
                 "resource" or "res" => ResourceCommands.Run(tail),
                 "agents" => AgentsCommand.Run(tail),
+                "docs" => DocsCommand.Run(tail),
                 _ => Fail($"unknown command '{command}'"),
             };
         }
@@ -610,6 +611,7 @@ internal static class CommandRouter
               lbabus net <listen|send|beacon|ping> ...   # local TCP/UDP coordination bus (LBA-REQ-007, ADR-0003/0004)
               lbabus resource <list|status|acquire|release|renew> [name] [--agent <id>] [--ttl <sec>] [--wait [--timeout <sec>]]
               lbabus agents [--out <path> | --check <path>]   # emit/verify the version-pinned agent base instructions
+              lbabus docs [--out <path> | --check <path>]     # emit/verify the version-pinned documentation package
 
             AGENT GUARDRAILS (fail-closed)
               * pinned toolchain: `selfcheck`/`doctor`/`preflight` require rg>=13, git>=2.30, gh>=2.20,

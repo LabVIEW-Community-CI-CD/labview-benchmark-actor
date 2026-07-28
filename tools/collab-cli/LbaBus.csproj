@@ -15,7 +15,7 @@
     <PackageId>LabViewBenchmarkActor.CollabBus</PackageId>
 
     <!-- SemVer: the single source of truth for `lbabus version` and the released package. -->
-    <Version>0.6.2</Version>
+    <Version>0.6.3</Version>
     <Authors>LabVIEW-Community-CI-CD</Authors>
     <Description>Shared cross-plane coordination bus CLI for labview-benchmark-actor (WIN &lt;-&gt; LINUX). One versioned binary, one deterministic protocol, pulled from an immutable SemVer release.</Description>
     <PackageProjectUrl>https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor</PackageProjectUrl>
@@ -47,6 +47,18 @@
 
   <Target Name="CopyAgentsToOutput" AfterTargets="Build">
     <Copy SourceFiles="agents/AGENTS.md" DestinationFiles="$(OutDir)AGENTS.md" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!--
+    Version-pinned documentation package (companion to AGENTS.md), embedded + copied to output the same
+    way, surfaced by the `lbabus docs` command and gated by the ci-docs harness stage.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="docs/DOCS.md" />
+  </ItemGroup>
+
+  <Target Name="CopyDocsToOutput" AfterTargets="Build">
+    <Copy SourceFiles="docs/DOCS.md" DestinationFiles="$(OutDir)DOCS.md" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

@@ -39,6 +39,9 @@ jobs:
       - name: Harness — agent base-instructions embed round-trip + drift detection
         run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-agents .
 
+      - name: Harness — documentation package embed round-trip + drift detection
+        run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-docs .
+
   release:
     needs: harness
     runs-on: ubuntu-latest

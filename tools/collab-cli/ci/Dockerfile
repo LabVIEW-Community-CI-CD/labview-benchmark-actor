@@ -63,6 +63,16 @@ RUN set -eux; \
     if dotnet /out/cli/lbabus.dll agents --check /tmp/AGENTS.md; then echo "ci-agents: drift NOT detected" >&2; exit 1; fi; \
     echo "ci-agents: embed round-trip + drift detection OK"
 
+# ---- ci-docs: the version-pinned documentation package embeds + round-trips + drift-detects --------
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS ci-docs
+COPY --from=build /out /out
+RUN set -eux; \
+    dotnet /out/cli/lbabus.dll docs --out /tmp/DOCS.md; \
+    dotnet /out/cli/lbabus.dll docs --check /tmp/DOCS.md; \
+    printf '\ndrift line\n' >> /tmp/DOCS.md; \
+    if dotnet /out/cli/lbabus.dll docs --check /tmp/DOCS.md; then echo "ci-docs: drift NOT detected" >&2; exit 1; fi; \
+    echo "ci-docs: embed round-trip + drift detection OK"
+
 # ---- ci-musl: framework-dependent lbabus on musl (Alpine) -> harness runs GREEN (portable IL) ------
 # Proves the SHIPPED nupkg / framework-dependent path (portable lbabus.dll + runner + HttpListener mock)
 # runs on musl byte-identically to glibc. ripgrep comes from apk. Positive half of the #10 RID contract.
