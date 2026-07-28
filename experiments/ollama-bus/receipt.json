@@ -35,5 +35,25 @@
     "winInfra": "172.21.96.1 nat gateway (Windows container, Hyper-V isolation)",
     "linuxInfra": "172.17.0.1 docker0 bridge (native docker)",
     "note": "only the infra addressing differs; the BusWire envelope + semantics are identical. Linux port-publish works cleanly (no Windows hnsCall 0x490 glitch)."
+  },
+  "lessonStore": {
+    "model": "lba-coordinator",
+    "create": "ollama create lba-coordinator -f lba-coordinator.Modelfile (FROM llama3.1:8b, temperature 0.3)",
+    "bankedLessons": ["WIN-DOCKER-NET", "SELF-CONTAINED", "OLLAMA-GOV-LOOP", "COORD-STREAM", "LINUX-DOCKER-NET"],
+    "recallVerbatim": true,
+    "syncProtocol": "append a [TAG] block to the SYSTEM then ollama create lba-coordinator then post the delta on the bus so the other plane re-banks it (ollama IS the durable cross-plane lesson store, not agent memory files)"
+  },
+  "governedLoop": {
+    "governor": "lba-coordinator (durable lesson store + governor)",
+    "ticks": 5,
+    "type": "PROGRESS",
+    "await": 4,
+    "pacing": "governor's own gen-latency, NO artificial sleep (~5s for 5 ticks)",
+    "lessonApplying": true,
+    "note": "the governor emitted bus-aware, lesson-APPLYING coordination (not generic filler): it retrieved WIN-DOCKER-NET, LINUX-DOCKER-NET, and OLLAMA-GOV-LOOP as actionable diagnostics driving the container coordinator",
+    "sample": [
+      "Container NAT repair needed on WIN-DOCKER-NET: remove stale HNS nat network, restart hns + WinNAT",
+      "Container coordinator online, listening on nat IP 172.17.0.1:7420 [LINUX-DOCKER-NET]"
+    ]
   }
 }

@@ -12,15 +12,16 @@ export VIHS_COLLAB_AGENT="${VIHS_COLLAB_AGENT:-LINUX-HOST}"
 LBABUS="${LBABUS:-$HOME/lba-net/publish/lbabus}"
 HOST="${HOST:-127.0.0.1}"
 PORT="${1:-7420}"
-MODEL="${OLLAMA_MODEL:-llama3.1:8b}"
+MODEL="${OLLAMA_MODEL:-lba-coordinator}"
 OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
 LOOP="${LOOP:-1}"
 INTERVAL="${INTERVAL:-0}"
 
-# Ollama generates one terse ASCII diagnostic line (sanitized to a single safe line for the bus message).
+# The lba-coordinator model (durable lesson store) GOVERNS: emit one concise bus-aware coordination/diagnostic
+# line, applying a banked lesson when relevant. Sanitized to a single safe line for the bus message.
 gen_diag() {
   local resp
-  resp=$(curl -s "$OLLAMA_URL/api/generate" -d "{\"model\":\"$MODEL\",\"prompt\":\"Emit ONE terse ASCII line, max 90 chars, no quotes, no preamble: a health diagnostic a coordination governor sends to a container coordinator. Vary it each call.\",\"stream\":false,\"options\":{\"num_ctx\":8192}}")
+  resp=$(curl -s "$OLLAMA_URL/api/generate" -d "{\"model\":\"$MODEL\",\"prompt\":\"Govern the container coordinator: emit ONE concise ASCII line (max 100 chars, no quotes, no preamble) of operational diagnostics or coordination. Apply a banked lesson if relevant.\",\"stream\":false,\"options\":{\"num_ctx\":8192}}")
   printf '%s' "$resp" | jq -r '.response // empty' | tr '\n' ' ' | tr -cd '[:print:]' | sed 's/[`"]//g' | cut -c1-110
 }
 
@@ -30,8 +31,8 @@ echo "[gov] HELLO -> $HOST:$PORT (VIHS_COLLAB_AGENT=$VIHS_COLLAB_AGENT)"
 
 for i in $(seq 1 "$LOOP"); do
   DIAG=$(gen_diag); [ -z "$DIAG" ] && DIAG="ollama-empty-fallback: coordinator health nominal"
-  echo "[gov $i/$LOOP] ollama($MODEL): $DIAG"
-  "$LBABUS" net send --host "$HOST" --tcp "$PORT" --type NOTE --task ollama-gov --message "$DIAG" --await 3
+  echo "[gov $i/$LOOP] $MODEL: $DIAG"
+  "$LBABUS" net send --host "$HOST" --tcp "$PORT" --type PROGRESS --task ollama-gov --message "$DIAG" --await 4
   if [ "$i" -lt "$LOOP" ] && [ "$INTERVAL" -gt 0 ]; then sleep "$INTERVAL"; fi
 done
 echo "[gov] done ($LOOP diagnostic(s))"

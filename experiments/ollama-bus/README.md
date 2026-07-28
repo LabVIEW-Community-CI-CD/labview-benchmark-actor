@@ -27,15 +27,33 @@ The self-contained `lbabus` (single file, ~64 MB) is **built on the host** (`dot
 
 ```bash
 cd experiments/ollama-bus
+ollama create lba-coordinator -f lba-coordinator.Modelfile   # the governor = durable lesson store
 ./publish-lbabus.sh                       # host-build the self-contained lbabus -> $HOME/lba-net/publish
-LBABUS_DIR=$HOME/lba-net/publish ./run-coordinator.sh 7420 4 &   # coordinator: bare container, 4 messages
-LBABUS=$HOME/lba-net/publish/lbabus LOOP=3 INTERVAL=1 ./gov-send.sh 7420   # governor: HELLO + 3 ollama NOTEs
+LBABUS_DIR=$HOME/lba-net/publish ./run-coordinator.sh 7420 6 &   # coordinator: bare container, 6 messages
+LBABUS=$HOME/lba-net/publish/lbabus LOOP=5 ./gov-send.sh 7420    # governor: HELLO + 5 lba-coordinator PROGRESS
 ```
 
 - `publish-lbabus.sh [rid]` — self-contained single-file publish (default `linux-x64`).
 - `run-coordinator.sh [port] [count]` — bare-container `lbabus net listen --echo` (count `0` = forever).
-- `gov-send.sh [port]` — the ollama-governed governor. `LOOP` iterations, `INTERVAL` seconds between; each
-  iteration has **ollama generate** the diagnostic line (`OLLAMA_MODEL`, default `llama3.1:8b`) and sends it.
+- `gov-send.sh [port]` — the ollama-governed governor. `LOOP` iterations, each has the **`lba-coordinator`**
+  model (`OLLAMA_MODEL`, default `lba-coordinator`) generate a bus-aware coordination line and `lbabus net send`
+  it as a `PROGRESS` frame (`--await 4`), paced by the governor's own gen-latency (`INTERVAL` optional, default 0).
+
+## Ollama as the durable cross-plane lesson store (`lba-coordinator`)
+
+Operator horizon: **ollama is the durable LESSON STORE, not agent memory files.** Operational lessons are banked
+in the shared `lba-coordinator` model's SYSTEM prompt ([`lba-coordinator.Modelfile`](lba-coordinator.Modelfile),
+`FROM llama3.1:8b`, `temperature 0.3`). Because ollama *governs* the container coordinator, the coordinator
+inherits every banked lesson — the store is both **durable** (in the model) and **actionable** (drives the
+coordinator's diagnostics). Verified on this plane: the model recalls `[COORD-STREAM]` and `[LINUX-DOCKER-NET]`
+**verbatim**, and the governed loop emitted lesson-APPLYING coordination (e.g. it retrieved the `[WIN-DOCKER-NET]`
+NAT-repair steps), not generic filler.
+
+Banked tags: `[WIN-DOCKER-NET]` `[SELF-CONTAINED]` `[OLLAMA-GOV-LOOP]` `[COORD-STREAM]` `[LINUX-DOCKER-NET]`.
+
+**Sync protocol (cross-plane):** when either plane learns a lesson, append a new `[TAG] ...` block to the
+SYSTEM, re-run `ollama create lba-coordinator`, and post the new `[TAG]` block on the coordination bus so the
+other plane re-banks it. Keep tags stable so the two planes' stores stay diff-able.
 
 ## Proven (see `receipt.json`)
 
