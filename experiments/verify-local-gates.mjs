@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity } from './corroboration-confidence-reference.mjs';
 import { ingestShortPackets, MPRR_RING_SCHEMA } from './mprr-ring/mprrRing.mjs';
+import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -613,6 +614,12 @@ check('mprr-short-ring-model-green', () => {
   assert(a.worstBoundaryVariationPct === 0, 'aligned fixture boundary variation must be 0');
   assert(a.admission.admitted === true, 'fixture must pass admission control');
   assert(a.series.length === fixture.packets.length, 'series must cover every packet');
+  // The viewer-series projection (what the shipped viewer renders) is deterministic + hashes stably -- the
+  // cross-plane visual anchor (identical packets => identical series => identical hash on both planes).
+  const s1 = projectViewerSeries(a);
+  const s2 = projectViewerSeries(b);
+  assert(JSON.stringify(s1) === JSON.stringify(s2), 'viewer-series projection not deterministic');
+  assert(seriesHash(s1) === seriesHash(s2) && /^[0-9a-f]{64}$/.test(seriesHash(s1)), 'seriesHash unstable');
   return { blocks: a.blockCount, packets: a.packetCount };
 });
 const passed = checks.filter((c) => c.pass).length;

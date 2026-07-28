@@ -18,6 +18,7 @@ import {
   checkAdmission,
   ingestShortPackets,
 } from './mprrRing.mjs';
+import { projectViewerSeries, seriesHash, VIEWER_SERIES_METRICS } from './mprrViewerSeries.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const checks = [];
@@ -135,6 +136,23 @@ check('ingest-rejects-nonmonotonic', () => {
     threw = /not monotonic/.test(err.message);
   }
   assert(threw, 'expected non-monotonic rejection');
+});
+
+// 9. Viewer-series projection is deterministic + hashes stably (the cross-plane visual anchor).
+check('viewer-series-projection-deterministic', () => {
+  const fixture = JSON.parse(readFileSync(join(here, 'fixtures', 'short-packet-run.json'), 'utf8'));
+  const opts = { blockDurationTicks: fixture.blockDurationTicks, capacityBytes: fixture.capacityBytes };
+  const ingest = ingestShortPackets(fixture.packets, opts);
+  const s1 = projectViewerSeries(ingest);
+  const s2 = projectViewerSeries(ingestShortPackets(fixture.packets, opts));
+  assert(JSON.stringify(s1) === JSON.stringify(s2), 'projection is deterministic');
+  assert(s1.length === fixture.packets.length, 'projection covers every packet');
+  assert(s1[0].t === 0 && s1[0].v === fixture.packets[0].bytes, 'first point t=0 v=firstBytes (cumulative)');
+  assert(/^[0-9a-f]{64}$/.test(seriesHash(s1)), 'seriesHash is 64-hex');
+  assert(seriesHash(s1) === seriesHash(s2), 'seriesHash stable across runs');
+  for (const m of VIEWER_SERIES_METRICS) {
+    assert(projectViewerSeries(ingest, { metric: m }).length === s1.length, `metric ${m} projects`);
+  }
 });
 
 const passed = checks.filter((c) => c.pass).length;
