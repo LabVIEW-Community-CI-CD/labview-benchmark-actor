@@ -43,6 +43,12 @@ vagrant box add vihs/labview-cleanroom vihs-labview-cleanroom.box
 (See the vagrant-vmware-desktop docs for the exact packaging flow; VMware boxes are packaged from a
 prepared `.vmx`.) Override the box name with `VIHS_CLEANROOM_BOX`.
 
+**For a self-contained box** (no host repo / SMB / credential prompt at `vagrant up`), bake the collab-cli
+source into the guest before packaging so the provisioner builds from it: copy `tools/collab-cli` to
+`C:\cleanroom-src\tools\collab-cli` in the prepared VM, then `vagrant package`. Proven end to end: with the
+source only at `C:\cleanroom-src` (SMB path removed), `vagrant provision` builds `lbabus` + `selfcheck: PASS`
+with no host dependency. Build-on-bootstrap is preserved -- the box just carries its own pinned source.
+
 ## Bring it up
 
 ```powershell
@@ -65,9 +71,10 @@ file as ANSI, so a non-ASCII byte (e.g. an em-dash) corrupts and breaks the pars
 `vagrant provision`: toolchain installed, `lbabus` built, `selfcheck: PASS` (rg/git/gh/glab/dotnet all
 above-pin), and `AGENTS.md` materialized in the guest home.
 
-For an **unattended** boot (CI-style smoke, no host SMB credential prompt) set `VIHS_CLEANROOM_NO_SYNC=1`
-to disable the synced folder; the collab-cli source must then be pre-staged in the guest at
-`C:\vagrant-src\tools\collab-cli` (the default SMB sync provides it interactively otherwise).
+For an **unattended / self-contained** boot (no host repo, no SMB credential prompt) set
+`VIHS_CLEANROOM_NO_SYNC=1` to disable the synced folder; the provisioner then builds from a **box-baked**
+source at `C:\cleanroom-src\tools\collab-cli` (bake it in before `vagrant package` -- see "Package a base
+box" above), falling back to the SMB synced folder (`C:\vagrant-src`) on a dev host that syncs its tree.
 
 ## Knobs (env)
 
