@@ -24,13 +24,16 @@ SHELL ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "$E
 
 # git is required by the shared bootstrap (the Vagrant base box ships it; a bare servercore does not). Install
 # MinGit up front so bootstrap.ps1 can be reused VERBATIM -- that verbatim reuse is the whole point of a mirror.
+# NOTE (WIN-verified): the PATH concat MUST use single-quote ($p + ';...') form -- a double-quoted "$p;..."
+# collides with the powershell SHELL's own double-quote wrapping and dies at build with "Missing ')' in method
+# call". Do not "simplify" it back to a double-quoted string.
 ARG MINGIT_URL=https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/MinGit-2.53.0-64-bit.zip
 RUN New-Item -ItemType Directory -Force C:\tools\git | Out-Null; `
     Invoke-WebRequest -UseBasicParsing $env:MINGIT_URL -OutFile C:\tools\git.zip; `
     Expand-Archive C:\tools\git.zip -DestinationPath C:\tools\git -Force; `
     Remove-Item C:\tools\git.zip -Force; `
     $p = [Environment]::GetEnvironmentVariable('PATH', 'Machine'); `
-    [Environment]::SetEnvironmentVariable('PATH', "$p;C:\tools\git\cmd", 'Machine')
+    [Environment]::SetEnvironmentVariable('PATH', ($p + ';C:\tools\git\cmd'), 'Machine')
 
 # Shared clean-room assets: the SAME bootstrap.ps1 the Vagrant lanes run, the Docker-Windows-only scripts, and
 # the collab-cli source (built in the clean room, never downloaded -- "build it on bootstrap", per Vagrant lane).
