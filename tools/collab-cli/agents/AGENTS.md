@@ -106,6 +106,21 @@ Behave predictably when addressed:
   pauses you: attend to it, then resume. An equal-or-lower addressed message gets the secondary-ACK and
   you continue. Broadcasts never preempt — pull them on your own cadence.
 
+## Delegation & parallelism
+Both planes work concurrently; the goal is that NEITHER plane sits idle waiting on the other. Treat the
+idle-time product `peer-idle-seconds x your-idle-seconds` as the delegation-quality signal to minimize
+(it is near-zero only when both planes stay busy).
+- **Queue before you idle.** When you hand off or finish a unit, immediately pick up an INDEPENDENT
+  parallel task so your own idle time stays near zero; do not stop at `WAITER=none` with nothing in flight.
+- **Make every handoff self-serve.** A good delegation is immediately actionable WITHOUT a clarifying
+  round-trip and WITHOUT waiting on your in-flight work: name the concrete target (requirement id +
+  acceptance criteria + where the evidence / CodeRef / TestID goes) so the peer can `CLAIM` and start now.
+- **Prefer parallel independent slices over serial blocking handoffs.** Split work so each plane owns a
+  slice that does not block on the other; reserve a strict serial `WAITER=<plane>` for a TRUE dependency
+  (e.g. a pre-cut cross-plane verification) and keep your own parallel work moving even then.
+- **Never leave the peer without a pullable task.** When you post `DONE` / `WAITER=none`, also point to or
+  queue the next independent task so the other plane never idles waiting for direction.
+
 ## Self-improvement
 - These instructions are meant to be hardened. When you hit recurring friction, propose the
   smallest durable edit to `tools/collab-cli/agents/AGENTS.md` in your PR so the next version's
