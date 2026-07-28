@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "labview-benchmark-actor/viewer-cursor-receipt-v1",
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "timeAxis": {
+    "samples": [
+      0,
+      10,
+      20,
+      30,
+      40
+    ],
+    "start": 0,
+    "end": 40
+  },
+  "results": [
+    {
+      "name": "pointer-maps-to-nearest-in-bounds-sample",
+      "pass": true,
+      "detail": {
+        "start": 0,
+        "end": 40
+      }
+    },
+    {
+      "name": "keyboard-steps-by-one-sample-clamped",
+      "pass": true,
+      "detail": {
+        "lastIndex": 4
+      }
+    },
+    {
+      "name": "home-end-jump-to-run-bounds",
+      "pass": true,
+      "detail": {
+        "start": 0,
+        "end": 40
+      }
+    },
+    {
+      "name": "drag-updates-selected-time-continuously",
+      "pass": true,
+      "detail": {
+        "times": [
+          0,
+          10,
+          20,
+          30,
+          40
+        ]
+      }
+    },
+    {
+      "name": "never-selects-outside-the-window",
+      "pass": true,
+      "detail": {
+        "ops": 6
+      }
+    }
+  ]
+}

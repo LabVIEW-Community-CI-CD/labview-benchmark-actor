@@ -344,7 +344,81 @@ check('cleanroom-bootstrap-is-winget-free', () => {
   return { wingetFree: true };
 });
 
-// 15. Multi-VM Vagrant topology receipt is green (LBA-REQ-006, T-006). Two golden-box VMs must have
+// 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
+//     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
+//     over a real multi-VM concentrated corpus stays the maintainer/VM step.
+check('host-concentration-core-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'host-concentration', 'receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/host-concentration-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  const corpus = receipt.corpus;
+  assert(corpus && corpus.schema === 'labview-benchmark-actor/host-concentration@v1', 'corpus schema mismatch');
+  assert(/^[0-9a-f]{8}$/.test(corpus.corpusDigest || ''), 'corpus must carry an 8-hex corpusDigest');
+  assert(Array.isArray(corpus.runs) && corpus.runs.length === corpus.runCount, 'runCount must match the runs length');
+  for (const run of corpus.runs) {
+    assert(corpus.actors.includes(run.actorId), `run ${run.runId} actorId ${run.actorId} not in the actor list (isolation)`);
+    assert('metricsRef' in run && 'framesRef' in run, `run ${run.runId} must expose metricsRef + framesRef for the ollama layer`);
+  }
+  return { checks: receipt.total, actors: corpus.actors.length, runs: corpus.runCount };
+});
+
+// 16. Ollama-comparison core receipt is green and every comparison pairs runs within a single actor
+//     (LBA-REQ-010 AC #3, T-010). The deterministic planning + output contract are proven here (mock ollama
+//     driver); the live host-side ollama drive over a real concentrated corpus stays the maintainer step.
+check('ollama-comparison-core-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'ollama-comparison', 'receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/ollama-comparison-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  const plan = receipt.plan;
+  assert(plan && plan.schema === 'labview-benchmark-actor/ollama-comparison@v1', 'plan schema mismatch');
+  assert(Array.isArray(plan.comparisons) && plan.comparisons.length === plan.comparisonCount, 'comparisonCount must match the comparisons length');
+  for (const c of plan.comparisons) {
+    assert(typeof c.actorId === 'string' && c.actorId, 'each comparison must name its actor');
+    assert(c.baselineRunId !== c.candidateRunId, 'a comparison must pair two distinct runs');
+    assert(typeof c.prompt === 'string' && c.prompt.includes(`actor ${c.actorId}`), 'each comparison must carry an actor-scoped prompt');
+  }
+  return { checks: receipt.total, comparisons: plan.comparisonCount };
+});
+
+// 17. The documentation package carries the repo-standards-review stamp and the requirement IDs are
+//     contiguous with no renumbering after the standalone-repo move (LBA-REQ-008, T-008). Static/CM.
+check('docs-stamp-and-no-id-renumbering', () => {
+  // (a) Stamp: README + cm-plan name repo-standards-review v0.2.19 (commit d44f210d).
+  for (const rel of ['README.md', join('docs', 'cm', 'cm-plan.md')]) {
+    const text = readFileSync(join(pkgRoot, rel), 'utf8');
+    assert(/repo-standards-review/.test(text), `${rel} must name repo-standards-review`);
+    assert(/v0\.2\.19/.test(text), `${rel} must name the v0.2.19 baseline`);
+    assert(/d44f210d/.test(text), `${rel} must cite the d44f210d commit`);
+  }
+  // (b) The docs/ lane layout the standards runner expects.
+  for (const lane of ['architecture', 'cm', 'requirements', 'testing']) {
+    assert(existsSync(join(pkgRoot, 'docs', lane)), `docs/${lane} lane must exist`);
+  }
+  // (c) No renumbering: the LBA-REQ ids in srs.md form a contiguous 1..N set (no gaps, no duplicates).
+  const srs = readFileSync(join(pkgRoot, 'docs', 'requirements', 'srs.md'), 'utf8');
+  const ids = [...new Set([...srs.matchAll(/LBA-REQ-(\d{3})/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
+  assert(ids.length > 0, 'srs.md must define LBA-REQ ids');
+  assert(ids[0] === 1, 'requirement ids must start at 001 (no renumbering)');
+  for (let i = 0; i < ids.length; i += 1) {
+    assert(ids[i] === i + 1, `requirement ids must be contiguous 1..N; expected ${i + 1}, got ${ids[i]}`);
+  }
+  return { ids: ids.length, lanes: ['architecture', 'cm', 'requirements', 'testing'] };
+});
+
+// 18. Viewer time-cursor logic receipt is green: pointer + keyboard map to an in-bounds sample and no
+//     operation selects outside the run window (LBA-REQ-004, T-004). The browser/webview render is the
+//     maintainer step.
+check('viewer-cursor-logic-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'viewer-cursor', 'receipt.json'));
+  assert(receipt.schemaVersion === 'labview-benchmark-actor/viewer-cursor-receipt-v1', 'receipt schemaVersion mismatch');
+  assert(receipt.total > 0 && receipt.passed === receipt.total && receipt.failed === 0, `receipt not green: ${receipt.passed}/${receipt.total}`);
+  const axis = receipt.timeAxis;
+  assert(axis && Array.isArray(axis.samples) && axis.samples.length > 0, 'receipt must record the time axis');
+  assert(axis.start === axis.samples[0] && axis.end === axis.samples[axis.samples.length - 1], 'axis start/end must match the samples');
+  return { checks: receipt.total, samples: axis.samples.length };
+});
+
+// 19. Multi-VM Vagrant topology receipt is green (LBA-REQ-006, T-006). Two golden-box VMs must have
 //     coordinated over lbabus net -- UDP presence + TCP CLAIM/HANDOFF/DONE with echoed ACKs, unique
 //     identities, comms-only -- so the RTM "Proven" flip cannot outrun re-runnable evidence.
 check('multi-vm-topology-receipt-green', () => {
