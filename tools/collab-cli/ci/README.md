@@ -10,9 +10,10 @@ add cases** (one file per case, so nobody edits a shared manifest and there are 
 |------|---------|
 | `LbaBus.Ci/` | Dependency-free .NET runner (`lbabus-ci`). Reads `cases/*.json`, runs `lbabus` once per case, writes `results/<name>.json`, exits non-zero if any case fails. No NuGet packages, no bash. |
 | `LbaBus.Ci.Mock/` | Dependency-free in-container GitHub mock (`lbabus-mock`, `System.Net.HttpListener`). Its `run-harness` mode starts the loopback endpoint, exports `LBABUS_GITHUB_API`, runs the runner, and exits with its code — flipping the mock-requiring cases from SKIP to RUN. No NuGet packages, no bash. |
+| `LbaBus.Ci.Stress/` | Dependency-free cross-plane concurrency **regression gate** (`lbabus-stress`). Spawns N concurrent `lbabus resource` processes and asserts the cross-process lease invariants (mutual exclusion on free + stale, TTL/pid steal, idempotent release, wait). Catches the PR #18 mutex race a low-round manual check passes by luck; runs on Windows + Linux. |
 | `cases/*.json` | One declarative case per file (args + env + expected exit/stdout/stderr). |
 | `fixtures/` | Stable input corpus for offline cases (e.g. `sample.txt` + `sample2.txt` for grep). |
-| `Dockerfile` | Multi-stage: `build` → `ci-rg` (ripgrep present) and `ci-no-rg` (ripgrep absent). The harness runs *inside* the build, so a failing case fails the image. |
+| `Dockerfile` | Multi-stage: `build` → `ci-rg`/`ci-no-rg` (ripgrep present/absent), `ci-stress` (concurrency gate), `ci-musl`/`ci-musl-native` (glibc/musl RID). The harness runs *inside* the build, so a failing case fails the image. |
 | `results/` | Per-run output (git-ignored). |
 
 ## Run it
@@ -30,9 +31,11 @@ dotnet tools/collab-cli/ci/LbaBus.Ci.Mock/bin/Release/net8.0/lbabus-mock.dll run
   --repo-root "$PWD" --lbabus tools/collab-cli/bin/Release/net8.0/lbabus.dll \
   --runner tools/collab-cli/ci/LbaBus.Ci/bin/Release/net8.0/lbabus-ci.dll
 
-# hermetic (both runtime stages):
-docker build -f tools/collab-cli/ci/Dockerfile --target ci-rg    .
-docker build -f tools/collab-cli/ci/Dockerfile --target ci-no-rg .
+# hermetic (all runtime stages):
+docker build -f tools/collab-cli/ci/Dockerfile --target ci-rg     .
+docker build -f tools/collab-cli/ci/Dockerfile --target ci-no-rg  .
+docker build -f tools/collab-cli/ci/Dockerfile --target ci-stress .
+docker build -f tools/collab-cli/ci/Dockerfile --target ci-musl   .
 ```
 
 The runner is **hermetic**: it strips ambient `LBABUS_*` / `VIHS_*` / `GH_TOKEN` / `GITHUB_TOKEN` from
