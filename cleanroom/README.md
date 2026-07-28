@@ -63,6 +63,24 @@ tool is missing/below-pin). A green `selfcheck` proves the clean room is a valid
 | `VIHS_CLEANROOM_MEM` | `8192` | guest RAM (MB) |
 | `VIHS_CLEANROOM_CPUS` | `4` | guest vCPUs |
 
+## LINUX / VirtualBox parity (`Vagrantfile.virtualbox`)
+
+The LINUX plane runs the *same* clean room on **VirtualBox** instead of VMware (a Linux host has no
+VMware here — `lbabus capabilities` reports `vmware [no]`). `Vagrantfile.virtualbox` reuses this
+folder's **`bootstrap.ps1` verbatim**; only the provider block (`virtualbox`) and the synced-folder
+type (`virtualbox` Guest-Additions instead of `smb`) differ. Validated on Vagrant 2.4.9 + VirtualBox
+7.2.6 (`vagrant validate` → *Vagrantfile validated successfully*).
+
+```sh
+cd cleanroom
+VAGRANT_VAGRANTFILE=Vagrantfile.virtualbox VIHS_CLEANROOM_BOX=vihs/labview-cleanroom \
+  vagrant up --provider virtualbox
+```
+
+This is the parity model from RFC #15: **shared provider-agnostic provisioning, a per-plane provider
+block** — so `lbabus capabilities` can pick the provider (`vmware [yes]` → `vmware_desktop`, else
+`virtualbox`).
+
 ## Where this is going (RFC #15)
 
 The clean room is the substrate for turning `lbabus` into a **cleanroom agent resource serializer** —
