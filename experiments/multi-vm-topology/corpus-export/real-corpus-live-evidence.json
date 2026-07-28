@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "labview-benchmark-actor/real-corpus-live-evidence-v1",
+  "note": "MAINTAINER evidence -- non-deterministic live ollama output over a real corpus manifest; not a CI gate receipt.",
+  "host": "http://127.0.0.1:11434",
+  "model": "llama3.1:8b",
+  "manifest": "/home/sergio/repos/labview-benchmark-actor/experiments/multi-vm-topology/corpus-export/exported-corpus/manifest.json",
+  "elapsedSeconds": 7.699,
+  "corpusDigest": "2dc4ea84",
+  "actors": [
+    "ACTOR-A",
+    "ACTOR-B"
+  ],
+  "runCount": 4,
+  "results": [
+    {
+      "actorId": "ACTOR-A",
+      "baselineRunId": "actor-a-run-1",
+      "candidateRunId": "actor-a-run-2",
+      "verdict": {
+        "model": "llama3.1:8b",
+        "evalCount": 180,
+        "summary": "To compare the two benchmark runs for actor ACTOR-A and summarize the changes in performance between them, let's break down each metric provided for both runs. ### Run 1 (baseline): actor-a-run-1 - **CPU Utilization:** `cpuMean=48pct` - **RAM Usage:** `ramMeanMiB=640` MiB - **Duration:** `durationMs=1360` ms - **Frames Rendered:** `465` ### Run 2 (candidate): actor-a-run-2 - **CPU Utilization:** `cpuMean=57pct` - **RAM Usage:** `ramMeanMiB=720` MiB - **Duration:** `durationMs=1560` ms - **Frames Rendered:** `430` ### Run-over-run Change Analysis 1. **CPU Utilization:** - Increase from"
+      }
+    },
+    {
+      "actorId": "ACTOR-B",
+      "baselineRunId": "actor-b-run-1",
+      "candidateRunId": "actor-b-run-2",
+      "verdict": {
+        "model": "llama3.1:8b",
+        "evalCount": 180,
+        "summary": "## Step 1: Analyze the CPU usage metrics The baseline actor-b-run-1 has a cpuMean of 48pct, while the candidate actor-b-run-2 has a cpuMean of 39pct. This indicates that actor-b-run-2 uses less CPU resources compared to actor-b-run-1. ## Step 2: Analyze the RAM usage metrics The baseline actor-b-run-1 has a ramMeanMiB of 640, while the candidate actor-b-run-2 has a ramMeanMiB of 560. This indicates that actor-b-run-2 uses less RAM resources compared to actor-b-run-1. ## Step 3: Analyze the duration metrics The baseline actor-b-run-1 has a durationMs of 1360, while the candidate actor-b-run-2 has a durationMs of 1160. This indicates"
+      }
+    }
+  ]
+}
