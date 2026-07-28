@@ -45,11 +45,11 @@ Operator horizon: **ollama is the durable LESSON STORE, not agent memory files.*
 in the shared `lba-coordinator` model's SYSTEM prompt ([`lba-coordinator.Modelfile`](lba-coordinator.Modelfile),
 `FROM llama3.1:8b`, `temperature 0.3`). Because ollama *governs* the container coordinator, the coordinator
 inherits every banked lesson — the store is both **durable** (in the model) and **actionable** (drives the
-coordinator's diagnostics). Verified on this plane: the model recalls `[COORD-STREAM]` and `[LINUX-DOCKER-NET]`
+coordinator's diagnostics). Verified on this plane: the model recalls `[COORD-STREAM]` and `[XPLANE-ENVELOPE]`
 **verbatim**, and the governed loop emitted lesson-APPLYING coordination (e.g. it retrieved the `[WIN-DOCKER-NET]`
 NAT-repair steps), not generic filler.
 
-Banked tags: `[WIN-DOCKER-NET]` `[SELF-CONTAINED]` `[OLLAMA-GOV-LOOP]` `[COORD-STREAM]` `[LINUX-DOCKER-NET]`.
+Banked tags: `[WIN-DOCKER-NET]` `[SELF-CONTAINED]` `[OLLAMA-GOV-LOOP]` `[COORD-STREAM]` `[XPLANE-ENVELOPE]`.
 
 **Sync protocol (cross-plane):** when either plane learns a lesson, append a new `[TAG] ...` block to the
 SYSTEM, re-run `ollama create lba-coordinator`, and post the new `[TAG]` block on the coordination bus so the
