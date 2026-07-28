@@ -15,12 +15,24 @@
     <PackageId>LabViewBenchmarkActor.CollabBus</PackageId>
 
     <!-- SemVer: the single source of truth for `lbabus version` and the released package. -->
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Authors>LabVIEW-Community-CI-CD</Authors>
     <Description>Shared cross-plane coordination bus CLI for labview-benchmark-actor (WIN &lt;-&gt; LINUX). One versioned binary, one deterministic protocol, pulled from an immutable SemVer release.</Description>
     <PackageProjectUrl>https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor</PackageProjectUrl>
     <RepositoryUrl>https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
+
+  <!--
+    The Docker-CI edge-case harness (ci/) is its own project (ci/LbaBus.Ci) with its own Program.cs.
+    Exclude the whole ci/ tree from THIS project's default globs so the CLI does not try to compile the
+    runner's sources (duplicate entry points) or ship harness files inside the lbabus tool package.
+  -->
+  <ItemGroup>
+    <Compile Remove="ci/**/*.cs" />
+    <None Remove="ci/**/*" />
+    <Content Remove="ci/**/*" />
+    <EmbeddedResource Remove="ci/**/*" />
+  </ItemGroup>
 
 </Project>

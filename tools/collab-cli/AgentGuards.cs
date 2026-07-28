@@ -53,7 +53,7 @@ internal static class Ripgrep
         try
         {
             var psi = new ProcessStartInfo(Exe) { UseShellExecute = false };
-            foreach (string a in args)
+            foreach (string a in DeterministicArgs(args))
             {
                 psi.ArgumentList.Add(a);
             }
@@ -73,6 +73,19 @@ internal static class Ripgrep
             Console.Error.WriteLine("lbabus: ripgrep (rg) not found — search in this toolchain is ripgrep-only, no fallback. " + InstallHint());
             return 4;
         }
+    }
+
+    /// <summary>
+    /// Prepends TTY-independent defaults (<c>--color=never --no-heading</c>) so <c>lbabus grep</c> emits
+    /// byte-identical output whether stdout is a terminal or a pipe — ripgrep otherwise auto-enables ANSI
+    /// colour and filename grouping on a TTY, which diverges across planes and breaks the CI harness's
+    /// output comparison. ripgrep is last-wins, so a caller can still override (e.g. <c>--color=always</c>).
+    /// </summary>
+    internal static IReadOnlyList<string> DeterministicArgs(IReadOnlyList<string> args)
+    {
+        var result = new List<string>(args.Count + 2) { "--color=never", "--no-heading" };
+        result.AddRange(args);
+        return result;
     }
 
     public static string InstallHint()
