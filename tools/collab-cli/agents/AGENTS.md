@@ -62,6 +62,28 @@ and cut a new release. Verify a local copy with `lbabus agents --check <path>`.
 - **Keep build/gate commands environment-portable.** Confined runtimes restrict the build context —
   e.g. snap-packaged Docker cannot read a `/tmp` context (`resolve: lstat …/snapd/void/…`). Run gates
   from a directory the local daemon can access (e.g. under `$HOME`).
+- **Encoding-safe cross-host files.** A script uploaded to another host and parsed there must be pure
+  ASCII / encoding-safe — a BOM-less non-ASCII byte (e.g. an em-dash) can be read as ANSI and corrupt
+  the parse. The ASCII-only bus-message rule, generalized to any cross-host file.
+- **Verify tools in the actual execution context.** Confirm a tool resolves in the context that will
+  run it, never by assuming an interactive shell — e.g. `winget` is on the interactive PATH but not the
+  non-interactive WinRM provisioner PATH; use a context-independent installer instead.
+
+## Spec ↔ implementation gap closure
+The built spec is `docs/requirements/srs.md` (LBA-REQ-* definitions) + `docs/requirements/rtm.csv`
+(ReqID → Requirement → TestID → CodeRef → Status → Notes) + `docs/architecture/adr/` + the test plan;
+the built implementation is the code. The RTM `Status` column is the gap ledger — a ladder
+`Planned → Partial → Proven` (spec ahead of impl → in-flight → impl matches spec with cited evidence).
+- **Read the ledger first.** Compare SRS `LBA-REQ-*` to the RTM rows + `Status`; take the earliest
+  non-`Proven` req — its `CodeRef` + `TestID` name where the impl and test go.
+- **Close in one move.** Advance the row one rung: implement to the `CodeRef`, land the `TestID` test,
+  flip `Status`, and cite the proving evidence in `Notes` (a receipt / a gate that fails when it should).
+- **Reconcile both directions.** A req with no real CodeRef/test is unimplemented spec; code with no
+  `LBA-REQ` is unspecified impl — add the requirement (SRS + RTM) or remove the code.
+- **Keep the matrix honest — checked, not just asked.** Every requirement-affecting PR updates
+  `srs.md` + `rtm.csv` together; run `experiments/reqs-coverage/verify-reqs-coverage.mjs` (quoted-CSV
+  aware; ring 1 = SRS↔RTM orphan/coverage, ring 2 = every `Proven` row's evidence resolves) — it fails
+  closed. The RTM is the single spec↔impl source of truth.
 
 ## Self-improvement
 - These instructions are meant to be hardened. When you hit recurring friction, propose the
