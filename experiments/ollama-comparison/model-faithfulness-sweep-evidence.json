@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "labview-benchmark-actor/model-faithfulness-sweep-v1",
+  "note": "MAINTAINER evidence -- non-deterministic live ollama output; not a CI gate receipt.",
+  "host": "http://127.0.0.1:11434",
+  "generatedAt": "2026-07-28T16:02:52.724Z",
+  "models": [
+    "llama3.1:8b",
+    "qwen2.5:14b",
+    "vichange8b-2shot",
+    "vichange8b-fewshot"
+  ],
+  "repeats": 3,
+  "comparisonsPerModel": 2,
+  "elapsedSeconds": 165.312,
+  "recommended": "vichange8b-fewshot",
+  "results": [
+    {
+      "model": "llama3.1:8b",
+      "comparisons": 6,
+      "correct": 6,
+      "totalMs": 23082,
+      "totalTokens": 1080,
+      "samples": [
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 3966,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 3803,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 3773,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 3888,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 3822,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 3830,
+          "tokens": 180
+        }
+      ],
+      "directionAccuracy": 1,
+      "avgMs": 3847,
+      "tokPerSec": 47
+    },
+    {
+      "model": "qwen2.5:14b",
+      "comparisons": 6,
+      "correct": 6,
+      "totalMs": 119668,
+      "totalTokens": 1080,
+      "samples": [
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 23602,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 18830,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 20029,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 20194,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 18581,
+          "tokens": 180
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 18432,
+          "tokens": 180
+        }
+      ],
+      "directionAccuracy": 1,
+      "avgMs": 19945,
+      "tokPerSec": 9
+    },
+    {
+      "model": "vichange8b-2shot",
+      "comparisons": 6,
+      "correct": 6,
+      "totalMs": 13127,
+      "totalTokens": 407,
+      "samples": [
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 5195,
+          "tokens": 65
+        },
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 1258,
+          "tokens": 52
+        },
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 1256,
+          "tokens": 52
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 1645,
+          "tokens": 70
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 1877,
+          "tokens": 84
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 1896,
+          "tokens": 84
+        }
+      ],
+      "directionAccuracy": 1,
+      "avgMs": 2188,
+      "tokPerSec": 31
+    },
+    {
+      "model": "vichange8b-fewshot",
+      "comparisons": 6,
+      "correct": 6,
+      "totalMs": 9430,
+      "totalTokens": 399,
+      "samples": [
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 1619,
+          "tokens": 61
+        },
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 1421,
+          "tokens": 61
+        },
+        {
+          "actorId": "actor-1",
+          "expectedDir": "up",
+          "predicted": "up",
+          "correct": true,
+          "ms": 1434,
+          "tokens": 61
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 1680,
+          "tokens": 72
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 1643,
+          "tokens": 72
+        },
+        {
+          "actorId": "actor-2",
+          "expectedDir": "down",
+          "predicted": "down",
+          "correct": true,
+          "ms": 1633,
+          "tokens": 72
+        }
+      ],
+      "directionAccuracy": 1,
+      "avgMs": 1572,
+      "tokPerSec": 42
+    }
+  ]
+}
