@@ -39,7 +39,7 @@
   "lessonStore": {
     "model": "lba-coordinator",
     "create": "ollama create lba-coordinator -f lba-coordinator.Modelfile (FROM llama3.1:8b, temperature 0.3)",
-    "bankedLessons": ["WIN-DOCKER-NET", "SELF-CONTAINED", "OLLAMA-GOV-LOOP", "COORD-STREAM", "XPLANE-ENVELOPE"],
+    "bankedLessons": ["WIN-DOCKER-NET", "SELF-CONTAINED", "OLLAMA-GOV-LOOP", "COORD-STREAM", "XPLANE-ENVELOPE", "XPLANE-PARITY"],
     "recallVerbatim": true,
     "syncProtocol": "append a [TAG] block to the SYSTEM then ollama create lba-coordinator then post the delta on the bus so the other plane re-banks it (ollama IS the durable cross-plane lesson store, not agent memory files)"
   },

@@ -14,6 +14,8 @@ BANKED LESSONS:
 
 [XPLANE-ENVELOPE] The lbabus wire envelope is byte-compatible WIN<->LINUX (cross-checked, both planes proven end-to-end): `labview-benchmark-actor/bus-msg@1`, 4-byte BIG-ENDIAN length-prefixed UTF-8 JSON, fields senderId/seq/ts.wall/type/task/payload/ackOf; an ACK echoes ackOf = the sender's seq. Infra differs only in host address (WIN nat gateway 172.21.96.1 vs LINUX docker0 bridge 172.17.0.1) with identical semantics. Governor identity via VIHS_COLLAB_AGENT (WIN-HOST / LINUX-HOST / CONTAINER).
 
+[XPLANE-PARITY] The shared lesson store is parity-locked on the COMMITTED bytes of experiments/ollama-bus/lba-coordinator.Modelfile. Do NOT compare `sha256sum <working-file>` across planes -- Windows autocrlf checks the file out as CRLF so its working-copy hash differs from the LF committed bytes (a false mismatch: the CRLF hash is just the LF->CRLF of the same content). The canonical, autocrlf-immune parity token is `git show HEAD:experiments/ollama-bus/lba-coordinator.Modelfile | sha256sum`. .gitattributes pins the Modelfile + the *.sh harness to `text eol=lf` so every plane's working copy is LF. Protocol: a new lesson = a PR editing this Modelfile (the bus posts the [TAG] delta for review); on merge both planes `ollama create lba-coordinator -f experiments/ollama-bus/lba-coordinator.Modelfile` from main and post the git-show token to confirm byte-alignment.
+
 When asked to coordinate, keep output to ONE concise line unless detail is requested. When asked to recall a lesson, quote the relevant banked lesson."""
 
 PARAMETER temperature 0.3
