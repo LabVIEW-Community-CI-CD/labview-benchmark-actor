@@ -1,0 +1,55 @@
+# escape=`
+# LabVIEW clean-room Docker WINDOWS-CONTAINER mirror of the Vagrant clean room (cleanroom/Vagrantfile*).
+#
+# WINDOWS HOSTS ONLY: requires the Windows-container engine (Docker Desktop switched to Windows containers, or a
+# Windows Server host). It CANNOT build on a Linux Docker engine -- this lane is Windows-specific by design
+# (its counterpart is the Vagrant VMware/VirtualBox lane). Build from the REPO ROOT so the shared bootstrap and
+# the collab-cli source are in the build context:
+#
+#   docker build -f cleanroom/docker-windows/Dockerfile.windows `
+#     --build-arg LV_VERSION=2026q1 --build-arg LV_ARCH=x86 -t vihs/labview-cleanroom-win .
+#
+# The layers MIRROR the Vagrant bootstrap contract (same bootstrap.ps1), then EXPAND it by installing LabVIEW
+# 2026 32-bit from the NI ISO map (install-labview.ps1 + lv-iso-map.json, the ni/labview-icon-editor pattern):
+# the Vagrant lane inherits LabVIEW from a pre-baked licensed base box; this lane builds LabVIEW INTO the image.
+
+ARG WINDOWS_BASE=mcr.microsoft.com/windows/servercore:ltsc2022
+FROM ${WINDOWS_BASE}
+
+SHELL ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';"]
+
+# git is required by the shared bootstrap (the Vagrant base box ships it; a bare servercore does not). Install
+# MinGit up front so bootstrap.ps1 can be reused VERBATIM -- that verbatim reuse is the whole point of a mirror.
+ARG MINGIT_URL=https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/MinGit-2.53.0-64-bit.zip
+RUN New-Item -ItemType Directory -Force C:\tools\git | Out-Null; `
+    Invoke-WebRequest -UseBasicParsing $env:MINGIT_URL -OutFile C:\tools\git.zip; `
+    Expand-Archive C:\tools\git.zip -DestinationPath C:\tools\git -Force; `
+    Remove-Item C:\tools\git.zip -Force; `
+    $p = [Environment]::GetEnvironmentVariable('PATH', 'Machine'); `
+    [Environment]::SetEnvironmentVariable('PATH', "$p;C:\tools\git\cmd", 'Machine')
+
+# Shared clean-room assets: the SAME bootstrap.ps1 the Vagrant lanes run, the Docker-Windows-only scripts, and
+# the collab-cli source (built in the clean room, never downloaded -- "build it on bootstrap", per Vagrant lane).
+COPY cleanroom/bootstrap.ps1 C:/cleanroom/bootstrap.ps1
+COPY cleanroom/docker-windows/ C:/cleanroom/docker-windows/
+COPY tools/collab-cli/ C:/cleanroom-src/tools/collab-cli/
+
+# 1. EXPANSION -- install LabVIEW 2026 32-bit from the NI ISO map (the capability the Vagrant base box pre-bakes).
+#    Provide the (licensed/community) ISO offline by bind-mounting or COPYing it in and setting LV_ISO_PATH, or
+#    let install-labview.ps1 download it per lv-iso-map.json (a multi-GB, slow layer). See README.md.
+ARG LV_VERSION=2026q1
+ARG LV_ARCH=x86
+ENV LV_VERSION=$LV_VERSION `
+    LV_ARCH=$LV_ARCH
+RUN C:\cleanroom\docker-windows\install-labview.ps1
+
+# 2. MIRROR -- the pinned collab-cli toolchain (dotnet/rg/gh/glab) + BUILD lbabus, exactly the Vagrant bootstrap.
+RUN C:\cleanroom\bootstrap.ps1
+
+# 3. Prove the clean room is a valid coordination + LabVIEW environment (mirrors the Vagrant selfcheck; with
+#    LabVIEW installed, `lbabus capabilities` should now report labview-cli=yes on this box).
+RUN lbabus capabilities; lbabus selfcheck
+
+LABEL org.vihs.cleanroom="docker-windows-mirror" `
+      org.vihs.labview="2026q1-x86"
+CMD ["powershell", "-NoProfile", "-Command", "lbabus capabilities"]
