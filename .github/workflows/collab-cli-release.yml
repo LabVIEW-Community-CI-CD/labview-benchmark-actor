@@ -1,0 +1,71 @@
+name: collab-cli-release
+
+# Publishes the shared `lbabus` coordination-bus CLI as an immutable, SemVer-tagged GitHub Release.
+# Both the WIN and LINUX planes pull the SAME pinned version so they cannot drift.
+#
+# Trigger: push a tag `collab-cli-vX.Y.Z` whose X.Y.Z matches <Version> in LbaBus.csproj.
+
+on:
+  push:
+    tags:
+      - 'collab-cli-v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/collab-cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Derive version from tag
+        id: ver
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#collab-cli-v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Building lbabus ${version} from tag ${tag}"
+
+      - name: Pack dotnet tool
+        run: dotnet pack -c Release -p:Version=${{ steps.ver.outputs.version }} -o ../../artifacts
+
+      - name: Publish self-contained (linux-x64)
+        run: >
+          dotnet publish -c Release -r linux-x64 --self-contained true
+          -p:PublishSingleFile=true -p:Version=${{ steps.ver.outputs.version }}
+          -o ../../artifacts/linux-x64
+
+      - name: Publish self-contained (win-x64)
+        run: >
+          dotnet publish -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:Version=${{ steps.ver.outputs.version }}
+          -o ../../artifacts/win-x64
+
+      - name: Stage release assets
+        working-directory: .
+        run: |
+          set -eu
+          mkdir -p staging
+          cp artifacts/*.nupkg staging/
+          cp "artifacts/linux-x64/lbabus" "staging/lbabus-${{ steps.ver.outputs.version }}-linux-x64"
+          cp "artifacts/win-x64/lbabus.exe" "staging/lbabus-${{ steps.ver.outputs.version }}-win-x64.exe"
+          ls -l staging
+
+      - name: Create GitHub Release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${GITHUB_REF_NAME}"
+          --repo "${GITHUB_REPOSITORY}"
+          --title "lbabus ${{ steps.ver.outputs.version }}"
+          --notes "Shared cross-plane coordination bus CLI. Immutable SemVer release; both planes install this exact version."
+          staging/*

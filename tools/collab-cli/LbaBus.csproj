@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>lbabus</AssemblyName>
+    <RootNamespace>LabViewBenchmarkActor.CollabBus</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- dotnet-tool packaging: install the pinned SemVer version with `dotnet tool install`. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>lbabus</ToolCommandName>
+    <PackageId>LabViewBenchmarkActor.CollabBus</PackageId>
+
+    <!-- SemVer: the single source of truth for `lbabus version` and the released package. -->
+    <Version>0.1.0</Version>
+    <Authors>LabVIEW-Community-CI-CD</Authors>
+    <Description>Shared cross-plane coordination bus CLI for labview-benchmark-actor (WIN &lt;-&gt; LINUX). One versioned binary, one deterministic protocol, pulled from an immutable SemVer release.</Description>
+    <PackageProjectUrl>https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+</Project>
