@@ -298,6 +298,51 @@ check('resource-usage-correlation-receipt-green', () => {
   }
   return { checks: receipt.total, triggerFrameIndex: c.triggerFrameIndex };
 });
+
+// 13. Vagrant clean-room provisioner scripts stay pure ASCII. Vagrant uploads the script and PowerShell 5.1
+//     reads a BOM-less file as the system ANSI codepage, so a non-ASCII byte (e.g. an em-dash) corrupts on
+//     upload and breaks the parse -> a SILENT `vagrant up` provisioner failure. Enforce it so a future edit
+//     cannot regress the fix (see cleanroom/README.md "Provisioner notes").
+check('cleanroom-provisioner-scripts-pure-ascii', () => {
+  const dir = join(pkgRoot, 'cleanroom');
+  if (!existsSync(dir)) {
+    return { skipped: 'no cleanroom/ directory' };
+  }
+  const scripts = readdirSync(dir).filter((n) => n.toLowerCase().endsWith('.ps1'));
+  assert(scripts.length > 0, 'expected at least one cleanroom/*.ps1 provisioner script');
+  const scanned = [];
+  for (const name of scripts) {
+    const bytes = readFileSync(join(dir, name));
+    for (let i = 0; i < bytes.length; i += 1) {
+      assert(
+        bytes[i] <= 0x7f,
+        `cleanroom/${name}: non-ASCII byte 0x${bytes[i].toString(16)} at offset ${i} -- Vagrant provisioner scripts must be pure ASCII (Vagrant upload + PS 5.1 ANSI read silently breaks the parse)`
+      );
+    }
+    scanned.push(name);
+  }
+  return { scripts: scanned };
+});
+
+// 14. The clean-room bootstrap installs its toolchain winget-free. `winget` is an MSIX app-execution alias
+//     that is NOT resolvable on the non-interactive WinRM provisioner PATH, so `winget install ...` in the
+//     bootstrap fails over Vagrant. Enforce winget-free installs (dotnet-install + release archives) so the
+//     fix cannot regress. (The word may still appear in an explanatory comment; only a real invocation fails.)
+check('cleanroom-bootstrap-is-winget-free', () => {
+  const bootstrap = join(pkgRoot, 'cleanroom', 'bootstrap.ps1');
+  if (!existsSync(bootstrap)) {
+    return { skipped: 'no cleanroom/bootstrap.ps1' };
+  }
+  const codeOnly = readFileSync(bootstrap, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/#.*$/, '')) // drop trailing PowerShell comments
+    .join('\n');
+  assert(
+    !/\bwinget\s+(install|upgrade|search|list|source|export|import)\b/i.test(codeOnly),
+    'cleanroom/bootstrap.ps1 invokes winget -- winget is not resolvable in the WinRM provisioner session; install winget-free (dotnet-install + direct release archives)'
+  );
+  return { wingetFree: true };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
