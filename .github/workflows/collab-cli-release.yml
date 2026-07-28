@@ -27,6 +27,12 @@ jobs:
       - name: Harness — ripgrep absent (ripgrep-only fail-closed case runs)
         run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-no-rg .
 
+      - name: Harness — musl/Alpine (framework-dependent lbabus runs green on musl)
+        run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-musl .
+
+      - name: Harness — musl RID contract (glibc self-contained native fails on musl)
+        run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-musl-native .
+
   release:
     needs: harness
     runs-on: ubuntu-latest

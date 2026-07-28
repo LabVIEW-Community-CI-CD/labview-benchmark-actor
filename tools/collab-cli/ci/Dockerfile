@@ -39,3 +39,30 @@ COPY tools/collab-cli/ci /repo/tools/collab-cli/ci
 # stage as well and prove the seam is independent of the search toolchain.
 RUN dotnet /out/mock/lbabus-mock.dll run-harness --port 8099 \
       --repo-root /repo --lbabus /out/cli/lbabus.dll --runner /out/ci/lbabus-ci.dll
+
+# ---- ci-musl: framework-dependent lbabus on musl (Alpine) -> harness runs GREEN (portable IL) ------
+# Proves the SHIPPED nupkg / framework-dependent path (portable lbabus.dll + runner + HttpListener mock)
+# runs on musl byte-identically to glibc. ripgrep comes from apk. Positive half of the #10 RID contract.
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS ci-musl
+RUN apk add --no-cache ripgrep
+COPY --from=build /out /out
+COPY tools/collab-cli/ci /repo/tools/collab-cli/ci
+RUN dotnet /out/mock/lbabus-mock.dll run-harness --port 8099 \
+      --repo-root /repo --lbabus /out/cli/lbabus.dll --runner /out/ci/lbabus-ci.dll
+
+# ---- ci-musl-native: the glibc self-contained native FAILS on musl (RID contract, negative) --------
+# The published linux-x64 self-contained single-file binary targets glibc; it must NOT silently run on
+# musl. It fails clearly (missing ld-linux-x86-64.so.2 -> not found / exit 127), proving the RID matters.
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-native
+WORKDIR /src
+COPY . .
+RUN dotnet publish tools/collab-cli/LbaBus.csproj -c Release -r linux-x64 --self-contained true \
+      -p:PublishSingleFile=true -o /out/native
+
+FROM alpine:3.20 AS ci-musl-native
+COPY --from=build-native /out/native/lbabus /usr/local/bin/lbabus
+RUN if /usr/local/bin/lbabus version >/dev/null 2>&1; then \
+        echo "FAIL: glibc self-contained native unexpectedly ran on musl" && exit 1; \
+    else \
+        echo "OK: glibc self-contained native correctly fails on musl (RID contract holds, exit $?)"; \
+    fi
