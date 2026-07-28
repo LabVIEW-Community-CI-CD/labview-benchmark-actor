@@ -45,7 +45,13 @@ internal static class LeaseStore
         string root;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            // Honor the LOCALAPPDATA env var first (standard on Windows, and required for
+            // test/store isolation + redirected profiles). GetFolderPath reads the shell
+            // known-folder API and ignores the env var, so an override set by a parent
+            // process (e.g. the cross-plane stress gate) would otherwise be silently lost.
+            root = Environment.GetEnvironmentVariable("LOCALAPPDATA") is { Length: > 0 } local
+                ? local
+                : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
