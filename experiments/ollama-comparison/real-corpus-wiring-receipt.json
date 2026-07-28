@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "labview-benchmark-actor/real-corpus-wiring-receipt-v1",
+  "manifest": "experiments/host-concentration/fixtures/complete-corpus/manifest.json",
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "results": [
+    {
+      "name": "complete-manifest-ingests-2-actors-4-runs",
+      "pass": true,
+      "detail": {
+        "actors": 2,
+        "runs": 4
+      }
+    },
+    {
+      "name": "dereference-replaces-path-with-real-metric-summary",
+      "pass": true,
+      "detail": {
+        "sample": "cpuMean=40pct, ramMeanMiB=600, durationMs=1200, framesRendered=480"
+      }
+    },
+    {
+      "name": "comparison-plan-prompts-embed-real-values",
+      "pass": true,
+      "detail": {
+        "comparisons": 2
+      }
+    },
+    {
+      "name": "mock-drive-yields-same-actor-verdicts",
+      "pass": true,
+      "detail": {
+        "results": 2
+      }
+    },
+    {
+      "name": "dereference-missing-metrics-file-is-rejected",
+      "pass": true,
+      "detail": {
+        "rejected": true
+      }
+    }
+  ]
+}
