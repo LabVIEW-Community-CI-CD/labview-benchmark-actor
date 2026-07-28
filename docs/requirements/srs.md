@@ -320,6 +320,38 @@ ADR-0006).
   schema at `vihs-collab-msg@v1`; a nested field or a schema bump silently drops
   the message on already-deployed readers (verified cross-plane, finding 17812593).
 
+### LBA-REQ-014: Cross-plane benchmark comparison
+
+- Status: Proposed
+- Area: Analysis / storage (extends LBA-REQ-009 storage, LBA-REQ-004 viewer,
+  LBA-REQ-010 analysis)
+- Statement: The system shall let each plane (LINUX, WIN) produce a
+  deterministic benchmark run from the SAME mprr short-packet input, store it on
+  a plane-local big drive, and compare the two planes' runs of a shared
+  `benchmarkId` -- reporting numeric metric deltas AND content-digest agreement,
+  so the next agent can repeat the comparison and get the same verdict.
+- Acceptance Criteria:
+  - The absorbed mprr short-ring core (`ingestShortPackets`) deterministically
+    projects a short-packet stream to a viewer-renderable `[{ t, v }]` series +
+    a benchmark summary (blocks, boundary-variation, admission), byte-identical
+    for identical input on BOTH planes (the deterministic cross-plane anchor).
+  - The shipped viewer renders that series; the deterministic screenshot harness
+    captures it twice and asserts BYTE-IDENTICAL per plane (repeatability),
+    recording `seriesHash` + `pngSha256`.
+  - The benchmark store registers each plane's run (ring-buffer capture BY
+    REFERENCE) under a shared `benchmarkId`, and `crossPlaneCompare` reports
+    numeric `deltas` + a `digests` section: the deterministic `seriesHash` MUST
+    match across planes; the per-plane `pngSha256` is a visual witness; a
+    single-plane compare fails closed.
+  - The comparison is re-runnable and deterministic (mprr core + projection +
+    store are dependency-free): gated by `verify-mprr-ring` (9/9),
+    `verify-benchmark-store` (6/6), and local gates #27/#28.
+- Change Guidance: Keep the mprr core + projection deterministic and
+  dependency-free -- the cross-plane anchor rests on a byte-identical
+  `seriesHash`. Treat a cross-OS screenshot pixel difference as an expected
+  witness, not a failure. Do NOT mark Proven until a REAL second-plane (WIN) run
+  is registered and compared against the LINUX run.
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -339,3 +371,4 @@ ADR-0006).
 | LBA-REQ-011 | Analysis (resource correlation) | T-011 |
 | LBA-REQ-012 | Agentic infra (base instructions) | T-012 |
 | LBA-REQ-013 | Agentic infra (coordination bus) | T-013 |
+| LBA-REQ-014 | Analysis (cross-plane compare) | T-014 |
