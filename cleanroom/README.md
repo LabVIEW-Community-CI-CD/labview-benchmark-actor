@@ -44,10 +44,27 @@ vagrant box add vihs/labview-cleanroom vihs-labview-cleanroom.box
 prepared `.vmx`.) Override the box name with `VIHS_CLEANROOM_BOX`.
 
 **For a self-contained box** (no host repo / SMB / credential prompt at `vagrant up`), bake the collab-cli
-source into the guest before packaging so the provisioner builds from it: copy `tools/collab-cli` to
-`C:\cleanroom-src\tools\collab-cli` in the prepared VM, then `vagrant package`. Proven end to end: with the
-source only at `C:\cleanroom-src` (SMB path removed), `vagrant provision` builds `lbabus` + `selfcheck: PASS`
-with no host dependency. Build-on-bootstrap is preserved -- the box just carries its own pinned source.
+source into the box so the provisioner builds from it -- `bootstrap.ps1` prefers a box-baked
+`C:\cleanroom-src\tools\collab-cli` over the SMB paths. Verified recipe (VMware machines are *linked clones*,
+so the delta + base disk must be consolidated into one standalone disk -- a box cannot reference its parent):
+
+```powershell
+# 1. In the running guest, bake the source (no host dependency thereafter):
+#    Copy-Item <repo>\tools\collab-cli C:\cleanroom-src\tools\collab-cli -Recurse
+# 2. Halt the guest, then consolidate its linked-clone chain into one standalone disk (-t 0 = single growable):
+vagrant halt
+$clone = ".vagrant\machines\default\vmware_desktop\<machine-id>"
+& "C:\Program Files (x86)\VMware\VMware Workstation\vmware-vdiskmanager.exe" -r "$clone\<disk>-clN.vmdk" -t 0 "C:\stage\disk.vmdk"
+# 3. Assemble + tar the box at the archive ROOT: metadata.json ({"provider":"vmware_desktop"}), a vmx whose
+#    nvme0:0.fileName="disk.vmdk" (drop nvme0:0.redo), the .nvram, and disk.vmdk:
+tar -cf selfcontained.box -C C:\stage metadata.json <name>.vmx <name>.nvram disk.vmdk
+vagrant box add vihs/labview-cleanroom-sc selfcontained.box
+```
+
+Proven end to end: a fresh `vagrant up` (`VIHS_CLEANROOM_BOX=vihs/labview-cleanroom-sc`, `VIHS_CLEANROOM_NO_SYNC=1`)
+clones the box, boots, builds `lbabus` from the baked `C:\cleanroom-src`, and reaches `selfcheck: PASS` +
+`AGENTS.md` materialized with **no host dependency**. Build-on-bootstrap is preserved -- the box carries its
+own pinned source.
 
 ## Bring it up
 
