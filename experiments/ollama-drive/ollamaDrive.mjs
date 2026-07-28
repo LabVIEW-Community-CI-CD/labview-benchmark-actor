@@ -88,14 +88,17 @@ function runRelay(args) {
 
     const decode = createFrameDecoder(
       (env) => {
-        // Accept a drive request: any envelope whose task is ollama-drive with a payload {model,prompt}.
-        if (env.task !== 'ollama-drive' || !env.payload || typeof env.payload.prompt !== 'string') {
-          send('NOTE', { error: 'expected task=ollama-drive with payload {model,prompt}' }, env.seq);
+        // Wire-compatible with `lbabus net`: the envelope `payload` is a STRING, so a drive request is
+        // a JSON string {model,prompt,stream} in payload (exactly what `net send --message '<json>'` sends).
+        let req = null;
+        try { req = env.payload ? JSON.parse(env.payload) : null; } catch { req = null; }
+        if (env.task !== 'ollama-drive' || !req || typeof req.prompt !== 'string') {
+          send('NOTE', JSON.stringify({ error: 'expected task=ollama-drive with payload JSON {model,prompt}' }), env.seq);
           return;
         }
-        const { model = 'llama3.1:8b', prompt } = env.payload;
-        console.error(`[relay] ${remote} drive model=${model} prompt=${JSON.stringify(prompt).slice(0, 60)}`);
-        driveOllama(ollamaHost, Number(ollamaPort), model, prompt, send, env.seq);
+        const model = req.model ?? 'llama3.1:8b';
+        console.error(`[relay] ${remote} drive model=${model} prompt=${JSON.stringify(req.prompt).slice(0, 60)}`);
+        driveOllama(ollamaHost, Number(ollamaPort), model, req.prompt, send, env.seq);
       },
       (err) => {
         console.error(`[relay] framing error from ${remote}: ${err.message}`);
@@ -129,16 +132,17 @@ function driveOllama(host, port, model, prompt, send, ackOf) {
           let obj;
           try { obj = JSON.parse(line); } catch { continue; }
           if (obj.done) {
-            send('DONE', { done: true, model, total_duration: obj.total_duration, eval_count: obj.eval_count }, ackOf);
+            send('DONE', JSON.stringify({ done: true, model, total_duration: obj.total_duration, eval_count: obj.eval_count }), ackOf);
           } else if (typeof obj.response === 'string') {
-            send('PROGRESS', { response: obj.response, done: false }, ackOf);
+            // PROGRESS payload = the raw token string (payload is a string on the wire).
+            send('PROGRESS', obj.response, ackOf);
           }
         }
       });
       res.on('end', () => { if (acc.trim()) { /* trailing */ } });
     },
   );
-  req.on('error', (e) => send('DONE', { done: true, error: `ollama unreachable: ${e.message}` }, ackOf));
+  req.on('error', (e) => send('DONE', JSON.stringify({ done: true, error: `ollama unreachable: ${e.message}` }), ackOf));
   req.write(body);
   req.end();
 }
@@ -152,29 +156,33 @@ function runDrive(args) {
   const session = crypto.randomUUID();
 
   const sock = net.createConnection({ host, port }, () => {
-    sock.write(encodeFrame(envelope('VM-AGENT', session, 0, 'CLAIM', 'ollama-drive', { model, prompt, stream: true })));
+    sock.write(encodeFrame(envelope('VM-AGENT', session, 0, 'CLAIM', 'ollama-drive', JSON.stringify({ model, prompt, stream: true }))));
   });
 
   let tokens = 0;
   const started = performance.now();
   const decode = createFrameDecoder(
     (env) => {
-      if (env.type === 'PROGRESS' && env.payload?.response !== undefined) {
-        process.stdout.write(env.payload.response);
+      if (env.type === 'PROGRESS') {
+        process.stdout.write(env.payload ?? '');
         tokens++;
       } else if (env.type === 'DONE') {
         const ms = Math.round(performance.now() - started);
-        if (env.payload?.error) {
-          process.stderr.write(`\n[drive] ERROR: ${env.payload.error}\n`);
+        let meta = {};
+        try { meta = env.payload ? JSON.parse(env.payload) : {}; } catch { meta = {}; }
+        if (meta.error) {
+          process.stderr.write(`\n[drive] ERROR: ${meta.error}\n`);
           sock.end();
           process.exit(1);
         }
         process.stdout.write('\n');
-        console.error(`[drive] done: ${tokens} token-frames in ${ms} ms (eval_count=${env.payload?.eval_count ?? '?'})`);
+        console.error(`[drive] done: ${tokens} token-frames in ${ms} ms (eval_count=${meta.eval_count ?? '?'})`);
         sock.end();
         process.exit(0);
-      } else if (env.type === 'NOTE' && env.payload?.error) {
-        process.stderr.write(`\n[drive] relay rejected: ${env.payload.error}\n`);
+      } else if (env.type === 'NOTE') {
+        let meta = {};
+        try { meta = env.payload ? JSON.parse(env.payload) : {}; } catch { meta = {}; }
+        process.stderr.write(`\n[drive] relay rejected: ${meta.error ?? env.payload}\n`);
         sock.end();
         process.exit(2);
       }

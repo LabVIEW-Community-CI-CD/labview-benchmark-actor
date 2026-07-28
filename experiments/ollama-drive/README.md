@@ -28,12 +28,17 @@ node ollamaDrive.mjs drive --host 127.0.0.1 --port 11511 --model llama3.1:8b --p
 ## Proven (2026-07-28, real hardware)
 Host: ollama 0.32.3 on an NVIDIA RTX PRO 1000 Blackwell (8 GB); models `llama3.1:8b`, `qwen2.5:14b`,
 `vichange8b-2shot|fewshot`.
-- deterministic: `drive … --prompt "Reply with exactly OLLAMA_DRIVE_OK"` → `OLLAMA_DRIVE_OK` (5 token-frames, exit 0)
+- deterministic: `drive … --prompt "Reply with exactly OLLAMA_DRIVE_OK"` → `OLLAMA_DRIVE_OK` (4 token-frames, exit 0)
 - streaming: `--prompt "Count from one to five"` → `One. Two. Three. Four. Five.` (10 token-frames, 415 ms, exit 0)
+- **interop with the shipped `lbabus net`** (merged on main, PR #20): the relay uses the exact
+  `labview-benchmark-actor/bus-msg@1` `BusEnvelope`, so `payload` is a **string** carrying the drive
+  request JSON. A real `lbabus net send --tcp 11511 --type CLAIM --task ollama-drive --message '{"model":…,"prompt":…}'`
+  is received by the relay, drives ollama, and `net send` reads back the streamed reply
+  (`reply <- … HOST-RELAY #0 PROGRESS task:ollama-drive ackOf:… — OLL…`) — **bidirectional wire-compat**.
 
 ## Next
 - **Authz** (Q2): model allow-list + per-session token before the relay forwards.
-- **Interop**: fold the framing onto `lbabus net`'s `Net.cs` `BusWire` (this PoC re-implements it in Node,
-  wire-compatible) — a `net`-adjacent relay once PR #20 lands.
+- **Interop**: bidirectional wire-compat with the shipped `lbabus net` is proven (above); folding the
+  relay onto `Net.cs` `BusWire` as a `net`-adjacent capability (vs the current Node re-impl) is the next step.
 - **VM leg**: run `--host 0.0.0.0` + drive from inside the VMware/VirtualBox clean-room guest over the
   private net (the guest→host reachability is already proven by `lbabus net`).
