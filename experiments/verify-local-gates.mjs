@@ -462,6 +462,25 @@ check('extension-manifest-boundary', () => {
   }
   return { name: pkg.name, commands: commands.length, movedModules: manifest.modules.length };
 });
+
+// 21. A GitHub Codespace install route is defined: the .devcontainer provisions node + dotnet and builds
+//     the extension via postCreate, so it activates in a Codespace with no host-specific patching
+//     (LBA-REQ-002 AC #1, T-002). The Vagrant golden-VM install of the same artifact + the first-run
+//     activation signal is the maintainer/VM step (the LBA-REQ-006 topology / install lane).
+check('devcontainer-codespace-install-route', () => {
+  const dc = readJson(join('.devcontainer', 'devcontainer.json'));
+  assert(typeof dc.image === 'string' && dc.image.length > 0, 'the devcontainer must declare a base image');
+  assert(
+    dc.features && Object.keys(dc.features).some((f) => /dotnet/i.test(f)),
+    'the devcontainer must provision dotnet (the agentic component runs in Codespaces Linux)'
+  );
+  const post = dc.postCreateCommand;
+  assert(
+    typeof post === 'string' && /npm\s+install/.test(post) && /compile/.test(post),
+    'postCreateCommand must install deps + compile the extension'
+  );
+  return { image: dc.image };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
