@@ -18,6 +18,7 @@ internal static class CommandRouter
 
             string command = args[0].ToLowerInvariant();
             var rest = new ArgMap(args.Skip(1));
+            string[] tail = args.Skip(1).ToArray();
 
             return command switch
             {
@@ -27,12 +28,16 @@ internal static class CommandRouter
                 "post" => CmdPost(rest),
                 "poll" => CmdPoll(rest),
                 "wait" => CmdWait(rest),
+                "selfcheck" or "doctor" or "preflight" => CmdSelfCheck(),
+                "grep" or "rg" or "search" => CmdGrep(tail),
+                "defect" => CmdDefect(rest),
                 _ => Fail($"unknown command '{command}'"),
             };
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine("lbabus: " + ex.Message);
+            Console.Error.WriteLine("lbabus: if this is a tooling defect, report it: lbabus defect --message \"<symptom, command, expected vs actual>\"");
             return 1;
         }
     }
@@ -82,6 +87,12 @@ internal static class CommandRouter
         };
 
         using var gh = new GitHubGraphQL();
+        int? staleExit = EnforceVersionOrNull(gh, cfg);
+        if (staleExit is not null)
+        {
+            return staleExit.Value;
+        }
+
         DiscussionRef disc = gh.EnsureDiscussion(cfg, SeedBody(cfg));
 
         // CHECK-BEFORE-PUBLISH: surface any counterpart messages posted since this agent's last post.
@@ -145,6 +156,12 @@ internal static class CommandRouter
         int intervalSec = Math.Max(a.GetInt("interval", 20), 5);
 
         using var gh = new GitHubGraphQL();
+        int? staleExit = EnforceVersionOrNull(gh, cfg);
+        if (staleExit is not null)
+        {
+            return staleExit.Value;
+        }
+
         DiscussionRef? disc = gh.FindDiscussion(cfg);
         if (disc is null)
         {
@@ -184,6 +201,168 @@ internal static class CommandRouter
             Thread.Sleep(TimeSpan.FromSeconds(intervalSec));
         }
     }
+
+    private static int CmdSelfCheck()
+    {
+        Config cfg = Config.FromEnvironment();
+        bool ok = true;
+
+        // Guardrail 1: ripgrep is mandatory (search is ripgrep-only, no fallback).
+        if (Ripgrep.TryLocate(out string rgVersion))
+        {
+            Console.WriteLine($"[ok]   ripgrep: {rgVersion}");
+        }
+        else
+        {
+            ok = false;
+            Console.Error.WriteLine("[FAIL] ripgrep (rg) not found — search is ripgrep-only. " + Ripgrep.InstallHint());
+        }
+
+        // Guardrail 2: version currency against the latest published release.
+        string current = CurrentVersion();
+        string? latest;
+        try
+        {
+            using var gh = new GitHubGraphQL();
+            latest = LatestPublishedVersion(gh, cfg);
+        }
+        catch (Exception ex)
+        {
+            latest = null;
+            Console.Error.WriteLine("[warn] could not reach GitHub releases: " + ex.Message);
+        }
+
+        bool stale = latest is not null && Version.TryParse(current, out Version? c) && Version.TryParse(latest, out Version? l) && l > c;
+        if (latest is null)
+        {
+            Console.WriteLine($"[warn] version: running v{current}; latest release unknown (offline?)");
+        }
+        else if (stale)
+        {
+            ok = false;
+            Console.Error.WriteLine($"[FAIL] version: running v{current} but v{latest} is published — rebuild locally:");
+            Console.Error.WriteLine(RebuildRecipe(cfg, latest));
+        }
+        else
+        {
+            Console.WriteLine($"[ok]   version: v{current} (latest published v{latest})");
+        }
+
+        if (ok)
+        {
+            Console.WriteLine("selfcheck: PASS");
+            return 0;
+        }
+
+        Console.Error.WriteLine("selfcheck: FAIL");
+        return stale ? 3 : 4;
+    }
+
+    private static int CmdGrep(string[] tail)
+    {
+        // Search is ripgrep-only so both planes get identical, deterministic results. No grep/findstr fallback.
+        if (tail.Length == 0)
+        {
+            Console.Error.WriteLine("lbabus grep: pass ripgrep arguments, e.g. `lbabus grep \"pattern\" src`.");
+            return 1;
+        }
+
+        return Ripgrep.Run(tail);
+    }
+
+    private static int CmdDefect(ArgMap a)
+    {
+        Config cfg = Config.FromEnvironment();
+        string? message = a.Get("message");
+        string? messageFile = a.Get("message-file");
+        if (message is null && messageFile is not null)
+        {
+            message = File.ReadAllText(messageFile);
+        }
+
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return Fail("defect requires --message \"<symptom, command, expected vs actual, workaround>\" or --message-file <f>.");
+        }
+
+        int issue = DefectSink.ResolveIssue();
+        string ts = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
+        string? title = a.Get("title");
+        string body =
+            $"### [{cfg.Agent}] tooling defect · {ts}\n\n" +
+            (title is null ? string.Empty : $"**{title}**\n\n") +
+            message.TrimEnd('\r', '\n') +
+            $"\n\n_Reported via `lbabus defect` (v{CurrentVersion()}, {cfg.Agent} plane)._";
+
+        using var gh = new GitHubGraphQL();
+        string url = gh.AddIssueComment(cfg, issue, body);
+        Console.WriteLine($"defect reported to #{issue}  {url}");
+        return 0;
+    }
+
+    /// <summary>
+    /// Version-currency guardrail for the coordination-critical commands: if a newer
+    /// <c>collab-cli-v*</c> release is published, refuse to touch the bus and force a local rebuild.
+    /// Returns null when current (or unreachable/offline, or bypassed) — otherwise the exit code to return.
+    /// </summary>
+    private static int? EnforceVersionOrNull(GitHubGraphQL gh, Config cfg)
+    {
+        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LBABUS_SKIP_VERSION_CHECK")))
+        {
+            return null;
+        }
+
+        string current = CurrentVersion();
+        string? latest;
+        try
+        {
+            latest = LatestPublishedVersion(gh, cfg);
+        }
+        catch
+        {
+            // Fail open on network/release-lookup errors so an offline plane is not wedged.
+            return null;
+        }
+
+        if (latest is not null && Version.TryParse(current, out Version? c) && Version.TryParse(latest, out Version? l) && l > c)
+        {
+            Console.Error.WriteLine($"lbabus: STALE — running v{current} but v{latest} is published. Rebuild locally before using the bus:");
+            Console.Error.WriteLine(RebuildRecipe(cfg, latest));
+            Console.Error.WriteLine("(bypass for offline/dev with LBABUS_SKIP_VERSION_CHECK=1)");
+            return 3;
+        }
+
+        return null;
+    }
+
+    private static string? LatestPublishedVersion(GitHubGraphQL gh, Config cfg)
+    {
+        const string prefix = "collab-cli-v";
+        Version? best = null;
+        string? bestStr = null;
+        foreach (string tag in gh.ListReleaseTags(cfg))
+        {
+            if (!tag.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string s = tag[prefix.Length..];
+            if (Version.TryParse(s, out Version? v) && (best is null || v > best))
+            {
+                best = v;
+                bestStr = s;
+            }
+        }
+
+        return bestStr;
+    }
+
+    private static string RebuildRecipe(Config cfg, string latest) =>
+        $"  git fetch --tags && git checkout collab-cli-v{latest} && cd tools/collab-cli && dotnet build -c Release\n" +
+        $"  # or reinstall the pinned global tool from the release nupkg:\n" +
+        $"  gh release download collab-cli-v{latest} --repo {cfg.Owner}/{cfg.Repo} --pattern '*.nupkg' --dir <dir> && " +
+        $"dotnet tool update --global LabViewBenchmarkActor.CollabBus --version {latest} --add-source <dir>";
 
     private static List<CollabMessage> ParseAll(IReadOnlyList<DiscussionComment> comments)
     {
@@ -238,6 +417,16 @@ internal static class CommandRouter
               lbabus post --type <T> [--task <id>] [--message <m> | --message-file <f>] [--ref <sha>] [--next <n>] [--to <A>]
               lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>]
               lbabus wait [--agent LINUX|WIN] [--since <iso>] [--timeout <sec>] [--interval <sec>]
+              lbabus selfcheck                       # aka doctor/preflight — ripgrep present + version current
+              lbabus grep <ripgrep args...>          # aka rg/search — ripgrep-only, no fallback
+              lbabus defect --message <m> | --message-file <f> [--title <t>]
+
+            AGENT GUARDRAILS (fail-closed)
+              * search is ripgrep-only (`lbabus grep`); rg absent => exit 4 + install hint.
+              * `post`/`wait` refuse to run when a newer collab-cli-v* release is published (exit 3);
+                bypass offline/dev with LBABUS_SKIP_VERSION_CHECK=1.
+              * report tooling defects via `lbabus defect` to the dedicated log issue
+                (LBABUS_DEFECT_ISSUE, default #7).
 
             CONFIG (env)
               VIHS_COLLAB_OWNER      default LabVIEW-Community-CI-CD
@@ -245,6 +434,7 @@ internal static class CommandRouter
               VIHS_COLLAB_CATEGORY   default General
               VIHS_COLLAB_TITLE      default 'labview-benchmark-actor coordination bus (WIN <-> LINUX)'
               VIHS_COLLAB_AGENT      default WIN on Windows, LINUX otherwise
+              LBABUS_DEFECT_ISSUE    default #7   LBABUS_SKIP_VERSION_CHECK   bypass version guard
 
             AUTH: GH_TOKEN / GITHUB_TOKEN, else `gh auth token`.
             """);
