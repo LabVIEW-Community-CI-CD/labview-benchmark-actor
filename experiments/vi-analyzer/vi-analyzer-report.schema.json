@@ -1,52 +1,53 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "labview-benchmark-actor/vi-analyzer-report@v1",
+  "$id": "labview-benchmark-actor/vi-analyzer-report@v2",
   "title": "VI Analyzer normalized report (cross-plane input, LBA-REQ-015)",
-  "description": "The normalized shape a plane's parser emits from a real LabVIEWCLI RunVIAnalyzer report (ni/labview-icon-editor .viancfg pattern). summarizeViAnalyzerReport canonicalizes this into comparable metrics + a deterministic, order-independent, locale-independent resultHash (the LBA-REQ-015 cross-plane anchor). Two planes summarizing the SAME committed report produce byte-identical resultHash, so a VI Analyzer run becomes a cross-plane-comparable benchmark. To keep the committed report portable and the digest stable, viPath SHOULD be repo-relative with forward slashes and stable casing; the resultHash canonicalizes over the exact viPath and test strings.",
+  "description": "The normalized shape a plane's parser emits from a REAL LabVIEWCLI RunVIAnalyzer ASCII report (ni/labview-icon-editor .viancfg pattern). The tool report is FAILURE-ORIENTED: it emits a run summary of counts and enumerates ONLY the failures + testing errors per VI -- passes are never listed. So the faithful shape is a summary of counts + a findings list (findings are fail|error only; empty for a clean all-pass run). summarizeViAnalyzerReport canonicalizes this into comparable metrics + a deterministic, order-independent, locale-independent resultHash (the LBA-REQ-015 cross-plane anchor): two planes summarizing the SAME committed report produce byte-identical resultHash. Consistency: the count of fail findings MUST equal summary.failed and error findings MUST equal summary.error.",
   "type": "object",
-  "required": ["vis"],
+  "required": ["summary", "findings"],
   "properties": {
     "schema": {
       "type": "string",
-      "description": "Optional shape tag, e.g. 'vi-analyzer-report@v1'."
+      "description": "Optional shape tag, e.g. 'vi-analyzer-report@v2'."
     },
     "config": {
       "type": ["string", "object", "null"],
       "description": "The VI Analyzer configuration identity (e.g. the .viancfg name). Carried through as summary.config; does not affect the resultHash."
     },
-    "vis": {
+    "summary": {
+      "type": "object",
+      "required": ["passed", "failed", "error"],
+      "description": "The run counts from the tool's completion line (e.g. 'VI Analyzer completed. 452 tests passed, 0 failed, ...').",
+      "properties": {
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "error": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "unloadable": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "findings": {
       "type": "array",
-      "minItems": 1,
-      "description": "Per-VI results. Each viPath MUST be unique (a duplicate makes the resultHash ambiguous).",
+      "description": "The enumerated failures + testing errors (the tool's 'Failed Tests' + 'Testing Errors' sections). EMPTY for an all-pass run. Each (viPath, test) MUST be unique.",
       "items": {
         "type": "object",
-        "required": ["viPath", "tests"],
+        "required": ["viPath", "test", "result"],
         "properties": {
           "viPath": {
             "type": "string",
             "minLength": 1,
             "description": "Repo-relative, forward-slash, case-stable path. MUST be normalized identically cross-plane."
           },
-          "tests": {
-            "type": "array",
-            "description": "Per-test results for this VI. An empty array means the VI was analyzed with no findings surfaced.",
-            "items": {
-              "type": "object",
-              "required": ["test", "result"],
-              "properties": {
-                "test": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "The VI Analyzer test name (e.g. 'Icon Overlap')."
-                },
-                "result": {
-                  "type": "string",
-                  "enum": ["pass", "fail", "error"],
-                  "description": "pass = the test passed; fail = the test flagged the VI; error = the test could not evaluate."
-                }
-              },
-              "additionalProperties": false
-            }
+          "test": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The VI Analyzer test name (e.g. 'Spelling')."
+          },
+          "result": {
+            "type": "string",
+            "enum": ["fail", "error"],
+            "description": "fail = the test flagged the VI; error = the test could not evaluate. (Passes are never enumerated.)"
           }
         },
         "additionalProperties": false

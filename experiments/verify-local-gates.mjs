@@ -644,33 +644,37 @@ check('mprr-dual-packet-degradation-green', () => {
 });
 check('vi-analyzer-result-model-green', () => {
   // The VI Analyzer result model (operator VI-Analyzer directive) is deterministic + order-independent, so a
-  // VI Analyzer run is cross-plane comparable: same VIs + config => same resultHash on both planes.
+  // VI Analyzer run is cross-plane comparable: both planes summarizing the same report => same resultHash.
   const report = readJson(join('experiments', 'vi-analyzer', 'fixtures', 'sample-report.json'));
   const a = summarizeViAnalyzerReport(report);
   const b = summarizeViAnalyzerReport(report);
-  assert(a.schema === 'labview-benchmark-actor/vi-analyzer-result@v1', 'vi-analyzer schema');
+  assert(a.schema === 'labview-benchmark-actor/vi-analyzer-result@v2', 'vi-analyzer schema');
   assert(a.resultHash === b.resultHash && /^[0-9a-f]{64}$/.test(a.resultHash), 'resultHash deterministic 64-hex');
   assert(a.totalTests === 8 && a.failedTests === 2 && a.errorTests === 1 && a.pass === false, 'counts + verdict');
-  return { vis: a.totalVis, tests: a.totalTests };
+  assert(a.totalFindings === 3, 'findings enumerated');
+  return { findings: a.totalFindings, tests: a.totalTests };
 });
 check('vi-analyzer-report-schema-green', () => {
   // The normalized VI Analyzer report is the LBA-REQ-015 cross-plane INPUT contract: WIN's parser must emit this
   // exact shape so the resultHash matches LINUX on the first compare. The committed JSON Schema documents it and
   // the dep-free validator (WIN's pre-send self-check) enforces it with path-annotated errors.
   const schema = readJson(join('experiments', 'vi-analyzer', 'vi-analyzer-report.schema.json'));
-  assert(schema.$id === 'labview-benchmark-actor/vi-analyzer-report@v1', 'schema $id');
-  assert(Array.isArray(schema.required) && schema.required.includes('vis'), 'schema requires vis');
-  const resultEnum = schema.properties.vis.items.properties.tests.items.properties.result.enum;
-  assert(JSON.stringify(resultEnum) === JSON.stringify(['pass', 'fail', 'error']), 'result enum pass|fail|error');
-  // The fixture validates OK.
+  assert(schema.$id === 'labview-benchmark-actor/vi-analyzer-report@v2', 'schema $id');
+  assert(Array.isArray(schema.required) && schema.required.includes('summary') && schema.required.includes('findings'), 'schema requires summary + findings');
+  const resultEnum = schema.properties.findings.items.properties.result.enum;
+  assert(JSON.stringify(resultEnum) === JSON.stringify(['fail', 'error']), 'finding result enum fail|error');
+  // Both the with-findings fixture and the all-pass fixture validate OK.
   const fixture = readJson(join('experiments', 'vi-analyzer', 'fixtures', 'sample-report.json'));
   const good = validateViAnalyzerReport(fixture);
   assert(good.ok === true && good.errors.length === 0, `fixture must validate: ${good.errors.join('; ')}`);
-  // Teeth: a malformed report (bad result enum, unknown key, duplicate viPath, empty test name) is rejected.
+  const allpass = readJson(join('experiments', 'vi-analyzer', 'fixtures', 'sample-report-allpass.json'));
+  assert(validateViAnalyzerReport(allpass).ok === true, 'all-pass fixture must validate');
+  // Teeth: a malformed report (unknown key, bad result enum, empty test, summary/findings inconsistency) is rejected.
   const bad = validateViAnalyzerReport({
-    vis: [
-      { viPath: 'A.vi', tests: [{ test: 'T', result: 'skipped' }], extra: 1 },
-      { viPath: 'A.vi', tests: [{ test: '', result: 'pass' }] },
+    summary: { passed: 5, failed: 2, error: 0 },
+    findings: [
+      { viPath: 'A.vi', test: 'T', result: 'skipped', extra: 1 },
+      { viPath: 'A.vi', test: '', result: 'fail' },
     ],
   });
   assert(bad.ok === false && bad.errors.length === 4, `malformed report rejected with 4 errors, got ${bad.errors.length}`);

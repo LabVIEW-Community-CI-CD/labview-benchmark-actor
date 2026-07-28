@@ -1,30 +1,11 @@
 {
-  "_comment": "Deterministic normalized VI Analyzer report for the result-model gate. Shape a WIN-plane parser emits from a real LabVIEWCLI RunVIAnalyzer report (ni/labview-icon-editor .viancfg pattern): per-VI test results (pass|fail|error). Content only; nothing licensed.",
-  "schema": "vi-analyzer-report@v1",
+  "_comment": "Deterministic normalized VI Analyzer report (v2) for the result-model gate. Shape a WIN-plane parser emits from a REAL LabVIEWCLI RunVIAnalyzer ASCII report (ni/labview-icon-editor .viancfg pattern): a run summary of counts + only the failures/errors enumerated (the tool never lists passes). Content only; nothing licensed. An all-pass run is the same summary with an EMPTY findings array (see sample-report-allpass.json).",
+  "schema": "vi-analyzer-report@v2",
   "config": "icon-editor.viancfg",
-  "vis": [
-    {
-      "viPath": "resource/plugins/lv_icon.vi",
-      "tests": [
-        { "test": "Backwards Wired Terminals", "result": "pass" },
-        { "test": "Icon Overlap", "result": "pass" },
-        { "test": "Spelling", "result": "fail" }
-      ]
-    },
-    {
-      "viPath": "resource/plugins/lv_iconTemplate.vi",
-      "tests": [
-        { "test": "Icon Overlap", "result": "pass" },
-        { "test": "Unsaved Changes", "result": "pass" }
-      ]
-    },
-    {
-      "viPath": "Main.vi",
-      "tests": [
-        { "test": "Block Diagram Size", "result": "pass" },
-        { "test": "Spelling", "result": "fail" },
-        { "test": "VI Documentation", "result": "error" }
-      ]
-    }
+  "summary": { "passed": 5, "failed": 2, "error": 1, "skipped": 0, "unloadable": 0 },
+  "findings": [
+    { "viPath": "resource/plugins/lv_icon.vi", "test": "Spelling", "result": "fail" },
+    { "viPath": "Main.vi", "test": "Spelling", "result": "fail" },
+    { "viPath": "Main.vi", "test": "VI Documentation", "result": "error" }
   ]
 }

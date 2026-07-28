@@ -14,17 +14,32 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { summarizeViAnalyzerReport } from './viAnalyzerResult.mjs';
 
-const RESULTS = new Set(['pass', 'fail', 'error']);
-const VI_KEYS = new Set(['viPath', 'tests']);
-const TEST_KEYS = new Set(['test', 'result']);
+const FINDING_RESULTS = new Set(['fail', 'error']);
+const SUMMARY_KEYS = new Set(['passed', 'failed', 'error', 'skipped', 'unloadable']);
+const FINDING_KEYS = new Set(['viPath', 'test', 'result']);
 
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
+function checkCount(errors, summary, key, required) {
+  if (!(key in summary)) {
+    if (required) {
+      errors.push(`summary.${key}: required (non-negative integer)`);
+    }
+    return null;
+  }
+  const v = summary[key];
+  if (!Number.isInteger(v) || v < 0) {
+    errors.push(`summary.${key}: must be a non-negative integer (got ${JSON.stringify(v)})`);
+    return null;
+  }
+  return v;
+}
+
 /**
- * Validate a normalized VI Analyzer report against the cross-plane input contract.
- * Returns `{ ok, errors }` (never throws): `errors` is a list of `path: message` strings.
+ * Validate a normalized VI Analyzer report (v2 real failure-oriented shape) against the cross-plane input
+ * contract. Returns `{ ok, errors }` (never throws): `errors` is a list of `path: message` strings.
  */
 export function validateViAnalyzerReport(report) {
   const errors = [];
@@ -39,56 +54,77 @@ export function validateViAnalyzerReport(report) {
   if ('config' in report && !(typeof report.config === 'string' || isPlainObject(report.config) || report.config === null)) {
     push('config', 'must be a string, object, or null when present');
   }
-  if (!Array.isArray(report.vis) || report.vis.length === 0) {
-    push('vis', 'must be a non-empty array');
-    return { ok: false, errors };
+
+  // summary (the run counts from the tool's completion line).
+  let failed = null;
+  let errored = null;
+  if (!isPlainObject(report.summary)) {
+    push('summary', 'required (object of run counts: passed, failed, error, ...)');
+  } else {
+    for (const k of Object.keys(report.summary)) {
+      if (!SUMMARY_KEYS.has(k)) {
+        push(`summary.${k}`, 'unknown property (allowed: passed, failed, error, skipped, unloadable)');
+      }
+    }
+    checkCount(errors, report.summary, 'passed', true);
+    failed = checkCount(errors, report.summary, 'failed', true);
+    errored = checkCount(errors, report.summary, 'error', true);
+    checkCount(errors, report.summary, 'skipped', false);
+    checkCount(errors, report.summary, 'unloadable', false);
   }
 
-  const seenPaths = new Map();
-  report.vis.forEach((vi, i) => {
-    const at = `vis[${i}]`;
-    if (!isPlainObject(vi)) {
+  // findings (the enumerated failures + testing errors; empty for an all-pass run).
+  if (!Array.isArray(report.findings)) {
+    push('findings', 'required (array; empty for an all-pass run)');
+    return { ok: errors.length === 0, errors };
+  }
+  const seen = new Map();
+  let failFindings = 0;
+  let errorFindings = 0;
+  report.findings.forEach((f, i) => {
+    const at = `findings[${i}]`;
+    if (!isPlainObject(f)) {
       push(at, 'must be an object');
       return;
     }
-    for (const k of Object.keys(vi)) {
-      if (!VI_KEYS.has(k)) {
-        push(`${at}.${k}`, 'unknown property (allowed: viPath, tests)');
+    for (const k of Object.keys(f)) {
+      if (!FINDING_KEYS.has(k)) {
+        push(`${at}.${k}`, 'unknown property (allowed: viPath, test, result)');
       }
     }
-    if (typeof vi.viPath !== 'string' || vi.viPath.length === 0) {
+    const hasPath = typeof f.viPath === 'string' && f.viPath.length > 0;
+    const hasTest = typeof f.test === 'string' && f.test.length > 0;
+    if (!hasPath) {
       push(`${at}.viPath`, 'must be a non-empty string');
+    }
+    if (!hasTest) {
+      push(`${at}.test`, 'must be a non-empty string');
+    }
+    if (!FINDING_RESULTS.has(f.result)) {
+      push(`${at}.result`, `must be fail|error (got ${JSON.stringify(f.result)})`);
+    } else if (f.result === 'fail') {
+      failFindings += 1;
     } else {
-      const prev = seenPaths.get(vi.viPath);
+      errorFindings += 1;
+    }
+    if (hasPath && hasTest) {
+      const key = `${f.viPath}\u0000${f.test}`;
+      const prev = seen.get(key);
       if (prev !== undefined) {
-        push(`${at}.viPath`, `duplicate viPath (also at vis[${prev}]); a duplicate makes the resultHash ambiguous`);
+        push(at, `duplicate finding ${f.viPath} / ${f.test} (also at findings[${prev}])`);
       } else {
-        seenPaths.set(vi.viPath, i);
+        seen.set(key, i);
       }
     }
-    if (!Array.isArray(vi.tests)) {
-      push(`${at}.tests`, 'must be an array');
-      return;
-    }
-    vi.tests.forEach((t, j) => {
-      const tat = `${at}.tests[${j}]`;
-      if (!isPlainObject(t)) {
-        push(tat, 'must be an object');
-        return;
-      }
-      for (const k of Object.keys(t)) {
-        if (!TEST_KEYS.has(k)) {
-          push(`${tat}.${k}`, 'unknown property (allowed: test, result)');
-        }
-      }
-      if (typeof t.test !== 'string' || t.test.length === 0) {
-        push(`${tat}.test`, 'must be a non-empty string');
-      }
-      if (!RESULTS.has(t.result)) {
-        push(`${tat}.result`, `must be one of pass|fail|error (got ${JSON.stringify(t.result)})`);
-      }
-    });
   });
+
+  // Consistency teeth: the failure section enumerates EXACTLY the failed + error tests the summary counts.
+  if (failed !== null && failed !== failFindings) {
+    push('findings', `fail findings (${failFindings}) must equal summary.failed (${failed})`);
+  }
+  if (errored !== null && errored !== errorFindings) {
+    push('findings', `error findings (${errorFindings}) must equal summary.error (${errored})`);
+  }
 
   return { ok: errors.length === 0, errors };
 }
@@ -118,7 +154,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // Belt-and-suspenders: a valid report MUST summarize (the canonical cross-plane teeth) and yield a resultHash.
   const summary = summarizeViAnalyzerReport(report);
   console.log(`PASS  ${path} is a valid VI Analyzer report`);
-  console.log(`  totalVis=${summary.totalVis} totalTests=${summary.totalTests} pass=${summary.passedTests} fail=${summary.failedTests} error=${summary.errorTests}`);
+  console.log(`  totalTests=${summary.totalTests} pass=${summary.passedTests} fail=${summary.failedTests} error=${summary.errorTests} findings=${summary.totalFindings}`);
   console.log(`  resultHash=${summary.resultHash}`);
   console.log('  -> register with: REPORT_PATH=' + path + ' node experiments/benchmark-store/register-vi-analyzer-run.mjs');
   process.exit(0);
