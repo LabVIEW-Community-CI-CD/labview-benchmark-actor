@@ -1,8 +1,8 @@
 {
   "schemaVersion": "labview-benchmark-actor/benchmark-store-receipt-v1",
   "storeSchema": "labview-benchmark-actor/benchmark-store@v1",
-  "total": 5,
-  "passed": 5,
+  "total": 6,
+  "passed": 6,
   "failed": 0,
   "sampleCompare": {
     "schema": "labview-benchmark-actor/cross-plane-compare@v1",
@@ -11,13 +11,17 @@
       "cpuMeanPct": 48,
       "ramMeanMiB": 640,
       "durationMs": 1360,
-      "framesRendered": 465
+      "framesRendered": 465,
+      "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+      "pngSha256": "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888"
     },
     "win": {
       "cpuMeanPct": 57,
       "ramMeanMiB": 720,
       "durationMs": 1560,
-      "framesRendered": 465
+      "framesRendered": 465,
+      "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+      "pngSha256": "9999000011112222333344445555666677778888999900001111222233334444"
     },
     "deltas": {
       "cpuMeanPct": {
@@ -44,6 +48,18 @@
         "delta": 0,
         "pctOfLinux": 0
       }
+    },
+    "digests": {
+      "seriesHash": {
+        "linux": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+        "win": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+        "match": true
+      },
+      "pngSha256": {
+        "linux": "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888",
+        "win": "9999000011112222333344445555666677778888999900001111222233334444",
+        "match": false
+      }
     }
   },
   "results": [
@@ -59,6 +75,11 @@
     },
     {
       "name": "cross-plane compare reports LINUX-vs-WIN metric deltas",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "cross-plane compare reports content-digest agreement (seriesHash match, screenshot witness)",
       "pass": true,
       "detail": null
     },
