@@ -1,0 +1,69 @@
+{
+  "schema": "labview-benchmark-actor/vsix-install-receipt@v1",
+  "requirement": "LBA-REQ-002",
+  "testItem": "T-002",
+  "producedBy": "WIN",
+  "producedAt": "2026-07-28T16:53:43Z",
+  "target": {
+    "kind": "vagrant-golden-vm",
+    "box": "vihs/labview-cleanroom-sc",
+    "machine": "actor-a",
+    "os": "Microsoft Windows 11 Pro build 26200",
+    "topology": "experiments/multi-vm-topology/Vagrantfile",
+    "syncedFolder": false,
+    "artifactTransfer": "vagrant upload (WinRM); the topology has no synced folder"
+  },
+  "artifact": {
+    "name": "labview-benchmark-actor.vsix",
+    "extensionId": "labview-community-ci-cd.labview-benchmark-actor",
+    "packagedVersion": "0.1.0",
+    "sha256": "5b7a681a7e074c8026db1aa964c246a7f0e90314ce06c2a308be6fbc26a99790",
+    "bytes": 14941,
+    "files": 9,
+    "builtBy": "npm run package (vsce package)"
+  },
+  "vscode": {
+    "version": "1.130.0",
+    "commit": "1b6a188127eeaf9194f945eb6eb89a657e93c54c",
+    "arch": "x64",
+    "channel": "stable-archive",
+    "source": "https://update.code.visualstudio.com/latest/win32-x64-archive/stable",
+    "installMode": "portable archive expanded to C:\\vscode (headless, no interactive installer)"
+  },
+  "install": {
+    "command": "code --install-extension labview-benchmark-actor.vsix --force",
+    "listResult": "labview-community-ci-cd.labview-benchmark-actor@0.1.0",
+    "unpackedPath": "C:\\Users\\vagrant\\.vscode\\extensions\\labview-community-ci-cd.labview-benchmark-actor-0.1.0",
+    "unpackedPackageJson": true,
+    "verdict": "installed"
+  },
+  "prerequisites": {
+    "lbabus": {
+      "present": true,
+      "path": "C:\\Users\\vagrant\\.dotnet\\tools\\lbabus.exe",
+      "note": "the cleanroom golden box ships the pinned coordination CLI on PATH, so the extension's CLI-backed commands (showCapabilities/pollBus/postNote) have their prerequisite satisfied on the VM"
+    },
+    "node": {
+      "present": false,
+      "note": "no external Node.js on the golden box; @vscode/test-electron (which needs Node) is therefore not run in-VM, so a headless in-VM activation render is not asserted here"
+    }
+  },
+  "activationSignal": {
+    "goldenVmInstall": "PROVEN -- code --list-extensions --show-versions resolves labview-community-ci-cd.labview-benchmark-actor@0.1.0 and the extension package.json is unpacked under the VM's .vscode/extensions",
+    "deterministic": {
+      "test": "test/extension-activation.mjs",
+      "activation": "activate() registers the 4 commands (showCapabilities, pollBus, postNote, openViewer) and deactivate() is clean -- host-independent, no display required",
+      "prerequisiteRemediation": "invoking a CLI-backed command with the lbabus prerequisite absent surfaces the remediation guidance via showErrorMessage ('lbabus failed: ... Install the coordination CLI')"
+    },
+    "remainingMaintainerSliver": "an interactive real-desktop activation render inside the VM is not asserted here: code.cmd detaches the Electron child on a headless WinRM session-0 (exit 0, no test-host run) and @vscode/test-electron needs Node (absent on the golden box). This mirrors LBA-REQ-004's interactive-render sliver and requires a real desktop session."
+  },
+  "reproduce": [
+    "host: cd C:\\dev\\labview-benchmark-actor; npm install; npm run package  # -> labview-benchmark-actor.vsix (9 files)",
+    "host: cd experiments\\multi-vm-topology; vagrant up actor-a",
+    "host: vagrant upload C:\\dev\\labview-benchmark-actor\\labview-benchmark-actor.vsix C:\\Users\\vagrant\\labview-benchmark-actor.vsix actor-a",
+    "vm:   Invoke-WebRequest 'https://update.code.visualstudio.com/latest/win32-x64-archive/stable' -OutFile C:\\Users\\vagrant\\vscode.zip; Expand-Archive C:\\Users\\vagrant\\vscode.zip C:\\vscode -Force",
+    "vm:   C:\\vscode\\bin\\code.cmd --install-extension C:\\Users\\vagrant\\labview-benchmark-actor.vsix --force",
+    "vm:   C:\\vscode\\bin\\code.cmd --list-extensions --show-versions  # -> labview-community-ci-cd.labview-benchmark-actor@0.1.0"
+  ],
+  "verdict": "GOLDEN-VM INSTALL PROVEN; activation first-run signal + prerequisite-remediation proven deterministically (test/extension-activation.mjs); interactive in-VM activation render is the remaining maintainer sliver"
+}

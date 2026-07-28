@@ -1,0 +1,27 @@
+{
+  "schema": "labview-benchmark-actor/hardware-capability@v1",
+  "probedAt": "2026-07-28T16:17:55.163Z",
+  "platform": "win32-x64",
+  "cpu": {
+    "model": "Intel(R) Core(TM) Ultra 7 255H",
+    "logicalCores": 16,
+    "speedMHzMax": 3686
+  },
+  "memory": {
+    "totalGiB": 31.5,
+    "freeGiB": 8.8
+  },
+  "gpus": [
+    {
+      "name": "NVIDIA RTX PRO 1000 Blackwell Generation Laptop GPU",
+      "memoryTotal": "8151 MiB"
+    }
+  ],
+  "containerRuntime": "linux/x86_64 16cpu 16481148928b",
+  "loadAvg1m": 0,
+  "parallelismBudget": {
+    "cpuWorkers": 15,
+    "gpuLanes": 1,
+    "guidance": "Aim ~80% average across CPU workers + GPU lane(s); run CPU work (docker / stress harness / builds) concurrently with GPU work (ollama sweeps) -- docker can run alongside vagrant + native."
+  }
+}
