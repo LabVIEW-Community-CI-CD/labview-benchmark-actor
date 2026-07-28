@@ -436,6 +436,32 @@ check('multi-vm-topology-receipt-green', () => {
   assert(t.collector?.ip && t.sender?.ip && t.collector.ip !== t.sender.ip, 'collector/sender must have distinct IPs');
   return { collector: t.collector?.identity, sender: t.sender?.identity, acks: a.echoedAcks };
 });
+
+// 20. The standalone .vsix extension manifest declares its command surface and carries NO vi-history-suite
+//     dependency, and the moved-module manifest enumerates surfaces that exist (LBA-REQ-001, T-001). Static
+//     boundary check on package.json + docs/cm/moved-module-manifest.json. The full .vsix publish + install
+//     activation on Codespace/golden-VM (LBA-REQ-002) is the packaging/maintainer step.
+check('extension-manifest-boundary', () => {
+  const pkg = readJson('package.json');
+  assert(pkg.name === 'labview-benchmark-actor', 'extension name must be labview-benchmark-actor');
+  assert(pkg.engines && typeof pkg.engines.vscode === 'string', 'the manifest must declare engines.vscode');
+  assert(typeof pkg.main === 'string' && pkg.main.length > 0, 'the manifest must declare the extension main entry');
+  const commands = pkg.contributes?.commands;
+  assert(Array.isArray(commands) && commands.length > 0, 'the manifest must contribute at least one command (the agentic surface)');
+  // Boundary: no vi-history-suite-private module on the packaged dependency graph (AC #1).
+  const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+  for (const dep of Object.keys(deps)) {
+    assert(!/vi-history-suite/i.test(dep), `dependency ${dep} leaks a vi-history-suite-private module`);
+  }
+  // Moved-module manifest (AC #3): every enumerated surface exists on disk.
+  const manifest = readJson(join('docs', 'cm', 'moved-module-manifest.json'));
+  assert(manifest.schemaVersion === 'labview-benchmark-actor/moved-module-manifest-v1', 'moved-module manifest schemaVersion mismatch');
+  assert(Array.isArray(manifest.modules) && manifest.modules.length > 0, 'the moved-module manifest must enumerate modules');
+  for (const m of manifest.modules) {
+    assert(typeof m.surface === 'string' && existsSync(join(pkgRoot, m.surface)), `moved-module surface ${m.surface} must exist`);
+  }
+  return { name: pkg.name, commands: commands.length, movedModules: manifest.modules.length };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
