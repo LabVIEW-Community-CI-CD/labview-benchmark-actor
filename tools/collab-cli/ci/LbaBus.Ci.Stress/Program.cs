@@ -10,7 +10,8 @@ namespace LabViewBenchmarkActor.CollabBus.Ci.Stress;
 /// on Windows and Linux, and reliably surfaces a race a low-round manual check passes by luck.
 ///
 /// Usage: lbabus-stress --lbabus &lt;path to lbabus.dll or native exe&gt; [--agents 16] [--rounds 30]
-/// Exit 0 iff every invariant holds; 1 on any violation.
+/// Exit 0 iff every invariant holds; 1 on any violation; 2 on a usage error; 3 if the scratch-store
+/// isolation is broken (lbabus ignoring the store env var — a broken run must never pass by luck).
 /// </summary>
 internal static class Program
 {
@@ -48,6 +49,12 @@ internal static class Program
 
         try
         {
+            if (!AssertIsolation())
+            {
+                Console.Error.WriteLine("lbabus-stress: SCRATCH ISOLATION BROKEN — refusing to run (results would be meaningless).");
+                return 3;
+            }
+
             MutexFree();
             MutexStale();
             TtlSteal();
@@ -69,6 +76,59 @@ internal static class Program
 
         Console.Error.WriteLine("lbabus-stress: FAILURES ABOVE");
         return 1;
+    }
+
+    // ---- pre-flight: prove our scratch store is the store lbabus ACTUALLY uses ----------------------
+    // Guards against a silently-broken isolation: if lbabus ignores the store env var (LOCALAPPDATA /
+    // XDG_STATE_HOME) the child hits the REAL user store, our seeded stale leases are invisible, and
+    // ttl/pid-steal falsely fail while the mutex cases pass coincidentally. WIN hit exactly this on
+    // Windows (LOCALAPPDATA was ignored) — this check turns that silent mis-isolation into a loud,
+    // immediate failure BEFORE any case runs, so a broken run can never pass by luck. It keys on the
+    // same signal WIN suggested: the `resource list` header path must be under our scratch dir.
+    private static bool AssertIsolation()
+    {
+        (int rc, string outText) = Run(new[] { "resource", "list" }, "PROBE");
+
+        // Header line printed by `resource list`: "# resources (<storePath>)".
+        string? reported = null;
+        foreach (string line in outText.Split('\n'))
+        {
+            string t = line.Trim();
+            if (!t.StartsWith("# resources", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            int lp = t.IndexOf('(');
+            int rp = t.LastIndexOf(')');
+            if (lp >= 0 && rp > lp)
+            {
+                reported = t.Substring(lp + 1, rp - lp - 1).Trim();
+            }
+
+            break;
+        }
+
+        if (rc != 0 || string.IsNullOrEmpty(reported))
+        {
+            _fail++;
+            Console.WriteLine($"  FAIL  isolation  (could not read the store path from `resource list`: rc={rc})");
+            return false;
+        }
+
+        string actual = Path.GetFullPath(reported);
+        string scratch = Path.GetFullPath(Directory.GetParent(Directory.GetParent(_leasesDir)!.FullName)!.FullName);
+        bool underScratch = actual.Equals(Path.GetFullPath(_leasesDir), StringComparison.Ordinal)
+            || actual.StartsWith(scratch + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        if (!underScratch)
+        {
+            _fail++;
+            Console.WriteLine($"  FAIL  isolation  (lbabus store {actual} is NOT under scratch {scratch} — the store env var is being ignored; seeded leases would be invisible and the run meaningless)");
+            return false;
+        }
+
+        Console.WriteLine($"  PASS  isolation  (lbabus store is the scratch dir {actual})");
+        return true;
     }
 
     // ---- 1. mutual exclusion on a FREE resource: exactly one of N concurrent acquires wins ----------
