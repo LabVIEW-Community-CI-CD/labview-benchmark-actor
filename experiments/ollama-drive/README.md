@@ -18,11 +18,12 @@ distinct from the comms bus (plane 1) and never carries run-data/artifacts (plan
 
 ## Usage
 ```sh
-# host: start the relay (loopback; use --host 0.0.0.0 to expose on the private net)
-node ollamaDrive.mjs relay --port 11511 --ollama 127.0.0.1:11434
+# host: start the relay (loopback; use --host 0.0.0.0 to expose on the private net).
+# authz (optional): --models <allow-list> gates which models; --token <secret> requires a matching token.
+node ollamaDrive.mjs relay --port 11511 --ollama 127.0.0.1:11434 [--models llama3.1:8b,qwen2.5:14b] [--token <secret>]
 
-# agent: send a prompt, stream the completion
-node ollamaDrive.mjs drive --host 127.0.0.1 --port 11511 --model llama3.1:8b --prompt "..."
+# agent: send a prompt, stream the completion (pass --token if the relay requires one)
+node ollamaDrive.mjs drive --host 127.0.0.1 --port 11511 --model llama3.1:8b --prompt "..." [--token <secret>]
 ```
 
 ## Proven (2026-07-28, real hardware)
@@ -35,9 +36,11 @@ Host: ollama 0.32.3 on an NVIDIA RTX PRO 1000 Blackwell (8 GB); models `llama3.1
   request JSON. A real `lbabus net send --tcp 11511 --type CLAIM --task ollama-drive --message '{"model":…,"prompt":…}'`
   is received by the relay, drives ollama, and `net send` reads back the streamed reply
   (`reply <- … HOST-RELAY #0 PROGRESS task:ollama-drive ackOf:… — OLL…`) — **bidirectional wire-compat**.
+- **authz** (Q2): with `relay --models llama3.1:8b --token <secret>`, an authorized `drive --token <secret>`
+  streams `OLLAMA_AUTHZ_OK`; a bad token → `relay rejected: unauthorized` (exit 2); a model outside the
+  allow-list → `relay rejected: model not allowed: qwen2.5:14b` (exit 2) — both rejected BEFORE forwarding to ollama.
 
 ## Next
-- **Authz** (Q2): model allow-list + per-session token before the relay forwards.
 - **Interop**: bidirectional wire-compat with the shipped `lbabus net` is proven (above); folding the
   relay onto `Net.cs` `BusWire` as a `net`-adjacent capability (vs the current Node re-impl) is the next step.
 - **VM leg**: run `--host 0.0.0.0` + drive from inside the VMware/VirtualBox clean-room guest over the

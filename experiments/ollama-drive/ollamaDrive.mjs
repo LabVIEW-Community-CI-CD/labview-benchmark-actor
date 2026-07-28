@@ -78,6 +78,9 @@ function runRelay(args) {
   const port = Number(args.port ?? 11511);
   const bindHost = args.host ?? '127.0.0.1';
   const [ollamaHost, ollamaPort] = (args.ollama ?? '127.0.0.1:11434').split(':');
+  // Authz (Q2): optional per-session token + model allow-list. Empty = open (loopback dev default).
+  const token = args.token ?? '';
+  const allow = (args.models ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
   const server = net.createServer((sock) => {
     const remote = `${sock.remoteAddress}:${sock.remotePort}`;
@@ -97,6 +100,17 @@ function runRelay(args) {
           return;
         }
         const model = req.model ?? 'llama3.1:8b';
+        // Authz (Q2): a bad/missing token or a model outside the allow-list is rejected BEFORE forwarding.
+        if (token && req.token !== token) {
+          send('NOTE', JSON.stringify({ error: 'unauthorized: bad or missing token' }), env.seq);
+          console.error(`[relay] ${remote} REJECT (bad token)`);
+          return;
+        }
+        if (allow.length > 0 && !allow.includes(model)) {
+          send('NOTE', JSON.stringify({ error: `model not allowed: ${model}` }), env.seq);
+          console.error(`[relay] ${remote} REJECT (model ${model} not in allow-list [${allow.join(',')}])`);
+          return;
+        }
         console.error(`[relay] ${remote} drive model=${model} prompt=${JSON.stringify(req.prompt).slice(0, 60)}`);
         driveOllama(ollamaHost, Number(ollamaPort), model, req.prompt, send, env.seq);
       },
@@ -111,7 +125,8 @@ function runRelay(args) {
   });
 
   server.listen(port, bindHost, () =>
-    console.error(`[relay] ollama-drive relay on ${bindHost}:${port} -> ollama ${ollamaHost}:${ollamaPort} (ADR-0003 frames)`));
+    console.error(`[relay] ollama-drive relay on ${bindHost}:${port} -> ollama ${ollamaHost}:${ollamaPort} (ADR-0003 frames)` +
+      `${allow.length ? ` models=[${allow.join(',')}]` : ''}${token ? ' token=required' : ''}`));
 }
 
 // POST /api/generate (stream) and pump NDJSON tokens back as PROGRESS frames + a terminal DONE.
@@ -153,10 +168,11 @@ function runDrive(args) {
   const port = Number(args.port ?? 11511);
   const model = args.model ?? 'llama3.1:8b';
   const prompt = args.prompt ?? 'Reply with exactly the token OLLAMA_DRIVE_OK and nothing else.';
+  const token = args.token ?? '';
   const session = crypto.randomUUID();
 
   const sock = net.createConnection({ host, port }, () => {
-    sock.write(encodeFrame(envelope('VM-AGENT', session, 0, 'CLAIM', 'ollama-drive', JSON.stringify({ model, prompt, stream: true }))));
+    sock.write(encodeFrame(envelope('VM-AGENT', session, 0, 'CLAIM', 'ollama-drive', JSON.stringify({ model, prompt, stream: true, ...(token ? { token } : {}) }))));
   });
 
   let tokens = 0;
