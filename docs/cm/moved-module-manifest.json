@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "labview-benchmark-actor/moved-module-manifest-v1",
+  "origin": "vi-history-suite (develop / prototype branches)",
+  "note": "Enumerates the hooking + agentic surface extracted into the standalone labview-benchmark-actor VS Code extension (LBA-REQ-001 AC #3). Each surface has a clean dependency boundary -- no vi-history-suite-private module on its graph -- so the origin in vi-history-suite can be retired or redirected deterministically.",
+  "modules": [
+    {
+      "surface": "src/extension.ts",
+      "role": "VS Code extension host: surfaces the coordination bus (lbabus) inside the IDE (show capabilities / poll bus / post note)",
+      "boundary": "depends only on vscode + Node built-ins"
+    },
+    {
+      "surface": "tools/collab-cli",
+      "role": "agentic cross-plane coordination bus (lbabus): CLAIM/ACK/HANDOFF/DONE, resource leases, local TCP/UDP transport, version-pinned AGENTS.md/DOCS.md",
+      "boundary": "standalone .NET 8 tool; no vi-history-suite reference"
+    },
+    {
+      "surface": "experiments",
+      "role": "deterministic benchmark-actor cores (host-concentration, ollama-comparison, viewer-cursor, resource-usage-correlation, bus-prototype, ...)",
+      "boundary": "dependency-free ESM; no vi-history-suite reference"
+    }
+  ]
+}
