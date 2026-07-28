@@ -1,0 +1,40 @@
+# LINUX / VirtualBox parity variant of the cleanroom Vagrantfile (RFC #15 Track A, LINUX plane).
+#
+# Proves the parity thesis from the RFC #15 ALIGN: the SAME provider-agnostic bootstrap.ps1 is reused
+# verbatim; only the provider block + synced-folder TYPE are plane-specific (virtualbox +
+# Guest-Additions here, vs vmware_desktop + SMB in the default Vagrantfile). Validated on a Linux host
+# with VirtualBox 7.2.6 + Vagrant 2.4.9 (`vagrant validate` -> "Vagrantfile validated successfully.").
+#
+# Bring-up (Linux host, operator-supplied licensed-LabVIEW box):
+#   cd cleanroom
+#   VAGRANT_VAGRANTFILE=Vagrantfile.virtualbox VIHS_CLEANROOM_BOX=vihs/labview-cleanroom \
+#     vagrant up --provider virtualbox
+
+Vagrant.configure("2") do |config|
+  # Operator-supplied base box with licensed LabVIEW (no public default — licensing).
+  config.vm.box = ENV.fetch("VIHS_CLEANROOM_BOX", "vihs/labview-cleanroom")
+
+  config.vm.hostname = "vihs-cleanroom"
+  config.vm.communicator = "winrm"           # Windows LabVIEW guest
+  config.winrm.timeout = 1800
+
+  # Sync the collab-cli source so the bootstrap can BUILD it in the clean room.
+  # VirtualBox (Linux host) uses a Guest-Additions synced folder — no host SMB server needed
+  # (the plane-specific counterpart to the default Vagrantfile's `type: "smb"`). The shared
+  # bootstrap.ps1 already probes both C:\vagrant-src and C:\vagrant for the source.
+  config.vm.synced_folder "..", "C:\\vagrant-src", type: "virtualbox"
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui    = false
+    vb.memory = ENV.fetch("VIHS_CLEANROOM_MEM", "8192")
+    vb.cpus   = ENV.fetch("VIHS_CLEANROOM_CPUS", "4")
+    vb.name   = "vihs-cleanroom"
+    vb.customize ["modifyvm", :id, "--firmware", "efi"]
+  end
+
+  # Shared, provider-agnostic bootstrap (identical to the vmware path): install the pinned toolchain
+  # (rg/git/gh/glab/dotnet) + build/install collab-cli from source, then prove the clean room with
+  # `lbabus capabilities` + `lbabus selfcheck` (fails closed on an incomplete toolchain).
+  config.vm.provision "cleanroom-bootstrap", type: "shell",
+    path: "bootstrap.ps1", privileged: true
+end

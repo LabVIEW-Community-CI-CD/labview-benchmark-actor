@@ -1,0 +1,32 @@
+# Vagrant clean room for licensed LabVIEW + the collab-cli coordination toolchain.
+#
+# Provider: VMware (vmware_desktop) — NOT VirtualBox (per project direction). The base box carries
+# the operator's LICENSED LabVIEW; there is no public LabVIEW box by design. Package one from an
+# existing VMware VM (e.g. C:\VM\VIHS) — see README.md. This Vagrantfile then bootstraps the pinned
+# collab-cli toolchain (incl. the .NET SDK) ON TOP and BUILDS lbabus in the clean room.
+
+Vagrant.configure("2") do |config|
+  # Base box: a Windows image with licensed LabVIEW already installed (operator-provided).
+  # Override with VIHS_CLEANROOM_BOX. No public default — licensing means the operator supplies it.
+  config.vm.box = ENV.fetch("VIHS_CLEANROOM_BOX", "vihs/labview-cleanroom")
+
+  config.vm.hostname = "vihs-cleanroom"
+  config.vm.communicator = "winrm"           # Windows LabVIEW guest
+  config.winrm.timeout = 1800
+
+  # Sync the collab-cli source into the guest so the bootstrap can BUILD it in the clean room.
+  config.vm.synced_folder "..", "C:\\vagrant-src", type: "smb",
+    mount_options: ["mfsymlinks", "dir_mode=0775", "file_mode=0664"]
+
+  config.vm.provider "vmware_desktop" do |v|
+    v.gui = true
+    v.vmx["memsize"]      = ENV.fetch("VIHS_CLEANROOM_MEM", "8192")
+    v.vmx["numvcpus"]     = ENV.fetch("VIHS_CLEANROOM_CPUS", "4")
+    v.vmx["displayName"]  = "vihs-cleanroom"
+  end
+
+  # Bootstrap: install the pinned toolchain (rg/git/gh/glab/dotnet) + build/install collab-cli,
+  # then prove the clean room is a valid coordination environment (capabilities + selfcheck).
+  config.vm.provision "cleanroom-bootstrap", type: "shell",
+    path: "bootstrap.ps1", privileged: true
+end
