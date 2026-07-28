@@ -2,6 +2,7 @@ node_modules/
 out/
 *.vsix
 media/viewerCursor.mjs
+media/mprr-series.json
 # deterministic-screenshot PNG artifacts (evidence; the small JSON receipt is committed, the PNG is not)
 playwright/.artifacts/
 # host-extracted NI LabVIEW offline feeds (licensed/community artifacts staged for the docker-windows mirror)
