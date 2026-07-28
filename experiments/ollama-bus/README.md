@@ -55,6 +55,32 @@ Banked tags: `[WIN-DOCKER-NET]` `[SELF-CONTAINED]` `[OLLAMA-GOV-LOOP]` `[COORD-S
 SYSTEM, re-run `ollama create lba-coordinator`, and post the new `[TAG]` block on the coordination bus so the
 other plane re-banks it. Keep tags stable so the two planes' stores stay diff-able.
 
+## The bus agent: ollama handles the bus (operator architecture)
+
+The big AI agents (Claude on LINUX, the agent on WIN) **no longer hand-write bus messages**. Each plane's
+**ollama engine** (`lba-coordinator`) READS the peer plane's ollama posts via collab-cli and GENERATES + POSTS
+the coordination reply, governed by its banked lesson store. The big agent's job is to set the **intent** and
+**iterate the engine** (the model + its lessons) -- ollama is the constantly-iterated layer that a bigger AI
+agent drives.
+
+```
+big agent (Claude) --intent + iterate model--> lba-coordinator (ollama) --collab-cli--> bus <--> WIN ollama
+```
+
+`bus-agent.mjs` is that layer:
+
+```bash
+# dry-run: the engine reads the bus + drafts the message (the big agent reviews / iterates the model):
+node bus-agent.mjs "<intent>" --type NOTE --tail 3
+# send it (the engine posts via collab-cli):
+node bus-agent.mjs "<intent>" --type NOTE --prio P1 --post
+```
+
+It reads the peer's recent posts (`lbabus poll --agent <peer>`), feeds them + the intent to `lba-coordinator`
+(`/api/generate`), sanitizes the reply to a single ASCII bus line, and posts it (`lbabus post`). Dry-run by
+default so the big agent reviews before the engine speaks; iterate the `lba-coordinator` model to change the
+engine's voice.
+
 ## Proven (see `receipt.json`)
 
 - Self-contained `lbabus` runs on **bare `ubuntu:22.04`** (no .NET) — mounted, downloads nothing.
