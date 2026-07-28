@@ -36,6 +36,9 @@ jobs:
       - name: Harness — cross-process lease mutual-exclusion (concurrency gate)
         run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-stress .
 
+      - name: Harness — agent base-instructions embed round-trip + drift detection
+        run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-agents .
+
   release:
     needs: harness
     runs-on: ubuntu-latest

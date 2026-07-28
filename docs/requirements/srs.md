@@ -273,6 +273,27 @@ ADR-0006).
 
 ---
 
+### LBA-REQ-012: Version-pinned agent base instructions
+
+- Status: Proposed
+- Area: Agentic infrastructure (extends LBA-REQ-001, LBA-REQ-003)
+- Statement: The system shall embed a canonical agent base-instructions document
+  (`AGENTS.md`) in the `lbabus` binary and expose it via `lbabus agents`
+  (print / `--out <path>` / `--check <path>`), so that every session using a
+  given `lbabus` version shares byte-identical base instructions that can be
+  hardened version-over-version.
+- Acceptance Criteria:
+  - The instructions are embedded in the versioned binary; `lbabus agents`
+    prints them with a `sha256`-stamped, version-tagged header.
+  - `--out <path>` materializes them to a known file location; `--check <path>`
+    exits non-zero when a local copy has drifted from the embedded canonical.
+  - The `ci-agents` release-harness stage gates the embed round-trip and the
+    drift detection, so every published version's instructions are verified.
+- Change Guidance: Iterate the source in `tools/collab-cli/agents/AGENTS.md` and
+  cut a new release; do not hand-edit materialized copies.
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -288,3 +309,4 @@ ADR-0006).
 | LBA-REQ-009 | Storage (mprr ring buffer) | T-009 |
 | LBA-REQ-010 | Analysis (concentration + ollama) | T-010 |
 | LBA-REQ-011 | Analysis (resource correlation) | T-011 |
+| LBA-REQ-012 | Agentic infra (base instructions) | T-012 |

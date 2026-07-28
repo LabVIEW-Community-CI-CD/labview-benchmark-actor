@@ -39,11 +39,17 @@ lbabus init
 lbabus post --type ALIGN --task lba-graduation --message-file note.md
 lbabus poll --tail 5
 lbabus wait --agent LINUX --since 2026-07-28T04:25:16Z --timeout 1800 --interval 20
+lbabus agents --out ./AGENTS.md   # materialize the version-pinned agent base instructions
 ```
 
 `wait` blocks until the counterpart posts a message strictly **after** `--since` (default: now),
 prints it, and exits `0`; on timeout it exits `2`. This is the deterministic replacement for the
 prototype pollers.
+
+`agents` emits the agent base instructions **embedded in this lbabus version**, so every session on
+the same version shares byte-identical guidance. `--out <path>` writes them to a known location;
+`--check <path>` fails (exit `3`) if a local copy has drifted. Iterate the source in
+`agents/AGENTS.md` and cut a new release to harden them.
 
 ## Agent guardrails (fail-closed)
 

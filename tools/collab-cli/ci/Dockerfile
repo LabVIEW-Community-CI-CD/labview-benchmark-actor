@@ -50,6 +50,19 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS ci-stress
 COPY --from=build /out /out
 RUN dotnet /out/stress/lbabus-stress.dll --lbabus /out/cli/lbabus.dll --agents 16 --rounds 30
 
+# ---- ci-agents: version-pinned agent base-instructions embed round-trips + drift is detected --------
+# Proves `lbabus agents` emits the embedded canonical AGENTS.md, that a materialized copy re-verifies
+# (--check exit 0), and that any drift is caught (--check non-zero). This is what makes "same lbabus
+# version => same base instructions" enforceable across every session.
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS ci-agents
+COPY --from=build /out /out
+RUN set -eux; \
+    dotnet /out/cli/lbabus.dll agents --out /tmp/AGENTS.md; \
+    dotnet /out/cli/lbabus.dll agents --check /tmp/AGENTS.md; \
+    printf '\ndrift line\n' >> /tmp/AGENTS.md; \
+    if dotnet /out/cli/lbabus.dll agents --check /tmp/AGENTS.md; then echo "ci-agents: drift NOT detected" >&2; exit 1; fi; \
+    echo "ci-agents: embed round-trip + drift detection OK"
+
 # ---- ci-musl: framework-dependent lbabus on musl (Alpine) -> harness runs GREEN (portable IL) ------
 # Proves the SHIPPED nupkg / framework-dependent path (portable lbabus.dll + runner + HttpListener mock)
 # runs on musl byte-identically to glibc. ripgrep comes from apk. Positive half of the #10 RID contract.

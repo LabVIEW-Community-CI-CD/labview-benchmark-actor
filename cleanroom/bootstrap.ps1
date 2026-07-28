@@ -53,4 +53,9 @@ lbabus selfcheck
 if ($LASTEXITCODE -ne 0) {
     throw "[cleanroom] selfcheck failed (exit $LASTEXITCODE) — the clean-room toolchain is incomplete."
 }
+
+Write-Host '[cleanroom] === lbabus agents (materialize version-pinned base instructions) ==='
+$agentsPath = Join-Path $env:USERPROFILE 'AGENTS.md'
+lbabus agents --out $agentsPath
+Write-Host "[cleanroom] agent base instructions materialized at $agentsPath (shared by every session on this lbabus version)."
 Write-Host '[cleanroom] bootstrap complete — clean room is a valid coordination environment.'
