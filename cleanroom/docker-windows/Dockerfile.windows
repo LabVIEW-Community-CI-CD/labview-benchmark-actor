@@ -61,6 +61,16 @@ ENV LV_VERSION=$LV_VERSION `
     LV_CLI_EXTRACTED_FEED=C:\lv-cli-feed
 RUN C:\cleanroom\docker-windows\install-labview.ps1
 
+# 1b. EXPANSION -- install the LabVIEW VI Analyzer Toolkit. Its CONTENT ships bundled in LabVIEW Community
+#     (under <LV>\project\_VI Analyzer); this ENABLES it by installing the license package
+#     ni-labview-vi-analyzer-toolkit-lic from the SAME LabVIEW offline feed (LV_EXTRACTED_FEED) -- WIN-confirmed
+#     the sole vi-analyzer package on the 2026 community feed, and the community LabVIEW meta-package does NOT
+#     auto-pull it. This makes `LabVIEWCLI RunVIAnalyzer` (the labview-icon-editor pattern) work here + on the
+#     Vagrant clean room. Opt out with --build-arg LV_INSTALL_VI_ANALYZER=false.
+ARG LV_INSTALL_VI_ANALYZER=true
+ENV LV_INSTALL_VI_ANALYZER=$LV_INSTALL_VI_ANALYZER
+RUN if ($env:LV_INSTALL_VI_ANALYZER -eq 'false') { Write-Host '[via] skipped (LV_INSTALL_VI_ANALYZER=false)' } else { C:\cleanroom\docker-windows\install-vi-analyzer.ps1 }
+
 # 2. MIRROR -- the pinned collab-cli toolchain (dotnet/rg/gh/glab) + BUILD lbabus, exactly the Vagrant bootstrap.
 RUN C:\cleanroom\bootstrap.ps1
 
