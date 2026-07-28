@@ -1,0 +1,40 @@
+# Multi-VM Vagrant topology for LBA-REQ-006 / T-006.
+#
+# Boots two self-contained golden-box instances (actor-a, actor-b) on a shared host-only
+# private_network and proves they coordinate over the local `lbabus net` TCP/UDP bus
+# (LBA-REQ-007, ADR-0003/0004) -- CLAIM/ACK/HANDOFF/DONE over TCP + UDP presence beacons,
+# comms-only (no run data, no frames, no images). See run-topology.ps1 for the driver +
+# receipt, and README.md for the re-runnable procedure.
+#
+# Provider: vmware_desktop. Box: the self-contained golden box (vihs/labview-cleanroom-sc),
+# which carries its own pinned collab-cli source + a built lbabus (no host repo / SMB needed).
+
+Vagrant.configure("2") do |config|
+  box  = ENV.fetch("VIHS_CLEANROOM_BOX", "vihs/labview-cleanroom-sc")
+  mem  = ENV.fetch("VIHS_TOPO_MEM", "2048")   # small on purpose: comms-only, keep 2 VMs light
+  cpus = ENV.fetch("VIHS_TOPO_CPUS", "2")
+
+  config.vm.box          = box
+  config.vm.communicator = "winrm"
+  config.winrm.timeout   = 1800
+  # Self-contained: no host synced folder (the box already carries C:\cleanroom-src).
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  # Two actors on a shared host-only segment so lbabus net TCP + UDP presence flow VM<->VM.
+  actors = {
+    "actor-a" => "192.168.56.11",
+    "actor-b" => "192.168.56.12",
+  }
+
+  actors.each do |name, ip|
+    config.vm.define name do |m|
+      m.vm.network "private_network", ip: ip
+      m.vm.provider "vmware_desktop" do |v|
+        v.gui = false
+        v.vmx["memsize"]     = mem
+        v.vmx["numvcpus"]    = cpus
+        v.vmx["displayName"] = "vihs-topo-#{name}"
+      end
+    end
+  end
+end

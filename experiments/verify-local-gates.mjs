@@ -343,6 +343,25 @@ check('cleanroom-bootstrap-is-winget-free', () => {
   );
   return { wingetFree: true };
 });
+
+// 15. Multi-VM Vagrant topology receipt is green (LBA-REQ-006, T-006). Two golden-box VMs must have
+//     coordinated over lbabus net -- UDP presence + TCP CLAIM/HANDOFF/DONE with echoed ACKs, unique
+//     identities, comms-only -- so the RTM "Proven" flip cannot outrun re-runnable evidence.
+check('multi-vm-topology-receipt-green', () => {
+  const receipt = readJson(join('experiments', 'multi-vm-topology', 'receipt.json'));
+  assert(receipt.schema === 'labview-benchmark-actor/multi-vm-topology-receipt-v1', 'receipt schema mismatch');
+  assert(receipt.requirement === 'LBA-REQ-006' && receipt.test === 'T-006', 'receipt must bind LBA-REQ-006 / T-006');
+  assert(receipt.pass === true, 'receipt pass must be true');
+  const a = receipt.asserts || {};
+  assert(a.udpPresenceBeacons >= 2, `udpPresenceBeacons ${a.udpPresenceBeacons} must be >= 2`);
+  assert(a.tcpClaim === true && a.tcpHandoff === true && a.tcpDone === true, 'tcp CLAIM/HANDOFF/DONE must all be received');
+  assert(a.echoedAcks >= 3, `echoedAcks ${a.echoedAcks} must be >= 3`);
+  assert(a.commsOnly === true, 'commsOnly must be true (no run data / frames on the bus)');
+  const t = receipt.topology || {};
+  assert(t.collector?.identity && t.sender?.identity && t.collector.identity !== t.sender.identity, 'collector/sender must have distinct identities');
+  assert(t.collector?.ip && t.sender?.ip && t.collector.ip !== t.sender.ip, 'collector/sender must have distinct IPs');
+  return { collector: t.collector?.identity, sender: t.sender?.identity, acks: a.echoedAcks };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
