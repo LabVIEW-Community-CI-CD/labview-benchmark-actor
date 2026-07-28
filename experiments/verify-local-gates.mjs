@@ -663,6 +663,20 @@ check('mprr-packet-harness-profiles-green', () => {
   assert(pressure.admission.outcome === 'admission-control-blocked', 'reclaim-pressure trips admission');
   return { profiles: RATE_PROFILES.length };
 });
+check('cross-plane-comparison-proven-green', () => {
+  // LBA-REQ-014 Proven evidence: the committed cross-plane comparison receipt pairs the real LINUX and WIN mprr
+  // runs; the deterministic seriesHash MUST match (the acceptance) and every numeric metric delta is 0.
+  const r = readJson(join('experiments', 'benchmark-store', 'cross-plane-comparison-receipt.json'));
+  assert(r.schema === 'labview-benchmark-actor/cross-plane-comparison-receipt@v1', 'comparison receipt schema');
+  assert(r.requirement === 'LBA-REQ-014' && r.benchmarkId === 'mprr-short-ring-fixture', 'targets LBA-REQ-014 mprr benchmark');
+  assert(r.seriesHashMatch === true, 'the deterministic seriesHash must match cross-plane (LBA-REQ-014 acceptance)');
+  assert(r.comparison && r.comparison.digests.seriesHash.match === true, 'digest seriesHash match');
+  const deltas = r.comparison.deltas;
+  for (const k of Object.keys(deltas)) {
+    assert(deltas[k].delta === 0, `metric ${k} must be identical cross-plane (delta 0), got ${deltas[k].delta}`);
+  }
+  return { linux: r.linuxRunId, win: r.winRunId };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

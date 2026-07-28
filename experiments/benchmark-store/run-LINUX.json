@@ -1,0 +1,21 @@
+{
+  "schema": "labview-benchmark-actor/benchmark-run@v1",
+  "benchmarkId": "mprr-short-ring-fixture",
+  "plane": "LINUX",
+  "runId": "mprr-short-ring-fixture-linux",
+  "capturedAt": "2026-07-28T18:06:28.404Z",
+  "ringBufferRef": "LINUX/mprr-short-ring-fixture-linux/ring-ingest.json",
+  "ringBufferBytes": 4228,
+  "framesRef": null,
+  "metrics": {
+    "totalBytes": 1608,
+    "packetCount": 12,
+    "blockCount": 4,
+    "worstBoundaryVariationPct": 0,
+    "capacityBytes": 58000,
+    "ringHeadPublished": 1608,
+    "authoritative": 1,
+    "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+    "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8"
+  }
+}
