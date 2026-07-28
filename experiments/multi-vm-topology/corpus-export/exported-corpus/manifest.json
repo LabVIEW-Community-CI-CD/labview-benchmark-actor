@@ -1,0 +1,41 @@
+{
+    "schema":  "labview-benchmark-actor/corpus-manifest@v1",
+    "generatedAt":  "2026-07-28T15:48:05.574Z",
+    "topology":  "multi-vm corpus export (2 golden-box VMs, VM-local dereferenceable metrics)",
+    "corpora":  [
+                    {
+                        "actorId":  "ACTOR-A",
+                        "runs":  [
+                                     {
+                                         "runId":  "actor-a-run-1",
+                                         "completedAt":  "2026-07-28T15:01:00.000Z",
+                                         "metricsRef":  "ACTOR-A/actor-a-run-1/metrics.json",
+                                         "framesRef":  "ACTOR-A/actor-a-run-1/frames.txt"
+                                     },
+                                     {
+                                         "runId":  "actor-a-run-2",
+                                         "completedAt":  "2026-07-28T15:02:00.000Z",
+                                         "metricsRef":  "ACTOR-A/actor-a-run-2/metrics.json",
+                                         "framesRef":  "ACTOR-A/actor-a-run-2/frames.txt"
+                                     }
+                                 ]
+                    },
+                    {
+                        "actorId":  "ACTOR-B",
+                        "runs":  [
+                                     {
+                                         "runId":  "actor-b-run-1",
+                                         "completedAt":  "2026-07-28T15:01:00.000Z",
+                                         "metricsRef":  "ACTOR-B/actor-b-run-1/metrics.json",
+                                         "framesRef":  "ACTOR-B/actor-b-run-1/frames.txt"
+                                     },
+                                     {
+                                         "runId":  "actor-b-run-2",
+                                         "completedAt":  "2026-07-28T15:02:00.000Z",
+                                         "metricsRef":  "ACTOR-B/actor-b-run-2/metrics.json",
+                                         "framesRef":  "ACTOR-B/actor-b-run-2/frames.txt"
+                                     }
+                                 ]
+                    }
+                ]
+}
