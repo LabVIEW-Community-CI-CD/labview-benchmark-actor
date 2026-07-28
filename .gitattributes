@@ -1,0 +1,5 @@
+# Cross-plane parity: the ollama-bus lesson store + bash harness must be BYTE-IDENTICAL on every plane so the
+# parity-lock token (sha256 of lba-coordinator.Modelfile) matches on Windows and Linux, and so the harness
+# scripts stay LF for the bare Linux container. Force LF regardless of a plane's core.autocrlf setting.
+experiments/ollama-bus/lba-coordinator.Modelfile text eol=lf
+experiments/ollama-bus/*.sh text eol=lf
