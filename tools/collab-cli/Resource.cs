@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -176,6 +177,56 @@ internal static class LeaseStore
         }
     }
 
+    /// <summary>
+    /// Atomically reclaim a STALE lease by holding an EXCLUSIVE handle across read-decide-overwrite and
+    /// rewriting it in place. Returns false (held) if another agent holds the handle, the file vanished, or it
+    /// was refreshed and is no longer stale. The file is never moved aside or deleted, so the path is never
+    /// momentarily empty for a concurrent create to slip through (the residual stale-race LINUX #15 caught).
+    /// </summary>
+    public static bool TryReclaimInPlace(string name, ResourceLease fresh)
+    {
+        string path = PathFor(name);
+        try
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            string existingText;
+            using (var ms = new MemoryStream())
+            {
+                fs.CopyTo(ms);
+                existingText = Encoding.UTF8.GetString(ms.ToArray());
+            }
+
+            ResourceLease? current = TryParse(existingText);
+            if (current is not null && !IsStale(current, out _))
+            {
+                return false; // refreshed before we got the exclusive handle — not ours to take
+            }
+
+            byte[] outBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(fresh, Json));
+            fs.Seek(0, SeekOrigin.Begin);
+            fs.SetLength(0);
+            fs.Write(outBytes, 0, outBytes.Length);
+            fs.Flush();
+            return true;
+        }
+        catch (IOException)
+        {
+            return false; // another racer holds the exclusive handle, or the file vanished
+        }
+    }
+
+    private static ResourceLease? TryParse(string text)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<ResourceLease>(text, Json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static void Delete(string resource)
     {
         try
@@ -329,31 +380,14 @@ internal static class ResourceCommands
             return (AcquireResult.Held, existing);
         }
 
-        // A valid but STALE lease (TTL expired or dead pid). Reclaim via a rename compare-and-swap instead of
-        // Delete+Create (which raced): exactly one racer wins moving THIS file aside.
-        string reclaimTmp = path + ".reclaim." + Guid.NewGuid().ToString("N");
-        try
-        {
-            File.Move(path, reclaimTmp);
-        }
-        catch (IOException)
-        {
-            // Lost the reclaim race (another agent moved it first) or it is in-flight — held.
-            return (AcquireResult.Held, LeaseStore.Read(path));
-        }
-
-        // Guard: verify what we moved aside is still stale. If it was refreshed between our read and our move,
-        // restore it and report held so we never reclaim a live lease.
-        ResourceLease? moved = LeaseStore.Read(reclaimTmp);
-        if (moved is not null && !LeaseStore.IsStale(moved, out _))
-        {
-            try { File.Move(reclaimTmp, path); }
-            catch { try { File.Delete(reclaimTmp); } catch { /* best effort */ } }
-            return (AcquireResult.Held, moved);
-        }
-
-        try { File.Delete(reclaimTmp); } catch { /* already gone */ }
-        return LeaseStore.TryCreate(lease) ? (AcquireResult.Stolen, null) : (AcquireResult.Held, LeaseStore.Read(path));
+        // A valid but STALE lease (TTL expired or dead pid). Reclaim ATOMICALLY: hold an EXCLUSIVE handle on
+        // the lease file across read-decide-overwrite and rewrite it in place. The file is never moved aside or
+        // deleted, so the path is never momentarily empty for a concurrent create to slip through (that
+        // empty-path window was the residual stale-race). Exactly one racer gets the exclusive handle; the rest
+        // see IOException on their read/create and report Held.
+        return LeaseStore.TryReclaimInPlace(name, lease)
+            ? (AcquireResult.Stolen, null)
+            : (AcquireResult.Held, LeaseStore.Read(path));
     }
 
     private static int Release(string? name, string agent)
