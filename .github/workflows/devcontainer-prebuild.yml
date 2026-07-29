@@ -26,6 +26,11 @@ on:
 env:
   IMAGE: ghcr.io/labview-community-ci-cd/labview-benchmark-actor-devcontainer
 
+# Serialize runs on the same ref so two quick main pushes cannot race the :latest tag.
+concurrency:
+  group: devcontainer-prebuild-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   prebuild:
     name: build + publish dev container image
