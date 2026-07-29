@@ -10,6 +10,26 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+## [0.8.3] — 2026-07-29
+
+Fixes a per-subcommand help footgun surfaced by the WIN plane (defect #7): probing
+`<command> --help`/`-h` ran the command instead of printing usage. Both planes should
+`dotnet tool update` to `0.8.3` once the tag is cut.
+
+### Fixed
+
+- **`lbabus <command> --help` / `-h` now prints that command's usage and exits 0
+  instead of running the command** (defect #7). Previously the flag fell through to
+  the dispatcher: `wait --help` started a real blocking wait (up to the default
+  timeout), `poll --help` dumped the discussion tail, and `post --help` posted an
+  **empty NOTE** to the coordination discussion (a real unintended write, confirmed
+  first-hand on the LINUX plane). Help is now intercepted before dispatch for the
+  flat commands (`post`, `poll`, `wait`, `defect`, `delta`, `init`,
+  `selfcheck`/`doctor`/`preflight`, `capabilities`/`caps`); the ripgrep passthrough
+  (`grep`/`rg`/`search`) and the sub-dispatched commands (`net`/`resource`/`agents`/`docs`)
+  keep owning their own arg handling. Regression-locked by the
+  `linux-post-help-prints-usage-not-posts` harness case.
+
 ## [0.8.2] — 2026-07-29
 
 First published release since `0.8.0`; it carries both the `0.8.1` clock-skew fix

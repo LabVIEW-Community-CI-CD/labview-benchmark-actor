@@ -1,0 +1,13 @@
+{
+  "name": "linux-post-help-prints-usage-not-posts",
+  "owner": "LINUX",
+  "description": "Per-subcommand help footgun fix (defect #7): `post --help` prints the post USAGE and exits 0 WITHOUT posting. Regression lock -- per-subcommand --help/-h used to fall through to the command (post --help posted an empty NOTE to the discussion; wait --help started a real blocking wait). Help is intercepted before dispatch, so this case needs no mock, no token, and no network.",
+  "requiresMock": false,
+  "args": ["post", "--help"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["lbabus post", "--type"],
+    "stdoutNotContains": ["posted", "discussioncomment"]
+  }
+}
