@@ -20,13 +20,24 @@ $extTag    = $env:VIHS_REVIEWER_EXT_TAG
 $lbabusTag = $env:VIHS_REVIEWER_LBABUS_TAG
 Step "repo=$repo ext-tag=$extTag lbabus-tag=$lbabusTag"
 
-# 0) Prereqs supplied by the golden box.
-if (-not (Get-Command code -ErrorAction SilentlyContinue)) {
-  throw "VS Code 'code' not on PATH. The golden box vihs/win11-labview2026 should already have it; re-bake or install VS Code."
+# 0) Prereqs. The VirtualBox golden box (vihs/win11-labview2026) ships VS Code + gh, but the VMware
+#    cleanroom box (vihs/labview-cleanroom) and BYO reviewer boxes may not -- so self-install via winget
+#    when missing (idempotent; returns early if already present) instead of hard-failing.
+function Ensure-Tool([string]$Command, [string]$WingetId, [string]$Label) {
+  if (Get-Command $Command -ErrorAction SilentlyContinue) { return }
+  if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    throw "$Label ('$Command') is not on PATH and winget is unavailable to install it. Bake $Label into the box or install it manually, then re-run."
+  }
+  Step "Installing $Label via winget ($WingetId)"
+  winget install --id $WingetId --exact --source winget --accept-package-agreements --accept-source-agreements --silent
+  # winget updates the machine PATH but not this live session; refresh so the new command resolves.
+  $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+  if (-not (Get-Command $Command -ErrorAction SilentlyContinue)) {
+    throw "$Label install via winget ($WingetId) did not put '$Command' on PATH. Inspect the winget result and re-run."
+  }
 }
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-  throw "GitHub CLI 'gh' not found. Install it (winget install GitHub.cli); the reviewer supplies 'gh auth login' for release download + bus."
-}
+Ensure-Tool 'code' 'Microsoft.VisualStudioCode' 'VS Code'
+Ensure-Tool 'gh'   'GitHub.cli'                 'GitHub CLI'
 Step "VS Code: $((code --version)[0]); gh: $((gh --version)[0])"
 
 # Resolve the newest tag with a given prefix, or honor an explicit tag.
