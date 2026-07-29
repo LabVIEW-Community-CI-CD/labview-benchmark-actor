@@ -18,6 +18,11 @@
 #   docker run --rm lbabus-linux-verify:latest   # re-run the verification from the published image
 
 ARG DOTNET_SDK=mcr.microsoft.com/dotnet/sdk:8.0
+# Build on the SDK, but RUN the gates on the much smaller .NET runtime base (parity with Dockerfile.windows,
+# which runs the gates on the servercore runtime). `dotnet <dll>` needs only the shared runtime; only the
+# build/publish stage needs the SDK. On Linux the delta is large: sdk:8.0 (~800 MB) -> runtime:8.0
+# (~200 MB, debian-slim) -- a bigger relative drop than the Windows lane, where the servercore OS dominates.
+ARG DOTNET_RUNTIME=mcr.microsoft.com/dotnet/runtime:8.0
 
 # ---- build: publish the CLI + case runner + GitHub mock + stress gate with the Linux .NET SDK -----------
 FROM ${DOTNET_SDK} AS build
@@ -31,7 +36,7 @@ RUN set -eux; \
 
 # ---- ci-stress: cross-process lease mutual-exclusion regression gate (fast standalone) ------------------
 # Mirrors the Windows ci-stress stage (LBABUS #15/#18) and the repo-root ci/Dockerfile ci-stress target.
-FROM ${DOTNET_SDK} AS ci-stress
+FROM ${DOTNET_RUNTIME} AS ci-stress
 COPY --from=build /out /out
 RUN dotnet /out/stress/lbabus-stress.dll --lbabus /out/cli/lbabus.dll --agents 16 --rounds 30
 
@@ -39,7 +44,7 @@ RUN dotnet /out/stress/lbabus-stress.dll --lbabus /out/cli/lbabus.dll --agents 1
 # N of these run as ISOLATED named actors on a user-defined `bridge` network and coordinate ONLY over
 # `lbabus net` (TCP/UDP, ADR-0003/0004) -- no shared volume/store. The ENTRYPOINT is the per-actor workload;
 # the orchestrator passes the peer list (comma-separated container names) via MESH_PEERS.
-FROM ${DOTNET_SDK} AS mesh
+FROM ${DOTNET_RUNTIME} AS mesh
 COPY --from=build /out /out
 COPY ci/mesh-actor.sh /mesh-actor.sh
 RUN chmod +x /mesh-actor.sh
@@ -47,7 +52,7 @@ EXPOSE 7420 7421/udp
 ENTRYPOINT ["bash", "/mesh-actor.sh"]
 
 # ---- verify: the pullable artifact -- bakes /out + cases + verify-linux.sh and runs the full suite -------
-FROM ${DOTNET_SDK} AS verify
+FROM ${DOTNET_RUNTIME} AS verify
 WORKDIR /repo
 COPY --from=build /out /out
 COPY ci /repo/tools/collab-cli/ci

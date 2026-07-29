@@ -38,6 +38,7 @@ for p in "${_peers[@]}"; do
   if [ -n "$p" ] && [ "$p" != "$actor" ]; then others="$others $p"; fi
 done
 expected="$(printf '%s' "$others" | wc -w | tr -d ' ')"
+peer_csv="$(echo $others | tr ' ' ',')"   # comma-joined peer list for the single --hosts fan-out (self already dropped)
 
 tcp_out="$(mktemp)"; udp_out="$(mktemp)"
 echo "[$actor] mesh start: expected=$expected tcp=$TCP_PORT udp=$UDP_PORT"
@@ -51,30 +52,19 @@ udp_pid=$!
 
 sleep 2   # let our own listeners bind before the peers start hammering them
 
-# 2. TCP: send one CLAIM to every other actor, retrying until that peer's listener accepts the connection.
-# A successful TCP send is also our barrier that the peer is alive (so its UDP listener is bound too).
-send_retry_s="$(awk "BEGIN{printf \"%.3f\", $SEND_RETRY_MS/1000}")"
-for p in $others; do
-  ok=0; r=1
-  while [ "$r" -le "$SEND_RETRIES" ] && [ "$ok" -eq 0 ]; do
-    if dotnet "$LBABUS" net send --host "$p" --tcp "$TCP_PORT" --type CLAIM --task mesh --message "hello from $actor" --await 2 >/dev/null 2>&1; then
-      ok=1
-    else
-      sleep "$send_retry_s"
-    fi
-    r=$((r + 1))
-  done
-  [ "$ok" -eq 0 ] && echo "[$actor] WARN could not reach $p over TCP after $SEND_RETRIES tries"
-done
+# 2. TCP: ONE `lbabus net send` fans a CLAIM out to EVERY other actor via --hosts, retrying each peer until
+# its listener accepts (startup race). One process per actor -- not one per peer -- keeps the mesh at O(N)
+# total dotnet launches instead of O(N^2), so the proof measures the lbabus net transport rather than dotnet
+# process-startup contention. A clean exit is also our barrier that every peer is alive.
+if ! dotnet "$LBABUS" net send --hosts "$peer_csv" --tcp "$TCP_PORT" --type CLAIM --task mesh \
+    --message "hello from $actor" --await 2 --retries "$SEND_RETRIES" --retry-ms "$SEND_RETRY_MS" >/dev/null 2>&1; then
+  echo "[$actor] WARN one or more TCP peers unreachable after $SEND_RETRIES tries"
+fi
 
-# 3. UDP: emit presence beacons to every peer. `net beacon --host` needs an IP (it does NOT resolve names),
-# so resolve each peer's container name to its bridge IP first; every beacon envelope still carries THIS
-# actor's identity, so a peer attributes it regardless of datagram loss or address translation.
-for p in $others; do
-  ip="$(getent hosts "$p" 2>/dev/null | awk '{print $1; exit}')"
-  if [ -z "$ip" ]; then echo "[$actor] WARN could not resolve $p for UDP"; continue; fi
-  dotnet "$LBABUS" net beacon --host "$ip" --udp "$UDP_PORT" --count "$UDP_BEACONS" --interval 1 --task mesh >/dev/null 2>&1
-done
+# 3. UDP: ONE `lbabus net beacon` fans presence beacons out to EVERY peer via --hosts (the CLI resolves each
+# container name to its bridge IPv4 itself, so no pre-resolve is needed). Every envelope carries THIS actor's
+# identity, so a peer attributes each beacon regardless of datagram loss or address translation.
+dotnet "$LBABUS" net beacon --hosts "$peer_csv" --udp "$UDP_PORT" --count "$UDP_BEACONS" --interval 1 --task mesh >/dev/null 2>&1
 
 # 4. wait for both listeners, then count DISTINCT peers heard from over each transport.
 wait "$tcp_pid" 2>/dev/null
