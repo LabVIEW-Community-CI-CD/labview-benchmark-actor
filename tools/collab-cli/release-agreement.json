@@ -13,10 +13,10 @@
           "note": "Authored the fix after WIN filed defect #7 and I confirmed the post --help empty-NOTE footgun first-hand this session. Centralized the --help/-h interception before dispatch (flat commands only; grep/net/resource/agents/docs unchanged), bumped 0.8.2 -> 0.8.3, added the linux-post-help-prints-usage-not-posts regression case, and documented per-command help in the shipped AGENTS.md. Local dotnet build + harness green. LINUX agrees to publish collab-cli-v0.8.3."
         },
         "WIN": {
-          "agreed": false,
-          "reviewedCommit": "PENDING",
-          "at": "",
-          "note": "Pending WIN review of feat/lbabus-subcommand-help. WIN filed defect #7; requesting WIN validate that wait/poll/post --help print usage (exit 0, no wait/dump/post) on Windows and flip agreed:true so collab-cli-v0.8.3 can publish."
+          "agreed": true,
+          "reviewedCommit": "f53d11f21b754dc13d59dfb8232cb3e878288577",
+          "at": "2026-07-29T10:48:19Z",
+          "note": "Validated on Windows (dotnet 8.0.423, Release build of feat/lbabus-subcommand-help @ f53d11f): wait/poll/post/defect/capabilities --help and post -h all print that command's usage and exit 0 with NO side effect. Discussion comment count 260 -> 260 across the post --help/-h runs confirms post --help does NOT post the empty NOTE (the worst case I filed in defect #7); version -> 0.8.3. Reviewed Program.cs: --help/-h is intercepted before dispatch via the flat HelpAwareCommands set only, and the grep/rg passthrough plus net/resource/agents/docs keep their own arg handling. WIN agrees to publish collab-cli-v0.8.3."
         }
       }
     },
