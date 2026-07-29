@@ -7,7 +7,7 @@
 // Both staged files are build outputs (gitignored); the .vsix bundles them. Deterministic: identical fixture
 // => identical media/mprr-series.json, so the deployed viewer + the screenshot harness render the same series.
 
-import { mkdirSync, copyFileSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ingestShortPackets } from '../experiments/mprr-ring/mprrRing.mjs';
@@ -19,9 +19,12 @@ const repo = join(here, '..');
 mkdirSync(join(repo, 'media'), { recursive: true });
 
 // 1. Viewer cursor core (unchanged behavior; media/viewer.js imports this verbatim).
-copyFileSync(
-  join(repo, 'experiments', 'viewer-cursor', 'viewerCursor.mjs'),
-  join(repo, 'media', 'viewerCursor.mjs')
+//    Staged via read+write rather than copyFileSync: on the Windows devcontainer's 9p/drvfs bind mount,
+//    copyFileSync's reflink/copy_file_range fast path can throw a transient EPERM when writing into the
+//    just-created media/ dir on a cold mount. read+write avoids that path and is deterministic everywhere.
+writeFileSync(
+  join(repo, 'media', 'viewerCursor.mjs'),
+  readFileSync(join(repo, 'experiments', 'viewer-cursor', 'viewerCursor.mjs'))
 );
 
 // 2. Real mprr ring-buffer series for the deployed viewer.
@@ -46,7 +49,8 @@ if (!agents.ok) {
   }
   process.exit(1);
 }
-copyFileSync(join(repo, 'extension-agents', 'AGENTS.md'), join(repo, 'media', 'AGENTS.md'));
-copyFileSync(join(repo, 'extension-agents', 'agents.manifest.json'), join(repo, 'media', 'agents.manifest.json'));
+// Staged via read+write (same 9p/drvfs EPERM avoidance as media/viewerCursor.mjs above).
+writeFileSync(join(repo, 'media', 'AGENTS.md'), readFileSync(join(repo, 'extension-agents', 'AGENTS.md')));
+writeFileSync(join(repo, 'media', 'agents.manifest.json'), readFileSync(join(repo, 'extension-agents', 'agents.manifest.json')));
 
 console.log(`staged media/viewerCursor.mjs + media/mprr-series.json (${series.length} points) + media/AGENTS.md`);
