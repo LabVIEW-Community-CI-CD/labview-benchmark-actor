@@ -31,6 +31,12 @@ $names = 1..$Actors | ForEach-Object { "$run-actor-$_" }
 $peers = $names -join ','
 $exit  = 1
 
+# Scale the per-actor timeouts with N (parity with ci/mesh-linux.sh): a large mesh takes longer to fully
+# form -- every actor opens N-1 TCP connections + emits N-1 beacon streams, and containers launch
+# sequentially, so early actors retry longer while late actors' listeners come up.
+$tcpTimeout = 60 + $Actors * 3
+$udpTimeout = 30 + $Actors
+
 Write-Host "== lbabus TCP+UDP mesh: $Actors isolated actors (image $Image, network $net) =="
 # Windows containers use the `nat` driver (the Linux `bridge` driver does not exist here); a user-defined
 # nat network gives the containers DNS name resolution by container name, which is how actors find peers.
@@ -38,7 +44,8 @@ docker network create -d nat $net | Out-Null
 try {
   # Launch each isolated actor on the shared network; they reach each other only by name over `lbabus net`.
   foreach ($n in $names) {
-    docker run -d --name $n --network $net -e "VIHS_COLLAB_AGENT=$n" $Image -Peers $peers | Out-Null
+    docker run -d --name $n --network $net -e "VIHS_COLLAB_AGENT=$n" $Image `
+      -Peers $peers -TimeoutSec $tcpTimeout -UdpTimeoutSec $udpTimeout -SendRetries 90 | Out-Null
   }
 
   # Wait for every actor to exit (docker wait blocks and prints the exit code).

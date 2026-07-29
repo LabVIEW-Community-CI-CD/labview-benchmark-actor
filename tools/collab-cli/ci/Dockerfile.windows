@@ -23,6 +23,11 @@
 #   docker run --rm lbabus-win-verify:latest        # re-run the verification from the published image
 
 ARG DOTNET_SDK=mcr.microsoft.com/dotnet/sdk:8.0-windowsservercore-ltsc2022
+# Lean artifact: BUILD on the SDK, but RUN the published DLLs on the far smaller .NET *runtime* base --
+# the verify/mesh/ci-stress stages only execute pre-published DLLs (`dotnet <dll>`) + PowerShell, neither
+# of which needs the SDK. Servercore runtime (NOT nanoserver) is required: it ships Windows PowerShell 5.1
+# for verify-windows.ps1 / mesh-actor.ps1, and `dotnet` is on PATH to run the DLLs.
+ARG DOTNET_RUNTIME=mcr.microsoft.com/dotnet/runtime:8.0-windowsservercore-ltsc2022
 
 # ---- build: publish the CLI + case runner + GitHub mock + stress gate with the Windows .NET SDK ----
 FROM ${DOTNET_SDK} AS build
@@ -44,8 +49,8 @@ RUN dotnet publish LbaBus.csproj -c Release -o C:\out\cli; `
 # ---- ci-stress: cross-process lease mutual-exclusion regression gate on WINDOWS (fast standalone) --
 # The single highest-value Windows check -- Windows file-lock / process semantics differ from Linux, so
 # the mutual-exclusion invariants (free + stale lease, ttl/pid steal, idempotent release, wait) must be
-# re-proven here. Mirrors the Linux ci-stress stage (LBABUS #15/#18).
-FROM ${DOTNET_SDK} AS ci-stress
+# re-proven here. Mirrors the Linux ci-stress stage (LBABUS #15/#18). Runs the stress DLL on the runtime base.
+FROM ${DOTNET_RUNTIME} AS ci-stress
 COPY --from=build C:\out C:\out
 RUN dotnet C:\out\stress\lbabus-stress.dll --lbabus C:\out\cli\lbabus.dll --agents 16 --rounds 30
 
@@ -53,14 +58,14 @@ RUN dotnet C:\out\stress\lbabus-stress.dll --lbabus C:\out\cli\lbabus.dll --agen
 # Bakes lbabus + mesh-actor.ps1. N of these run as ISOLATED named actors on a user-defined docker
 # network and coordinate ONLY over `lbabus net` (TCP/UDP, ADR-0003/0004) -- no shared volume/store.
 # The ENTRYPOINT is the per-actor workload; the orchestrator passes -Peers <comma-separated names>.
-FROM ${DOTNET_SDK} AS mesh
+FROM ${DOTNET_RUNTIME} AS mesh
 COPY --from=build C:\out C:\out
 COPY ci\mesh-actor.ps1 C:\mesh-actor.ps1
 EXPOSE 7420 7421/udp
 ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\mesh-actor.ps1"]
 
 # ---- verify: the pullable artifact -- bakes /out + cases + verify-windows.ps1 and runs the full suite
-FROM ${DOTNET_SDK} AS verify
+FROM ${DOTNET_RUNTIME} AS verify
 WORKDIR C:\repo
 COPY --from=build C:\out C:\out
 COPY ci C:\repo\tools\collab-cli\ci
