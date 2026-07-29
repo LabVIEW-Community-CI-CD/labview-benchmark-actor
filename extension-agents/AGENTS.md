@@ -48,8 +48,24 @@ Code:
 
 ## Windows notes
 
-_Pending — Windows-specific user guidance (paths, LabVIEW runtime, Docker Desktop, WSL) is co-authored on the
-Windows plane and will land in a later revision._
+Windows-specific guidance for agents using this extension on a Windows host:
+
+- **LabVIEW runtime & bitness.** Run **Show Host Capabilities** first — a Windows host often has *both* 32-bit
+  and 64-bit LabVIEW installed. Match the bitness to the target VIs (for example, the icon-editor project is
+  32-bit). When a LabVIEW CLI operation (such as VI Analyzer) cold-launches LabVIEW and fails with `-350000`
+  ("failed to establish a connection with LabVIEW"), the VI Server TCP port does not match: the CLI defaults to
+  port **3363**, so pass the matching `-LabVIEWPath <the intended bitness>` and `-PortNumber 3363` (or enable
+  VI Server / align `server.tcp.port` in that LabVIEW's `.ini`).
+- **Docker engine.** Windows containers require Docker Desktop's **Windows** engine (Hyper-V isolation); Linux
+  containers require its **Linux** engine — you switch between them, they are not both active at once. On
+  Hyper-V Windows containers, `docker run -p` port publishing can fail with `hnsCall ... 0x490`; reach the
+  container directly at its NAT IP (`docker inspect`) instead.
+- **Paths & line endings.** Prefer the extension commands over hard-coded paths. Windows uses `\`, but
+  normalize to `/` before computing any cross-plane digest so a `resultHash`/`seriesHash` matches Linux. This
+  file is stored with **LF**; the drift check canonicalizes CRLF→LF, so a Windows checkout never false-drifts.
+  Watch for 8.3 short paths under `%TEMP%` when stripping path prefixes.
+- **Remote / WSL.** The **Write / Check Agent Instructions** commands use the VS Code workspace filesystem API,
+  so they work in WSL, Remote-SSH, and virtual workspaces, not just local disk.
 
 ---
 
