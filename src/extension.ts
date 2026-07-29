@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -114,6 +115,162 @@ function viewerHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
 </html>`;
 }
 
+// --- Extension-embedded AGENTS.md (issue #98) --------------------------------------------------------------
+// The .vsix bundles media/AGENTS.md + media/agents.manifest.json (staged from extension-agents/ by
+// scripts/stage-media.mjs). These commands let a user's coding agent pick up the version-pinned instructions,
+// mirroring `lbabus agents` (print / --out / --check). The manifest sha256 (over the CANONICAL body) is the
+// single integrity anchor -- no header parsing for the drift check.
+const AGENTS_SCHEME = 'lba-agents';
+
+// Canonical body: LF, no trailing whitespace, single trailing newline. MUST stay byte-identical to
+// scripts/agentsManifest.mjs canonicalizeAgents so the sha256 matches on every plane (Windows CRLF included).
+function canonicalizeAgents(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/[\s\uFEFF]*$/, '') + '\n';
+}
+
+function agentsSha256(text: string): string {
+  return createHash('sha256').update(canonicalizeAgents(text), 'utf8').digest('hex');
+}
+
+interface BundledAgents {
+  body: string;
+  version: string;
+  sha256: string;
+}
+
+async function readBundledAgents(context: vscode.ExtensionContext): Promise<BundledAgents> {
+  const mdUri = vscode.Uri.joinPath(context.extensionUri, 'media', 'AGENTS.md');
+  const manifestUri = vscode.Uri.joinPath(context.extensionUri, 'media', 'agents.manifest.json');
+  const body = Buffer.from(await vscode.workspace.fs.readFile(mdUri)).toString('utf8');
+  const manifest = JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(manifestUri)).toString('utf8'));
+  return { body, version: String(manifest.version), sha256: String(manifest.sha256) };
+}
+
+function extensionVersion(context: vscode.ExtensionContext): string {
+  return String(context.extension?.packageJSON?.version ?? 'unknown');
+}
+
+// Materialized file = a single-line provenance stamp + the canonical body. checkAgents strips the stamp before
+// hashing, so the stamp never affects the drift check (the manifest sha256 is over the body only).
+function stampedAgents(bundle: BundledAgents, extVersion: string): string {
+  const header =
+    `<!-- GENERATED: labview-benchmark-actor extension AGENTS.md v${bundle.version} ` +
+    `(sha256:${bundle.sha256.slice(0, 12)}) - emitted by labview-benchmark-actor v${extVersion}. ` +
+    `Regenerate with the "Write Agent Instructions" command; do not hand-edit this header. -->\n\n`;
+  return header + canonicalizeAgents(bundle.body);
+}
+
+function stripAgentsStamp(text: string): string {
+  return text.replace(/^<!-- GENERATED: labview-benchmark-actor extension AGENTS\.md[^\n]*-->\n\n?/, '');
+}
+
+async function uriExists(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// A read-only virtual document serving the shipped canonical (stamped), for `showAgents` and the diff view.
+class AgentsContentProvider implements vscode.TextDocumentContentProvider {
+  constructor(private readonly context: vscode.ExtensionContext) {}
+
+  async provideTextDocumentContent(): Promise<string> {
+    const bundle = await readBundledAgents(this.context);
+    return stampedAgents(bundle, extensionVersion(this.context));
+  }
+}
+
+function agentsCanonicalUri(version: string): vscode.Uri {
+  return vscode.Uri.parse(`${AGENTS_SCHEME}:AGENTS.md?v=${version}`);
+}
+
+async function writeAgentsCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) {
+    void vscode.window.showWarningMessage(
+      'Open a folder first: "Write Agent Instructions" materializes AGENTS.md at the workspace root.'
+    );
+    return;
+  }
+  const bundle = await readBundledAgents(context);
+  const target = vscode.Uri.joinPath(folder.uri, 'AGENTS.md');
+
+  if (await uriExists(target)) {
+    const choice = await vscode.window.showWarningMessage(
+      `AGENTS.md already exists at the workspace root. Overwrite it with the extension's v${bundle.version}?`,
+      { modal: true },
+      'Overwrite',
+      'Show Diff'
+    );
+    if (choice === 'Show Diff') {
+      await vscode.commands.executeCommand(
+        'vscode.diff',
+        target,
+        agentsCanonicalUri(bundle.version),
+        `AGENTS.md (workspace) \u2194 extension v${bundle.version}`
+      );
+      return;
+    }
+    if (choice !== 'Overwrite') {
+      return; // Cancel / dismissed
+    }
+  }
+
+  const content = stampedAgents(bundle, extensionVersion(context));
+  await vscode.workspace.fs.writeFile(target, Buffer.from(content, 'utf8'));
+  output.appendLine(`wrote ${target.fsPath} (extension AGENTS.md v${bundle.version})`);
+  void vscode.window.showInformationMessage(`Wrote AGENTS.md (v${bundle.version}) to the workspace root.`);
+}
+
+async function showAgentsCommand(context: vscode.ExtensionContext): Promise<void> {
+  const bundle = await readBundledAgents(context);
+  const doc = await vscode.workspace.openTextDocument(agentsCanonicalUri(bundle.version));
+  await vscode.languages.setTextDocumentLanguage(doc, 'markdown');
+  await vscode.window.showTextDocument(doc, { preview: true });
+}
+
+async function checkAgentsCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) {
+    void vscode.window.showWarningMessage(
+      'Open a folder first: "Check Agent Instructions" verifies the workspace AGENTS.md.'
+    );
+    return;
+  }
+  const bundle = await readBundledAgents(context);
+  const target = vscode.Uri.joinPath(folder.uri, 'AGENTS.md');
+  if (!(await uriExists(target))) {
+    void vscode.window.showWarningMessage('No AGENTS.md at the workspace root. Run "Write Agent Instructions" first.');
+    return;
+  }
+  const workspaceText = Buffer.from(await vscode.workspace.fs.readFile(target)).toString('utf8');
+  const actual = agentsSha256(stripAgentsStamp(workspaceText));
+  if (actual === bundle.sha256) {
+    output.appendLine(`AGENTS.md matches the shipped canonical (v${bundle.version} sha256:${bundle.sha256.slice(0, 12)}).`);
+    void vscode.window.showInformationMessage(`AGENTS.md matches the shipped extension canonical (v${bundle.version}).`);
+    return;
+  }
+  const choice = await vscode.window.showWarningMessage(
+    `AGENTS.md has DRIFTED from the extension canonical (v${bundle.version}).`,
+    'Show Diff',
+    'Rewrite'
+  );
+  if (choice === 'Show Diff') {
+    await vscode.commands.executeCommand(
+      'vscode.diff',
+      target,
+      agentsCanonicalUri(bundle.version),
+      `AGENTS.md (workspace) \u2194 extension v${bundle.version}`
+    );
+  } else if (choice === 'Rewrite') {
+    await vscode.workspace.fs.writeFile(target, Buffer.from(stampedAgents(bundle, extensionVersion(context)), 'utf8'));
+    void vscode.window.showInformationMessage(`Rewrote AGENTS.md to the extension canonical (v${bundle.version}).`);
+  }
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const output = getOutput(context);
 
@@ -155,6 +312,16 @@ export function activate(context: vscode.ExtensionContext): void {
       );
       panel.webview.html = viewerHtml(panel.webview, context.extensionUri);
     })
+  );
+
+  // Extension-embedded AGENTS.md (issue #98): read-only canonical provider + materialize/show/check commands.
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(AGENTS_SCHEME, new AgentsContentProvider(context))
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.writeAgents', () => writeAgentsCommand(context, output)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.showAgents', () => showAgentsCommand(context)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.checkAgents', () => checkAgentsCommand(context, output))
   );
 }
 

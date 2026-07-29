@@ -33,6 +33,18 @@
       {
         "command": "labviewBenchmarkActor.openViewer",
         "title": "LabVIEW Benchmark Actor: Open Benchmark Viewer"
+      },
+      {
+        "command": "labviewBenchmarkActor.writeAgents",
+        "title": "LabVIEW Benchmark Actor: Write Agent Instructions"
+      },
+      {
+        "command": "labviewBenchmarkActor.showAgents",
+        "title": "LabVIEW Benchmark Actor: Show Agent Instructions"
+      },
+      {
+        "command": "labviewBenchmarkActor.checkAgents",
+        "title": "LabVIEW Benchmark Actor: Check Agent Instructions"
       }
     ]
   },

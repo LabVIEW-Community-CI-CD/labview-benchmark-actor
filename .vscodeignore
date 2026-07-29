@@ -10,6 +10,8 @@ tools/**
 docs/**
 vagrant/**
 cleanroom/**
+scripts/**
+extension-agents/**
 node_modules/**
 .gitignore
 .git/**

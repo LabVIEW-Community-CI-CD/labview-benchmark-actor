@@ -56,13 +56,28 @@ const mockVscode = {
   ViewColumn: { Active: -1 },
   Uri: {
     joinPath: (base, ...parts) => ({ path: [base && base.path ? base.path : '', ...parts].join('/') }),
+    parse: (s) => ({ toString: () => s, path: s, scheme: String(s).split(':')[0] }),
   },
   commands: {
     registerCommand: (id, handler) => {
       registered.push({ id, handler });
       return { dispose() {} };
     },
+    executeCommand: async () => undefined,
   },
+  workspace: {
+    registerTextDocumentContentProvider: () => ({ dispose() {} }),
+    workspaceFolders: [{ uri: { path: '/ws' } }],
+    fs: {
+      stat: async () => {
+        throw Object.assign(new Error('ENOENT'), { code: 'FileNotFound' });
+      },
+      readFile: async () => Buffer.from(''),
+      writeFile: async () => undefined,
+    },
+    openTextDocument: async () => ({}),
+  },
+  languages: { setTextDocumentLanguage: async (doc) => doc },
 };
 
 // Mock `node:child_process` so the CLI-backed commands exercise the prerequisite-absent branch
@@ -99,13 +114,16 @@ try {
   assert(typeof ext.deactivate === 'function', 'the extension exports deactivate()');
 
   const subscriptions = [];
-  ext.activate({ subscriptions, extensionUri: { path: '/ext' } });
+  ext.activate({ subscriptions, extensionUri: { path: '/ext' }, extension: { packageJSON: { version: '0.1.0' } } });
 
   const expected = [
     'labviewBenchmarkActor.showCapabilities',
     'labviewBenchmarkActor.pollBus',
     'labviewBenchmarkActor.postNote',
     'labviewBenchmarkActor.openViewer',
+    'labviewBenchmarkActor.writeAgents',
+    'labviewBenchmarkActor.showAgents',
+    'labviewBenchmarkActor.checkAgents',
   ];
   const ids = registered.map((r) => r.id);
   for (const cmd of expected) {

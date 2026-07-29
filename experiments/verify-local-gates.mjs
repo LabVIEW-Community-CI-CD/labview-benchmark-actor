@@ -27,6 +27,7 @@ import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
 import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
 import { validateViAnalyzerReport } from './vi-analyzer/validate-vi-analyzer-report.mjs';
 import { parseAsciiReport, parseSummary } from './vi-analyzer/parse-vi-analyzer-ascii.mjs';
+import { verifyManifest as verifyExtensionAgentsManifest, agentsSha256, readManifest as readExtensionAgentsManifest, AGENTS_MD as EXTENSION_AGENTS_MD } from '../scripts/agentsManifest.mjs';
 import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -727,6 +728,22 @@ check('vi-analyzer-real-report-cross-plane-green', () => {
   const parsedWin = parseAsciiReport(rawWin, report.config);
   assert(summarizeViAnalyzerReport(parsedWin).resultHash === EXPECTED, 'WIN raw completion output parses to the pinned cross-plane resultHash');
   return { resultHash: s.resultHash, tests: s.totalTests };
+});
+check('extension-agents-manifest-green', () => {
+  // The extension-embedded AGENTS.md (issue #98) is pinned by extension-agents/agents.manifest.json
+  // { schema, version, sha256 } over the canonical body -- a user-facing agent-instructions surface versioned
+  // on its OWN semver (separate from collab-cli + the extension code). The drift gate is a pure
+  // manifest.sha256 == sha256(AGENTS.md) + valid-semver check (WIN's #98 enhancement -- no header parsing).
+  const v = verifyExtensionAgentsManifest();
+  assert(v.ok === true, `extension AGENTS.md manifest invalid: ${v.errors.join('; ')}`);
+  const manifest = readExtensionAgentsManifest();
+  assert(manifest.schema === 'labview-benchmark-actor/extension-agents@v1', 'manifest schema');
+  assert(/^\d+\.\d+\.\d+$/.test(manifest.version), `manifest version must be x.y.z semver (got ${manifest.version})`);
+  const body = readFileSync(EXTENSION_AGENTS_MD, 'utf8');
+  assert(agentsSha256(body) === manifest.sha256, 'manifest sha256 matches the AGENTS.md canonical body');
+  // Teeth: any content edit changes the canonical sha256, so a stale manifest fails the gate.
+  assert(agentsSha256(`${body}\nDRIFT`) !== manifest.sha256, 'an AGENTS.md edit changes the sha256 (gate has teeth)');
+  return { version: manifest.version, sha256: manifest.sha256.slice(0, 12) };
 });
 check('mprr-packet-harness-profiles-green', () => {
   // The mprr rate profiles (MPRR-REQ-115-119) drive the absorbed ring across load shapes: steady is
