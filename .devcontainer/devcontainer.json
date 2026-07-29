@@ -1,6 +1,6 @@
 {
   "name": "labview-benchmark-actor",
-  "image": "ghcr.io/labview-community-ci-cd/labview-benchmark-actor-devcontainer:latest",
+  "image": "ghcr.io/svelderrainruiz/labview-benchmark-actor-devcontainer:latest",
   "postCreateCommand": "npm install && npm run compile",
   "customizations": {
     "vscode": {
