@@ -354,7 +354,7 @@ ADR-0006).
 
 ### LBA-REQ-015: VI Analyzer as a cross-plane benchmark
 
-- Status: Proposed
+- Status: Proven
 - Area: Analysis / quality (extends LBA-REQ-014; operator VI-Analyzer directive)
 - Statement: The system shall install the LabVIEW VI Analyzer Toolkit in the
   Windows clean room and summarize a VI Analyzer run over a repo's VIs into a
@@ -384,19 +384,32 @@ ADR-0006).
     failed/error counts.
   - A committed JSON Schema (`vi-analyzer-report.schema.json`) + a dependency-free
     validator (`validate-vi-analyzer-report.mjs`, the producing plane's pre-send
-    self-check) lock the normalized-report input contract.
+    self-check) lock the normalized-report input contract; a reference ASCII->v2
+    parser (`parse-vi-analyzer-ascii.mjs`) turns the real CLI report into it.
   - The summary projects to benchmark-store metrics (numeric counts + the
     `resultHash` digest), so `crossPlaneCompare` reports count deltas + the
     `resultHash` agreement (the `resultHash` MUST match cross-plane).
+  - The REAL run is proven cross-plane by the CI OS matrix: the committed real
+    report (`experiments/vi-analyzer/icon-editor-report.json`, WIN's attested
+    all-pass icon-editor run) is pinned by local gate
+    `vi-analyzer-real-report-cross-plane-green`, and the LBA Local Gates workflow
+    runs on BOTH ubuntu-latest and windows-latest -- so both operating systems
+    computing the same `resultHash` for the same real report IS the two-plane
+    agreement.
   - Gated: `verify-vi-analyzer-result` (7/7), local gates
-    `vi-analyzer-result-model-green` + `vi-analyzer-report-schema-green`.
+    `vi-analyzer-result-model-green` + `vi-analyzer-report-schema-green` +
+    `vi-analyzer-ascii-parser-green` + `vi-analyzer-real-report-cross-plane-green`.
 - Change Guidance: Keep `summarizeViAnalyzerReport` deterministic +
   order-independent + locale-independent (the cross-plane anchor is the
   `resultHash`; sort by code unit, never `localeCompare`). The normalized shape
   mirrors the tool's real failure-oriented output; do NOT reintroduce a
-  per-test-pass enumeration the CLI cannot emit. Do NOT mark Proven until a REAL
-  `LabVIEWCLI RunVIAnalyzer` report (WIN plane) is summarized and cross-plane
-  compared.
+  per-test-pass enumeration the CLI cannot emit. Proven 2026-07-28
+  (operator-authorized): WIN ran the real `LabVIEWCLI RunVIAnalyzer` on the
+  icon-editor VIs (452 passed / 0 failed, attested on the bus); the all-pass
+  report `experiments/vi-analyzer/icon-editor-report.json` (resultHash
+  `df9c8d1e...`) is proven cross-plane by the CI OS matrix (see the criterion
+  above). WIN's independent re-commit from its Windows machine is welcome as
+  corroboration.
 
 ---
 
