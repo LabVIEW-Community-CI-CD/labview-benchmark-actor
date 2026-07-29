@@ -62,30 +62,18 @@ $udpListener = Start-Process -FilePath dotnet -PassThru -NoNewWindow `
 
 Start-Sleep -Seconds 2   # let our own listeners bind before the peers start hammering them
 
-# 2. TCP: send one CLAIM to every other actor, retrying until that peer's listener accepts the connection.
-# A successful TCP send is also our barrier that the peer is alive (so its UDP listener is bound too).
-foreach ($p in $others) {
-  $ok = $false
-  for ($r = 1; ($r -le $SendRetries) -and (-not $ok); $r++) {
-    & dotnet $Lbabus net send --host $p --tcp $TcpPort --type CLAIM --task mesh --message "hello from $actor" --await 2 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) { $ok = $true } else { Start-Sleep -Milliseconds $SendRetryMs }
-  }
-  if (-not $ok) { Write-Host "[$actor] WARN could not reach $p over TCP after $SendRetries tries" }
-}
+# 2. TCP: ONE `lbabus net send` fans a CLAIM out to EVERY other actor via --hosts, retrying each peer
+# until its listener accepts (startup race). One process per actor (not one per peer) keeps the mesh at
+# O(N) total dotnet launches instead of O(N^2), so the proof measures the lbabus net transport rather
+# than dotnet process-startup contention. A clean exit is also our barrier that every peer is alive.
+$peerCsv = $others -join ','
+& dotnet $Lbabus net send --hosts $peerCsv --tcp $TcpPort --type CLAIM --task mesh --message "hello from $actor" --await 2 --retries $SendRetries --retry-ms $SendRetryMs 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) { Write-Host "[$actor] WARN one or more TCP peers unreachable after $SendRetries tries" }
 
-# 3. UDP: emit presence beacons to every peer. `net beacon --host` needs an IP (it does NOT resolve
-# names), so resolve each peer's container name to its nat IP first; every beacon envelope still carries
-# THIS actor's identity, so a peer attributes it regardless of datagram loss or address translation.
-foreach ($p in $others) {
-  $ip = $null
-  try {
-    $addr = [System.Net.Dns]::GetHostAddresses($p) |
-      Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } | Select-Object -First 1
-    if ($addr) { $ip = $addr.IPAddressToString }
-  } catch { }
-  if (-not $ip) { Write-Host "[$actor] WARN could not resolve $p for UDP"; continue }
-  & dotnet $Lbabus net beacon --host $ip --udp $UdpPort --count $UdpBeacons --interval 1 --task mesh 2>$null | Out-Null
-}
+# 3. UDP: ONE `lbabus net beacon` fans presence beacons out to EVERY peer via --hosts (the CLI resolves
+# each container name to its nat IPv4 itself, so no pre-resolve needed). Every envelope carries THIS
+# actor's identity, so a peer attributes each beacon regardless of datagram loss or address translation.
+& dotnet $Lbabus net beacon --hosts $peerCsv --udp $UdpPort --count $UdpBeacons --interval 1 --task mesh 2>$null | Out-Null
 
 # 4. wait for both listeners, then count DISTINCT peers heard from over each transport.
 $tcpListener.WaitForExit()
