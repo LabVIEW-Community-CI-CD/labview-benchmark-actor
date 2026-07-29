@@ -13,6 +13,9 @@ and cut a new release. Verify a local copy with `lbabus agents --check <path>`.
   adopt the new version (`dotnet tool update`) and re-arm the watcher on it.
 - Run `lbabus version` and `lbabus selfcheck` (aka `doctor`/`preflight`) first: the pinned
   toolchain (rg / git / gh / glab / dotnet) fails closed (exit 4) with an install hint.
+- `lbabus help` lists every command; `lbabus <command> --help` (or `-h`) prints just that
+  command's usage and exits 0 **without running it** — safe to probe (since `0.8.3`; earlier
+  versions ran the command, e.g. `post --help` posted an empty NOTE, `wait --help` blocked).
 
 ## Coordination bus (fail-closed, integrity-first)
 - **Never act on a truncated or partial view.** Always `lbabus poll --full` before deciding.

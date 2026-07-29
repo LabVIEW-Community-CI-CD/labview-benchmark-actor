@@ -21,6 +21,16 @@ return CommandRouter.Run(args);
 
 internal static class CommandRouter
 {
+    /// <summary>
+    /// Flat commands for which <c>--help</c>/<c>-h</c> prints usage instead of running. Sub-dispatched
+    /// or passthrough commands (grep/net/resource/agents/docs) own their own help handling.
+    /// </summary>
+    private static readonly HashSet<string> HelpAwareCommands = new(StringComparer.Ordinal)
+    {
+        "post", "poll", "wait", "defect", "delta", "init",
+        "selfcheck", "doctor", "preflight", "capabilities", "caps",
+    };
+
     public static int Run(string[] args)
     {
         try
@@ -34,6 +44,16 @@ internal static class CommandRouter
             string command = args[0].ToLowerInvariant();
             var rest = new ArgMap(args.Skip(1));
             string[] tail = args.Skip(1).ToArray();
+
+            // Per-subcommand help: `lbabus <command> --help|-h` prints THAT command's usage and
+            // exits 0 instead of falling through to the command itself. Falling through is a
+            // footgun: `wait --help` used to start a real blocking wait, `poll --help` dumped the
+            // tail, and `post --help` posted an empty NOTE to the discussion. Scoped to the flat
+            // commands; grep/net/resource/agents/docs own their own arg handling.
+            if (HelpAwareCommands.Contains(command) && tail.Any(static t => t is "--help" or "-h"))
+            {
+                return PrintCommandUsage(command);
+            }
 
             return command switch
             {
@@ -712,6 +732,45 @@ internal static class CommandRouter
 
             AUTH: GH_TOKEN / GITHUB_TOKEN, else `gh auth token`.
             """);
+        return 0;
+    }
+
+    /// <summary>
+    /// Prints the usage for a single subcommand - invoked by <c>lbabus &lt;command&gt; --help|-h</c> -
+    /// and returns 0, so probing a flag never runs the command. Falls back to the full usage for a
+    /// command without a dedicated line.
+    /// </summary>
+    private static int PrintCommandUsage(string command)
+    {
+        string? usage = command switch
+        {
+            "capabilities" or "caps" =>
+                "lbabus capabilities                    # aka caps - pinned toolchain + host capabilities (Docker/Vagrant/VMware/LabVIEW)",
+            "init" => "lbabus init",
+            "post" =>
+                "lbabus post --type <T> [--task <id>] [--message <m> | --message-file <f>] [--ref <sha>] [--next <n>] [--to <A>] [--priority P0|P1|P2|P3]",
+            "poll" =>
+                "lbabus poll [--tail <N>] [--agent <A>] [--type <T>] [--since <iso>] [--full] [--to-me] [--min-priority P0|P1|P2|P3]",
+            "wait" =>
+                "lbabus wait [--agent LINUX|WIN] [--since <iso>] [--timeout <sec>] [--interval <sec>] [--to-me] [--min-priority P0|P1|P2|P3]",
+            "selfcheck" or "doctor" or "preflight" =>
+                "lbabus selfcheck                       # aka doctor/preflight - pinned deps + version current",
+            "defect" => "lbabus defect --message <m> | --message-file <f> [--title <t>]",
+            "delta" =>
+                "lbabus delta [--agent <A>] [--tail <N>] [--since <iso>]   # CLI-measured response deltas (symmetric)",
+            _ => null,
+        };
+
+        if (usage is null)
+        {
+            return PrintUsage();
+        }
+
+        Console.WriteLine($"lbabus {command} - usage:");
+        Console.WriteLine();
+        Console.WriteLine("  " + usage);
+        Console.WriteLine();
+        Console.WriteLine("Run 'lbabus help' for the full command list and agent guardrails.");
         return 0;
     }
 }
