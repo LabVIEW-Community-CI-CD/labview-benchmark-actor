@@ -61,7 +61,8 @@ capabilities commands require `gh auth login` first (reviewer-supplied).
 
 [provision.ps1](provision.ps1) (WinRM, privileged) is additive on top of the golden box:
 
-1. Verifies `code` and `gh` are on `PATH` (supplied by the golden box).
+1. Ensures `code` (VS Code) and `gh` are on `PATH`, winget-installing them when the box lacks
+   them (the VirtualBox golden box ships them; the VMware cleanroom box and BYO boxes may not).
 2. Downloads and installs the extension `.vsix` from the resolved `ext-v*` Release.
 3. Downloads the self-contained `lbabus` (`*win-x64.exe`) from the resolved `collab-cli-v*`
    Release into `C:\lba-bin` and adds it to the machine `PATH`.

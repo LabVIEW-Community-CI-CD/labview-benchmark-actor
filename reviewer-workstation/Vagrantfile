@@ -51,6 +51,9 @@ Vagrant.configure("2") do |config|
     v.vmx["memsize"]     = ENV.fetch("VIHS_REVIEWER_MEM", "8192")
     v.vmx["numvcpus"]    = ENV.fetch("VIHS_REVIEWER_CPUS", "4")
     v.vmx["displayName"] = lba_vm_name
+    # Pin the NIC PCI slot the cleanroom box ships with: Vagrant auto-applies it today but warns it will
+    # stop in a future release, which could break guest networking/WinRM. Set it explicitly to future-proof.
+    v.vmx["ethernet0.pcislotnumber"] = "160"
   end
 
   # LBA-specific provisioning only (the golden box already has VS Code/Node/git/LabVIEW):
