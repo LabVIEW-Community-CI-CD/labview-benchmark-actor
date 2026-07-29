@@ -1,0 +1,65 @@
+# Vagrant reviewer workstation -- a Windows 11 + LabVIEW 2026 VM where an expert human reviewer
+# operates the labview-benchmark-actor VS Code extension + the embedded AGENTS.md. Tracking: #108.
+#
+# REPURPOSES the vi-history-suite GOLDEN BOX `vihs/win11-labview2026` (Windows 11 + LabVIEW 2026 +
+# VS Code + Node + git + LabVIEW fixtures + boot-time WinRM self-heal). We add ONLY the
+# labview-benchmark-actor bits: the extension .vsix (from the gated `ext-v*` Release), the lbabus
+# CLI, and a scratch workspace. See README.md for obtaining/registering the box.
+#
+# DUAL-PROVIDER. Pick one:
+#   VAGRANT_CWD=reviewer-workstation vagrant up --provider virtualbox      # Linux/Ubuntu (LINUX lane; validated here)
+#   VAGRANT_CWD=reviewer-workstation vagrant up --provider vmware_desktop  # Windows/VMware (WIN lane)
+#
+# Box per provider (both are maintainer-held Win+LabVIEW boxes; no public LabVIEW box by design):
+#   virtualbox     -> vihs/win11-labview2026  (vi-history-suite golden box; override VIHS_REVIEWER_BOX)
+#   vmware_desktop -> vihs/labview-cleanroom   (labview-benchmark-actor cleanroom box; override VIHS_REVIEWER_BOX_VMWARE)
+# Reviewers without a box build one per the docs (BYO), including their OWN licensed LabVIEW for TC-09.
+
+Vagrant.configure("2") do |config|
+  # Runtime-configurable VM identity (#108 follow-up): a future agent can launch
+  # multiple reviewer instances with unique names -- identifiable in VirtualBox /
+  # VMware -- via LBA_VM_NAME (the VM name) and LBA_VM_HOSTNAME (the guest Windows
+  # hostname, sanitized to NetBIOS rules: <=15 chars, [A-Za-z0-9-]). Default = "actor".
+  lba_vm_name = ENV.fetch("LBA_VM_NAME", "actor")
+  lba_vm_hostname = ENV.fetch("LBA_VM_HOSTNAME", lba_vm_name)
+                       .gsub(/[^A-Za-z0-9-]/, "-")[0, 15].sub(/-+$/, "")
+  lba_vm_hostname = "actor" if lba_vm_hostname.empty?
+
+  # Default: the vi-history-suite golden box (VirtualBox). Overridden per-provider below.
+  config.vm.box = ENV.fetch("VIHS_REVIEWER_BOX", "vihs/win11-labview2026")
+
+  config.vm.hostname = lba_vm_hostname
+  config.vm.communicator = "winrm"
+  config.winrm.timeout = 1800
+
+  # No host folder sync needed: provisioning pulls the .vsix from the GitHub Release.
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  # --- VirtualBox (LINUX lane; the golden box is a VirtualBox box; validated on an Ubuntu host) ---
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui    = true
+    vb.memory = ENV.fetch("VIHS_REVIEWER_MEM", "8192")
+    vb.cpus   = ENV.fetch("VIHS_REVIEWER_CPUS", "4")
+    vb.name   = lba_vm_name
+    vb.customize ["modifyvm", :id, "--vram", "128"]
+  end
+
+  # --- VMware (WIN lane; defaults to the cleanroom VMware box; WIN owns + refines this block) ---
+  config.vm.provider "vmware_desktop" do |v, override|
+    override.vm.box = ENV.fetch("VIHS_REVIEWER_BOX_VMWARE", "vihs/labview-cleanroom")
+    v.gui = true
+    v.vmx["memsize"]     = ENV.fetch("VIHS_REVIEWER_MEM", "8192")
+    v.vmx["numvcpus"]    = ENV.fetch("VIHS_REVIEWER_CPUS", "4")
+    v.vmx["displayName"] = lba_vm_name
+  end
+
+  # LBA-specific provisioning only (the golden box already has VS Code/Node/git/LabVIEW):
+  # install the extension .vsix (from the ext-v* Release) + the lbabus CLI + a scratch workspace.
+  config.vm.provision "reviewer-provision", type: "shell",
+    path: "provision.ps1", privileged: true,
+    env: {
+      "VIHS_REVIEWER_EXT_TAG"    => ENV.fetch("VIHS_REVIEWER_EXT_TAG", "latest"),
+      "VIHS_REVIEWER_REPO"       => ENV.fetch("VIHS_REVIEWER_REPO", "LabVIEW-Community-CI-CD/labview-benchmark-actor"),
+      "VIHS_REVIEWER_LBABUS_TAG" => ENV.fetch("VIHS_REVIEWER_LBABUS_TAG", "latest"),
+    }
+end
