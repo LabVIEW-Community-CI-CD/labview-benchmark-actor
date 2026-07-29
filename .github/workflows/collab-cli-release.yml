@@ -91,6 +91,31 @@ jobs:
           cp "artifacts/win-x64/lbabus.exe" "staging/lbabus-${{ steps.ver.outputs.version }}-win-x64.exe"
           ls -l staging
 
+      - name: Extract release notes from CHANGELOG
+        working-directory: .
+        id: notes
+        run: |
+          set -eu
+          version="${{ steps.ver.outputs.version }}"
+          changelog="tools/collab-cli/CHANGELOG.md"
+          notes_file="${RUNNER_TEMP}/release-notes.md"
+          # Extract just this version's section (header through the next "## [" header).
+          if [ -f "$changelog" ]; then
+            awk -v ver="$version" '
+              $0 ~ ("^## \\[" ver "\\]") { grab=1; print; next }
+              grab && /^## \[/ { exit }
+              grab { print }
+            ' "$changelog" > "$notes_file"
+          fi
+          # Fail-safe: fall back to the generic note if the section is missing/empty
+          # so a CHANGELOG gap can never fail the release.
+          if [ ! -s "$notes_file" ]; then
+            printf 'Shared cross-plane coordination bus CLI. Immutable SemVer release; both planes install this exact version.\n' > "$notes_file"
+          fi
+          echo "Release notes for ${version}:"
+          cat "$notes_file"
+          echo "path=${notes_file}" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         working-directory: .
         env:
@@ -99,5 +124,5 @@ jobs:
           gh release create "${GITHUB_REF_NAME}"
           --repo "${GITHUB_REPOSITORY}"
           --title "lbabus ${{ steps.ver.outputs.version }}"
-          --notes "Shared cross-plane coordination bus CLI. Immutable SemVer release; both planes install this exact version."
+          --notes-file "${{ steps.notes.outputs.path }}"
           staging/*
