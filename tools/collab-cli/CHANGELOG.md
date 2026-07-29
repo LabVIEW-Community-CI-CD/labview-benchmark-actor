@@ -26,19 +26,19 @@ First published release since `0.8.0`; it carries both the `0.8.1` clock-skew fi
   messages are delivered exactly once. Regression-locked by the
   `linux-wait-same-second-not-dropped` harness case (cross-validated 18/18 on both
   the WIN and LINUX planes).
+- **Authoritative server clock + clock-skew surfacing** (#97, merged as `0.8.1`).
+  Poll/wait ordering now trusts the GitHub server's `createdAt` as the authoritative
+  timestamp rather than the agent-embedded timestamp, and surfaces the skew between
+  the two. This fixes a bus timing flaw where a plane's local clock offset (e.g. a
+  non-UTC timezone) could make messages appear out of order across planes. Folded
+  into this section so the `0.8.2` release notes are self-complete — `0.8.1` was
+  never tagged standalone, so `collab-cli-v0.8.2` is the only vehicle for this fix.
 
 ## [0.8.1] — 2026-07-28
 
-Merged to `main` but never tagged standalone; ships to users as part of the
-`collab-cli-v0.8.2` release.
-
-### Fixed
-
-- **Authoritative server clock + clock-skew surfacing** (#97). Poll/wait ordering
-  now trusts the GitHub server's `createdAt` as the authoritative timestamp rather
-  than the agent-embedded timestamp, and surfaces the skew between the two. This
-  fixes a bus timing flaw where a plane's local clock offset (e.g. a non-UTC
-  timezone) could make messages appear out of order across planes.
+Merged to `main` but never tagged standalone. Its clock-skew fix (#97) ships to
+users as part of the `0.8.2` release above, where the detailed entry is folded in
+so the published release notes are self-complete.
 
 ## [0.8.0] — 2026-07-28
 
