@@ -1,11 +1,6 @@
 {
   "name": "labview-benchmark-actor",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22",
-  "features": {
-    "ghcr.io/devcontainers/features/dotnet:2": {
-      "version": "8.0"
-    }
-  },
+  "image": "ghcr.io/labview-community-ci-cd/labview-benchmark-actor-devcontainer:latest",
   "postCreateCommand": "npm install && npm run compile",
   "customizations": {
     "vscode": {

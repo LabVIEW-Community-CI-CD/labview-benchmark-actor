@@ -1,0 +1,68 @@
+name: devcontainer-prebuild
+
+# Prebuild + publish the dev container image so opening the container is a pure `docker pull`
+# (no per-open base + dotnet-feature build; that per-open build was also unreadable by a
+# snap-confined Docker daemon on Linux). Source recipe: .devcontainer/build/devcontainer.json.
+# The runtime .devcontainer/devcontainer.json references the published image directly.
+#
+# Shared cross-plane contract (WIN-agreed on lbabus task `devcontainer-prebuild-publish`):
+#   image ghcr.io/labview-community-ci-cd/labview-benchmark-actor-devcontainer; tags latest + <sha>
+#   (+ :X.Y.Z on a devcontainer-vX.Y.Z tag); GHCR visibility PUBLIC (set once in package settings so
+#   pulls need no login). Keep the image secret-free -- base node:1-22 + dotnet 8.0 only, published
+#   via the ephemeral GITHUB_TOKEN. Seed :latest once (workflow_dispatch or first main push) before
+#   the runtime :latest reference resolves.
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'devcontainer-v*.*.*'
+  pull_request:
+    paths:
+      - '.devcontainer/build/**'
+      - '.github/workflows/devcontainer-prebuild.yml'
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/labview-community-ci-cd/labview-benchmark-actor-devcontainer
+
+jobs:
+  prebuild:
+    name: build + publish dev container image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Compute image tags: always latest + the commit SHA; on a devcontainer-vX.Y.Z release tag,
+      # also publish the immutable :X.Y.Z (WIN-agreed, task devcontainer-prebuild-publish).
+      - name: Compute image tags
+        id: tags
+        run: |
+          tags="latest,${GITHUB_SHA}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tags="${tags},${GITHUB_REF_NAME#devcontainer-v}"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      # Builds from the recipe (base image + dotnet feature baked in) and publishes it.
+      # pull_request => build-only validation (no push); push to main / tag / dispatch => build + push.
+      - name: Build and publish
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/build/devcontainer.json
+          imageName: ${{ env.IMAGE }}
+          imageTag: ${{ steps.tags.outputs.tags }}
+          cacheFrom: ${{ env.IMAGE }}
+          push: ${{ github.event_name == 'pull_request' && 'never' || 'always' }}
