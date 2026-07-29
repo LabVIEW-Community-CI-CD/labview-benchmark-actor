@@ -9,23 +9,29 @@
   bus (`lbabus net`, ADR-0003/0004, the bus-msg@1 envelope), resolving each other by container name on
   a user-defined docker network.
 
-  This actor:
-    1. starts `lbabus net listen` in the background, collecting exactly (peers-1) reliable TCP frames
-       (--echo returns an ACK to each sender), with a hard --timeout so a partial mesh cannot hang;
-    2. sends one CLAIM frame to every OTHER actor (`lbabus net send`), retrying until that peer's
-       listener is up (startup race);
-    3. waits for its own listener to finish, then counts the peer frames it received.
+  This actor exercises BOTH lbabus net transports:
+    1. starts a background TCP listener collecting exactly (peers-1) reliable TCP frames (--echo returns
+       an ACK to each sender) AND a background UDP listener collecting presence beacons, both with a hard
+       --timeout so a partial mesh cannot hang;
+    2. sends one CLAIM frame to every OTHER actor over TCP (`lbabus net send`), retrying until that peer's
+       listener is up (startup race); then emits UDP presence beacons (`lbabus net beacon`) to every peer;
+    3. waits for both listeners, then counts the distinct peers it heard from over TCP (reliable frames)
+       and over UDP (each beacon envelope carries the sender's actor name, so the count is by IDENTITY --
+       robust to datagram loss and to address translation on the nat network).
 
-  Exit 0 iff it received a frame from EVERY other actor (its side of a full mesh); 1 otherwise. When all
-  actors exit 0 the orchestrator has proven a complete mesh over TCP -- real lbabus, isolated containers,
-  no shared state.
+  Exit 0 iff it heard from EVERY other actor over BOTH TCP and UDP (its side of a full mesh); 1 otherwise.
+  When all actors exit 0 the orchestrator has proven a complete TCP+UDP mesh over real lbabus, across
+  isolated containers with no shared state.
 #>
 [CmdletBinding()]
 param(
   [string]$Lbabus = 'C:\out\cli\lbabus.dll',
   [Parameter(Mandatory)][string]$Peers,   # comma-separated actor hostnames (self is filtered out)
   [int]$TcpPort = 7420,
+  [int]$UdpPort = 7421,
   [int]$TimeoutSec = 90,
+  [int]$UdpTimeoutSec = 30,
+  [int]$UdpBeacons = 3,
   [int]$SendRetries = 45,
   [int]$SendRetryMs = 1000
 )
@@ -36,35 +42,69 @@ if ([string]::IsNullOrWhiteSpace($actor)) { $actor = "actor-$PID" }
 
 $others = $Peers.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -and ($_ -ne $actor) }
 $expected = @($others).Count
-$listenOut = Join-Path $env:TEMP "listen-$actor.out"
-$listenErr = Join-Path $env:TEMP "listen-$actor.err"
+$tcpOut = Join-Path $env:TEMP "tcp-$actor.out"
+$tcpErr = Join-Path $env:TEMP "tcp-$actor.err"
+$udpOut = Join-Path $env:TEMP "udp-$actor.out"
+$udpErr = Join-Path $env:TEMP "udp-$actor.err"
 
-Write-Host "[$actor] mesh start: peers=$($others -join ',') expected=$expected tcp=$TcpPort"
+Write-Host "[$actor] mesh start: peers=$($others -join ',') expected=$expected tcp=$TcpPort udp=$UdpPort"
 
-# 1. background listener: collect exactly $expected TCP frames, echo an ACK to each sender, hard timeout.
-$listener = Start-Process -FilePath dotnet -PassThru -NoNewWindow `
-  -RedirectStandardOutput $listenOut -RedirectStandardError $listenErr `
+# 1a. background TCP listener: collect exactly $expected reliable frames, echo an ACK to each sender.
+$tcpListener = Start-Process -FilePath dotnet -PassThru -NoNewWindow `
+  -RedirectStandardOutput $tcpOut -RedirectStandardError $tcpErr `
   -ArgumentList @($Lbabus, 'net', 'listen', '--tcp', "$TcpPort", '--echo', '--count', "$expected", '--timeout', "$TimeoutSec")
 
-Start-Sleep -Seconds 2   # let our own listener bind before the peers start hammering it
+# 1b. background UDP listener: collect presence beacons until timeout. UDP is loss-safe/advisory, so it
+# runs UNBOUNDED (we later count DISTINCT sender identities, not a fixed datagram total).
+$udpListener = Start-Process -FilePath dotnet -PassThru -NoNewWindow `
+  -RedirectStandardOutput $udpOut -RedirectStandardError $udpErr `
+  -ArgumentList @($Lbabus, 'net', 'listen', '--udp', "$UdpPort", '--timeout', "$UdpTimeoutSec")
 
-# 2. send one CLAIM to every other actor, retrying until that peer's listener accepts the connection.
+Start-Sleep -Seconds 2   # let our own listeners bind before the peers start hammering them
+
+# 2. TCP: send one CLAIM to every other actor, retrying until that peer's listener accepts the connection.
+# A successful TCP send is also our barrier that the peer is alive (so its UDP listener is bound too).
 foreach ($p in $others) {
   $ok = $false
   for ($r = 1; ($r -le $SendRetries) -and (-not $ok); $r++) {
     & dotnet $Lbabus net send --host $p --tcp $TcpPort --type CLAIM --task mesh --message "hello from $actor" --await 2 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) { $ok = $true } else { Start-Sleep -Milliseconds $SendRetryMs }
   }
-  if (-not $ok) { Write-Host "[$actor] WARN could not reach $p after $SendRetries tries" }
+  if (-not $ok) { Write-Host "[$actor] WARN could not reach $p over TCP after $SendRetries tries" }
 }
 
-# 3. wait for the listener to finish (count reached or timeout), then count received peer frames.
-$listener.WaitForExit()
-$received = 0
-if (Test-Path $listenOut) {
-  $received = @(Select-String -Path $listenOut -Pattern '^TCP ' -ErrorAction SilentlyContinue).Count
+# 3. UDP: emit presence beacons to every peer. `net beacon --host` needs an IP (it does NOT resolve
+# names), so resolve each peer's container name to its nat IP first; every beacon envelope still carries
+# THIS actor's identity, so a peer attributes it regardless of datagram loss or address translation.
+foreach ($p in $others) {
+  $ip = $null
+  try {
+    $addr = [System.Net.Dns]::GetHostAddresses($p) |
+      Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } | Select-Object -First 1
+    if ($addr) { $ip = $addr.IPAddressToString }
+  } catch { }
+  if (-not $ip) { Write-Host "[$actor] WARN could not resolve $p for UDP"; continue }
+  & dotnet $Lbabus net beacon --host $ip --udp $UdpPort --count $UdpBeacons --interval 1 --task mesh 2>$null | Out-Null
 }
 
-Write-Host "[$actor] received $received / $expected peer frames"
-if ($received -ge $expected) { Write-Host "[$actor] MESH OK"; exit 0 }
+# 4. wait for both listeners, then count DISTINCT peers heard from over each transport.
+$tcpListener.WaitForExit()
+$udpListener.WaitForExit()
+
+$tcpReceived = 0
+if (Test-Path $tcpOut) {
+  $tcpReceived = @(Select-String -Path $tcpOut -Pattern '^TCP ' -ErrorAction SilentlyContinue).Count
+}
+
+# UDP line = "UDP <addr>  [<ts>] <senderId> #<seq> ..." -- pull <senderId>, count distinct non-self peers.
+$udpSenders = @()
+if (Test-Path $udpOut) {
+  $udpSenders = @(Select-String -Path $udpOut -Pattern '^UDP ' -ErrorAction SilentlyContinue |
+    ForEach-Object { if ($_.Line -match '\]\s+(\S+)\s+#\d+') { $Matches[1] } } |
+    Where-Object { $_ -and ($_ -ne $actor) } | Sort-Object -Unique)
+}
+$udpDistinct = @($udpSenders).Count
+
+Write-Host "[$actor] TCP heard from $tcpReceived / $expected ; UDP heard from $udpDistinct / $expected ($($udpSenders -join ','))"
+if (($tcpReceived -ge $expected) -and ($udpDistinct -ge $expected)) { Write-Host "[$actor] MESH OK (TCP+UDP)"; exit 0 }
 Write-Host "[$actor] MESH INCOMPLETE"; exit 1

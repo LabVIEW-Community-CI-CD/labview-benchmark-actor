@@ -7,8 +7,8 @@
   Launches N containers from the lbabus Windows verification image on a user-defined docker network,
   each a DISTINCT named actor (VIHS_COLLAB_AGENT), fully ISOLATED -- no shared volume, no shared store.
   The actors coordinate ONLY through collab-cli's TCP/UDP bus (`lbabus net`, see ci/mesh-actor.ps1),
-  resolving each other by container name. Each actor must receive a frame from EVERY other actor; when
-  every actor exits 0, a complete mesh has formed over TCP.
+  resolving each other by container name. Each actor must hear from EVERY other actor over BOTH TCP
+  (reliable frames) and UDP (presence beacons); when every actor exits 0, a complete TCP+UDP mesh formed.
 
   Exits 0 on a full mesh (all actors 0); 1 if any actor did not complete. Self-cleaning (removes the
   containers and the network on exit).
@@ -31,7 +31,7 @@ $names = 1..$Actors | ForEach-Object { "$run-actor-$_" }
 $peers = $names -join ','
 $exit  = 1
 
-Write-Host "== lbabus TCP mesh: $Actors isolated actors (image $Image, network $net) =="
+Write-Host "== lbabus TCP+UDP mesh: $Actors isolated actors (image $Image, network $net) =="
 # Windows containers use the `nat` driver (the Linux `bridge` driver does not exist here); a user-defined
 # nat network gives the containers DNS name resolution by container name, which is how actors find peers.
 docker network create -d nat $net | Out-Null
@@ -48,13 +48,13 @@ try {
   Write-Host ''
   foreach ($n in $names) {
     Write-Host "--- $n (exit $($codes[$n])) ---"
-    docker logs $n 2>&1 | Select-String -Pattern 'received|MESH|WARN' | ForEach-Object { "    $_" }
+    docker logs $n 2>&1 | Select-String -Pattern 'heard|MESH|WARN' | ForEach-Object { "    $_" }
   }
 
   $failed = @($codes.GetEnumerator() | Where-Object { $_.Value -ne 0 } | ForEach-Object { $_.Key })
   Write-Host ''
   if ($failed.Count -eq 0) {
-    Write-Host "PASS  full TCP mesh: all $Actors isolated actors received from every peer (lbabus net, no shared state)"
+    Write-Host "PASS  full TCP+UDP mesh: all $Actors isolated actors heard from every peer over TCP and UDP (lbabus net, no shared state)"
     $exit = 0
   } else {
     Write-Host "FAIL  mesh incomplete: $($failed -join ', ')"

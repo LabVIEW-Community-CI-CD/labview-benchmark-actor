@@ -56,7 +56,7 @@ RUN dotnet C:\out\stress\lbabus-stress.dll --lbabus C:\out\cli\lbabus.dll --agen
 FROM ${DOTNET_SDK} AS mesh
 COPY --from=build C:\out C:\out
 COPY ci\mesh-actor.ps1 C:\mesh-actor.ps1
-EXPOSE 7420
+EXPOSE 7420 7421/udp
 ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\mesh-actor.ps1"]
 
 # ---- verify: the pullable artifact -- bakes /out + cases + verify-windows.ps1 and runs the full suite
