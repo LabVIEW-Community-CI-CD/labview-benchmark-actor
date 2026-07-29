@@ -1,7 +1,7 @@
 # Experiment: comms-only coordination bus prototype (Phase-2 de-risk)
 
 De-risks the **net-new, least-proven** piece of the labview-benchmark-actor spec:
-the TCP/UDP inter-actor coordination bus. mprr (the storage/timeline dependency)
+the TCP/UDP inter-actor coordination bus. mprr (the storage/timeline model)
 has **no** inter-actor bus — it coordinates via a VirtualBox shared folder + TDMS
 files — so ADR-0003/0004 are the only unproven transport in the design. This
 experiment stands the bus up on `127.0.0.1` with Node built-ins only (`net`,

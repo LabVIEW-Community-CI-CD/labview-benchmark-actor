@@ -4,9 +4,9 @@
 - Owner: WIN
 - Traces to: LBA-REQ-003, LBA-REQ-005; constrains LBA-REQ-007
 - Standards baseline: `repo-standards-review` v0.2.19
-- External canonical reference: **mprr** (`svelderrainruiz/mprr`, `develop`) —
-  ADR-0024 dual-packet-stream buffering policy; frozen TDMS-compatible `1.0`
-  replay contract; VM review-capture.
+- Absorbed model (self-owned, [ADR-0009](ADR-0009-absorb-mprr-model-self-owned.md)):
+  **mprr** — ADR-0024 dual-packet-stream buffering policy; frozen TDMS-compatible `1.0`
+  replay contract; VM review-capture. Mirrored dependency-free in `experiments/mprr-ring/`.
 
 ## Context
 
@@ -35,11 +35,12 @@ is resolved by the viewer **on the same VM**.
   the GitHub-Discussion replacement — never run data, run/frame metadata, or
   images. This answers the ADR-0001 open item and supersedes the LINUX bus-lane
   frame-transport question: **no run/frame data on the bus at all**.
-- **Reuse, don't reinvent.** labview-benchmark-actor **consumes mprr** as a
-  canonical dependency (as `vi-history-suite` is mprr's first fixture repo); it
+- **Reuse, don't reinvent.** labview-benchmark-actor **owns the mprr model**
+  in-repo (absorbed dependency-free under `experiments/mprr-ring/`, ADR-0009); it
   does not re-implement the ring buffer, the TDMS transport, or the buffering
-  policy. It maps a benchmark "frame" onto an mprr long-packet payload and its
-  index onto a short-packet record.
+  policy from scratch, and does not track an external repository. It maps a
+  benchmark "frame" onto an mprr long-packet payload and its index onto a
+  short-packet record.
 - **Cleanroom isolation.** Because all run data stays VM-local, a benchmarking
   session is air-gapped: the bus is an inter-actor coordination channel only,
   not a data or image channel.
@@ -54,9 +55,10 @@ is resolved by the viewer **on the same VM**.
   runs locally; completed runs are concentrated to the operator's host
   out-of-band (not the bus) for a host-side ollama comparison layer
   (ADR-0006, LBA-REQ-010).
-- **−** Adds an external dependency on **mprr** (frozen TDMS `1.0` + ADR-0024);
-  it must be **version-pinned**, and an mprr schema move requires a successor
-  ADR here before this contract can move.
+- **~** Depends on the **mprr** model (frozen TDMS `1.0` + ADR-0024). This model
+  is **absorbed in-repo** (dependency-free, ADR-0009), so it is **not** an external
+  dependency to version-pin; a schema move still requires a successor ADR here
+  before this contract can move.
 - **−** Reviewing another VM's images is an out-of-band access to that VM's
   cleanroom store, **by design** — the bus will not fetch images.
 - **Open:** exact mapping of a benchmark frame onto mprr's long-packet payload

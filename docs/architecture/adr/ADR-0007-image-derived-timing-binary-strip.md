@@ -4,8 +4,8 @@
 - Owner: WIN
 - Traces to: LBA-REQ-003, LBA-REQ-005; constrains the self-test transport-conformance leg
 - Standards baseline: `repo-standards-review` v0.2.19
-- External canonical reference: **mprr** (`svelderrainruiz/mprr`, `develop`) —
-  `mprr-self-test-image-derived-timing-v1`, `mprr-self-test-ground-truth-ledger-v1`
+- Absorbed model (self-owned, [ADR-0009](ADR-0009-absorb-mprr-model-self-owned.md)):
+  **mprr** — `mprr-self-test-image-derived-timing-v1`, `mprr-self-test-ground-truth-ledger-v1`
   (`binaryStripEncoding` = `mprr-binary-strip-v1`), the
   `extractBinaryStripReadingFromPortableGrayMap` pixel-intensity decoder in
   `scripts/vmLiveStopwatchTimingValidation.js`, and the

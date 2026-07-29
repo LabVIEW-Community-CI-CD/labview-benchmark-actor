@@ -17,11 +17,13 @@ VMs coordinate over a **TCP/UDP bus** rather than a GitHub Discussion.
 Assumptions and constraints are marked as such; everything else is a normative
 requirement. This is planning material — no implementation is claimed.
 
-**External canonical dependency:** captured pictures are stored via **mprr**
-(`svelderrainruiz/mprr`, `develop`) — its bounded-RAM dual-packet ring buffer
-(mprr ADR-0024) and frozen TDMS-compatible `1.0` replay transport — inside each
-VM cleanroom. labview-benchmark-actor consumes mprr; it does not re-implement
-the ring buffer (see LBA-REQ-009, ADR-0005).
+**Absorbed model (self-owned):** captured pictures are stored via the **mprr**
+ring-buffer model — its bounded-RAM dual-packet ring buffer (dual-packet policy
+from mprr ADR-0024) and frozen TDMS-compatible `1.0` replay transport — inside each
+VM cleanroom. This model is **absorbed in-repo as dependency-free mirrors** under
+`experiments/mprr-ring/`; labview-benchmark-actor owns it and does not track the
+external `svelderrainruiz/mprr` repository. The `mprr` name is retained for the local
+model (see LBA-REQ-009, ADR-0005, ADR-0009).
 
 The coordination bus carries **inter-actor communication only** (the
 GitHub-Discussion replacement); run data never crosses it. Agents do not compare
@@ -207,19 +209,21 @@ ADR-0006).
   - The mprr ring buffer (short **and** long packet) stays entirely VM-local;
     **nothing from it is sent over the coordination bus**, which is inter-actor
     communication only (LBA-REQ-007). Runs are not correlated across VMs.
-  - mprr is consumed as an external canonical dependency
-    (`svelderrainruiz/mprr`, frozen TDMS-compatible `1.0` replay contract),
-    version-pinned; the ring buffer, transport, and buffering policy are reused,
-    not re-implemented.
+  - The mprr ring buffer model is **owned in-repo** (absorbed dependency-free
+    under `experiments/mprr-ring/`, ADR-0009), retaining the frozen
+    TDMS-compatible `1.0` replay contract as design lineage; the ring buffer,
+    transport, and buffering policy are reused from that self-owned model, not
+    re-implemented and not tracked as an external `svelderrainruiz/mprr`
+    dependency.
   - `[Confirmed 2026-07-27]` a benchmark frame maps onto exactly one mprr
     long-packet payload: a headless dual-packet live capture (mprr `develop`,
     .NET 8) produced 20/20 frames, each `frameId` bracketed by short-packet
     `frame-start`/`frame-end` and joined to one long-packet payload via
     `payloadDescriptorId`, all `correlationOutcome=authoritative`,
     `driftClass=none` (see `experiments/mprr-live-capture/`).
-- Change Guidance: Treat mprr as the authority for the ring buffer and replay
-  transport; an mprr schema move requires a successor ADR here (ADR-0005) before
-  this contract can move.
+- Change Guidance: Treat the absorbed mprr model as the authority for the ring
+  buffer and replay transport; a schema move requires a successor ADR here
+  (ADR-0005, ADR-0009) before this contract can move.
 
 ### LBA-REQ-010: Own-run review, host concentration, and the ollama comparison layer
 

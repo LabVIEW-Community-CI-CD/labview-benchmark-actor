@@ -21,7 +21,7 @@ import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity } from './corroboration-confidence-reference.mjs';
-import { ingestShortPackets, MPRR_RING_SCHEMA } from './mprr-ring/mprrRing.mjs';
+import { ingestShortPackets, MPRR_RING_SCHEMA, TICKS_PER_MS, DEFAULT_BLOCK_DURATION_MS, DEFAULT_BLOCK_DURATION_TICKS, ADMISSION_CAPACITY_HEADROOM, AUTHORITATIVE_BOUNDARY_VARIATION_PCT, NORMAL_LOAD_BOUNDARY_VARIATION_PCT } from './mprr-ring/mprrRing.mjs';
 import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
 import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
 import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
@@ -815,6 +815,52 @@ check('mcp-server-surface-contract', () => {
   // The dynamic protocol round-trip is wired into npm test.
   assert(/test\/mcp-server\.mjs/.test(pkg.scripts?.test ?? ''), 'npm test must run test/mcp-server.mjs');
   return { providerId: manifestId, tools: 4, protocol: '2025-06-18' };
+});
+// mprr is ABSORBED as a self-owned model (ADR-0009): the docs must not reintroduce the retired
+// "external canonical dependency/reference" framing, and the de-branded experiments must read the
+// LBA_* env var. Locks the absorption + de-brand so they cannot silently rot (mirrors docs-stamp).
+check('mprr-absorbed-self-owned-not-external', () => {
+  // (a) The absorption ADR exists with the right heading.
+  const adr = join(pkgRoot, 'docs', 'architecture', 'adr', 'ADR-0009-absorb-mprr-model-self-owned.md');
+  assert(existsSync(adr), 'ADR-0009 (mprr absorption) must exist');
+  assert(readFileSync(adr, 'utf8').startsWith('# ADR-0009:'), 'ADR-0009 heading must start with "# ADR-0009:"');
+  // (b) The retired framing labels must not reappear in the normative docs.
+  const readme = readFileSync(join(pkgRoot, 'README.md'), 'utf8');
+  const srs = readFileSync(join(pkgRoot, 'docs', 'requirements', 'srs.md'), 'utf8');
+  const adr5 = readFileSync(join(pkgRoot, 'docs', 'architecture', 'adr', 'ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md'), 'utf8');
+  const adr7 = readFileSync(join(pkgRoot, 'docs', 'architecture', 'adr', 'ADR-0007-image-derived-timing-binary-strip.md'), 'utf8');
+  assert(!/##\s*External dependency/.test(readme), 'README must not carry an "## External dependency" section (absorbed, ADR-0009)');
+  assert(!/\*\*External canonical dependency:\*\*/.test(srs), 'srs.md must not carry the "External canonical dependency" label (absorbed, ADR-0009)');
+  assert(!/External canonical reference:/.test(adr5 + adr7), 'ADR-0005/0007 must not carry the "External canonical reference" label (absorbed, ADR-0009)');
+  // (c) The absorbed model is positively cited.
+  assert(/Absorbed model/.test(readme) && /ADR-0009/.test(readme), 'README must cite the absorbed model + ADR-0009');
+  assert(/ADR-0009/.test(srs), 'srs.md must cite ADR-0009');
+  // (d) The de-branded experiments read the LBA_* env var (VIHS_* kept only as a back-compat fallback).
+  const ocr = readFileSync(join(pkgRoot, 'experiments', 'ocr-primitive-proof', 'ocr-driver.js'), 'utf8');
+  const conf = readFileSync(join(pkgRoot, 'experiments', 'self-test-conformance', 'produce-conformance.cjs'), 'utf8');
+  assert(/LBA_MPRR_ROOT/.test(ocr) && /LBA_MPRR_ROOT/.test(conf), 'de-branded experiments must read LBA_MPRR_ROOT');
+  assert(/LBA_CONFORMANCE_OUT/.test(conf), 'conformance generator must read LBA_CONFORMANCE_OUT');
+  // (e) The back-compat fallback is retained so existing VIHS_MPRR_ROOT callers keep working.
+  assert(/VIHS_MPRR_ROOT/.test(ocr) && /VIHS_MPRR_ROOT/.test(conf), 'legacy VIHS_MPRR_ROOT must remain as a back-compat fallback');
+  // Teeth: the guard regexes actually catch the retired framing if it is reintroduced.
+  assert(/##\s*External dependency/.test('## External dependency'), 'guard must catch a reintroduced "## External dependency" section');
+  assert(/\*\*External canonical dependency:\*\*/.test('**External canonical dependency:** mprr'), 'guard must catch a reintroduced srs label');
+  assert(/External canonical reference:/.test('- External canonical reference: mprr'), 'guard must catch a reintroduced ADR reference label');
+  return { adr: 'ADR-0009', deBrandedEnv: ['LBA_MPRR_ROOT', 'LBA_CONFORMANCE_OUT'], backCompat: 'VIHS_MPRR_ROOT' };
+});
+// The absorbed ring is a FAITHFUL mirror only while its GOVERNED constants equal the real mprr spec.
+// Verified against the local svelderrainruiz/mprr source: MPRR-REQ-106 (45 s block, <=1% normal / >5%
+// non-authoritative) + Program.cs GovernedDefaultBlockDurationMilliseconds=45_000; MPRR-REQ-110 admission +
+// Program.cs Math.Ceiling(window * 1.10); the writer's mprr-self-test-synthetic-monotonic-100ns tick
+// (RelativeMilliseconds * 10_000). Pinning them here fails closed if the absorbed mirror drifts (ADR-0009).
+check('mprr-absorbed-constants-match-mprr-spec', () => {
+  assert(TICKS_PER_MS === 10_000n, `100ns tick: TICKS_PER_MS must be 10_000n, got ${TICKS_PER_MS}`);
+  assert(DEFAULT_BLOCK_DURATION_MS === 45_000, `MPRR-REQ-106 block duration must be 45_000 ms, got ${DEFAULT_BLOCK_DURATION_MS}`);
+  assert(DEFAULT_BLOCK_DURATION_TICKS === 450_000_000n, `block duration must be 450_000_000 ticks, got ${DEFAULT_BLOCK_DURATION_TICKS}`);
+  assert(NORMAL_LOAD_BOUNDARY_VARIATION_PCT === 1.0, `MPRR-REQ-106 normal-load boundary target must be 1.0 pct, got ${NORMAL_LOAD_BOUNDARY_VARIATION_PCT}`);
+  assert(AUTHORITATIVE_BOUNDARY_VARIATION_PCT === 5.0, `MPRR-REQ-106 non-authoritative boundary must be 5.0 pct, got ${AUTHORITATIVE_BOUNDARY_VARIATION_PCT}`);
+  assert(ADMISSION_CAPACITY_HEADROOM === 1.1, `MPRR-REQ-110 admission headroom must be 1.1 (10 pct), got ${ADMISSION_CAPACITY_HEADROOM}`);
+  return { blockMs: DEFAULT_BLOCK_DURATION_MS, headroomPct: (ADMISSION_CAPACITY_HEADROOM - 1) * 100, ticksPerMs: Number(TICKS_PER_MS) };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

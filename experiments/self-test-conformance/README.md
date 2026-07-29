@@ -52,11 +52,11 @@ through mprr's actual decoder (0 errors).
 ## Reproduce
 
 ```
-VIHS_MPRR_ROOT=/path/to/mprr node produce-conformance.cjs
+LBA_MPRR_ROOT=/path/to/mprr node produce-conformance.cjs
 # on a runtime newer than .NET 8: prefix DOTNET_ROLL_FORWARD=LatestMajor
 ```
 
-Writes fresh artifacts to `VIHS_CONFORMANCE_OUT` (default: a temp dir); the
+Writes fresh artifacts to `LBA_CONFORMANCE_OUT` (default: a temp dir); the
 committed snapshot is never clobbered.
 
 ## Cross-plane cross-check (3 planes)

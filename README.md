@@ -29,8 +29,10 @@ Four capabilities distinguish it from the parent repo:
    across VMs. The bus carries **inter-actor communication only** — no run data
    ever crosses it.
 3. **VM cleanroom storage** — a run's data (metrics **and** pictures) is stored
-   **locally in each VM** via the existing **mprr** ring buffer
-   (`svelderrainruiz/mprr`, `develop`); **no run data crosses the bus** — the
+   **locally in each VM** via the **mprr** ring buffer model
+   (absorbed in-repo, dependency-free — see
+   [ADR-0009](docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md));
+   **no run data crosses the bus** — the
    whole ring buffer is VM-local (LBA-REQ-009,
    [ADR-0005](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md)).
 4. **Own-run review + host ollama comparison** — each actor reviews only its
@@ -39,13 +41,14 @@ Four capabilities distinguish it from the parent repo:
    comparison layer over previous runs (LBA-REQ-010,
    [ADR-0006](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0006-run-concentration-ollama-comparison.md)).
 
-## External dependency
+## Absorbed model
 
-- **mprr** (`svelderrainruiz/mprr`, `develop`) — the canonical authority for the
-  bounded-RAM dual-packet **ring buffer** (mprr ADR-0024) and the frozen
-  TDMS-compatible `1.0` replay transport. This package **consumes** mprr for
-  VM-local image storage; it does not re-implement the ring buffer. Pin the mprr
-  version; an mprr schema move requires a successor ADR here.
+- **mprr** — the bounded-RAM dual-packet **ring buffer** model (dual-packet policy
+  from mprr ADR-0024) and the frozen TDMS-compatible `1.0` replay transport, **absorbed
+  in-repo as dependency-free mirrors** under `experiments/mprr-ring/` and exercised by
+  `experiments/verify-local-gates.mjs`. The `mprr` name is retained for the local model;
+  labview-benchmark-actor owns it and does not track an external repository
+  ([ADR-0009](docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md)).
 
 ## Standards coverage
 
