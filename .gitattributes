@@ -3,3 +3,8 @@
 # scripts stay LF for the bare Linux container. Force LF regardless of a plane's core.autocrlf setting.
 experiments/ollama-bus/lba-coordinator.Modelfile text eol=lf
 experiments/ollama-bus/*.sh text eol=lf
+
+# Extension-embedded AGENTS.md (issue #98): the manifest pins the file by sha256 over its canonical body, so
+# it must stay LF on every plane (a Windows CRLF checkout would otherwise hash differently than the manifest).
+extension-agents/AGENTS.md text eol=lf
+extension-agents/agents.manifest.json text eol=lf

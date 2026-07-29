@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ingestShortPackets } from '../experiments/mprr-ring/mprrRing.mjs';
 import { projectViewerSeries } from '../experiments/mprr-ring/mprrViewerSeries.mjs';
+import { verifyManifest } from './agentsManifest.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, '..');
@@ -34,4 +35,18 @@ const ingest = ingestShortPackets(fixture.packets, {
 const series = projectViewerSeries(ingest, { metric: 'cumulativeBytes' });
 writeFileSync(join(repo, 'media', 'mprr-series.json'), `${JSON.stringify(series)}\n`);
 
-console.log(`staged media/viewerCursor.mjs + media/mprr-series.json (${series.length} points)`);
+// 3. Extension-embedded AGENTS.md (issue #98) + its integrity manifest. The .vsix ships both so the
+//    "Write/Check Agent Instructions" commands can materialize + verify them. Fail the build fast if the
+//    manifest sha256 has drifted from AGENTS.md (edit AGENTS.md -> bump version -> agentsManifest.mjs --refresh).
+const agents = verifyManifest();
+if (!agents.ok) {
+  console.error('stage-media: extension AGENTS.md manifest is invalid:');
+  for (const e of agents.errors) {
+    console.error('  - ' + e);
+  }
+  process.exit(1);
+}
+copyFileSync(join(repo, 'extension-agents', 'AGENTS.md'), join(repo, 'media', 'AGENTS.md'));
+copyFileSync(join(repo, 'extension-agents', 'agents.manifest.json'), join(repo, 'media', 'agents.manifest.json'));
+
+console.log(`staged media/viewerCursor.mjs + media/mprr-series.json (${series.length} points) + media/AGENTS.md`);
