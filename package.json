@@ -4,6 +4,7 @@
   "description": "Standalone agentic benchmark-actor infrastructure with cross-plane coordination (lbabus) for LabVIEW benchmarking.",
   "version": "0.1.1",
   "publisher": "labview-community-ci-cd",
+  "license": "0BSD",
   "repository": {
     "type": "git",
     "url": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor"
