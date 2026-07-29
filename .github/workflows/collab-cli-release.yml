@@ -45,8 +45,29 @@ jobs:
       - name: Harness — spec-vs-impl requirements-coverage (RTM gap ledger enforced)
         run: docker build -f tools/collab-cli/ci/Dockerfile --target ci-reqs .
 
+  # Bidirectional agreement gate (operator directive): a shared bus release publishes only after
+  # BOTH the WIN and LINUX planes have committed agreed:true for this exact version in
+  # release-agreement.json. Fails closed, so neither plane can unilaterally ship.
+  agreement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Derive version from tag
+        id: ver
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          echo "version=${tag#collab-cli-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify bidirectional WIN <-> LINUX release agreement
+        run: node tools/collab-cli/verify-release-agreement.mjs "${{ steps.ver.outputs.version }}"
+
   release:
-    needs: harness
+    needs: [harness, agreement]
     runs-on: ubuntu-latest
     defaults:
       run:
