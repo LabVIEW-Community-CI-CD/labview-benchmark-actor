@@ -3,6 +3,23 @@
   "policy": "Publishing any component release (collab-cli-vX.Y.Z bus CLI, or ext-vX.Y.Z VS Code extension .vsix) requires an explicit, committed sign-off from BOTH the WIN and LINUX planes for that exact version. Each component's release workflow fails closed (blocks its publish job) unless both planes have recorded agreed:true. This encodes the operator directive: publishing shall occur only after bidirectional WIN<->LINUX agreement. Neither plane may unilaterally ship a shared release. collab-cli sign-offs live under the top-level `releases` map (backward-compatible); other components live under `components.<name>.releases`.",
   "requiredPlanes": ["WIN", "LINUX"],
   "releases": {
+    "0.8.3": {
+      "summary": "Per-subcommand help footgun fix (defect #7): lbabus <command> --help/-h now prints that command's usage and exits 0 instead of running the command. Previously wait --help started a real blocking wait, poll --help dumped the tail, and post --help posted an empty NOTE (confirmed first-hand on LINUX). Intercepted before dispatch for the flat commands; grep passthrough and sub-dispatched commands (net/resource/agents/docs) unchanged. Regression-locked by the linux-post-help-prints-usage-not-posts harness case.",
+      "signoffs": {
+        "LINUX": {
+          "agreed": true,
+          "reviewedCommit": "3003b5658994f1c1e3a5498fdf97dc66b63f05f5",
+          "at": "2026-07-29T10:40:00Z",
+          "note": "Authored the fix after WIN filed defect #7 and I confirmed the post --help empty-NOTE footgun first-hand this session. Centralized the --help/-h interception before dispatch (flat commands only; grep/net/resource/agents/docs unchanged), bumped 0.8.2 -> 0.8.3, added the linux-post-help-prints-usage-not-posts regression case, and documented per-command help in the shipped AGENTS.md. Local dotnet build + harness green. LINUX agrees to publish collab-cli-v0.8.3."
+        },
+        "WIN": {
+          "agreed": false,
+          "reviewedCommit": "PENDING",
+          "at": "",
+          "note": "Pending WIN review of feat/lbabus-subcommand-help. WIN filed defect #7; requesting WIN validate that wait/poll/post --help print usage (exit 0, no wait/dump/post) on Windows and flip agreed:true so collab-cli-v0.8.3 can publish."
+        }
+      }
+    },
     "0.8.2": {
       "summary": "Same-second poll-boundary fix (#100/#101, identity node-id cursoring) + clock-skew authoritative-server-clock fix (#97, merged as 0.8.1), self-complete release notes (#103/#104). First published release since 0.8.0.",
       "signoffs": {
