@@ -1,0 +1,133 @@
+# Changelog — `lbabus` (LabViewBenchmarkActor.CollabBus)
+
+All notable changes to the shared cross-plane coordination-bus CLI are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+Releases are published as immutable, SemVer-tagged GitHub Releases (`collab-cli-vX.Y.Z`)
+so the WIN and LINUX planes install the exact same pinned version and cannot drift.
+
+## [Unreleased]
+
+## [0.8.2] — 2026-07-29
+
+First published release since `0.8.0`; it carries both the `0.8.1` clock-skew fix
+(#97) and the `0.8.2` same-second boundary fix (#100). Both planes should
+`dotnet tool update` to `0.8.2` once the tag is cut so the timing fixes go live.
+
+### Fixed
+
+- **`wait`/`poll` no longer drop a peer message created in the same wall-clock
+  second as the cursor** (#100, #101). GitHub comment `createdAt` timestamps are
+  second-precision, so a strict `> since` comparison silently skipped any message
+  that landed in the same second as the previous poll boundary. The cursor now
+  advances by **comment node identity** instead of a strict second, so same-second
+  messages are delivered exactly once. Regression-locked by the
+  `linux-wait-same-second-not-dropped` harness case (cross-validated 18/18 on both
+  the WIN and LINUX planes).
+
+## [0.8.1] — 2026-07-28
+
+Merged to `main` but never tagged standalone; ships to users as part of the
+`collab-cli-v0.8.2` release.
+
+### Fixed
+
+- **Authoritative server clock + clock-skew surfacing** (#97). Poll/wait ordering
+  now trusts the GitHub server's `createdAt` as the authoritative timestamp rather
+  than the agent-embedded timestamp, and surfaces the skew between the two. This
+  fixes a bus timing flaw where a plane's local clock offset (e.g. a non-UTC
+  timezone) could make messages appear out of order across planes.
+
+## [0.8.0] — 2026-07-28
+
+### Added
+
+- Hosted `ci-reqs` gate enforcing the spec-vs-impl RTM ledger, plus the AGENTS.md
+  Delegation & parallelism section (#42).
+
+## [0.7.0] — 2026-07-28
+
+### Added
+
+- Priority + addressing envelope for messages (`--priority`, `--to`) (RFC #34,
+  LBA-REQ-013) (#41).
+
+## [0.6.4] — 2026-07-28
+
+### Added
+
+- Spec↔impl gap-closure section + tooling-hygiene items and the ring-1/2
+  reqs-coverage check (#38).
+
+## [0.6.3] — 2026-07-28
+
+### Added
+
+- Version-pinned documentation package via `lbabus docs` (RFC #33) (#36).
+
+## [0.6.2] — 2026-07-28
+
+### Changed
+
+- LINUX-plane hardening pass for AGENTS.md (#32).
+
+## [0.6.1] — 2026-07-28
+
+### Changed
+
+- Hardened agent base instructions for cross-plane discipline (#31).
+
+## [0.6.0] — 2026-07-28
+
+### Added
+
+- Version-pinned agent base instructions via `lbabus agents` (#27).
+
+## [0.5.0] — 2026-07-28
+
+### Added
+
+- Resource serializer core with cross-process leases (#18).
+
+## [0.4.0] — 2026-07-27
+
+### Added
+
+- Pinned dependencies (incl. dotnet), grep determinism, API seam, capabilities,
+  and the Docker-CI harness (#13).
+
+## [0.3.0] — 2026-07-27
+
+### Added
+
+- Delta polling + `wait` mid-loop version re-check + `poll --full` (#12).
+
+## [0.2.0] — 2026-07-27
+
+### Added
+
+- Agent guardrails: ripgrep-only search, version fail-closed, defect reporting (#9).
+
+## [0.1.0] — 2026-07-27
+
+### Added
+
+- Shared versioned .NET CLI (`lbabus`) for the WIN↔LINUX coordination bus (#6).
+
+[Unreleased]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.8.2...HEAD
+[0.8.2]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.8.0...collab-cli-v0.8.2
+[0.8.1]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/pull/97
+[0.8.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.7.0...collab-cli-v0.8.0
+[0.7.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.6.4...collab-cli-v0.7.0
+[0.6.4]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.6.3...collab-cli-v0.6.4
+[0.6.3]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.6.2...collab-cli-v0.6.3
+[0.6.2]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.6.1...collab-cli-v0.6.2
+[0.6.1]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.6.0...collab-cli-v0.6.1
+[0.6.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.5.0...collab-cli-v0.6.0
+[0.5.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.4.0...collab-cli-v0.5.0
+[0.4.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.3.0...collab-cli-v0.4.0
+[0.3.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.2.0...collab-cli-v0.3.0
+[0.2.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.1.0...collab-cli-v0.2.0
+[0.1.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/releases/tag/collab-cli-v0.1.0
