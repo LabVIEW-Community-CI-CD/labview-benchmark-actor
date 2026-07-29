@@ -1,0 +1,6 @@
+# Build-context excludes for the Windows lbabus-verification image (ci/Dockerfile.windows), whose build
+# context is THIS directory (tools/collab-cli), not the repo root. Keep host build outputs and harness
+# run artifacts out of the context so the in-container `dotnet publish` restores/builds clean.
+**/bin
+**/obj
+ci/results
