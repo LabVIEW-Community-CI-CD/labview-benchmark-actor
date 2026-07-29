@@ -10,3 +10,8 @@ playwright/.artifacts/
 # host-extracted NI LabVIEW offline feeds (licensed/community artifacts staged for the docker-windows mirror)
 cleanroom/docker-windows/.lv-feed/
 cleanroom/docker-windows/.lv-cli-feed/
+# Vagrant runtime state for the reviewer-workstation VM
+reviewer-workstation/.vagrant/
+# Host-side GitHub token handed off to the reviewer VM for INTERNAL-repo release downloads (NEVER commit)
+reviewer-workstation/.gh-token
+**/.gh-token
