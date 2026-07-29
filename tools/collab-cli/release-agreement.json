@@ -46,10 +46,10 @@
           "summary": "LabVIEW Benchmark Actor VS Code extension 0.1.1: identical extension code to 0.1.0 (7 commands + embedded AGENTS.md); patch release fixing the CI publish gate -- extension-release.yml Node 20 -> 24 so jsdom's bundled undici (webidl.util.markAsUncloneable, absent on Node 20.20.2) works. The 0.1.0 tag was consumed by the failed run (GitHub Releases are immutable); 0.1.1 supersedes it.",
           "signoffs": {
             "LINUX": {
-              "agreed": false,
-              "reviewedCommit": "",
-              "at": "",
-              "note": "Awaiting LINUX sign-off for 0.1.1: re-validate npm test on Linux (Node 24) + confirm the Node-24 CI bump; extension code is unchanged from 0.1.0."
+              "agreed": true,
+              "reviewedCommit": "0b26afa04646a328c45907e04dc6da24fdfc50a8",
+              "at": "2026-07-29T08:47:15Z",
+              "note": "Validated on Linux (portable Node v24.18.0) at branch HEAD 0b26afa: npm ci clean; npm test PASS (tsc compile + stage-media; extension-activation registered all 7 commands with prerequisite remediation + clean deactivate; viewer-render PASS in jsdom -- the exact path Node 20.20.2 broke); npm run package produced labview-benchmark-actor.vsix via vsce. Confirmed the fix scope: git diff main...HEAD is ONLY the 3 infra files (extension-release.yml 3x node 20 -> 24, package.json 0.1.0 -> 0.1.1, this signoff) with NO src/ change -- extension code identical to 0.1.0. LINUX agrees to publish extension 0.1.1."
             },
             "WIN": {
               "agreed": true,
