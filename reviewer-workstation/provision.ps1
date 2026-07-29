@@ -65,6 +65,19 @@ Ensure-Tool 'code' 'Microsoft.VisualStudioCode' 'VS Code'    { Install-VSCodeDir
 Ensure-Tool 'gh'   'GitHub.cli'                 'GitHub CLI' { Install-GhDirect }
 Step "VS Code: $((code --version)[0]); gh: $((gh --version)[0])"
 
+# Authenticate gh non-interactively. The labview-benchmark-actor repo is INTERNAL (private): the gated
+# ext-v*/collab-cli-v* Releases are NOT world-readable, so a headless guest cannot use gh unauthenticated
+# (`gh api`/`gh release download` abort with "run gh auth login"). Consume a token forwarded from the host
+# (VIHS_REVIEWER_GH_TOKEN, or GH_TOKEN) and expose it as GH_TOKEN so gh authenticates with no interactive
+# login and no credentials persisted to guest disk. Fail fast with guidance when no token was supplied.
+$reviewerToken = $env:VIHS_REVIEWER_GH_TOKEN
+if (-not $reviewerToken) { $reviewerToken = $env:GH_TOKEN }
+if (-not $reviewerToken) {
+  throw "No GitHub token in the guest. $repo is INTERNAL, so its gated ext-v*/collab-cli-v* Releases need auth. On the HOST set a token before provisioning (e.g. `$env:GH_TOKEN = (gh auth token)  -- or VIHS_REVIEWER_GH_TOKEN) then re-run: VAGRANT_CWD=reviewer-workstation vagrant provision. The token needs contents:read on $repo (SSO-authorized for SSO orgs)."
+}
+$env:GH_TOKEN = $reviewerToken
+Step "GitHub token present; gh authenticates non-interactively for the private-release downloads."
+
 # Resolve the newest tag with a given prefix, or honor an explicit tag.
 function Resolve-Tag([string]$prefix, [string]$tag) {
   if ($tag -and $tag -ne 'latest') { return $tag }
