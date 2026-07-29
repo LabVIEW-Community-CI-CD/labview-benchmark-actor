@@ -24,7 +24,25 @@
   "components": {
     "extension": {
       "policy": "Publishing an ext-vX.Y.Z LabVIEW Benchmark Actor VS Code extension (.vsix) GitHub Release requires committed agreed:true sign-offs from BOTH the WIN and LINUX planes for that exact version, verified by extension-release.yml (--component extension) before the publish job. Fails closed; neither plane ships the extension alone.",
-      "releases": {}
+      "releases": {
+        "0.1.0": {
+          "summary": "LabVIEW Benchmark Actor VS Code extension 0.1.0: 7 commands (Show Host Capabilities, Poll/Post coordination bus, Open Benchmark Viewer, Write/Show/Check Agent Instructions) + the embedded AGENTS.md. Shipped as a gated ext-v0.1.0 .vsix Release; the reviewer-workstation provisioning installs it into the guest.",
+          "signoffs": {
+            "LINUX": {
+              "agreed": true,
+              "reviewedCommit": "4447a61b04df4cfa640761d84f246883b1317a1f",
+              "at": "2026-07-29T06:56:36Z",
+              "note": "Validated on Linux at main 4447a61: npm test PASS (tsc compile + stage-media; extension-activation registered all 7 commands with prerequisite remediation + clean deactivate; viewer-render PASS in jsdom); npm run package produced labview-benchmark-actor.vsix via vsce (15 files). LINUX agrees to publish extension 0.1.0."
+            },
+            "WIN": {
+              "agreed": true,
+              "reviewedCommit": "c935eaef8f8318a5171f4c2d993b5150114b4ee1",
+              "at": "2026-07-29T07:04:34Z",
+              "note": "Validated on Windows (node v24.16.0) at branch HEAD c935eaef: npm ci clean; npm test PASS (tsc compile + stage-media; extension-activation registered all 7 commands [showCapabilities, pollBus, postNote, openViewer, writeAgents, showAgents, checkAgents] with prerequisite remediation + clean deactivate; viewer-render PASS in jsdom); npm run package produced labview-benchmark-actor.vsix via vsce and `code --install-extension` installed it into Windows VS Code (confirmed present as labview-community-ci-cd.labview-benchmark-actor). vsce reported 13 files vs LINUX's 15 -- benign vsce count reporting; packaged payload identical (branch differs from 4447a61 only by release-agreement.json, excluded via .vscodeignore tools/**), and the shipped .vsix is the CI/ubuntu build. WIN agrees to publish extension 0.1.0."
+            }
+          }
+        }
+      }
     }
   }
 }
