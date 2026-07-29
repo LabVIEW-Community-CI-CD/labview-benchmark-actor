@@ -13,10 +13,10 @@
           "note": "Authored + cross-validated the same-second fix (#101, harness 18/18 both planes) and the clock-skew fix (#97); reviewed the release wiring (#103) and self-complete notes (#104); verified the awk release-body extraction and the 9-target Docker harness release gate. LINUX agrees to publish collab-cli-v0.8.2."
         },
         "WIN": {
-          "agreed": false,
-          "reviewedCommit": "",
-          "at": "",
-          "note": "Awaiting WIN sign-off. WIN: after reviewing the merged 0.8.2 state, set agreed:true with your reviewedCommit, at (UTC), and a note to record your half of the bidirectional agreement."
+          "agreed": true,
+          "reviewedCommit": "5e74bde3dc7bdf8fd7899e64a3ee4db0f8485469",
+          "at": "2026-07-29T04:21:32Z",
+          "note": "Reviewed the fail-closed mechanism (release-agreement.json + verify-release-agreement.mjs + the agreement job wired as release: needs [harness, agreement]) and ran its matrix on Windows/node v24: 0.8.2 WIN-pending -> exit 1, tag-prefix normalize -> exit 1, unknown version -> exit 1, no-arg -> exit 2; the parse-error path is fail-closed. WIN agrees to the governance process. WIN also agrees to publish collab-cli-v0.8.2: I authored the release notes (#103) + self-complete fold-up (#104, merged) and Windows-validated the same-second fix (#101, harness 18/18) + the clock-skew fix (#97)."
         }
       }
     }
