@@ -721,6 +721,11 @@ check('vi-analyzer-real-report-cross-plane-green', () => {
   assert(s.pass === true && s.passedTests === 452 && s.failedTests === 0 && s.errorTests === 0, 'real all-pass counts (452 passed / 0 failed / 0 error)');
   const EXPECTED = 'df9c8d1ef67461637ee2b841a980da4a59164caff2d6df07eb916ac99453d75d';
   assert(s.resultHash === EXPECTED, `real report resultHash ${s.resultHash} MUST equal the cross-plane anchor ${EXPECTED} on every plane/OS`);
+  // Primary source: WIN's raw LabVIEWCLI completion output, parsed, reproduces the SAME pinned resultHash --
+  // tying the real tool output end-to-end to the committed report on every OS.
+  const rawWin = readFileSync(join(pkgRoot, 'experiments', 'vi-analyzer', 'icon-editor-vi-analyzer-completion-WIN.txt'), 'utf8');
+  const parsedWin = parseAsciiReport(rawWin, report.config);
+  assert(summarizeViAnalyzerReport(parsedWin).resultHash === EXPECTED, 'WIN raw completion output parses to the pinned cross-plane resultHash');
   return { resultHash: s.resultHash, tests: s.totalTests };
 });
 check('mprr-packet-harness-profiles-green', () => {
