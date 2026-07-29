@@ -6,11 +6,13 @@ name: devcontainer-prebuild
 # The runtime .devcontainer/devcontainer.json references the published image directly.
 #
 # Shared cross-plane contract (WIN-agreed on lbabus task `devcontainer-prebuild-publish`):
-#   image ghcr.io/labview-community-ci-cd/labview-benchmark-actor-devcontainer; tags latest + <sha>
-#   (+ :X.Y.Z on a devcontainer-vX.Y.Z tag); GHCR visibility PUBLIC (set once in package settings so
-#   pulls need no login). Keep the image secret-free -- base node:1-22 + dotnet 8.0 only, published
-#   via the ephemeral GITHUB_TOKEN. Seed :latest once (workflow_dispatch or first main push) before
-#   the runtime :latest reference resolves.
+#   image ghcr.io/svelderrainruiz/labview-benchmark-actor-devcontainer; tags latest + <sha>
+#   (+ :X.Y.Z on a devcontainer-vX.Y.Z tag). Published ONLY from the fork
+#   svelderrainruiz/labview-benchmark-actor (the extension's publish home); its owner sets the
+#   package PUBLIC with no org-admin dependency. Org repo + other forks + PRs are build-only.
+#   Keep the image secret-free -- base node:1-22 + dotnet 8.0 only, published via the fork's
+#   ephemeral GITHUB_TOKEN. Seed :latest once (fork main-push or workflow_dispatch) before the
+#   runtime :latest reference resolves.
 
 on:
   push:
@@ -24,7 +26,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/labview-community-ci-cd/labview-benchmark-actor-devcontainer
+  IMAGE: ghcr.io/svelderrainruiz/labview-benchmark-actor-devcontainer
 
 # Serialize runs on the same ref so two quick main pushes cannot race the :latest tag.
 concurrency:
@@ -43,7 +45,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository == 'svelderrainruiz/labview-benchmark-actor'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -61,8 +63,9 @@ jobs:
           fi
           echo "tags=${tags}" >> "$GITHUB_OUTPUT"
 
-      # Builds from the recipe (base image + dotnet feature baked in) and publishes it.
-      # pull_request => build-only validation (no push); push to main / tag / dispatch => build + push.
+      # Builds from the recipe (base image + dotnet feature baked in). Publishes ONLY from the fork:
+      # push to main / tag / dispatch on svelderrainruiz/labview-benchmark-actor => build + push;
+      # PRs and any other repo (incl. the org) => build-only validation.
       - name: Build and publish
         uses: devcontainers/ci@v0.3
         with:
@@ -70,4 +73,4 @@ jobs:
           imageName: ${{ env.IMAGE }}
           imageTag: ${{ steps.tags.outputs.tags }}
           cacheFrom: ${{ env.IMAGE }}
-          push: ${{ github.event_name == 'pull_request' && 'never' || 'always' }}
+          push: ${{ (github.event_name != 'pull_request' && github.repository == 'svelderrainruiz/labview-benchmark-actor') && 'always' || 'never' }}

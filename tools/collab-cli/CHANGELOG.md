@@ -10,6 +10,22 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-07-29
+
+Updates the embedded agent base instructions (surfaced by `lbabus agents`) — no CLI code change. Both
+planes should `dotnet tool update` to `0.9.0` once the tag is cut so every session shares the new base.
+Released together with the devcontainer fork-publish change in the same PR (#118).
+
+### Added
+
+- **`AGENTS.md`: new "Dev containers & the prebuilt image" section** banking this cycle's cross-plane
+  dev-container lessons — the devcontainer now pulls a fork-published prebuilt image (a pure `docker
+  pull`, no per-open feature build); **LINUX**: snap-packaged Docker is incompatible with Dev Containers
+  (private `/tmp` + unreadable hidden `~/.vscode` build-context → `failed to read dockerfile`), use Docker
+  CE not the snap; **WIN**: Docker Desktop's cold 9p/drvfs bind mount can transient-EPERM the first
+  `postCreate` `copyFileSync` (`copy_file_range`/reflink) — stage via read+write or a container volume,
+  and `docker exec -u node`.
+
 ## [0.8.3] — 2026-07-29
 
 Fixes a per-subcommand help footgun surfaced by the WIN plane (defect #7): probing

@@ -3,6 +3,23 @@
   "policy": "Publishing any component release (collab-cli-vX.Y.Z bus CLI, or ext-vX.Y.Z VS Code extension .vsix) requires an explicit, committed sign-off from BOTH the WIN and LINUX planes for that exact version. Each component's release workflow fails closed (blocks its publish job) unless both planes have recorded agreed:true. This encodes the operator directive: publishing shall occur only after bidirectional WIN<->LINUX agreement. Neither plane may unilaterally ship a shared release. collab-cli sign-offs live under the top-level `releases` map (backward-compatible); other components live under `components.<name>.releases`.",
   "requiredPlanes": ["WIN", "LINUX"],
   "releases": {
+    "0.9.0": {
+      "summary": "Embedded agent base-instructions update (no CLI code change): new AGENTS.md 'Dev containers & the prebuilt image' section banking this cycle's cross-plane dev-container lessons -- the devcontainer pulls a fork-published prebuilt image (pure docker pull, no per-open feature build); LINUX snap-Docker is incompatible with Dev Containers (private /tmp + unreadable hidden ~/.vscode build-context, use Docker CE not the snap); WIN Docker Desktop cold-9p/drvfs first-postCreate copyFileSync EPERM (stage via read+write / container volume, docker exec -u node). Released with the devcontainer fork-publish change in the same PR (#118).",
+      "signoffs": {
+        "LINUX": {
+          "agreed": true,
+          "reviewedCommit": "95714e3e327028989e2d4acb0c35a9088a55b383",
+          "at": "2026-07-29T15:23:01Z",
+          "note": "Authored the AGENTS.md 'Dev containers & the prebuilt image' section on top of the devcontainer fork-publish commit 95714e3: prebuilt fork-image guidance + the LINUX snap-Docker incompatibility (root-caused first-hand this session -- private /tmp + blocked hidden ~/.vscode make the generated Dockerfile.extended build-context unreadable), with WIN's Windows 9p/drvfs bullet banked per their ALIGN. Bumped LbaBus.csproj 0.8.3 -> 0.9.0 + CHANGELOG; folded into devcontainer PR #118 as a separate CLI-release commit. 36/36 local gates green; no CLI code change. LINUX agrees to publish collab-cli-v0.9.0."
+        },
+        "WIN": {
+          "agreed": true,
+          "reviewedCommit": "3c61fd5629db54cc3c13916bd1f07cd4c561e0d8",
+          "at": "2026-07-29T15:31:00Z",
+          "note": "Re-reviewed combined PR #118 on the WIN plane. Container commit 95714e3 is the 2-file fork-publish change I already ship-it'd, UNCHANGED (re-verified: runtime .devcontainer/devcontainer.json image + workflow IMAGE env both the fork namespace, login+push guarded on github.repository=='svelderrainruiz/labview-benchmark-actor', gate #21 holds, CI green). CLI commit 3c61fd5: no CLI code change -- pure embedded-instructions bump; the new AGENTS.md 'Dev containers & the prebuilt image' section reads right on Windows with my 9p/drvfs bullet banked verbatim (cold-mount copyFileSync copy_file_range EPERM -> writeFileSync(readFileSync) / container volume; docker exec -u node corollary); LbaBus.csproj 0.8.3 -> 0.9.0 + CHANGELOG 0.9.0. Ran verify-release-agreement.mjs 0.9.0 locally -> now OK (both planes agreed:true). WIN agrees to publish collab-cli-v0.9.0."
+        }
+      }
+    },
     "0.8.3": {
       "summary": "Per-subcommand help footgun fix (defect #7): lbabus <command> --help/-h now prints that command's usage and exits 0 instead of running the command. Previously wait --help started a real blocking wait, poll --help dumped the tail, and post --help posted an empty NOTE (confirmed first-hand on LINUX). Intercepted before dispatch for the flat commands; grep passthrough and sub-dispatched commands (net/resource/agents/docs) unchanged. Regression-locked by the linux-post-help-prints-usage-not-posts harness case.",
       "signoffs": {

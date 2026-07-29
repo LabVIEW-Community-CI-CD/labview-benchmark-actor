@@ -72,6 +72,25 @@ and cut a new release. Verify a local copy with `lbabus agents --check <path>`.
   run it, never by assuming an interactive shell — e.g. `winget` is on the interactive PATH but not the
   non-interactive WinRM provisioner PATH; use a context-independent installer instead.
 
+## Dev containers & the prebuilt image
+The repo devcontainer references a PREBUILT image published fork-only
+(`ghcr.io/svelderrainruiz/labview-benchmark-actor-devcontainer:latest`, the same home the VS Code
+extension ships from) — opening the container is a pure `docker pull`, with no per-open base + feature
+build. Iterate the recipe under `.devcontainer/build/` and let the fork's CI republish; never hand-edit
+the runtime `image` in `.devcontainer/devcontainer.json`.
+- **LINUX — snap-packaged Docker is incompatible with Dev Containers.** The snap daemon runs under a
+  PRIVATE `/tmp` and cannot read hidden `$HOME` dot-dirs (`~/.vscode`), so the Dev-Containers-generated
+  `Dockerfile.extended` + feature build-context is invisible to it (`failed to read dockerfile … no such
+  file or directory`, `transferring dockerfile: 2B`). Use Docker CE from `download.docker.com`, not the
+  snap: `snap remove --purge docker` (skips the tar/socket auto-snapshot), then the apt install; on a
+  brand-new Ubuntu release also clear a stale 0-byte index with `rm /var/lib/apt/lists/download.docker.com_*`.
+- **WIN — Docker Desktop (WSL2 `C:\` share, 9p/drvfs): the first `postCreate` file-staging can hit a
+  transient EPERM** — `copyFileSync` takes a `copy_file_range` server-side/reflink fast path that the cold
+  9p mount rejects. Stage with `writeFileSync(dst, readFileSync(src))` (plain read+write, no
+  copy_file_range) or write into a container-local volume instead of the bind mount. Corollary: don't
+  `docker exec` as root onto the bind mount — root-owned files there cause EACCES for the non-root `node`
+  user; use `docker exec -u node`.
+
 ## Spec ↔ implementation gap closure
 The built spec is `docs/requirements/srs.md` (LBA-REQ-* definitions) + `docs/requirements/rtm.csv`
 (ReqID → Requirement → TestID → CodeRef → Status → Notes) + `docs/architecture/adr/` + the test plan;
