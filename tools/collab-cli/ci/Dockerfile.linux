@@ -1,0 +1,61 @@
+# Linux-container parity of tools/collab-cli/ci/Dockerfile.windows: VERIFIES lbabus on the LINUX plane.
+#
+# "Lean" = NO NI LabVIEW ISO/feed install (no LabVIEW, no VI Analyzer) -- just the .NET toolchain that
+# builds and exercises the lbabus CLI. Its Windows twin lives at ci/Dockerfile.windows; this is the Linux
+# lane of Discussion #120 (cross-plane lbabus verification image + isolated-actor TCP/UDP mesh).
+#
+# This image is a PULLABLE lbabus Linux verification artifact: `docker run` executes the full harness
+# (verify-linux.sh) and exits non-zero on any failure. The SAME script gates the build (RUN in the `verify`
+# stage), so a broken lbabus fails the image. The build context is tools/collab-cli (NOT the repo root):
+# this lane needs only the collab-cli source, and the repo root carries multi-GB reviewer-workstation +
+# clean-room LabVIEW-feed artifacts a lean image must never pull in (the scoped .dockerignore drops host
+# bin/obj). Runs on the standard Linux Docker engine.
+#
+#   # fast standalone gate (build + the cross-process lease stress check):
+#   docker build -f tools/collab-cli/ci/Dockerfile.linux --target ci-stress -t lbabus-linux-verify:stress tools/collab-cli
+#   # the full pullable verification artifact:
+#   docker build -f tools/collab-cli/ci/Dockerfile.linux -t lbabus-linux-verify:latest tools/collab-cli
+#   docker run --rm lbabus-linux-verify:latest   # re-run the verification from the published image
+
+ARG DOTNET_SDK=mcr.microsoft.com/dotnet/sdk:8.0
+
+# ---- build: publish the CLI + case runner + GitHub mock + stress gate with the Linux .NET SDK -----------
+FROM ${DOTNET_SDK} AS build
+WORKDIR /src
+COPY . .
+RUN set -eux; \
+    dotnet publish LbaBus.csproj -c Release -o /out/cli; \
+    dotnet publish ci/LbaBus.Ci/LbaBus.Ci.csproj -c Release -o /out/ci; \
+    dotnet publish ci/LbaBus.Ci.Mock/LbaBus.Ci.Mock.csproj -c Release -o /out/mock; \
+    dotnet publish ci/LbaBus.Ci.Stress/LbaBus.Ci.Stress.csproj -c Release -o /out/stress
+
+# ---- ci-stress: cross-process lease mutual-exclusion regression gate (fast standalone) ------------------
+# Mirrors the Windows ci-stress stage (LBABUS #15/#18) and the repo-root ci/Dockerfile ci-stress target.
+FROM ${DOTNET_SDK} AS ci-stress
+COPY --from=build /out /out
+RUN dotnet /out/stress/lbabus-stress.dll --lbabus /out/cli/lbabus.dll --agents 16 --rounds 30
+
+# ---- mesh: the isolated-actor TCP/UDP mesh workload image (driven by ci/mesh-linux.sh) ------------------
+# N of these run as ISOLATED named actors on a user-defined `bridge` network and coordinate ONLY over
+# `lbabus net` (TCP/UDP, ADR-0003/0004) -- no shared volume/store. The ENTRYPOINT is the per-actor workload;
+# the orchestrator passes the peer list (comma-separated container names) via MESH_PEERS.
+FROM ${DOTNET_SDK} AS mesh
+COPY --from=build /out /out
+COPY ci/mesh-actor.sh /mesh-actor.sh
+RUN chmod +x /mesh-actor.sh
+EXPOSE 7420 7421/udp
+ENTRYPOINT ["bash", "/mesh-actor.sh"]
+
+# ---- verify: the pullable artifact -- bakes /out + cases + verify-linux.sh and runs the full suite -------
+FROM ${DOTNET_SDK} AS verify
+WORKDIR /repo
+COPY --from=build /out /out
+COPY ci /repo/tools/collab-cli/ci
+COPY ci/verify-linux.sh /verify-linux.sh
+RUN chmod +x /verify-linux.sh
+# build-time gate: the exact verification `docker run` re-runs, so a broken lbabus fails the image build.
+# ripgrep is intentionally ABSENT here, so requiresRipgrep harness cases SKIP (the ci-no-rg equivalent)
+# while the mock-requiring version-guard / defect cases RUN.
+RUN /verify-linux.sh --out /out --repo /repo
+ENTRYPOINT ["bash", "/verify-linux.sh"]
+CMD ["--out", "/out", "--repo", "/repo"]
