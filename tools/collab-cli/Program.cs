@@ -246,20 +246,37 @@ internal static class CommandRouter
             return 2;
         }
 
-        // AUTHORITATIVE baseline: when --since is not given, default to the latest EXISTING comment's SERVER
-        // createdAt (the clock the reader shares with the sender via GitHub), NOT the reader's local UtcNow.
-        // A reader whose local clock drifts would otherwise wait against a skewed instant and mis-judge which
-        // peer replies are "new" — the same clock-skew flaw that makes a peer look early/late.
+        // Baseline for "new" target messages. Two modes:
+        //   - explicit --since T: a raw timestamp filter, STRICTLY after T (backward-compat).
+        //   - default (no --since): cursor from the reader's OWN last message -- "catch me up on <target>
+        //     since I last spoke" (same semantic as post's check-before-publish). Anchoring on the reader's
+        //     last message AND excluding it by its comment ID (issue #100) means a target message in the SAME
+        //     whole second as the reader's last post is still surfaced -- GitHub createdAt is second-granular,
+        //     so a strict timestamp compare silently drops same-second messages. Falls back to the latest
+        //     comment when the reader has not posted yet (nothing to catch up on).
         DateTimeOffset since;
+        string? baselineId = null;
+        bool inclusive;
         if (explicitSince is { } es)
         {
             since = es;
+            inclusive = false;
         }
         else
         {
-            List<DateTimeOffset> existing = ParseAll(gh.ListComments(cfg, disc.Number, 50))
-                .Select(m => m.CreatedAt).OfType<DateTimeOffset>().ToList();
-            since = existing.Count > 0 ? existing.Max() : DateTimeOffset.UtcNow;
+            List<CollabMessage> existing = ParseAll(gh.ListComments(cfg, disc.Number, 50));
+            CollabMessage? readerLast = existing.LastOrDefault(m => Eq(m.Agent, cfg.Agent));
+            if (readerLast?.CreatedAt is { } mine)
+            {
+                since = mine;
+                baselineId = readerLast.CommentId;
+            }
+            else
+            {
+                since = existing.Select(m => m.CreatedAt).OfType<DateTimeOffset>().DefaultIfEmpty(DateTimeOffset.UtcNow).Max();
+            }
+
+            inclusive = true;
         }
 
         DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(timeoutSec);
@@ -282,7 +299,9 @@ internal static class CommandRouter
             }
 
             List<CollabMessage> hits = ParseAll(gh.ListComments(cfg, disc.Number, 50))
-                .Where(m => Eq(m.Agent, target) && m.CreatedAt > since)
+                .Where(m => Eq(m.Agent, target) && m.CreatedAt is { } c
+                    && (inclusive ? c >= since : c > since)
+                    && (baselineId is null || m.CommentId != baselineId))
                 .Where(m => !toMe || cfg.AddressesMe(m.To))
                 .Where(m => minPrio is null || Priority.MeetsThreshold(m.Prio, minPrio))
                 .OrderBy(m => m.CreatedAt)
@@ -593,7 +612,7 @@ internal static class CommandRouter
         var list = new List<CollabMessage>();
         foreach (DiscussionComment c in comments)
         {
-            CollabMessage? m = CollabMessage.TryParse(c.Body, c.CreatedAt);
+            CollabMessage? m = CollabMessage.TryParse(c.Body, c.CreatedAt, c.Id);
             if (m is not null)
             {
                 list.Add(m);

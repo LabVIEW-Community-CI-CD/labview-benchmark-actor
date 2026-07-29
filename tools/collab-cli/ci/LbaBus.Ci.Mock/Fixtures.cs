@@ -22,7 +22,7 @@ internal static class Fixtures
             return "[{\"tag_name\":\"collab-cli-v99.0.0\"}]";
         }
 
-        if (EndsWith(repo, "fixture-current") || EndsWith(repo, "fixture-since") || EndsWith(repo, "fixture-skew"))
+        if (EndsWith(repo, "fixture-current") || EndsWith(repo, "fixture-since") || EndsWith(repo, "fixture-skew") || EndsWith(repo, "fixture-same-second"))
         {
             // Exactly the running build -> the guard passes and the command proceeds.
             return $"[{{\"tag_name\":\"collab-cli-v{currentVersion}\"}}]";
@@ -69,6 +69,19 @@ internal static class Fixtures
                 "2020-06-01T10:00:00Z",
                 MsgBlock("WIN", "2020-06-01T15:12:00.000Z", "NOTE",
                     "skewed-clock benchmark probe", "\n"));
+        }
+
+        if (EndsWith(repo, "fixture-same-second"))
+        {
+            // A LINUX message (the reader's last) and a WIN reply in the SAME whole second (12:00:00Z). A bare
+            // `wait --agent WIN` must cursor from the LINUX message and STILL surface the same-second WIN reply
+            // (issue #100 -- a strict createdAt > since compare would silently drop it because GitHub createdAt
+            // is second-granular).
+            string linux = CommentNode("2020-06-01T12:00:00Z",
+                MsgBlock("LINUX", "2020-06-01T12:00:00.000Z", "NOTE", "linux baseline post", "\n"));
+            string win = CommentNode("2020-06-01T12:00:00Z",
+                MsgBlock("WIN", "2020-06-01T12:00:00.000Z", "NOTE", "same-second WIN reply probe", "\n"));
+            return linux + "," + win;
         }
 
         if (EndsWith(repo, "fixture-priority"))
@@ -131,9 +144,20 @@ internal static class Fixtures
     private static string RawJsonBody(string msg, string rawJson) =>
         "### [WIN] NOTE\n\n" + msg + "\n\n```json\n" + rawJson + "\n```\n";
 
-    /// <summary>A GraphQL discussion comment node: <c>{ createdAt, body, author{ login } }</c>.</summary>
-    private static string CommentNode(string createdAt, string body) =>
-        "{\"createdAt\":" + Json.Str(createdAt) + ",\"body\":" + Json.Str(body) + ",\"author\":{\"login\":\"mock-bot\"}}";
+    /// <summary>A GraphQL discussion comment node: <c>{ id, createdAt, body, author{ login } }</c>.</summary>
+    private static string CommentNode(string createdAt, string body)
+    {
+        // Deterministic FNV-1a id from content so the SAME comment keeps the SAME node id across mock polls
+        // (issue #100: `wait` cursors by comment id, so the id must be stable + distinct per comment).
+        uint h = 2166136261u;
+        foreach (char ch in createdAt + "\u0001" + body)
+        {
+            h = (h ^ ch) * 16777619u;
+        }
+
+        string id = "gid_" + h.ToString("x8");
+        return "{\"id\":" + Json.Str(id) + ",\"createdAt\":" + Json.Str(createdAt) + ",\"body\":" + Json.Str(body) + ",\"author\":{\"login\":\"mock-bot\"}}";
+    }
 
     private static bool EndsWith(string repo, string suffix) =>
         repo.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);

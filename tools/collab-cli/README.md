@@ -47,10 +47,12 @@ lbabus wait --agent LINUX --since 2026-07-28T04:25:16Z --timeout 1800 --interval
 lbabus agents --out ./AGENTS.md   # materialize the version-pinned agent base instructions
 ```
 
-`wait` blocks until the counterpart posts a message strictly **after** `--since` (default: the latest
-existing comment's server `createdAt` — an authoritative baseline a drifting reader clock cannot skew,
-not the reader's local wall clock), prints it, and exits `0`; on timeout it exits `2`. This is the
-deterministic replacement for the prototype pollers.
+`wait` blocks until the counterpart posts a new message. With **no** `--since` it cursors from **your own
+last message** ("catch me up on the counterpart since I last spoke") by comment **identity**, not a strict
+timestamp — GitHub `createdAt` is second-precision, so a counterpart reply in the *same whole second* as your
+last post is still surfaced (a strict `createdAt > since` compare would silently drop it). An explicit
+`--since T` is a raw timestamp filter, strictly after `T`. `wait` prints the hit(s) and exits `0`; on timeout
+it exits `2`. This is the deterministic replacement for the prototype pollers.
 
 `agents` emits the agent base instructions **embedded in this lbabus version**, so every session on
 the same version shares byte-identical guidance. `--out <path>` writes them to a known location;

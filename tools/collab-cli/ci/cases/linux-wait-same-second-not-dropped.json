@@ -1,0 +1,18 @@
+{
+  "name": "linux-wait-same-second-not-dropped",
+  "owner": "LINUX",
+  "description": "Issue #100: GitHub comment createdAt is SECOND-precision. A bare `wait --agent WIN` (no --since) must cursor from the reader's OWN last message (identity, not a strict timestamp) and STILL surface a WIN reply in the SAME whole second as that LINUX message. Fixture-same-second has a LINUX msg + a WIN msg both at 2020-06-01T12:00:00Z. wait must MATCH the WIN reply and exit 0; the old strict `createdAt > since` (since = latest = 12:00:00) would drop the same-second WIN msg and time out (exit 2). Version guard passes because fixture-same-second advertises the running build.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-same-second",
+    "VIHS_COLLAB_AGENT": "LINUX"
+  },
+  "args": ["wait", "--agent", "WIN", "--timeout", "8", "--interval", "5"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": ["same-second WIN reply probe"]
+  }
+}
