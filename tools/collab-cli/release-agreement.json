@@ -1,0 +1,24 @@
+{
+  "schema": "collab-cli-release-agreement@v1",
+  "policy": "Publishing a collab-cli-vX.Y.Z release requires an explicit, committed sign-off from BOTH the WIN and LINUX planes for that exact version. The collab-cli-release workflow fails closed (blocks the publish job) unless both planes have recorded agreed:true. This encodes the operator directive: publishing shall occur only after bidirectional WIN<->LINUX agreement. Neither plane may unilaterally ship a shared bus release.",
+  "requiredPlanes": ["WIN", "LINUX"],
+  "releases": {
+    "0.8.2": {
+      "summary": "Same-second poll-boundary fix (#100/#101, identity node-id cursoring) + clock-skew authoritative-server-clock fix (#97, merged as 0.8.1), self-complete release notes (#103/#104). First published release since 0.8.0.",
+      "signoffs": {
+        "LINUX": {
+          "agreed": true,
+          "reviewedCommit": "4ef4425c911f3df28acbb95b4eb2c67baae94d97",
+          "at": "2026-07-29T04:16:00Z",
+          "note": "Authored + cross-validated the same-second fix (#101, harness 18/18 both planes) and the clock-skew fix (#97); reviewed the release wiring (#103) and self-complete notes (#104); verified the awk release-body extraction and the 9-target Docker harness release gate. LINUX agrees to publish collab-cli-v0.8.2."
+        },
+        "WIN": {
+          "agreed": false,
+          "reviewedCommit": "",
+          "at": "",
+          "note": "Awaiting WIN sign-off. WIN: after reviewing the merged 0.8.2 state, set agreed:true with your reviewedCommit, at (UTC), and a note to record your half of the bidirectional agreement."
+        }
+      }
+    }
+  }
+}
