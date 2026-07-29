@@ -1,20 +1,44 @@
 #!/usr/bin/env node
-// Fail-closed release gate: a collab-cli-vX.Y.Z release may publish only after BOTH the WIN and
-// LINUX planes have committed an explicit agreed:true sign-off for that exact version in
+// Fail-closed release gate: a component release may publish only after BOTH the WIN and LINUX planes
+// have committed an explicit agreed:true sign-off for that exact <component, version> in
 // release-agreement.json. Encodes the operator directive: publishing shall occur only after
-// bidirectional WIN<->LINUX agreement. Run in the collab-cli-release workflow before the publish
-// job (release: needs: [harness, agreement]); also runnable locally by either plane to check status.
+// bidirectional WIN<->LINUX agreement. Run in each release workflow before its publish job; also
+// runnable locally by either plane to check status.
 //
-// Usage:  node tools/collab-cli/verify-release-agreement.mjs <version>     (e.g. 0.8.2)
+// Usage:
+//   node tools/collab-cli/verify-release-agreement.mjs <version>                    (collab-cli, default)
+//   node tools/collab-cli/verify-release-agreement.mjs --component <name> <version>  (e.g. --component extension 0.1.0)
+// <version> accepts the bare SemVer or the tagged form (collab-cli-vX.Y.Z / ext-vX.Y.Z).
 // Exit:   0 = both planes agreed (cleared to publish); 1 = fail-closed (missing/withheld); 2 = usage.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-const version = (process.argv[2] || '').trim().replace(/^collab-cli-v/, '');
+// Parse an optional --component/-c <name> (default collab-cli), then the <version>.
+let component = 'collab-cli';
+let versionArg = '';
+const argv = process.argv.slice(2);
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === '--component' || a === '-c') {
+    component = (argv[++i] || '').trim();
+  } else if (a.startsWith('--component=')) {
+    component = a.slice('--component='.length).trim();
+  } else if (!versionArg && !a.startsWith('-')) {
+    versionArg = a;
+  }
+}
+
+if (!component) {
+  console.error('usage: verify-release-agreement.mjs [--component <name>] <version>');
+  process.exit(2);
+}
+
+// Normalize: strip a leading "<prefix>-v" (collab-cli-v / ext-v / any <name>-v that precedes a digit).
+const version = (versionArg || '').trim().replace(/^[a-z][a-z0-9-]*-v(?=\d)/i, '');
 if (!version) {
-  console.error('usage: verify-release-agreement.mjs <version>   (e.g. 0.8.2 or collab-cli-v0.8.2)');
+  console.error('usage: verify-release-agreement.mjs [--component <name>] <version>   (e.g. 0.8.2, collab-cli-v0.8.2, --component extension ext-v0.1.0)');
   process.exit(2);
 }
 
@@ -33,9 +57,22 @@ const required = Array.isArray(doc.requiredPlanes) && doc.requiredPlanes.length
   ? doc.requiredPlanes
   : ['WIN', 'LINUX'];
 
-const rel = doc.releases && doc.releases[version];
+// Resolve the releases map for this component. collab-cli keeps the legacy top-level `releases`
+// (backward-compatible); other components live under `components.<name>.releases`.
+let releasesMap;
+if (component === 'collab-cli') {
+  releasesMap = (doc.components && doc.components['collab-cli'] && doc.components['collab-cli'].releases) || doc.releases;
+} else {
+  releasesMap = doc.components && doc.components[component] && doc.components[component].releases;
+}
+
+// Human-readable tag label for messages (collab-cli-v* / ext-v* / <component>-v*).
+const tagPrefix = component === 'collab-cli' ? 'collab-cli-v' : component === 'extension' ? 'ext-v' : `${component}-v`;
+const label = `${tagPrefix}${version}`;
+
+const rel = releasesMap && releasesMap[version];
 if (!rel || typeof rel !== 'object') {
-  console.error(`FAIL (fail-closed): no release-agreement entry for version ${version}.`);
+  console.error(`FAIL (fail-closed): no release-agreement entry for ${component} version ${version} (${label}).`);
   console.error(`Publishing requires bidirectional agreement from ${required.join(' + ')} (both agreed:true).`);
   process.exit(1);
 }
@@ -48,13 +85,13 @@ for (const plane of required) {
 }
 
 if (missing.length) {
-  console.error(`FAIL (fail-closed): collab-cli-v${version} is NOT cleared to publish.`);
+  console.error(`FAIL (fail-closed): ${label} is NOT cleared to publish.`);
   console.error(`Missing or withheld agreement from: ${missing.join(', ')}.`);
   console.error('Publishing shall occur only after bidirectional WIN<->LINUX agreement (every required plane agreed:true).');
   process.exit(1);
 }
 
-console.log(`OK: collab-cli-v${version} has bidirectional agreement from ${required.join(' + ')}:`);
+console.log(`OK: ${label} has bidirectional agreement from ${required.join(' + ')}:`);
 for (const plane of required) {
   const s = signoffs[plane];
   const when = s.at ? ` @ ${s.at}` : '';
