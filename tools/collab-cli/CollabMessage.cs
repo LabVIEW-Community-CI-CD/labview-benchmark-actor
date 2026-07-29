@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -18,6 +19,10 @@ public sealed class CollabMessage
     [JsonPropertyName("schema")] public string SchemaId { get; set; } = Schema;
     [JsonPropertyName("v")] public int Version { get; set; } = 1;
     [JsonPropertyName("agent")] public string Agent { get; set; } = "";
+
+    /// <summary>Sender's LOCAL wall clock at compose time — ADVISORY ONLY. It reflects the sender machine's
+    /// clock, which can drift from the other plane's clock, so it MUST NOT be used for cross-actor timing or
+    /// ordering; use the server <see cref="CreatedAt"/> instead. Retained for wire-compat + as a skew probe.</summary>
     [JsonPropertyName("ts")] public string Ts { get; set; } = "";
     [JsonPropertyName("type")] public string Type { get; set; } = "NOTE";
     [JsonPropertyName("task")] public string? Task { get; set; }
@@ -33,8 +38,67 @@ public sealed class CollabMessage
     /// message with no <c>agentId</c> is addressed by plane. Enables multiple agents per plane.</summary>
     [JsonPropertyName("agentId")] public string? AgentId { get; set; }
 
-    /// <summary>Server-side comment creation time (populated when read back from a discussion).</summary>
+    /// <summary>Server-side comment creation time (populated when read back from a discussion). This is the
+    /// AUTHORITATIVE clock for all cross-actor timing/ordering — both planes read the same GitHub server time,
+    /// so it is immune to either actor's local clock drift. Prefer this over <see cref="Ts"/> everywhere.</summary>
     [JsonIgnore] public DateTimeOffset? CreatedAt { get; set; }
+
+    /// <summary>The sender-embedded <see cref="Ts"/> parsed to a UTC instant, or null if unparseable.</summary>
+    [JsonIgnore]
+    public DateTimeOffset? SenderTs => DateTimeOffset.TryParse(
+        Ts, CultureInfo.InvariantCulture,
+        DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTimeOffset t) ? t : null;
+
+    /// <summary>
+    /// Sender clock skew = (sender-embedded ts) - (authoritative server createdAt). Positive => the sender's
+    /// local clock is AHEAD of the server (it stamped the message in the "future"); a value more negative than
+    /// normal post latency => behind. Null when either time is missing. This is the root of the "peer looks
+    /// like it answered much earlier/later than reality" bus flaw: never compare a peer's ts against your own
+    /// clock — compare server createdAt to server createdAt.
+    /// </summary>
+    [JsonIgnore]
+    public TimeSpan? SenderClockSkew => (CreatedAt is { } c && SenderTs is { } s) ? s - c : null;
+
+    /// <summary>Skew beyond this (either direction) is real clock drift, not normal post latency.</summary>
+    public static readonly TimeSpan SkewThreshold = TimeSpan.FromSeconds(90);
+
+    /// <summary>A concise clock-skew note when the sender's clock diverges from the server beyond
+    /// <see cref="SkewThreshold"/>, else null. The authoritative time is always the server createdAt.</summary>
+    [JsonIgnore]
+    public string? ClockSkewNote
+    {
+        get
+        {
+            if (SenderClockSkew is not { } skew || skew.Duration() <= SkewThreshold)
+            {
+                return null;
+            }
+
+            string dir = skew > TimeSpan.Zero ? "ahead of" : "behind";
+            return $"[clock-skew: {Agent} sender clock ~{FormatSpan(skew.Duration())} {dir} server; authoritative time is the server createdAt shown]";
+        }
+    }
+
+    /// <summary>Compact, culture-invariant duration like <c>5h12m</c> / <c>3m40s</c> / <c>12s</c>.</summary>
+    internal static string FormatSpan(TimeSpan d)
+    {
+        if (d.TotalDays >= 1)
+        {
+            return $"{(int)d.TotalDays}d{d.Hours}h";
+        }
+
+        if (d.TotalHours >= 1)
+        {
+            return $"{(int)d.TotalHours}h{d.Minutes}m";
+        }
+
+        if (d.TotalMinutes >= 1)
+        {
+            return $"{d.Minutes}m{d.Seconds}s";
+        }
+
+        return $"{d.Seconds}s";
+    }
 
     public static readonly IReadOnlySet<string> Types = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -154,7 +218,8 @@ public sealed class CollabMessage
             body = body[..240] + "…";
         }
 
-        return $"[{ts}] {Agent} {Type}{task}{prio} — {body}".TrimEnd();
+        string skewNote = ClockSkewNote is { } n ? " " + n : "";
+        return $"[{ts}] {Agent} {Type}{task}{prio} — {body}{skewNote}".TrimEnd();
     }
 
     /// <summary>Complete, untruncated rendering for <c>poll --full</c> — never drops the message tail.</summary>
@@ -164,6 +229,11 @@ public sealed class CollabMessage
         string task = string.IsNullOrEmpty(Task) ? "" : "  task: " + Task;
         var sb = new StringBuilder();
         sb.Append("=== [").Append(ts).Append("] ").Append(Agent).Append(' ').Append(Type).Append(task).Append(" ===\n");
+        if (ClockSkewNote is { } skewNote)
+        {
+            sb.Append("-- ").Append(skewNote).Append('\n');
+        }
+
         sb.Append(Msg ?? "");
         if (!string.IsNullOrEmpty(Ref))
         {

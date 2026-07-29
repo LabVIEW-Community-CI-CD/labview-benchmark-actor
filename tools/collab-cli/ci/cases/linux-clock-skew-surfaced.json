@@ -1,0 +1,22 @@
+{
+  "name": "linux-clock-skew-surfaced",
+  "owner": "LINUX",
+  "description": "A peer message whose SERVER createdAt (2020-06-01T10:00:00Z) and sender-embedded ts (2020-06-01T15:12:00Z, +5h12m) diverge is a real cross-actor clock skew. `poll --full` must (1) render the AUTHORITATIVE server time 2020-06-01T10:00:00.000Z, (2) surface a [clock-skew: WIN sender clock ~5h12m ahead of server ...] note, and (3) NEVER print the sender-local 15:12 time. This is the fix for the bus flaw where clock drift made a peer look like it answered much earlier or later than it actually did.",
+  "requiresMock": true,
+  "env": {
+    "GH_TOKEN": "ci-dummy-token-not-validated",
+    "VIHS_COLLAB_OWNER": "lbabus-ci",
+    "VIHS_COLLAB_REPO": "fixture-skew"
+  },
+  "args": ["poll", "--full", "--tail", "5"],
+  "cwd": "tools/collab-cli",
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": [
+      "[2020-06-01T10:00:00.000Z]",
+      "clock-skew: WIN sender clock ~5h12m ahead of server",
+      "authoritative time is the server createdAt shown"
+    ],
+    "stdoutNotContains": ["15:12:00"]
+  }
+}

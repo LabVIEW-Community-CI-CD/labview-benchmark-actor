@@ -222,7 +222,7 @@ internal static class CommandRouter
     {
         Config cfg = Config.FromEnvironment();
         string target = (a.Get("agent") ?? cfg.Counterpart).ToUpperInvariant();
-        DateTimeOffset since = a.GetTimestamp("since") ?? DateTimeOffset.UtcNow;
+        DateTimeOffset? explicitSince = a.GetTimestamp("since");
         int timeoutSec = a.GetInt("timeout", 1800);
         int intervalSec = Math.Max(a.GetInt("interval", 20), 5);
         bool toMe = a.Get("to-me") is not null;
@@ -244,6 +244,22 @@ internal static class CommandRouter
         {
             Console.Error.WriteLine("lbabus: bus discussion not found (run `lbabus init`).");
             return 2;
+        }
+
+        // AUTHORITATIVE baseline: when --since is not given, default to the latest EXISTING comment's SERVER
+        // createdAt (the clock the reader shares with the sender via GitHub), NOT the reader's local UtcNow.
+        // A reader whose local clock drifts would otherwise wait against a skewed instant and mis-judge which
+        // peer replies are "new" — the same clock-skew flaw that makes a peer look early/late.
+        DateTimeOffset since;
+        if (explicitSince is { } es)
+        {
+            since = es;
+        }
+        else
+        {
+            List<DateTimeOffset> existing = ParseAll(gh.ListComments(cfg, disc.Number, 50))
+                .Select(m => m.CreatedAt).OfType<DateTimeOffset>().ToList();
+            since = existing.Count > 0 ? existing.Max() : DateTimeOffset.UtcNow;
         }
 
         DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(timeoutSec);

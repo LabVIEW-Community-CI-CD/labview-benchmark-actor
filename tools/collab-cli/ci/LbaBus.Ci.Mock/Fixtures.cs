@@ -22,7 +22,7 @@ internal static class Fixtures
             return "[{\"tag_name\":\"collab-cli-v99.0.0\"}]";
         }
 
-        if (EndsWith(repo, "fixture-current") || EndsWith(repo, "fixture-since"))
+        if (EndsWith(repo, "fixture-current") || EndsWith(repo, "fixture-since") || EndsWith(repo, "fixture-skew"))
         {
             // Exactly the running build -> the guard passes and the command proceeds.
             return $"[{{\"tag_name\":\"collab-cli-v{currentVersion}\"}}]";
@@ -57,6 +57,18 @@ internal static class Fixtures
                 "2020-06-01T10:00:00Z",
                 MsgBlock("WIN", "2020-06-01T10:00:00.000Z", "NOTE",
                     "since-offset benchmark probe", "\n"));
+        }
+
+        if (EndsWith(repo, "fixture-skew"))
+        {
+            // A WIN message whose SERVER createdAt is 10:00:00Z but whose sender-embedded ts is 15:12:00Z
+            // (+5h12m) -- a real cross-actor clock skew. poll must render the AUTHORITATIVE server time and
+            // surface a clock-skew note so the reader never mistakes the sender's future-stamped ts for reality
+            // (the bus flaw where drift makes a peer look like it answered much earlier/later than it did).
+            return CommentNode(
+                "2020-06-01T10:00:00Z",
+                MsgBlock("WIN", "2020-06-01T15:12:00.000Z", "NOTE",
+                    "skewed-clock benchmark probe", "\n"));
         }
 
         if (EndsWith(repo, "fixture-priority"))

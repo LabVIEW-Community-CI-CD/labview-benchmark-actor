@@ -16,6 +16,11 @@ made "who watches vs. who acts" ambiguous and dropped messages. `lbabus`:
 - Gates `wait`/`poll` on the **server comment timestamp** AND the parsed `vihs-collab-msg@v1` `agent`
   field. Both agents post as the same GitHub user, so author-based gating was never reliable; the
   embedded `agent` is authoritative.
+- Uses the GitHub **server `createdAt` as the single authoritative clock** for every timing decision
+  (ordering, `--since`, `delta`, staleness). The message's embedded `ts` is the *sender's local wall
+  clock* and is ADVISORY ONLY — when it diverges from the server time beyond normal post latency,
+  `poll` surfaces a `[clock-skew: …]` note so a drifting peer clock can never make a reply look much
+  earlier or later than it actually arrived.
 - Ships as one SemVer artifact, so the two planes cannot silently drift.
 
 ## Install (pinned, immutable)
@@ -42,9 +47,10 @@ lbabus wait --agent LINUX --since 2026-07-28T04:25:16Z --timeout 1800 --interval
 lbabus agents --out ./AGENTS.md   # materialize the version-pinned agent base instructions
 ```
 
-`wait` blocks until the counterpart posts a message strictly **after** `--since` (default: now),
-prints it, and exits `0`; on timeout it exits `2`. This is the deterministic replacement for the
-prototype pollers.
+`wait` blocks until the counterpart posts a message strictly **after** `--since` (default: the latest
+existing comment's server `createdAt` — an authoritative baseline a drifting reader clock cannot skew,
+not the reader's local wall clock), prints it, and exits `0`; on timeout it exits `2`. This is the
+deterministic replacement for the prototype pollers.
 
 `agents` emits the agent base instructions **embedded in this lbabus version**, so every session on
 the same version shares byte-identical guidance. `--out <path>` writes them to a known location;
