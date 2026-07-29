@@ -26,7 +26,7 @@ import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mj
 import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
 import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
 import { validateViAnalyzerReport } from './vi-analyzer/validate-vi-analyzer-report.mjs';
-import { parseAsciiReport } from './vi-analyzer/parse-vi-analyzer-ascii.mjs';
+import { parseAsciiReport, parseSummary } from './vi-analyzer/parse-vi-analyzer-ascii.mjs';
 import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -698,6 +698,14 @@ check('vi-analyzer-ascii-parser-green', () => {
   assert(v.ok === true, `parsed with-findings report validates (consistency): ${v.errors.join('; ')}`);
   const s = summarizeViAnalyzerReport(withF);
   assert(/^[0-9a-f]{64}$/.test(s.resultHash), 'parsed report yields a resultHash');
+  // The REAL LabVIEWCLI ASCII format is line-per-count ("452 tests passed." / "0 tests produced error." /
+  // "0 tests were unloadable." distinct from "0 VIs were unloadable"). Prove the parser handles it: WIN's
+  // real all-pass output -> the pinned df9c8d1e; and a non-zero sample disambiguates the phrasings.
+  const winReal = parseAsciiReport('VI Analyzer completed.\n452 tests passed.\n0 tests failed.\n0 tests skipped.\n0 VIs were unloadable.\n0 tests were unloadable.\n0 tests were unrunable.\n0 tests produced error.\n', 'lv_icon_editor.viancfg');
+  assert(winReal.summary.passed === 452 && winReal.findings.length === 0, 'WIN real all-pass format parses');
+  assert(summarizeViAnalyzerReport(winReal).resultHash === 'df9c8d1ef67461637ee2b841a980da4a59164caff2d6df07eb916ac99453d75d', 'WIN real format -> pinned cross-plane resultHash');
+  const nz = parseSummary('448 tests passed.\n3 tests failed.\n1 tests skipped.\n0 VIs were unloadable.\n2 tests were unloadable.\n0 tests were unrunable.\n1 tests produced error.\n');
+  assert(nz.passed === 448 && nz.failed === 3 && nz.error === 1 && nz.skipped === 1 && nz.unloadable === 2, `real line-per-count non-zero parse: ${JSON.stringify(nz)}`);
   return { allPassTests: allpass.summary.passed, findings: withF.findings.length };
 });
 check('vi-analyzer-real-report-cross-plane-green', () => {

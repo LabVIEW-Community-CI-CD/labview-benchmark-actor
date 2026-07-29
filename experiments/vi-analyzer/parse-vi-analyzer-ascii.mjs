@@ -22,19 +22,33 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename } from 'node:path';
 
-/** Match a single count like "452 tests passed" / "0 failed" / "3 unloadable" (order-insensitive). */
-function matchCount(text, word) {
-  // Accept "N <word>" and "N tests <word>" (e.g. "452 tests passed").
-  const re = new RegExp(`(\\d+)\\s+(?:tests?\\s+)?${word}\\b`, 'i');
-  const m = text.match(re);
+/** Each count regex matches BOTH the compact summary form ("452 tests passed, 0 failed, ...") and the real
+ * line-per-count ASCII form LabVIEWCLI actually emits ("452 tests passed.\n0 tests failed.\n0 tests produced
+ * error.\n0 VIs were unloadable.\n0 tests were unloadable.\n0 tests were unrunable.\n..."). The leading integer
+ * of the matched span is the count. */
+const COUNT_PATTERNS = {
+  passed: /(\d+)\s+(?:tests?\s+)?passed/i,
+  failed: /(\d+)\s+(?:tests?\s+)?failed/i,
+  // "0 error" (summary form) or "0 tests produced error" (real form).
+  error: /(\d+)(?:\s+tests?)?(?:\s+produced)?\s+errors?/i,
+  skipped: /(\d+)\s+(?:tests?\s+)?skipped/i,
+  // "0 unloadable" or "0 tests were unloadable" -- deliberately NOT "N VIs were unloadable" (VI-level count).
+  unloadable: /(\d+)\s+(?:tests?\s+(?:were\s+)?)?unloadable/i,
+};
+
+function matchCount(text, key) {
+  const m = text.match(COUNT_PATTERNS[key]);
   return m ? parseInt(m[1], 10) : 0;
 }
 
 export function parseSummary(text) {
+  // The v2 summary carries the five canonical TEST-level counts. VI Analyzer also prints "N VIs were unloadable"
+  // (VI-level) and "N tests were unrunable"; those are intentionally not part of the v2 summary (all 0 for a
+  // clean all-pass run). Keeping the five counts stable preserves the established cross-plane resultHash.
   return {
     passed: matchCount(text, 'passed'),
     failed: matchCount(text, 'failed'),
-    error: matchCount(text, 'errors?'),
+    error: matchCount(text, 'error'),
     skipped: matchCount(text, 'skipped'),
     unloadable: matchCount(text, 'unloadable'),
   };
