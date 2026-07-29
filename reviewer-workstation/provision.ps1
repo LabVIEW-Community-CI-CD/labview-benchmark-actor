@@ -67,13 +67,22 @@ Step "VS Code: $((code --version)[0]); gh: $((gh --version)[0])"
 
 # Authenticate gh non-interactively. The labview-benchmark-actor repo is INTERNAL (private): the gated
 # ext-v*/collab-cli-v* Releases are NOT world-readable, so a headless guest cannot use gh unauthenticated
-# (`gh api`/`gh release download` abort with "run gh auth login"). Consume a token forwarded from the host
-# (VIHS_REVIEWER_GH_TOKEN, or GH_TOKEN) and expose it as GH_TOKEN so gh authenticates with no interactive
-# login and no credentials persisted to guest disk. Fail fast with guidance when no token was supplied.
-$reviewerToken = $env:VIHS_REVIEWER_GH_TOKEN
+# (`gh api`/`gh release download` abort with "run gh auth login"). The token is handed off as a FILE (the
+# Vagrant file provisioner does NOT echo contents; passing it via the shell provisioner `env:` would leak
+# it -- Vagrant echoes the full env-prefixed command when a step fails). Read the file, delete it
+# immediately (keep the token only in this process env), then expose it as GH_TOKEN; env vars remain a
+# fallback. Fail fast with guidance when no token is available; no credentials are persisted to guest disk.
+$tokenFile = 'C:\Windows\Temp\lba-gh-token'
+$reviewerToken = $null
+if (Test-Path $tokenFile) {
+  $reviewerToken = (Get-Content -Raw $tokenFile -ErrorAction SilentlyContinue)
+  if ($reviewerToken) { $reviewerToken = $reviewerToken.Trim() }
+  Remove-Item $tokenFile -Force -ErrorAction SilentlyContinue
+}
+if (-not $reviewerToken) { $reviewerToken = $env:VIHS_REVIEWER_GH_TOKEN }
 if (-not $reviewerToken) { $reviewerToken = $env:GH_TOKEN }
 if (-not $reviewerToken) {
-  throw "No GitHub token in the guest. $repo is INTERNAL, so its gated ext-v*/collab-cli-v* Releases need auth. On the HOST set a token before provisioning (e.g. `$env:GH_TOKEN = (gh auth token)  -- or VIHS_REVIEWER_GH_TOKEN) then re-run: VAGRANT_CWD=reviewer-workstation vagrant provision. The token needs contents:read on $repo (SSO-authorized for SSO orgs)."
+  throw "No GitHub token in the guest. $repo is INTERNAL, so its gated ext-v*/collab-cli-v* Releases need auth. On the HOST, write a token to reviewer-workstation/.gh-token before provisioning (e.g. Set-Content reviewer-workstation/.gh-token (gh auth token)) then re-run: VAGRANT_CWD=reviewer-workstation vagrant provision. The token needs contents:read on $repo (SSO-authorized for SSO orgs)."
 }
 $env:GH_TOKEN = $reviewerToken
 Step "GitHub token present; gh authenticates non-interactively for the private-release downloads."
@@ -81,9 +90,13 @@ Step "GitHub token present; gh authenticates non-interactively for the private-r
 # Resolve the newest tag with a given prefix, or honor an explicit tag.
 function Resolve-Tag([string]$prefix, [string]$tag) {
   if ($tag -and $tag -ne 'latest') { return $tag }
-  $t = gh api "repos/$repo/releases" --jq "[.[] | select(.tag_name | startswith(`"$prefix`"))][0].tag_name" 2>$null
-  if (-not $t) { throw "No ${prefix}* release found in $repo (has the gated $prefix release been cut yet?)." }
-  return $t.Trim()
+  # Filter release tags in PowerShell -- NOT gh's inline --jq: its nested quotes get mangled through the
+  # WinRM `powershell -OutputFormat Text -file` bridge, so jq would see startswith(ext-v) unquoted and abort
+  # with "function not defined: v/0". ConvertFrom-Json + Where-Object is quote-safe and equivalent.
+  $releases = gh api "repos/$repo/releases?per_page=100" | ConvertFrom-Json
+  $match = $releases | Where-Object { $_.tag_name -like "$prefix*" } | Select-Object -First 1
+  if (-not $match) { throw "No ${prefix}* release found in $repo (has the gated $prefix release been cut yet?)." }
+  return $match.tag_name
 }
 
 # 1) Extension .vsix from the ext-v* Release.

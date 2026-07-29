@@ -56,6 +56,17 @@ Vagrant.configure("2") do |config|
     v.vmx["ethernet0.pcislotnumber"] = "160"
   end
 
+  # Secure GitHub token hand-off for the INTERNAL-repo release downloads. The token is uploaded as a FILE
+  # (the file provisioner does NOT echo its contents, even on failure). Do NOT pass tokens via the shell
+  # provisioner `env:` -- Vagrant echoes the full env-prefixed command when a provisioner step fails, which
+  # leaks the secret to the console/logs. Provide the token on the host by writing it next to this
+  # Vagrantfile as `.gh-token` (git-ignored), e.g.  Set-Content reviewer-workstation/.gh-token (gh auth token).
+  gh_token_file = File.expand_path(".gh-token", __dir__)
+  if File.exist?(gh_token_file)
+    config.vm.provision "gh-token", type: "file",
+      source: gh_token_file, destination: "C:/Windows/Temp/lba-gh-token"
+  end
+
   # LBA-specific provisioning only (the golden box already has VS Code/Node/git/LabVIEW):
   # install the extension .vsix (from the ext-v* Release) + the lbabus CLI + a scratch workspace.
   config.vm.provision "reviewer-provision", type: "shell",
@@ -64,10 +75,5 @@ Vagrant.configure("2") do |config|
       "VIHS_REVIEWER_EXT_TAG"    => ENV.fetch("VIHS_REVIEWER_EXT_TAG", "latest"),
       "VIHS_REVIEWER_REPO"       => ENV.fetch("VIHS_REVIEWER_REPO", "LabVIEW-Community-CI-CD/labview-benchmark-actor"),
       "VIHS_REVIEWER_LBABUS_TAG" => ENV.fetch("VIHS_REVIEWER_LBABUS_TAG", "latest"),
-      # The repo is INTERNAL/private: the guest needs a GitHub token to read the gated ext-v*/collab-cli-v*
-      # Releases (there is no public/unauthenticated path). Forward the host token -- VIHS_REVIEWER_GH_TOKEN
-      # if set, else GH_TOKEN -- into the provisioner; provision.ps1 fails fast with guidance when it is
-      # absent. Never hardcode a token here; it is sourced from the host env at provision time only.
-      "VIHS_REVIEWER_GH_TOKEN"   => ENV.fetch("VIHS_REVIEWER_GH_TOKEN", ENV.fetch("GH_TOKEN", "")),
     }
 end
