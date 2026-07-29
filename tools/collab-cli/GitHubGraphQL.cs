@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace LabViewBenchmarkActor.CollabBus;
 
 public sealed record DiscussionRef(int Number, string Id, string Url);
-public sealed record DiscussionComment(DateTimeOffset CreatedAt, string AuthorLogin, string Body);
+public sealed record DiscussionComment(string Id, DateTimeOffset CreatedAt, string AuthorLogin, string Body);
 
 /// <summary>
 /// Minimal GitHub GraphQL client for the coordination bus. Auth token is taken from
@@ -169,7 +169,7 @@ public sealed class GitHubGraphQL : IDisposable
 
     public IReadOnlyList<DiscussionComment> ListComments(Config cfg, int number, int lastN)
     {
-        const string q = "query($owner:String!,$name:String!,$number:Int!,$last:Int!){repository(owner:$owner,name:$name){discussion(number:$number){comments(last:$last){nodes{createdAt body author{login}}}}}}";
+        const string q = "query($owner:String!,$name:String!,$number:Int!,$last:Int!){repository(owner:$owner,name:$name){discussion(number:$number){comments(last:$last){nodes{id createdAt body author{login}}}}}}";
         JsonElement data = Query(q, new Dictionary<string, object?>
         {
             ["owner"] = cfg.Owner,
@@ -181,12 +181,13 @@ public sealed class GitHubGraphQL : IDisposable
         var results = new List<DiscussionComment>();
         foreach (JsonElement node in data.GetProperty("repository").GetProperty("discussion").GetProperty("comments").GetProperty("nodes").EnumerateArray())
         {
+            string id = node.TryGetProperty("id", out JsonElement idEl) ? idEl.GetString() ?? "" : "";
             DateTimeOffset created = node.GetProperty("createdAt").GetDateTimeOffset();
             string login = node.TryGetProperty("author", out JsonElement author) && author.ValueKind == JsonValueKind.Object
                 ? author.GetProperty("login").GetString() ?? ""
                 : "";
             string body = node.GetProperty("body").GetString() ?? "";
-            results.Add(new DiscussionComment(created, login, body));
+            results.Add(new DiscussionComment(id, created, login, body));
         }
 
         return results;

@@ -43,6 +43,11 @@ public sealed class CollabMessage
     /// so it is immune to either actor's local clock drift. Prefer this over <see cref="Ts"/> everywhere.</summary>
     [JsonIgnore] public DateTimeOffset? CreatedAt { get; set; }
 
+    /// <summary>The GitHub comment node id (populated when read back from a discussion). A STABLE identity for
+    /// cursoring, immune to GitHub's second-precision createdAt -- `wait` uses it to avoid dropping a message
+    /// that shares a whole second with the baseline (issue #100).</summary>
+    [JsonIgnore] public string? CommentId { get; set; }
+
     /// <summary>The sender-embedded <see cref="Ts"/> parsed to a UTC instant, or null if unparseable.</summary>
     [JsonIgnore]
     public DateTimeOffset? SenderTs => DateTimeOffset.TryParse(
@@ -176,7 +181,7 @@ public sealed class CollabMessage
     /// Parse a message from a raw comment body. Returns null when the body has no
     /// <c>vihs-collab-msg@v1</c> JSON block (e.g. a human comment).
     /// </summary>
-    public static CollabMessage? TryParse(string rawBody, DateTimeOffset? createdAt = null)
+    public static CollabMessage? TryParse(string rawBody, DateTimeOffset? createdAt = null, string? commentId = null)
     {
         if (string.IsNullOrWhiteSpace(rawBody))
         {
@@ -198,6 +203,7 @@ public sealed class CollabMessage
             }
 
             msg.CreatedAt = createdAt;
+            msg.CommentId = commentId;
             return msg;
         }
         catch (JsonException)
