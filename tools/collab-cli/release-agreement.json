@@ -41,6 +41,23 @@
               "note": "Validated on Windows (node v24.16.0) at branch HEAD c935eaef: npm ci clean; npm test PASS (tsc compile + stage-media; extension-activation registered all 7 commands [showCapabilities, pollBus, postNote, openViewer, writeAgents, showAgents, checkAgents] with prerequisite remediation + clean deactivate; viewer-render PASS in jsdom); npm run package produced labview-benchmark-actor.vsix via vsce and `code --install-extension` installed it into Windows VS Code (confirmed present as labview-community-ci-cd.labview-benchmark-actor). vsce reported 13 files vs LINUX's 15 -- benign vsce count reporting; packaged payload identical (branch differs from 4447a61 only by release-agreement.json, excluded via .vscodeignore tools/**), and the shipped .vsix is the CI/ubuntu build. WIN agrees to publish extension 0.1.0."
             }
           }
+        },
+        "0.1.1": {
+          "summary": "LabVIEW Benchmark Actor VS Code extension 0.1.1: identical extension code to 0.1.0 (7 commands + embedded AGENTS.md); patch release fixing the CI publish gate -- extension-release.yml Node 20 -> 24 so jsdom's bundled undici (webidl.util.markAsUncloneable, absent on Node 20.20.2) works. The 0.1.0 tag was consumed by the failed run (GitHub Releases are immutable); 0.1.1 supersedes it.",
+          "signoffs": {
+            "LINUX": {
+              "agreed": true,
+              "reviewedCommit": "0b26afa04646a328c45907e04dc6da24fdfc50a8",
+              "at": "2026-07-29T08:47:15Z",
+              "note": "Validated on Linux (portable Node v24.18.0) at branch HEAD 0b26afa: npm ci clean; npm test PASS (tsc compile + stage-media; extension-activation registered all 7 commands with prerequisite remediation + clean deactivate; viewer-render PASS in jsdom -- the exact path Node 20.20.2 broke); npm run package produced labview-benchmark-actor.vsix via vsce. Confirmed the fix scope: git diff main...HEAD is ONLY the 3 infra files (extension-release.yml 3x node 20 -> 24, package.json 0.1.0 -> 0.1.1, this signoff) with NO src/ change -- extension code identical to 0.1.0. LINUX agrees to publish extension 0.1.1."
+            },
+            "WIN": {
+              "agreed": true,
+              "reviewedCommit": "c94ba6e2063b58f69543866d7f87a1a805987838",
+              "at": "2026-07-29T08:40:01Z",
+              "note": "Validated on Windows (node v24.16.0) at fix commit c94ba6e: npm test PASS (tsc compile + stage-media; extension-activation registered all 7 commands with prerequisite remediation + clean deactivate; viewer-render PASS in jsdom); npm run package produced labview-benchmark-actor.vsix via vsce. Root-caused the 0.1.0 CI failure -- extension-release.yml pinned Node 20 (20.20.2) whose jsdom/undici lacks webidl.util.markAsUncloneable; bumped the 3 node-version 20 -> 24 (the version LINUX + WIN validated on). Extension code unchanged from 0.1.0. WIN agrees to publish extension 0.1.1."
+            }
+          }
         }
       }
     }
