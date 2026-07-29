@@ -700,6 +700,21 @@ check('vi-analyzer-ascii-parser-green', () => {
   assert(/^[0-9a-f]{64}$/.test(s.resultHash), 'parsed report yields a resultHash');
   return { allPassTests: allpass.summary.passed, findings: withF.findings.length };
 });
+check('vi-analyzer-real-report-cross-plane-green', () => {
+  // LBA-REQ-015 Proven evidence. The committed REAL VI Analyzer report (WIN's attested all-pass icon-editor run
+  // via LabVIEWCLI RunVIAnalyzer: 452 passed / 0 failed, bus discussion #1 @ 2026-07-28T20:47:35Z) validates and
+  // summarizes to a PINNED resultHash. This gate runs on BOTH ubuntu-latest and windows-latest in CI, so both
+  // operating systems asserting the SAME resultHash IS the cross-plane (cross-OS) parity proof: two planes
+  // summarizing the same real report produce the same resultHash (the LBA-REQ-015 acceptance).
+  const report = readJson(join('experiments', 'vi-analyzer', 'icon-editor-report.json'));
+  const v = validateViAnalyzerReport(report);
+  assert(v.ok === true, `real report must validate: ${v.errors.join('; ')}`);
+  const s = summarizeViAnalyzerReport(report);
+  assert(s.pass === true && s.passedTests === 452 && s.failedTests === 0 && s.errorTests === 0, 'real all-pass counts (452 passed / 0 failed / 0 error)');
+  const EXPECTED = 'df9c8d1ef67461637ee2b841a980da4a59164caff2d6df07eb916ac99453d75d';
+  assert(s.resultHash === EXPECTED, `real report resultHash ${s.resultHash} MUST equal the cross-plane anchor ${EXPECTED} on every plane/OS`);
+  return { resultHash: s.resultHash, tests: s.totalTests };
+});
 check('mprr-packet-harness-profiles-green', () => {
   // The mprr rate profiles (MPRR-REQ-115-119) drive the absorbed ring across load shapes: steady is
   // authoritative; reclaim-pressure trips admission control on a small ring.
