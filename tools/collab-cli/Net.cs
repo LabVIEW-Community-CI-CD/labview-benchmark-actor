@@ -178,6 +178,7 @@ internal static class NetCommands
         string bindStr = a.Get("bind") ?? "0.0.0.0";
         bool echo = a.Get("echo") is not null;
         int count = a.GetInt("count", 0); // 0 = unbounded
+        int countDistinct = a.GetInt("count-distinct", 0); // 0 = disabled; else stop once N distinct peers heard
         int timeoutSec = a.GetInt("timeout", 0); // 0 = no timeout
         string session = a.Get("session") ?? "default";
 
@@ -189,10 +190,12 @@ internal static class NetCommands
         IPAddress bind = IPAddress.TryParse(bindStr, out IPAddress? ip) ? ip : IPAddress.Any;
         DateTimeOffset deadline = timeoutSec > 0 ? DateTimeOffset.UtcNow.AddSeconds(timeoutSec) : DateTimeOffset.MaxValue;
         int received = 0;
+        string self = SenderId();
+        var distinct = new System.Collections.Concurrent.ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
         var stop = new ManualResetEventSlim(false);
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.Set(); };
 
-        Console.Error.WriteLine($"[net] listen session={session} bind={bind} tcp={(tcpPort?.ToString() ?? "-")} udp={(udpPort?.ToString() ?? "-")} echo={echo} count={(count == 0 ? "∞" : count.ToString())}");
+        Console.Error.WriteLine($"[net] listen session={session} bind={bind} tcp={(tcpPort?.ToString() ?? "-")} udp={(udpPort?.ToString() ?? "-")} echo={echo} count={(count == 0 ? "∞" : count.ToString())} count-distinct={(countDistinct == 0 ? "-" : countDistinct.ToString())}");
 
         TcpListener? tcp = null;
         UdpClient? udp = null;
@@ -215,7 +218,7 @@ internal static class NetCommands
                         }
 
                         TcpClient client = tcp.AcceptTcpClient();
-                        HandleTcpClient(client, echo, ref received, count, stop);
+                        HandleTcpClient(client, echo, ref received, count, stop, distinct, countDistinct, self);
                     }
                 }
                 catch (SocketException) { }
@@ -229,6 +232,7 @@ internal static class NetCommands
         if (udpPort is int up)
         {
             udp = new UdpClient(new IPEndPoint(bind, up));
+            TryGrowReceiveBuffer(udp); // larger SO_RCVBUF so a burst of presence beacons at mesh scale is less lossy
             var t = new Thread(() =>
             {
                 var remote = new IPEndPoint(IPAddress.Any, 0);
@@ -242,7 +246,9 @@ internal static class NetCommands
                         if (env is not null)
                         {
                             Console.WriteLine($"UDP {remote.Address}  {BusWire.Render(env)}");
-                            if (Interlocked.Increment(ref received) >= count && count > 0) { stop.Set(); }
+                            int n = Interlocked.Increment(ref received);
+                            if (count > 0 && n >= count) { stop.Set(); }
+                            if (NoteDistinct(distinct, countDistinct, self, env.SenderId)) { stop.Set(); }
                         }
                     }
                     catch (SocketException) { if (DateTimeOffset.UtcNow > deadline) { stop.Set(); } }
@@ -258,11 +264,37 @@ internal static class NetCommands
         tcp?.Stop();
         udp?.Dispose();
         foreach (Thread t in threads) { t.Join(500); }
-        Console.Error.WriteLine($"[net] listener stopped; received {received} message(s)");
+        Console.Error.WriteLine($"[net] listener stopped; received {received} message(s) from {distinct.Count} distinct sender(s)");
         return 0;
     }
 
-    private static void HandleTcpClient(TcpClient client, bool echo, ref int received, int count, ManualResetEventSlim stop)
+    /// <summary>
+    /// Records a sender identity (excluding our own) toward the optional <c>--count-distinct N</c> early-exit,
+    /// returning true once N distinct peers have been heard. This lets a UDP presence listener stop the instant
+    /// it has heard every expected peer instead of always blocking for the full <c>--timeout</c> — removing the
+    /// timeout-vs-latency tradeoff that dropped late beacons in a large mesh (a short timeout expired before the
+    /// mesh finished forming; a long one is slow). Identity-based, so it is robust to datagram loss and SNAT.
+    /// </summary>
+    private static bool NoteDistinct(
+        System.Collections.Concurrent.ConcurrentDictionary<string, byte> distinct,
+        int countDistinct, string self, string senderId)
+    {
+        if (countDistinct <= 0) { return false; }
+        if (string.IsNullOrEmpty(senderId) || string.Equals(senderId, self, StringComparison.Ordinal)) { return false; }
+        distinct.TryAdd(senderId, 0);
+        return distinct.Count >= countDistinct;
+    }
+
+    /// <summary>Best-effort enlarge of the UDP receive buffer so a burst of beacons at mesh scale is less likely dropped by a full socket buffer; the OS clamps to its own max.</summary>
+    private static void TryGrowReceiveBuffer(UdpClient udp)
+    {
+        try { udp.Client.ReceiveBufferSize = 1 << 20; } // 1 MiB
+        catch (SocketException) { /* platform clamps to its max — best effort */ }
+        catch (ObjectDisposedException) { }
+    }
+
+    private static void HandleTcpClient(TcpClient client, bool echo, ref int received, int count, ManualResetEventSlim stop,
+        System.Collections.Concurrent.ConcurrentDictionary<string, byte> distinct, int countDistinct, string self)
     {
         using (client)
         {
@@ -279,6 +311,7 @@ internal static class NetCommands
 
                 Console.WriteLine($"TCP {remote}  {BusWire.Render(env)}");
                 int n = Interlocked.Increment(ref received);
+                bool distinctDone = NoteDistinct(distinct, countDistinct, self, env.SenderId);
 
                 if (echo)
                 {
@@ -295,7 +328,7 @@ internal static class NetCommands
                     try { BusWire.WriteFrame(ns, ack); } catch { /* peer gone */ }
                 }
 
-                if (count > 0 && n >= count) { stop.Set(); break; }
+                if ((count > 0 && n >= count) || distinctDone) { stop.Set(); break; }
             }
         }
     }
@@ -404,17 +437,7 @@ internal static class NetCommands
         double interval = a.GetInt("interval", 1);
         int count = a.GetInt("count", 5);
         string session = a.Get("session") ?? "default";
-
-        var targets = new List<(string Host, IPEndPoint Ep)>();
-        bool broadcast = false;
-        foreach (string host in hosts)
-        {
-            IPAddress addr;
-            try { addr = ResolveHost(host); }
-            catch (Exception ex) { return Fail($"UDP beacon cannot resolve '{host}': {ex.Message}"); }
-            if (host is "255.255.255.255") { broadcast = true; }
-            targets.Add((host, new IPEndPoint(addr, port)));
-        }
+        bool broadcast = hosts.Any(h => h is "255.255.255.255");
 
         try
         {
@@ -423,8 +446,20 @@ internal static class NetCommands
 
             for (int i = 1; i <= count || count == 0; i++)
             {
-                foreach ((string host, IPEndPoint ep) in targets)
+                foreach (string host in hosts)
                 {
+                    // Resolve PER ROUND and skip only the offending host: presence beacons are advisory and
+                    // loss-safe, so a transient DNS miss under heavy (e.g. 64-container Docker-DNS) load must not
+                    // abort the whole round for every peer. A name that hiccups this round is re-resolved next round.
+                    IPAddress addr;
+                    try { addr = ResolveHost(host); }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"[net] UDP beacon skip '{host}' (round {i}): {ex.Message}");
+                        continue;
+                    }
+
+                    var ep = new IPEndPoint(addr, port);
                     var env = new BusEnvelope
                     {
                         SessionId = session,

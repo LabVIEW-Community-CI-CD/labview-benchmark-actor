@@ -46,8 +46,10 @@ echo "[$actor] mesh start: expected=$expected tcp=$TCP_PORT udp=$UDP_PORT"
 # 1a. background TCP listener: collect exactly $expected reliable frames, echo an ACK to each sender.
 dotnet "$LBABUS" net listen --tcp "$TCP_PORT" --echo --count "$expected" --timeout "$TIMEOUT_SEC" > "$tcp_out" 2>/dev/null &
 tcp_pid=$!
-# 1b. background UDP listener: collect presence beacons until timeout (loss-safe; we count distinct senders).
-dotnet "$LBABUS" net listen --udp "$UDP_PORT" --timeout "$UDP_TIMEOUT_SEC" > "$udp_out" 2>/dev/null &
+# 1b. background UDP listener: collect presence beacons, exiting as soon as it has heard EVERY distinct peer
+# (--count-distinct) or the timeout fires. Identity-based early-exit removes the old timeout-vs-latency tradeoff:
+# the timeout can be long (so late beacons at scale still land on a live listener) yet a formed mesh finishes fast.
+dotnet "$LBABUS" net listen --udp "$UDP_PORT" --count-distinct "$expected" --timeout "$UDP_TIMEOUT_SEC" > "$udp_out" 2>/dev/null &
 udp_pid=$!
 
 sleep 2   # let our own listeners bind before the peers start hammering them

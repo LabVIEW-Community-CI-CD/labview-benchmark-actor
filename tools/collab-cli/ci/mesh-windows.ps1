@@ -35,7 +35,10 @@ $exit  = 1
 # form -- every actor opens N-1 TCP connections + emits N-1 beacon streams, and containers launch
 # sequentially, so early actors retry longer while late actors' listeners come up.
 $tcpTimeout = 60 + $Actors * 3
-$udpTimeout = 30 + $Actors
+# UDP presence uses the SAME budget as TCP: at scale the mesh takes ~tcp_timeout to fully form, so a short
+# UDP window expired before late beacons arrived (the old `30 + N` dropped UDP at 64). The listener's
+# --count-distinct early-exit means this longer ceiling never slows a mesh that HAS formed.
+$udpTimeout = $tcpTimeout
 
 Write-Host "== lbabus TCP+UDP mesh: $Actors isolated actors (image $Image, network $net) =="
 # Windows containers use the `nat` driver (the Linux `bridge` driver does not exist here); a user-defined

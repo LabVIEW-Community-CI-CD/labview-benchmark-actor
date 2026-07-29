@@ -54,11 +54,13 @@ $tcpListener = Start-Process -FilePath dotnet -PassThru -NoNewWindow `
   -RedirectStandardOutput $tcpOut -RedirectStandardError $tcpErr `
   -ArgumentList @($Lbabus, 'net', 'listen', '--tcp', "$TcpPort", '--echo', '--count', "$expected", '--timeout', "$TimeoutSec")
 
-# 1b. background UDP listener: collect presence beacons until timeout. UDP is loss-safe/advisory, so it
-# runs UNBOUNDED (we later count DISTINCT sender identities, not a fixed datagram total).
+# 1b. background UDP listener: collect presence beacons, exiting as soon as it has heard EVERY distinct peer
+# (--count-distinct) or the timeout fires. Identity-based early-exit removes the old timeout-vs-latency tradeoff:
+# the timeout can be long (so late beacons at scale still land on a live listener) yet a formed mesh still
+# finishes fast. UDP is loss-safe/advisory, so distinct sender identities -- not a fixed datagram total -- gate it.
 $udpListener = Start-Process -FilePath dotnet -PassThru -NoNewWindow `
   -RedirectStandardOutput $udpOut -RedirectStandardError $udpErr `
-  -ArgumentList @($Lbabus, 'net', 'listen', '--udp', "$UdpPort", '--timeout', "$UdpTimeoutSec")
+  -ArgumentList @($Lbabus, 'net', 'listen', '--udp', "$UdpPort", '--count-distinct', "$expected", '--timeout', "$UdpTimeoutSec")
 
 Start-Sleep -Seconds 2   # let our own listeners bind before the peers start hammering them
 
