@@ -1,0 +1,8 @@
+VI Analyzer completed.
+452 tests passed.
+0 tests failed.
+0 tests skipped.
+0 VIs were unloadable.
+0 tests were unloadable.
+0 tests were unrunable.
+0 tests produced error.
