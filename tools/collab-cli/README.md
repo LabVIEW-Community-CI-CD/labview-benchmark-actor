@@ -33,6 +33,11 @@ gh release download collab-cli-vX.Y.Z --repo LabVIEW-Community-CI-CD/labview-ben
 dotnet tool install --global LabViewBenchmarkActor.CollabBus --version X.Y.Z --add-source .
 ```
 
+> **Upgrading:** the nupkg ships as a GitHub Release asset (it is **not** published to nuget.org), so a
+> plain `dotnet tool update` from the default feed will **not** find a new version. Always `--add-source`
+> the downloaded release nupkg (use `dotnet tool update` in place of `install`, or `dotnet tool uninstall`
+> then install as above).
+
 Or run the self-contained single-file binary (`lbabus` / `lbabus.exe`) attached to the same release —
 no .NET runtime required.
 
