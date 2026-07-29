@@ -35,7 +35,7 @@ const intent = argv
   .join(' ')
   .trim();
 if (!intent) {
-  console.error('usage: bus-agent.mjs "<intent>" [--type NOTE|PROGRESS|DONE] [--tail N] [--prio P2] [--post]');
+  console.error('usage: bus-agent.mjs "<intent>" [--type NOTE|PROGRESS|DONE] [--tail N] [--prio P2] [--post] [--watch [--interval S] [--rounds N] [--exit-on-new]]');
   process.exit(2);
 }
 
@@ -53,6 +53,10 @@ delete busEnv.LBABUS_GITHUB_API;
 const lbabus = (a) => execFileSync(LBABUS, a, { env: busEnv, encoding: 'utf8', maxBuffer: 1 << 20 });
 
 const watch = argv.includes('--watch');
+// Notifier mode: in --watch, exit 0 the instant a genuinely NEW peer message appears (surfacing the raw text,
+// skipping the ollama draft), so an async runner's completion notification fires immediately instead of the
+// loop silently continuing to detect-and-keep-watching (which strands the detection inside a still-running process).
+const exitOnNew = argv.includes('--exit-on-new');
 const OWNER = process.env.VIHS_COLLAB_OWNER || 'LabVIEW-Community-CI-CD';
 const REPO = busEnv.VIHS_COLLAB_REPO;
 const GH = process.env.GH_BIN || 'gh';
@@ -130,7 +134,8 @@ if (!watch) {
   let lastFp = null;
   let round = 0;
   let posts = 0;
-  console.log(`[${AGENT} watch] engine monitoring ${PEER} every ${interval / 1000}s (${doPost ? `AUTOPOST cap ${maxPosts}` : 'draft-only'}); intent: ${intent}`);
+  const watchMode = exitOnNew ? 'exit-on-new notifier' : (doPost ? `AUTOPOST cap ${maxPosts}` : 'draft-only');
+  console.log(`[${AGENT} watch] engine monitoring ${PEER} every ${interval / 1000}s (${watchMode}); intent: ${intent}`);
   for (;;) {
     round += 1;
     const latest = readPeerLatestFresh();
@@ -139,6 +144,10 @@ if (!watch) {
       console.log(`[watch r${round}] baseline ${PEER} @ ${lastFp} (will respond to newer)`);
     } else if (latest && latest.fingerprint !== lastFp) {
       lastFp = latest.fingerprint;
+      if (exitOnNew) {
+        console.log(`\n[watch r${round}] NEW ${PEER} @ ${latest.fingerprint} (exit-on-new) -- surfacing raw, no engine draft:\n${latest.text}`);
+        break;
+      }
       const msg = await generate(latest.text);
       console.log(`\n[watch r${round}] NEW ${PEER} @ ${latest.fingerprint} -> engine draft:\n  ${msg}`);
       if (doPost && msg && posts < maxPosts) {
