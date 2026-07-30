@@ -38,6 +38,7 @@ import { bootbenchDiff } from './mesh-runs/bootbench-diff.mjs';
 import { PACKET_BYTES, PACKET_VERSION, OFFSETS, MILESTONE_IDS, encodeCaptureFrame, decodeCaptureFrame, writeCaptureFrame, readCaptureFrames } from './mprr-capture-ring/capture-ring.mjs';
 import { ringFrameFromDescriptor, makeRingSink } from './mprr-capture-ring/vmware-ring-capture.mjs';
 import { recordFromRing } from './mprr-capture-ring/capture-ring-recorder.mjs';
+import { fiducialDhash } from './mprr-capture-ring/fiducial-vnc-server.mjs';
 import { createVboxVncSource, VBOX_DEFAULT_VNC_PORT, sampleDescriptor } from './mprr-capture-ring/vbox-vnc-source.mjs';
 import { execFileSync } from 'node:child_process';
 
@@ -1134,6 +1135,18 @@ check('capture-ring-vbox-source', () => {
   // full fake-socket suite (port default + round-trip + cross-plane byte-identity) as a subprocess
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'vbox-vnc-source.selftest.mjs')], { stdio: 'pipe' });
   return { port: VBOX_DEFAULT_VNC_PORT, marker: rec.caseId, suite: 'vbox-vnc-source subprocess 3/3' };
+});
+
+// Fiducial ground truth (mprr-capture-ring/fiducial-vnc-server.mjs): a host-controlled "stopwatch" fiducial
+// whose every tick is deterministic + non-uniform (so no frame is skipped as an all-zero no-frame sentinel).
+// In-process asserts those properties, then runs the REAL server<->client<->ring round-trip self-test as a
+// subprocess — the strongest capture validation (a live RFB peer, not a fake socket) and the ground-truth
+// FIDELITY proof (each captured tick's dhash == the known fiducial), i.e. mprr's stopwatch/fiducial for the ring.
+check('capture-ring-fiducial-groundtruth', () => {
+  assert(fiducialDhash(3) === fiducialDhash(3), 'fiducial is deterministic (same tick -> same dhash)');
+  for (let t = 0; t < 16; t++) { assert(fiducialDhash(t) !== '0000000000000000', `fiducial tick ${t} is non-uniform (dhash != the no-frame sentinel)`); }
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'fiducial-capture.selftest.mjs')], { stdio: 'pipe' });
+  return { ticks: 16, suite: 'fiducial-capture subprocess (real RFB server<->client<->ring fidelity) 3/3' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
