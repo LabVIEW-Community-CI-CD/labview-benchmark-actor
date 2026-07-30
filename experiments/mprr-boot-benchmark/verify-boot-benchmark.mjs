@@ -9,6 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { sealBootBenchmark } from './seal-boot-benchmark.mjs';
+import { recordBoot } from './boot-recorder.mjs';
 import { formatSerialMarker, parseSerialMarkerLine, parseSerialLog } from './serial-marker.mjs';
 import { parseShortMonotonicLine, parseJournalMonotonic } from './journal-monotonic.mjs';
 import { createVboxBackend, vboxSerialConfigArgs } from './capture-backend-vbox.mjs';
@@ -252,6 +253,50 @@ console.log('cross-iteration timing + visual delta');
   assert.equal(mesh2, 'ffffffffffffffff');
   assert.equal(hammingHex(mesh1, mesh2), 64); ok('visual witness: MESH-OK Hamming 64 (max delta)');
   assert.equal(hammingHex(mesh1, mesh1), 0); ok('visual witness: identical -> Hamming 0');
+}
+
+console.log('boot-recorder driver — await capture(), one driver fits sync + async backends');
+{
+  const mkClock = () => { let t = 1000; return () => { t += 10; return t; }; };
+  const grayFrame = { rgba: new Uint8Array(9 * 8 * 4).fill(128), width: 9, height: 8 };
+  const readFrame = () => grayFrame;
+  const journalReader = () => ({ 'BOOT-START': 100, 'LBABUS-BUILD-START': 1000, 'LBABUS-BUILT': 9000, 'MESH-OK': 9500 });
+  const mkSerial = () => {
+    let n = -1;
+    const sched = {
+      0: [{ caseId: 'BOOT-START', serialMonotonicMs: 100 }],
+      2: [{ caseId: 'LBABUS-BUILD-START', serialMonotonicMs: 1000 }],
+      4: [{ caseId: 'LBABUS-BUILT', serialMonotonicMs: 9000 }],
+      5: [{ caseId: 'MESH-OK', serialMonotonicMs: 9500 }],
+    };
+    return { poll() { n += 1; return sched[n] ?? []; } };
+  };
+  const baseOpts = () => ({
+    iteration: 'drv', sessionId: 'd', vm: 'vm', hypervisor: 'virtualbox', plane: 'LINUX',
+    readFrame, journalReader, serialSource: mkSerial(), clock: mkClock(), sleep: () => Promise.resolve(),
+    cadenceHz: 2, sealedAt: '2026-07-30T14:00:00.000Z',
+  });
+  const syncBackend = { backend: 'vbox-screenshotpng', transport: 'VBoxManage controlvm screenshotpng', capture(path) { return { ok: true, path }; } };
+  const asyncBackend = { backend: 'vmware-vnc', transport: 'vnc://127.0.0.1:5901 framebuffer', async capture(path) { return { ok: true, path }; } };
+
+  const recSync = await recordBoot({ ...baseOpts(), backend: syncBackend });
+  assert.equal(recSync.schema, 'labview-benchmark-actor/boot-benchmark-v1');
+  assert.equal(recSync.anchor.correlation.pins.length, 4);
+  assert.equal(recSync.frames.length, 6); ok('driver seals a boot from a SYNC (VBox) backend, stops at MESH-OK');
+  assert.equal(recSync.spans.find((s) => s.id === 'buildMs').ms, 8000); ok('driver span buildMs = 8000 (guest clock)');
+
+  const recAsync = await recordBoot({ ...baseOpts(), backend: asyncBackend });
+  assert.equal(recAsync.capture.backend, 'vmware-vnc'); ok('driver seals a boot from an ASYNC (VMware VNC Promise) backend');
+
+  // one driver fits both: identical frames + spans => identical recordHash (capture.backend is not hashed),
+  // so `await backend.capture()` makes the sync + async backends interchangeable behind one driver.
+  assert.equal(recSync.seal.recordHash, recAsync.seal.recordHash); ok('await capture(): sync + async backends yield an IDENTICAL sealed record');
+
+  // fail-closed: a boot that never reaches MESH-OK does not seal
+  const noMesh = () => { let n = -1; const sched = { 0: [{ caseId: 'BOOT-START', serialMonotonicMs: 100 }] }; return { poll() { n += 1; return sched[n] ?? []; } }; };
+  let rejected = false;
+  try { await recordBoot({ ...baseOpts(), serialSource: noMesh(), backend: syncBackend, maxDurationMs: 100 }); } catch { rejected = true; }
+  assert.equal(rejected, true); ok('driver: a boot that never reaches MESH-OK fails closed (not sealed)');
 }
 
 console.log(`\nboot-benchmark verify: ${passed}/${passed} checks passed`);

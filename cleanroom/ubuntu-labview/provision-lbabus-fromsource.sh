@@ -100,6 +100,26 @@ install -m0755 "\$out/pub/lbabus" "$DEST"
 SH
 chmod +x "$LBA_DIR/build-lbabus.sh"
 
+# 5b) boot-benchmark milestone emit helper (best-effort; contract: experiments/mprr-boot-benchmark/
+#     emit-boot-marker.sh). Writes ONE marker per milestone to journald (`logger -t lbabench` -> the
+#     authoritative guest CLOCK_MONOTONIC via `journalctl -o short-monotonic`) AND to the serial console
+#     (the live host frame-pin). The serial write is `[ -w /dev/ttyS0 ]`-guarded, so it is a silent no-op
+#     off-bench. The build/boot units call it via best-effort (`-`) Exec lines, so a failed or absent emit
+#     NEVER perturbs the proven boot path. Quoted heredoc: the body is written verbatim (expands in-guest).
+cat > "$LBA_DIR/emit-boot-marker.sh" <<'EMITSH'
+#!/usr/bin/env bash
+# boot-benchmark milestone emit (contract: experiments/mprr-boot-benchmark/emit-boot-marker.sh).
+set -u
+CASE_ID="${1:?usage: emit-boot-marker.sh <caseId>}"
+case "$CASE_ID" in BOOT-START|LBABUS-BUILD-START|LBABUS-BUILT|MESH-OK) : ;; *) echo "emit-boot-marker: unknown caseId '$CASE_ID'" >&2; exit 2 ;; esac
+MONO="$(cut -d' ' -f1 /proc/uptime 2>/dev/null || echo 0)"
+LINE="LBABENCH ${CASE_ID} mono=${MONO}"
+command -v logger >/dev/null 2>&1 && logger -t lbabench -- "${LINE}" || true
+[ -w /dev/ttyS0 ] && printf '%s\n' "${LINE}" > /dev/ttyS0 2>/dev/null || true
+exit 0
+EMITSH
+chmod +x "$LBA_DIR/emit-boot-marker.sh"
+
 # 6) First-boot systemd oneshot: runs only when the binary is absent (once per clone).
 cat > /etc/systemd/system/lba-lbabus-build.service <<UNIT
 [Unit]
@@ -108,13 +128,31 @@ ConditionPathExists=!$DEST
 After=local-fs.target
 [Service]
 Type=oneshot
+ExecStartPre=-$LBA_DIR/emit-boot-marker.sh LBABUS-BUILD-START
 ExecStart=$LBA_DIR/build-lbabus.sh
+ExecStartPost=-$LBA_DIR/emit-boot-marker.sh LBABUS-BUILT
 RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 UNIT
+
+# 6b) BOOT-START marker oneshot: fires early (before the build unit) EVERY boot, best-effort. Unconditional
+#     (no ConditionPathExists) so a from-source FIRST boot AND a later boot both anchor BOOT-START.
+cat > /etc/systemd/system/lba-boot-marker.service <<UNIT
+[Unit]
+Description=Emit boot-benchmark BOOT-START marker (best-effort)
+After=local-fs.target
+Before=lba-lbabus-build.service
+[Service]
+Type=oneshot
+ExecStart=-$LBA_DIR/emit-boot-marker.sh BOOT-START
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target
+UNIT
+
 systemctl daemon-reload
-systemctl enable lba-lbabus-build.service >/dev/null 2>&1 || true
+systemctl enable lba-lbabus-build.service lba-boot-marker.service >/dev/null 2>&1 || true
 
 # 7) Model B: NO baked binary — each clone builds on first boot.
 rm -f "$DEST"

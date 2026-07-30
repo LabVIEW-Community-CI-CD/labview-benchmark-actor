@@ -910,7 +910,21 @@ check('boot-benchmark-seal-spans-and-fail-closed', () => {
   const m = parseSerialMarkerLine('LBABENCH MESH-OK mono=9.5');
   assert(m && m.caseId === 'MESH-OK' && m.serialMonotonicMs === 9500, 'serial LBABENCH marker parse');
   assert(parseSerialLog('noise\nLBABENCH BOOT-START mono=0.05\nLBABENCH BOOT-START mono=9').length === 1, 'serial log first-per-case');
-  return { buildMs: span('buildMs').ms, meshFormMs: span('meshFormMs').ms, bootToMeshMs: span('bootToMeshMs').ms };
+  // Emit-contract drift guard: the canonical helper AND the copy embedded in provision-lbabus-fromsource.sh
+  // must BOTH write the LBABENCH mono= wire line, guard the serial write on /dev/ttyS0, and log the
+  // authoritative journald line — so the two milestone channels cannot silently diverge.
+  const emitCanon = readFileSync(join(pkgRoot, 'experiments', 'mprr-boot-benchmark', 'emit-boot-marker.sh'), 'utf8');
+  const provScript = readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'provision-lbabus-fromsource.sh'), 'utf8');
+  for (const [n, body] of [['canonical', emitCanon], ['provisioned', provScript]]) {
+    assert(body.includes('LBABENCH ${CASE_ID} mono='), `${n} emit must write the LBABENCH mono= wire line`);
+    assert(body.includes('[ -w /dev/ttyS0 ]'), `${n} emit must guard the serial write on /dev/ttyS0`);
+    assert(body.includes('logger -t lbabench'), `${n} emit must log the authoritative journald line`);
+  }
+  // Full LINUX suite (seal + spans + fail-closed + parsers + VBox backend argv + the boot-recorder driver's
+  // `await capture()` sync/async equivalence + cross-iteration delta) as a subprocess, so the whole recorder
+  // core is gated in CI on both planes (mirrors the VMware VNC gate below).
+  execFileSync(process.execPath, [join(here, 'mprr-boot-benchmark', 'verify-boot-benchmark.mjs')], { stdio: 'pipe' });
+  return { buildMs: span('buildMs').ms, meshFormMs: span('meshFormMs').ms, bootToMeshMs: span('bootToMeshMs').ms, suite: 'verify-boot-benchmark subprocess' };
 });
 
 // boot-benchmark WIN/VMware capture backend (mprr-boot-benchmark/capture-backend-vmware.mjs): the VMware side
