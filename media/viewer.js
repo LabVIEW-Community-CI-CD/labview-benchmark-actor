@@ -8,6 +8,7 @@
 // logic that verify-viewer-cursor.mjs proves 5/5 is the exact logic that runs here, so the interaction is
 // correct by construction (the browser render itself is the maintainer/Playwright step).
 import { createCursor, setPointer, step, jump, selectedIndex, selectedTime } from './viewerCursor.mjs';
+import { createCounter, tick, setCase, counterSvg } from './counter-render.mjs';
 
 const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
 
@@ -124,3 +125,22 @@ window.addEventListener('keydown', (e) => {
 });
 
 render();
+
+// Manual-procedure-record on-screen anchor (opt-in, LBA-REQ-004 capture sessions only). The host injects a
+// #lba-mpr-counter element (its data-case marks the active reviewer case) ONLY when a deterministic-record
+// capture is running. When present, tick a monotonic plain-digit counter -- the exact glyphs the known-digit
+// reader templates -- into it and post each emitted { counter, caseId } to the host as the correlation ground
+// truth (screenshot reads the on-screen digits; host logs the posted series; the two are correlated to seal).
+// Absent element => this block is inert, so the normal benchmark viewer is byte-for-byte unchanged.
+const mprHost = document.getElementById('lba-mpr-counter');
+if (mprHost) {
+  const mprCounter = createCounter(0);
+  setInterval(() => {
+    setCase(mprCounter, mprHost.dataset.case || null);
+    const value = tick(mprCounter);
+    mprHost.innerHTML = counterSvg(value, { minDigits: 6, cellPx: 6 });
+    if (vscode) {
+      vscode.postMessage({ type: 'mpr-counter', counter: value, caseId: mprCounter.caseId });
+    }
+  }, 100);
+}

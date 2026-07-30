@@ -2,6 +2,7 @@ node_modules/
 out/
 *.vsix
 media/viewerCursor.mjs
+media/counter-render.mjs
 media/mprr-series.json
 media/AGENTS.md
 media/agents.manifest.json

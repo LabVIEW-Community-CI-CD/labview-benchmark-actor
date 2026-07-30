@@ -1,0 +1,9 @@
+{
+  "schema": "labview-benchmark-actor/viewer-counter-receipt-v1",
+  "ranAt": "2026-07-30T09:16:05.595Z",
+  "total": 7,
+  "passed": 7,
+  "failed": 0,
+  "failures": [],
+  "verdict": "PASS"
+}
