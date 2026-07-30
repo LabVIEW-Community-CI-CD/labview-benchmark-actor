@@ -86,7 +86,26 @@ try {
   }
 
   # 5) Drop a Marketplace-review checklist next to the scratch workspace for the human last-gate.
-  $checklist = @'
+  # Surface the agent last gate's verdict + receipt so the human knows they are reviewing an already-
+  # pre-vetted candidate and can focus on the judgment/visual checks a machine cannot make.
+  $gateHeader = ''
+  $gateReceipt = Join-Path $repoRoot 'experiments\agent-last-gate\receipt.json'
+  if (Test-Path $gateReceipt) {
+    try {
+      $r = Get-Content $gateReceipt -Raw | ConvertFrom-Json
+      $gateHeader = @"
+AGENT LAST GATE: $($r.verdict) ($($r.passed)/$($r.total)) on $($r.platform) at $($r.ranAt)
+The automated pre-vet already passed the MECHANICAL checks (packaging allow-set + size, icon >=128px,
+CHANGELOG, Marketplace-safe README links, gallery metadata, tests + gates). Full receipt on this VM:
+C:\lba-review\agent-last-gate-receipt.json
+
+Your job below is the JUDGMENT the machine can't make: does it LOOK right?
+
+"@
+      vagrant upload $gateReceipt 'C:/lba-review/agent-last-gate-receipt.json' $Machine | Out-Null
+    } catch { Step "WARN could not read the agent-gate receipt: $($_.Exception.Message)" }
+  }
+  $checklist = $gateHeader + @'
 labview-benchmark-actor -- PRE-PUBLISH visual review (Marketplace last gate)
 
 You are inspecting the LOCAL candidate .vsix (built from the working tree), not a
