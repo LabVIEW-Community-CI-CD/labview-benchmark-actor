@@ -1,0 +1,12 @@
+{
+  "schema": "labview-benchmark-actor/known-digit-reader-receipt-v1",
+  "ranAt": "2026-07-30T08:17:24.487Z",
+  "minDigits": 6,
+  "total": 5012,
+  "passed": 5012,
+  "failed": 0,
+  "roundTripByteExact": true,
+  "tamperFailsClosed": true,
+  "sampleFailures": [],
+  "verdict": "PASS"
+}
