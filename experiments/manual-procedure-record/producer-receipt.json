@@ -1,0 +1,18 @@
+{
+  "schema": "labview-benchmark-actor/manual-procedure-producer-receipt-v1",
+  "ranAt": "2026-07-30T08:59:35.705Z",
+  "total": 15,
+  "passed": 15,
+  "failed": 0,
+  "frameDiff": {
+    "self": "IDENTICAL_WITHIN_THRESHOLD",
+    "cross": "VISUAL_DELTA",
+    "changedCases": [
+      "TC-01"
+    ],
+    "maxHamming": 34,
+    "threshold": 10
+  },
+  "failures": [],
+  "verdict": "PASS"
+}
