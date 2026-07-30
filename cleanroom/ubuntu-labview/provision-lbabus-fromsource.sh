@@ -26,6 +26,7 @@ LBA_DIR="${LBA_DIR:-/opt/lba}"
 SRC="$LBA_DIR/src"
 NUGET="$LBA_DIR/nuget"
 DEST="${LBABUS_DEST:-/usr/local/bin/lbabus}"
+EMIT="${LBABUS_EMIT:-/usr/local/bin/emit-boot-marker.sh}"  # PATH-standard, next to lbabus; where mesh-actor.sh expects it
 SDK_PKG="${DOTNET_SDK_PKG:-dotnet-sdk-8.0}"          # Ubuntu 24.04 ships this; net8.0 builds natively
 REPO_URL="${LBABUS_REPO_URL:-https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor}"  # PUBLIC
 REF="${LBABUS_REF:-main}"                            # pin to a tag/commit for reproducible clone builds
@@ -106,7 +107,9 @@ chmod +x "$LBA_DIR/build-lbabus.sh"
 #     (the live host frame-pin). The serial write is `[ -w /dev/ttyS0 ]`-guarded, so it is a silent no-op
 #     off-bench. The build/boot units call it via best-effort (`-`) Exec lines, so a failed or absent emit
 #     NEVER perturbs the proven boot path. Quoted heredoc: the body is written verbatim (expands in-guest).
-cat > "$LBA_DIR/emit-boot-marker.sh" <<'EMITSH'
+#     Installed at /usr/local/bin/emit-boot-marker.sh (PATH-standard, next to lbabus) so BOTH planes' units
+#     AND WIN's mesh-actor.sh MESH-OK drop-in resolve the SAME path.
+cat > "$EMIT" <<'EMITSH'
 #!/usr/bin/env bash
 # boot-benchmark milestone emit (contract: experiments/mprr-boot-benchmark/emit-boot-marker.sh).
 set -u
@@ -118,7 +121,7 @@ command -v logger >/dev/null 2>&1 && logger -t lbabench -- "${LINE}" || true
 [ -w /dev/ttyS0 ] && printf '%s\n' "${LINE}" > /dev/ttyS0 2>/dev/null || true
 exit 0
 EMITSH
-chmod +x "$LBA_DIR/emit-boot-marker.sh"
+chmod +x "$EMIT"
 
 # 6) First-boot systemd oneshot: runs only when the binary is absent (once per clone).
 cat > /etc/systemd/system/lba-lbabus-build.service <<UNIT
@@ -128,9 +131,9 @@ ConditionPathExists=!$DEST
 After=local-fs.target
 [Service]
 Type=oneshot
-ExecStartPre=-$LBA_DIR/emit-boot-marker.sh LBABUS-BUILD-START
+ExecStartPre=-$EMIT LBABUS-BUILD-START
 ExecStart=$LBA_DIR/build-lbabus.sh
-ExecStartPost=-$LBA_DIR/emit-boot-marker.sh LBABUS-BUILT
+ExecStartPost=-$EMIT LBABUS-BUILT
 RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
@@ -145,7 +148,7 @@ After=local-fs.target
 Before=lba-lbabus-build.service
 [Service]
 Type=oneshot
-ExecStart=-$LBA_DIR/emit-boot-marker.sh BOOT-START
+ExecStart=-$EMIT BOOT-START
 RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target

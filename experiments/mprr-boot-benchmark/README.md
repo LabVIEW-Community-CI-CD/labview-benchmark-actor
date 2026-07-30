@@ -161,9 +161,11 @@ discarded on seal — and the record passes WIN's `boot-benchmark-diff` (self-di
 ## Milestone emit wiring (LANDED)
 
 Wire shape confirmed cross-plane; [`emit-boot-marker.sh`](emit-boot-marker.sh) is embedded verbatim in
-[`../../cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh`](../../cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh)
-and called from these units (all best-effort via systemd's `-` prefix, so a failed/absent emit never
-perturbs the proven from-source boot path):
+[`../../cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh`](../../cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh),
+installed at `/usr/local/bin/emit-boot-marker.sh` (PATH-standard, next to `lbabus`) so both planes' units
+**and** WIN's `mesh-actor.sh` MESH-OK drop-in resolve the same path, and called from these units (all
+best-effort via systemd's `-` prefix, so a failed/absent emit never perturbs the proven from-source boot
+path):
 
 | Milestone | Emitted from |
 |---|---|
