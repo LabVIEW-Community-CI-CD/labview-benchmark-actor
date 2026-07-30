@@ -1,0 +1,18 @@
+{
+  "tool": "verify-capture-adapter",
+  "at": "2026-07-30T10:48:25.239Z",
+  "pass": 7,
+  "fail": 0,
+  "roundTripValues": "0..512 + {big}",
+  "e2e": {
+    "sealedFromRealPng": true,
+    "selfVerdict": "IDENTICAL_WITHIN_THRESHOLD",
+    "crossVerdict": "VISUAL_DELTA",
+    "changedCases": [
+      "TC-01"
+    ],
+    "maxHamming": 20,
+    "recordHashV1": "b0f38076a671321d8808930b600b0f01ec455555a7a3058ac160b71de48c7dc2",
+    "recordHashV2": "028822d7aa1b69d0a09e141f9b77dbd7790411aa4bde3e929dba661313e2a1a3"
+  }
+}
