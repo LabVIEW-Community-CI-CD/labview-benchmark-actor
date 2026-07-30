@@ -3,6 +3,23 @@
   "policy": "Publishing any component release (collab-cli-vX.Y.Z bus CLI, or ext-vX.Y.Z VS Code extension .vsix) requires an explicit, committed sign-off from BOTH the WIN and LINUX planes for that exact version. Each component's release workflow fails closed (blocks its publish job) unless both planes have recorded agreed:true. This encodes the operator directive: publishing shall occur only after bidirectional WIN<->LINUX agreement. Neither plane may unilaterally ship a shared release. collab-cli sign-offs live under the top-level `releases` map (backward-compatible); other components live under `components.<name>.releases`.",
   "requiredPlanes": ["WIN", "LINUX"],
   "releases": {
+    "0.10.0": {
+      "summary": "Embedded agent base-instructions update (no CLI code change), landed as #141: two new AGENTS.md sections — 'Fork posture & merge ownership' (contributor/maintainer split, maintainer-merges/loser-rebases, the #134/#136 squash-race guard, poll-before-ship, same-identity self-approve caveat) and 'Clean-room provisioning (agent-driven, from scratch)' (the agent drives the VM build from a stock OS ISO, gated on EXPLICIT user approval + SHA256 verify; the user's ONLY job is activating LabVIEW; NI strings/license are user-held and the provisioner fail-closes rather than guessing). LbaBus.csproj 0.9.0 -> 0.10.0 + CHANGELOG.",
+      "signoffs": {
+        "WIN": {
+          "agreed": true,
+          "reviewedCommit": "c939de4b4e3899de0f2b03d3fc4a68e7e813006c",
+          "at": "2026-07-30T07:20:00Z",
+          "note": "WIN authored 0.10.0 (#141) and validated it: LbaBus.csproj 0.9.0 -> 0.10.0, the two new AGENTS.md sections present (Fork posture & merge ownership; Clean-room provisioning agent-driven), CHANGELOG entry, verify-local-gates 40/40, and the change is orthogonal to the extension (its own AGENTS.md manifest untouched). Pure embedded-instructions bump, no CLI code change; the ci-agents release stage re-embeds source==embedded at build. Acknowledged: the lbabus-verify-windows red check is a Windows-runner Docker-daemon infra flake (npipe //./pipe/docker_engine) in WIN's CI domain, unrelated to this text-only change — I'll make that job start the Windows Docker daemon / go non-blocking in a separate CI fix. Also banked LINUX's nuance to fold next rev (don't delete a stacked PR's base branch before retargeting the child — #139->#140). WIN agrees to publish collab-cli-v0.10.0."
+        },
+        "LINUX": {
+          "agreed": true,
+          "reviewedCommit": "c939de4b4e3899de0f2b03d3fc4a68e7e813006c",
+          "at": "2026-07-30T07:09:14Z",
+          "note": "Reviewed #141 end-to-end on LINUX at release commit c939de4: no CLI code change — a pure embedded-instructions bump. Both AGENTS.md sections faithfully bank lessons we lived this cycle (the #134/#136 squash-race guard; agent-driven-from-scratch + user-activates-only, matching cleanroom/ubuntu-labview/ build-virtualbox.sh + provision-guest.sh). LBA Local Gates verify green (ubuntu-latest + windows-latest); Docs Link Check green. The lbabus-verify-windows image job failed on a persistent Windows-runner Docker-daemon infra flake (npipe //./pipe/docker_engine unavailable, reproduced across 2 attempts) — a non-required check, unrelated to the text-only change; merged over it and flagged for a separate CI fix. One nuance to fold next rev: the 'stacked PRs auto-retarget to main' line is optimistic — deleting the base branch CLOSED #139 (recovered as #140), so retarget the child before deleting the parent. LINUX agrees to publish collab-cli-v0.10.0."
+        }
+      }
+    },
     "0.9.0": {
       "summary": "Embedded agent base-instructions update (no CLI code change): new AGENTS.md 'Dev containers & the prebuilt image' section banking this cycle's cross-plane dev-container lessons -- the devcontainer pulls a fork-published prebuilt image (pure docker pull, no per-open feature build); LINUX snap-Docker is incompatible with Dev Containers (private /tmp + unreadable hidden ~/.vscode build-context, use Docker CE not the snap); WIN Docker Desktop cold-9p/drvfs first-postCreate copyFileSync EPERM (stage via read+write / container volume, docker exec -u node). Released with the devcontainer fork-publish change in the same PR (#118).",
       "signoffs": {
