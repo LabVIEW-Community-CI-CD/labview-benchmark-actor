@@ -83,7 +83,9 @@ surface, and the benchmark viewer. Nothing is published until the reviewer appro
 
 1. Ensures `code` (VS Code) and `gh` are on `PATH`, winget-installing them when the box lacks
    them (the VirtualBox golden box ships them; the VMware cleanroom box and BYO boxes may not).
-2. Downloads and installs the extension `.vsix` from the resolved `ext-v*` Release.
+2. Downloads and installs the extension `.vsix` from the resolved `ext-v*` Release **into the
+   interactive console user's VS Code profile** (resolved from its SID), so the human reviewer — who
+   logs in interactively, not as the WinRM `vagrant` provisioning user — actually sees it (#121).
 3. Downloads the self-contained `lbabus` (`*win-x64.exe`) from the resolved `collab-cli-v*`
    Release into `C:\lba-bin` and adds it to the machine `PATH`.
 4. Creates the `C:\lba-review` scratch workspace.
