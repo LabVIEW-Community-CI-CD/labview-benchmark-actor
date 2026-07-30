@@ -45,6 +45,7 @@ Notes:
 | TC-07 | Show Host Capabilities | yes | – | – |
 | TC-08 | Dogfood AGENTS.md guidance | – | – | – |
 | TC-09 | End-to-end LabVIEW run | yes | opt. | yes |
+| TC-10 | MCP server (programmatic) | – | – | – |
 
 ---
 
@@ -152,6 +153,21 @@ workspace root.
   2. Open the **Benchmark Viewer** (TC-06) and confirm it reflects the real run's series.
 - **Expected:** the benchmark runs to completion on real LabVIEW; the viewer shows the real
   series; results are plausible. Record timings and any failures.
+- **Result:** _____
+
+### TC-10 — MCP server (programmatic capability)
+- **Pre:** an **MCP-capable client** (e.g. the editor's AI agent) that can discover the
+  extension-provided MCP server. No CLI or LabVIEW needed.
+- **Steps:**
+  1. With the extension active, have the MCP client list available MCP servers/tools.
+  2. Confirm the **`labviewBenchmarkActor`** server is present and exposes the four tools:
+     `get_host_capabilities`, `get_benchmark_series`, `poll_coordination_bus`,
+     `post_coordination_note`.
+  3. Invoke **`get_benchmark_series`** and confirm it returns the bundled MPRR series
+     (the same data the viewer renders in TC-06).
+- **Expected:** the server is discoverable and starts locally over stdio; the four tools are
+  listed; `get_benchmark_series` returns a structured series with no error. Nothing is sent to the
+  internet. See [../mcp-tools.md](../mcp-tools.md) for the full tool contract.
 - **Result:** _____
 
 ---
