@@ -112,10 +112,16 @@ it is not another way to build the golden VM. The two stages compose:
 ```
 stock Ubuntu 24.04 ISO
   |- build-virtualbox.sh (from scratch) --> golden VM (LabVIEW 2026 Community, unactivated)
+       |- sudo ./install-lbabus.sh --> pinned self-contained lbabus (mesh coordination; no dotnet runtime)
        |- operator activates --> snapshot labview2026-activated-ready
             |- vagrant package --> self-contained golden box (e.g. vihs/labview-ubuntu2404-sc)
-                 |- Vagrant multi-VM topology --> N instances coordinating over `lbabus net` (TCP/UDP)
+                 |- Vagrant multi-VM topology --> N instances coordinating over `lbabus net` (TCP 8776 / UDP 8777)
 ```
+
+`install-lbabus.sh` drops the **pinned, self-contained** `lbabus-<ver>-linux-x64` binary from the
+`collab-cli-v*` release into `/usr/local/bin` (the runtime is bundled — **no dotnet on the actors**). Run it
+on the golden box **before `vagrant package`** so every mesh clone inherits the same lbabus version as the
+host + the Windows reviewer box, and can run `lbabus net beacon`/`listen`.
 
 Once the golden VM is activated, package it into a self-contained box and mesh N copies with the same
 pattern as [experiments/multi-vm-topology](../../experiments/multi-vm-topology) (there in its Windows form:
