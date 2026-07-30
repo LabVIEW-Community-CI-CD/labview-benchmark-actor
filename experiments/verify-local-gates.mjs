@@ -42,6 +42,7 @@ import { fiducialDhash } from './mprr-capture-ring/fiducial-vnc-server.mjs';
 import { createVboxVncSource, VBOX_DEFAULT_VNC_PORT, sampleDescriptor } from './mprr-capture-ring/vbox-vnc-source.mjs';
 import { DUAL_CLOCK_TICKS, buildDecodeTable, correlateVisualDualClock } from './mprr-capture-ring/visual-dual-clock.mjs';
 import { workloadCrossPlaneReceipt } from './mprr-capture-ring/workload-cross-plane.mjs';
+import { detectSettle } from './mprr-capture-ring/settle-detect.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1214,6 +1215,19 @@ check('capture-ring-workload-cross-plane', () => {
   assert(big.verdict === 'PASS' && big.timing.witnessDeltas.includes('launchMs') && big.timing.regressed.length === 0, 'a big cross-hypervisor launch delta is reported (witness), not failed');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'workload-cross-plane.selftest.mjs')], { stdio: 'pipe' });
   return { launchSpan: 'launchMs (witness)', suite: 'workload-cross-plane subprocess 2/2', ready: 'awaiting real WIN + LINUX LabVIEW-launch records' };
+});
+
+// Settle detection (mprr-capture-ring/settle-detect.mjs): the deterministic "UI ready" pin a visual-ring
+// WORKLOAD benchmark (e.g. a LabVIEW IDE launch) times against — the first frame of the maximal STABLE dhash
+// tail (final steady state), tolerance-absorbing small jitter + failing closed while still changing. In-process
+// smoke + subprocess the full synthetic self-test.
+check('capture-ring-settle-detect', () => {
+  const stable = detectSettle([{ ms: 0, dhashHex: 'ff'.repeat(8) }, { ms: 100, dhashHex: '00'.repeat(8) }, { ms: 200, dhashHex: '00'.repeat(8) }, { ms: 300, dhashHex: '00'.repeat(8) }, { ms: 400, dhashHex: '00'.repeat(8) }, { ms: 500, dhashHex: '00'.repeat(8) }], { window: 5 });
+  assert(stable.settled && stable.settleFrameIndex === 1 && stable.settleMs === 100, 'settle pin = the first frame of the stable tail');
+  const changing = detectSettle([{ ms: 0, dhashHex: '0000000000000000' }, { ms: 100, dhashHex: '1111111111111111' }, { ms: 200, dhashHex: '2222222222222222' }], { window: 5 });
+  assert(!changing.settled, 'still changing at capture end -> fails closed');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'settle-detect.selftest.mjs')], { stdio: 'pipe' });
+  return { primitive: 'detectSettle (final steady state)', suite: 'settle-detect subprocess 5/5' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
