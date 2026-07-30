@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import net from 'node:net';
 import { createFiducialServer, fiducialDhash, FIDUCIAL_W, FIDUCIAL_H } from './fiducial-vnc-server.mjs';
-import { createStreamingFramebuffer, makeSampler } from './vnc-source.mjs';
+import { createStreamingFramebuffer, makeSampler, vncAuthResponse } from './vnc-source.mjs';
 import { makeRingSink } from './vmware-ring-capture.mjs';
 import { readCaptureFrames } from './capture-ring.mjs';
 import { createShortRing, CLI_DEFAULT_CAPACITY_BYTES } from '../mprr-ring/mprrRing.mjs';
@@ -65,4 +65,28 @@ ok(`capture latency (fiducial set -> captured at client) = ${lagMs}ms over the l
 
 stream.close();          // close the client first so the server has no open connection to wait on
 await server.close();
-console.log(`\nfiducial-capture self-test: ${passed}/3 PASS`);
+
+// 4) VNC AUTHENTICATION (RFB security type 2 — VirtualBox's VNC VRDE always requires it, unlike VMware None-auth).
+//    DES known-answer vector + a REAL-socket round-trip against a password-protected fiducial server that STILL
+//    reproduces the ground truth; plus a wrong-password rejection.
+assert.equal(vncAuthResponse(Buffer.alloc(16, 0), '\x00\x00\x00\x00\x00\x00\x00\x00').toString('hex'), '8ca64de9c1b123a7'.repeat(2),
+  'DES known-answer (all-zero key/plaintext) == 8CA64DE9C1B123A7');
+const authServer = await createFiducialServer({ password: 'lbavnc0' });
+const authStream = createStreamingFramebuffer({ host: authServer.host, port: authServer.port, password: 'lbavnc0', connect: ({ host, port }) => net.connect({ host, port }) });
+const ad = await authStream.ready;
+assert.equal(ad.width, FIDUCIAL_W);
+assert.equal(dhashNow(authStream), fiducialDhash(0), 'VNC-auth client reproduces the fiducial ground truth over a real socket');
+authStream.close();
+await authServer.close();
+ok('VNC-auth (type 2): DES known-answer + real-socket round-trip captures the fiducial (ground truth)');
+
+const rejServer = await createFiducialServer({ password: 'correct0' });
+const rejStream = createStreamingFramebuffer({ host: rejServer.host, port: rejServer.port, password: 'wrongpw', connect: ({ host, port }) => net.connect({ host, port }) });
+let rejected = false;
+try { await rejStream.ready; } catch (e) { rejected = /VNC authentication failed/.test(e.message); }
+assert.ok(rejected, 'a wrong VNC password is rejected (SecurityResult != 0)');
+rejStream.close();
+await rejServer.close();
+ok('wrong VNC password is rejected (SecurityResult != 0)');
+
+console.log(`\nfiducial-capture self-test: ${passed}/5 PASS`);
