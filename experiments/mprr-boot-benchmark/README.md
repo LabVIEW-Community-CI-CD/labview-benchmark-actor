@@ -80,8 +80,9 @@ volatile region (`visual.gated` defaults to `false` for cut 1). WIN owns tuning 
 | [`emit-boot-marker.sh`](emit-boot-marker.sh) | guest emit helper (serial + journald), verbatim both planes | shared |
 | [`capture-backend-vbox.mjs`](capture-backend-vbox.mjs) | VBox capture backend (`controlvm screenshotpng`) + serial config | LINUX |
 | [`verify-boot-benchmark.mjs`](verify-boot-benchmark.mjs) | 36-check CI proof (seal, spans, gates, parsers, backend, delta) | LINUX |
-| VMware VNC capture backend + serial-to-file config | `RemoteDisplay.vnc.enabled` framebuffer grab | **WIN** |
-| cross-iteration diff (timing hard gate + visual witness) | extends `frame-diff.mjs` with the span comparison | **WIN** |
+| [`capture-backend-vmware.mjs`](capture-backend-vmware.mjs) | VMware capture backend (`RemoteDisplay.vnc` framebuffer grab, minimal RFB) + serial/VNC `.vmx` config | **WIN** |
+| [`verify-boot-benchmark-vmware.mjs`](verify-boot-benchmark-vmware.mjs) | 23-check CI proof (contract, `.vmx` config, RFB decode vs a scripted mock — no VM) | **WIN** |
+| cross-iteration diff (timing hard gate + visual witness) | extends `frame-diff.mjs` with the span comparison | **WIN** (next) |
 
 Fingerprint + PNG decode are reused from `../manual-procedure-record/` (`fingerprint.mjs`,
 `capture-adapter.mjs`), so "same `fingerprintAlgo`" is bit-identical cross-plane by construction.
@@ -101,11 +102,25 @@ LINUX = `vbox-screenshotpng` (`VBoxManage controlvm <vm> screenshotpng`). WIN = 
 grab off the VM's built-in VNC console — **not** `vmrun captureScreen`, which is VMware-Tools+login-gated and
 cannot see the BIOS/GRUB/early-kernel boot window we benchmark).
 
+**VMware specifics** ([`capture-backend-vmware.mjs`](capture-backend-vmware.mjs)): VMware has no CLI
+framebuffer grab, so the backend enables the VM's built-in VNC server and grabs one frame via a minimal,
+dependency-free RFB client (node builtins only, `None` auth, forced 32bpp). Two `.vmx` config helpers set it
+up while powered off (apply with `upsertVmxConfig`, or feed the Vagrant provider as `v.vmx[...]`):
+
+- `vmwareSerialConfigVmx({ hostFile })` → `serial0.present` / `serial0.fileType=file` / `serial0.fileName`
+  (the VMware analog of VBox `--uartmode1 file`, so the guest `LBABENCH` markers land in a host file the
+  recorder tails live).
+- `vmwareVncConfigVmx({ port })` → `RemoteDisplay.vnc.enabled` / `RemoteDisplay.vnc.port`.
+
+A VNC grab is async, so `vmware-vnc`'s `capture()` returns a Promise — the shared driver should
+`await backend.capture(path)`. VBox's sync return is `await`-compatible, so one driver fits both backends.
+
 ## Run
 
 ```bash
-node experiments/mprr-boot-benchmark/verify-boot-benchmark.mjs   # 36/36, no VM required
-node experiments/verify-local-gates.mjs                          # includes boot-benchmark-seal-spans-and-fail-closed
+node experiments/mprr-boot-benchmark/verify-boot-benchmark.mjs         # 36/36, no VM required
+node experiments/mprr-boot-benchmark/verify-boot-benchmark-vmware.mjs  # 23/23, no VM required (VMware backend + RFB decode)
+node experiments/verify-local-gates.mjs                                # includes boot-benchmark-seal-spans-and-fail-closed + boot-benchmark-vmware-vnc-backend
 ```
 
 ## Milestone emit wiring (co-owned, drop-ins)
