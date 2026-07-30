@@ -10,6 +10,23 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+### Added
+
+- **`lbabus net beacon --bind <ip>`** — pin the SOURCE interface so presence beacons egress a chosen NIC
+  (e.g. the host-only mesh `192.168.56.x`) rather than the NAT default route the OS would otherwise pick.
+  Mirrors `net listen --bind`. A startup `[net] beacon bind=… udp=… broadcast=… hosts=…` diagnostic line
+  now makes the egress choice visible (how the multi-NIC NAT-vs-host-only egress was diagnosed).
+- **`lbabus net beacon` subnet-directed / explicit broadcast** — SO_BROADCAST is now enabled for a
+  directed-broadcast target (a `--hosts` entry ending in `.255`, e.g. `192.168.56.255`) or an explicit
+  `--broadcast`, not only the literal `255.255.255.255` (which egresses NAT). Lets the mesh broadcast
+  presence on a CHOSEN subnet (host-only vs NAT).
+
+### Changed
+
+- **`lbabus net beacon` per-host sends are now loss-safe** — a per-host send error (an unreachable
+  directed-broadcast subnet, a down peer) skips only that peer for the round instead of aborting the whole
+  fan-out, matching the advisory/loss-safe beacon contract (ADR-0004) already applied to DNS-resolve misses.
+
 ## [0.10.0] — 2026-07-30
 
 Updates the embedded agent base instructions (surfaced by `lbabus agents`) — no CLI code change. Both

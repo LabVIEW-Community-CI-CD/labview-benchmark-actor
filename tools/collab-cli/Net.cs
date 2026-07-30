@@ -429,6 +429,9 @@ internal static class NetCommands
     /// Emits UDP presence/liveness beacons (ADR-0004): low-latency, loss-safe, advisory. Fans out to a peer
     /// LIST via <c>--hosts &lt;csv&gt;</c> (or one <c>--host</c>). Each target accepts a literal IP OR a name —
     /// names are DNS-resolved to IPv4 here, so mesh scripts no longer need to pre-resolve before beaconing.
+    /// <c>--bind &lt;ip&gt;</c> pins the SOURCE NIC (e.g. the host-only mesh <c>192.168.56.x</c>) instead of the
+    /// route the OS would pick (often the NAT default route); a subnet-directed target (<c>192.168.56.255</c>)
+    /// or explicit <c>--broadcast</c> enables SO_BROADCAST so presence can ride a CHOSEN subnet.
     /// </summary>
     private static int CmdBeacon(ArgMap a)
     {
@@ -437,41 +440,60 @@ internal static class NetCommands
         double interval = a.GetInt("interval", 1);
         int count = a.GetInt("count", 5);
         string session = a.Get("session") ?? "default";
-        bool broadcast = hosts.Any(h => h is "255.255.255.255");
+
+        // --bind <ip>: pin the SOURCE interface so beacons egress a CHOSEN NIC (e.g. the host-only mesh
+        // 192.168.56.x) instead of whatever the routing table picks (often the NAT default route). Mirrors
+        // `net listen --bind`. Unset => OS chooses the source by the destination route (fine for unicast).
+        string bindStr = a.Get("bind") ?? "";
+        IPAddress? bindIp = null;
+        if (bindStr.Length > 0 && !IPAddress.TryParse(bindStr, out bindIp))
+        {
+            return Fail($"--bind: invalid IP '{bindStr}'");
+        }
+
+        // SO_BROADCAST is needed for any broadcast. Enable it for an explicit --broadcast, the limited
+        // broadcast 255.255.255.255, OR a SUBNET-DIRECTED broadcast (a target ending in .255, e.g.
+        // 192.168.56.255 to reach the host-only mesh only) — previously only the literal 255.255.255.255,
+        // which egresses the NAT default route rather than the intended subnet.
+        bool broadcast = a.Get("broadcast") is not null
+            || hosts.Any(h => h is "255.255.255.255" || h.EndsWith(".255", StringComparison.Ordinal));
 
         try
         {
-            using var udp = new UdpClient();
+            using var udp = bindIp is not null ? new UdpClient(new IPEndPoint(bindIp, 0)) : new UdpClient();
             if (broadcast) { udp.EnableBroadcast = true; }
+            Console.Error.WriteLine($"[net] beacon bind={(bindIp?.ToString() ?? "auto")} udp={port} broadcast={broadcast} hosts={string.Join(",", hosts)} count={(count == 0 ? "∞" : count.ToString())}");
 
             for (int i = 1; i <= count || count == 0; i++)
             {
                 foreach (string host in hosts)
                 {
-                    // Resolve PER ROUND and skip only the offending host: presence beacons are advisory and
-                    // loss-safe, so a transient DNS miss under heavy (e.g. 64-container Docker-DNS) load must not
-                    // abort the whole round for every peer. A name that hiccups this round is re-resolved next round.
-                    IPAddress addr;
-                    try { addr = ResolveHost(host); }
+                    // Resolve + send PER HOST inside ONE try: presence beacons are advisory + loss-safe
+                    // (ADR-0004), so a transient DNS miss OR a per-host send error (e.g. an unreachable
+                    // directed-broadcast subnet, or one down peer) skips only THAT peer this round rather
+                    // than aborting the whole fan-out; a name/route that hiccups is retried next round.
+                    try
+                    {
+                        IPAddress addr = ResolveHost(host);
+                        var ep = new IPEndPoint(addr, port);
+                        var env = new BusEnvelope
+                        {
+                            SessionId = session,
+                            SenderId = SenderId(),
+                            Seq = i,
+                            Type = "PROGRESS",
+                            Task = a.Get("task") ?? "presence",
+                            Payload = a.Get("message") ?? $"{SenderId()} present",
+                        };
+                        byte[] data = BusWire.EncodeDatagram(env);
+                        udp.Send(data, data.Length, ep);
+                        Console.WriteLine($"beacon -> {host}:{port}  {BusWire.Render(env)}");
+                    }
                     catch (Exception ex)
                     {
                         Console.Error.WriteLine($"[net] UDP beacon skip '{host}' (round {i}): {ex.Message}");
                         continue;
                     }
-
-                    var ep = new IPEndPoint(addr, port);
-                    var env = new BusEnvelope
-                    {
-                        SessionId = session,
-                        SenderId = SenderId(),
-                        Seq = i,
-                        Type = "PROGRESS",
-                        Task = a.Get("task") ?? "presence",
-                        Payload = a.Get("message") ?? $"{SenderId()} present",
-                    };
-                    byte[] data = BusWire.EncodeDatagram(env);
-                    udp.Send(data, data.Length, ep);
-                    Console.WriteLine($"beacon -> {host}:{port}  {BusWire.Render(env)}");
                 }
 
                 if (i < count || count == 0) { Thread.Sleep((int)(interval * 1000)); }
