@@ -40,7 +40,8 @@ The reference these scripts reproduce is the operator's activated VirtualBox VM
 2. The **stock Ubuntu 24.04 ISO** — the **agent** downloads it from the vendor (releases.ubuntu.com) after
    **explicit user approval** and verifies it against the vendor `SHA256SUMS`; it's the only "image", and
    it's the vendor's, not ours. No approval => the agent does not download.
-3. The NI feed URL + LabVIEW package name (operator-confirmed — see [LabVIEW install](#labview-install)).
+3. Nothing else — the NI LabVIEW 2026 Community apt repo + package are baked into `provision-guest.sh`
+   (public keyring bundled). Only **LabVIEW activation** needs you (an NI account) — see below.
 
 ## VirtualBox (LINUX plane)
 
@@ -81,17 +82,20 @@ side. The provider-specific delta is the VM-creation step + the guest-tools pack
 
 ## LabVIEW install
 
-`provision-guest.sh` installs LabVIEW 2026 Community **unactivated** and is **operator-parameterized** —
-set both and it installs; omit either and it prints the exact steps + stops (fail-closed, never guesses a
-package name):
+`provision-guest.sh` installs LabVIEW 2026 Community **unactivated** from NI's apt repo — the exact,
+**authoritative** feed + package (mirrored from the maintainer host that runs LabVIEW 2026 Community):
+
+- Repo: `deb https://download.ni.com/ni-linux-desktop/LabVIEW/2026/Q1/f1/community/deb/ni-labview-2026/noble noble ni-labview-2026`
+- Keyring: `ni-labview-2026-noble-community.asc` (a **public** PGP key, bundled next to the script)
+- Metapackage: **`ni-labview-2026-community`** (v `26.1.1.49170-0+f18` — LabVIEW 2026 Q1)
+
+It runs with no arguments:
 
 ```bash
-sudo NI_FEED_DEB="<NI Ubuntu-24.04 package-feed .deb URL from download.ni.com>" \
-     LABVIEW_PKG="<e.g. labview-2026-community>" \
-     ./provision-guest.sh
+sudo ./provision-guest.sh
 ```
 
-Confirm the exact package name on the working VM with `dpkg -l | grep -i labview`.
+Override `NI_REPO` / `NI_SUITE` / `LABVIEW_PKG` / `NI_KEYRING` only if NI moves the feed.
 
 ## Activation (operator only)
 

@@ -6,9 +6,10 @@
 #
 # ACTIVATION (NI-account sign-in) is ALWAYS the operator's step — this script NEVER activates.
 #
-# The exact NI feed .deb URL + LabVIEW package name are OPERATOR-CONFIRMED (set NI_FEED_DEB + LABVIEW_PKG).
-# Without them the script prints the exact commands to run + where to get the NI feed, then stops
-# (fail-closed) rather than guessing an unverified package name.
+# The NI LabVIEW 2026 Community feed is an apt REPO (a public keyring + a `deb` source line) — the defaults
+# below are AUTHORITATIVE, mirrored from the maintainer host that runs LabVIEW 2026 Community. The keyring
+# is a PUBLIC PGP key bundled next to this script. Override NI_REPO / NI_SUITE / LABVIEW_PKG / NI_KEYRING if
+# NI moves the feed.
 set -euo pipefail
 
 log() { echo "[provision] $*"; }
@@ -41,31 +42,28 @@ else
   log "[warn] primary user '$PRIMARY_USER' not present — skipping passwordless sudo (override with PRIMARY_USER)."
 fi
 
-NI_FEED_DEB="${NI_FEED_DEB:-}"
-LABVIEW_PKG="${LABVIEW_PKG:-}"
+# 2) NI LabVIEW 2026 Community feed = an apt REPO (public keyring + a `deb` source line), NOT a single .deb.
+#    These defaults are AUTHORITATIVE — mirrored from the maintainer host (verified via
+#    /etc/apt/sources.list.d/ni-labview-2026-noble-community.list + dpkg). Override via env if NI moves them.
+NI_KEYRING_SRC="${NI_KEYRING:-$(dirname "$(readlink -f "$0")")/ni-labview-2026-noble-community.asc}"
+NI_KEYRING_DST="/usr/share/keyrings/ni-labview-2026-noble-community.asc"
+NI_LIST="/etc/apt/sources.list.d/ni-labview-2026-noble-community.list"
+NI_REPO="${NI_REPO:-https://download.ni.com/ni-linux-desktop/LabVIEW/2026/Q1/f1/community/deb/ni-labview-2026/noble}"
+NI_SUITE="${NI_SUITE:-ni-labview-2026}"
+LABVIEW_PKG="${LABVIEW_PKG:-ni-labview-2026-community}"
 
-if [ -z "$NI_FEED_DEB" ] || [ -z "$LABVIEW_PKG" ]; then
-  cat <<'GUIDANCE'
-[provision] LabVIEW install is operator-parameterized (exact NI strings TBC from the working VM).
-  Provide BOTH, then re-run:
-    NI_FEED_DEB=<URL of NI's Ubuntu-24.04 package-feed .deb from download.ni.com>
-    LABVIEW_PKG=<e.g. labview-2026-community>    # confirm the EXACT package on the real VM:
-                                                 #   dpkg -l | grep -i labview
-  The install is then exactly:
-    curl -fsSL "$NI_FEED_DEB" -o /tmp/ni-feed.deb && apt-get install -y /tmp/ni-feed.deb
-    apt-get update -y && apt-get install -y "$LABVIEW_PKG"
-  After install, the OPERATOR activates LabVIEW Community (NI sign-in). Activation is NEVER automated here.
-GUIDANCE
+if [ ! -f "$NI_KEYRING_SRC" ]; then
+  echo "[provision] NI keyring not found: $NI_KEYRING_SRC" >&2
+  echo "  It is a PUBLIC PGP key bundled next to this script (copied from the host's" >&2
+  echo "  /usr/share/keyrings/ni-labview-2026-noble-community.asc). Set NI_KEYRING to override." >&2
   exit 3
 fi
 
-# 2) Add the NI package feed, then install LabVIEW 2026 Community (UNACTIVATED).
-log "adding NI feed + installing '$LABVIEW_PKG' (UNACTIVATED)..."
-curl -fsSL "$NI_FEED_DEB" -o /tmp/ni-feed.deb
-apt-get install -y /tmp/ni-feed.deb
+log "adding NI apt repo + keyring, installing '$LABVIEW_PKG' (UNACTIVATED)..."
+install -m 0644 "$NI_KEYRING_SRC" "$NI_KEYRING_DST"
+printf 'deb [signed-by=%s] %s noble %s\n' "$NI_KEYRING_DST" "$NI_REPO" "$NI_SUITE" > "$NI_LIST"
 apt-get update -y
 apt-get install -y "$LABVIEW_PKG"
-rm -f /tmp/ni-feed.deb
 
 log 'LabVIEW 2026 Community installed but NOT activated.'
 log 'OPERATOR: activate LabVIEW Community (NI-account sign-in), then snapshot "labview2026-activated-ready".'
