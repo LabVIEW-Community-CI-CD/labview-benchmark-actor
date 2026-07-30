@@ -77,13 +77,17 @@ Vagrant.configure("2") do |config|
       # listeners/beacons stay live and a peer that completes first keeps beaconing for a slower, staggered peer
       # (Restart=on-failure would let the first finisher exit and strand the other). The mesh forms regardless
       # of `vagrant up` ordering, and the host observer (the .1 gateway, mesh-monitor.mjs) sees continuous presence.
+      # Ordered After=/Wants= lba-lbabus-build.service (the from-source first-boot oneshot that builds
+      # /usr/local/bin/lbabus): oneshot+RemainAfterExit means After= waits for the build to COMPLETE on first
+      # boot (lbabus present before the mesh starts), and a Condition-skip on later boots is treated as
+      # satisfied for ordering -- clean both boots. Restart=always stays as the self-heal belt-and-suspenders.
       peers    = ACTORS.reject { |x| x["hostname"] == a["hostname"] }.map { |x| x["ip"] }.join(",")
       observer = a["ip"].sub(/\.\d+$/, ".1")   # host-only gateway = the host running the read-only viewers
       unit = <<~UNIT
         [Unit]
         Description=lbabus host-only mesh (auto-form + self-prove on boot)
-        After=network-online.target
-        Wants=network-online.target
+        After=network-online.target lba-lbabus-build.service
+        Wants=network-online.target lba-lbabus-build.service
         StartLimitIntervalSec=0
         ConditionPathExists=/usr/local/bin/lbabus
         ConditionPathExists=/etc/lba-mesh-actor
