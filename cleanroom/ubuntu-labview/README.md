@@ -115,7 +115,7 @@ stock Ubuntu 24.04 ISO
        |- sudo ./install-lbabus.sh --> pinned self-contained lbabus (mesh coordination; no dotnet runtime)
        |- operator activates --> snapshot labview2026-activated-ready
             |- vagrant package --> self-contained golden box (e.g. vihs/labview-ubuntu2404-sc)
-                 |- Vagrant multi-VM topology --> N instances coordinating over `lbabus net` (TCP 8776 / UDP 8777)
+                 |- Vagrant multi-VM topology --> N instances coordinating over `lbabus net` (TCP 7420 / UDP 7421)
 ```
 
 `install-lbabus.sh` drops the **pinned, self-contained** `lbabus-<ver>-linux-x64` binary from the
