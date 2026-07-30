@@ -1,0 +1,23 @@
+{
+  "schema": "labview-benchmark-actor/combined-visual-dual-clock-receipt@1",
+  "title": "cross-plane VISUAL ring: byte-identical capture (identity) + recoverable guest clock (correlation)",
+  "identity": {
+    "verdict": "IDENTICAL",
+    "ticks": 8,
+    "paths": "none-auth(VMware) == vnc-auth(VBox) == ground truth"
+  },
+  "correlation": {
+    "resolution": "1280x800",
+    "pairedSteps": 12,
+    "allStepsDecoded": true,
+    "driftMs": {
+      "minDelta": 0,
+      "meanDelta": 48.3,
+      "maxDelta": 55,
+      "spreadMs": 55
+    }
+  },
+  "liveReference": "LINUX #188 proved this on a real VBox guest->host: delta mean 22.9ms / spread 101ms. This loopback (~ms) is the deterministic, gateable analog exercising the same decode + correlate machinery.",
+  "verdict": "PASS",
+  "rerun": "node experiments/mprr-capture-ring/combined-visual-dual-clock.mjs"
+}

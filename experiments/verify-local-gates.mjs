@@ -1185,6 +1185,21 @@ check('capture-ring-visual-dual-clock', () => {
   return { steps: DUAL_CLOCK_TICKS.length, correlate: 'guest-display -> host-capture', suite: 'verify-visual-dual-clock subprocess 5/5' };
 });
 
+// Combined visual dual-clock (mprr-capture-ring/combined-visual-dual-clock.mjs): the CAPSTONE receipt composing
+// both halves of the cross-plane VISUAL ring — IDENTITY (#187: the None-auth + VNC-auth capture paths are
+// byte-identical == ground truth) AND CORRELATION (#188: the captured pixels carry a recoverable guest clock,
+// every step decoded + paired guest-display -> host-capture). In-process re-checks the committed receipt
+// (deterministic structure), then re-runs the live loopback capstone (real sockets) as a subprocess.
+check('capture-ring-combined-visual-dual-clock', () => {
+  const receipt = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'combined-visual-dual-clock-receipt.json'), 'utf8'));
+  assert(receipt.verdict === 'PASS', `combined capstone must be PASS (got ${receipt.verdict})`);
+  assert(receipt.identity.verdict === 'IDENTICAL', 'identity half: None-auth(VMware) == VNC-auth(VBox) == ground truth');
+  assert(receipt.correlation.pairedSteps === DUAL_CLOCK_TICKS.length && receipt.correlation.allStepsDecoded === true,
+    `correlation half: all ${DUAL_CLOCK_TICKS.length} guest steps decoded from the pixels + paired`);
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'combined-visual-dual-clock.mjs')], { stdio: 'pipe' });
+  return { verdict: receipt.verdict, identity: receipt.identity.verdict, steps: receipt.correlation.pairedSteps };
+});
+
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
 // Shift-left of the agent last gate's `readme-marketplace-safe` check so every PR's
 // CI catches a broken listing link before it can reach the final pre-publish gate.
