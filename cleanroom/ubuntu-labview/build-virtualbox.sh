@@ -20,7 +20,7 @@ DISK_GB="${DISK_GB:-80}"              # matches build-vmware.ps1 (headroom for t
 MEM_MB="${MEM_MB:-12288}"             # matches the operator's working VM
 CPUS="${CPUS:-6}"
 VRAM_MB="${VRAM_MB:-128}"
-OSTYPE_ID="${OSTYPE_ID:-Ubuntu24_LTS_64}"   # verify on your host: VBoxManage list ostypes | grep -i ubuntu
+OSTYPE_ID="${OSTYPE_ID:-}"                   # set from the cleanroom manifest below (env still overrides)
 BASEFOLDER="${BASEFOLDER:-$HOME/VirtualBox VMs}"
 GUEST_USER="${GUEST_USER:-actor}"           # 'actor' = cross-plane identity parity with the Windows cleanroom
 GUEST_FULLNAME="${GUEST_FULLNAME:-LBA Actor}"
@@ -28,6 +28,17 @@ GUEST_HOSTNAME="${GUEST_HOSTNAME:-actor}"
 START_MODE="${START_MODE:-headless}"        # headless | gui | none
 DRY_RUN=1
 FORCE=0
+
+# Provisioning FACTS from the single pinned manifest (OS ISO + VBox type); build-vmware.ps1 mirrors this read.
+# Env vars still override; if jq or the manifest is absent, fall back to the pinned defaults.
+MANIFEST="${CLEANROOM_MANIFEST:-$(dirname "$(readlink -f "$0")")/cleanroom-manifest.json}"
+ISO_SHA256="${ISO_SHA256:-}"; ISO_URL="${ISO_URL:-}"
+if [ -f "$MANIFEST" ] && command -v jq >/dev/null 2>&1; then
+  OSTYPE_ID="${OSTYPE_ID:-$(jq -r '.os.vbox_ostype // empty' "$MANIFEST")}"
+  ISO_SHA256="${ISO_SHA256:-$(jq -r '.os.iso.amd64.sha256 // empty' "$MANIFEST")}"
+  ISO_URL="${ISO_URL:-$(jq -r '.os.iso.amd64.url // empty' "$MANIFEST")}"
+fi
+OSTYPE_ID="${OSTYPE_ID:-Ubuntu24_LTS_64}"   # fallback if the manifest/jq is unavailable
 
 usage() {
   sed -n '2,13p' "$0"
@@ -67,8 +78,13 @@ if VBoxManage list vms | grep -q "\"$VM_NAME\""; then
 fi
 
 if [ "$DRY_RUN" = 0 ]; then
-  [ -n "$ISO" ]   || { echo "[abort] --run needs ISO=/path/to/ubuntu-24.04-*.iso (stock ISO you download)." >&2; exit 1; }
+  [ -n "$ISO" ]   || { echo "[abort] --run needs ISO=/path/to/ubuntu-24.04-*.iso (download it${ISO_URL:+ from $ISO_URL})." >&2; exit 1; }
   [ -f "$ISO" ]   || { echo "[abort] ISO not found: $ISO" >&2; exit 1; }
+  if [ -n "$ISO_SHA256" ] && command -v sha256sum >/dev/null 2>&1; then
+    echo "   verifying ISO sha256 against the cleanroom manifest ..."
+    got="$(sha256sum "$ISO" | cut -d' ' -f1)"
+    [ "$got" = "$ISO_SHA256" ] || { echo "[abort] ISO sha256 mismatch: got $got; manifest pins $ISO_SHA256." >&2; exit 1; }
+  fi
 fi
 
 VM_DIR="$BASEFOLDER/$VM_NAME"
