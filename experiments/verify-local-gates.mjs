@@ -41,6 +41,7 @@ import { recordFromRing } from './mprr-capture-ring/capture-ring-recorder.mjs';
 import { fiducialDhash } from './mprr-capture-ring/fiducial-vnc-server.mjs';
 import { createVboxVncSource, VBOX_DEFAULT_VNC_PORT, sampleDescriptor } from './mprr-capture-ring/vbox-vnc-source.mjs';
 import { DUAL_CLOCK_TICKS, buildDecodeTable, correlateVisualDualClock } from './mprr-capture-ring/visual-dual-clock.mjs';
+import { workloadCrossPlaneReceipt } from './mprr-capture-ring/workload-cross-plane.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1198,6 +1199,21 @@ check('capture-ring-combined-visual-dual-clock', () => {
     `correlation half: all ${DUAL_CLOCK_TICKS.length} guest steps decoded from the pixels + paired`);
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'combined-visual-dual-clock.mjs')], { stdio: 'pipe' });
   return { verdict: receipt.verdict, identity: receipt.identity.verdict, steps: receipt.correlation.pairedSteps };
+});
+
+// Workload cross-plane receipt (mprr-capture-ring/workload-cross-plane.mjs): the cross-plane comparison of a
+// visual-ring WORKLOAD benchmark (e.g. a LabVIEW IDE launch) -- diff two sealed workload records (boot-
+// benchmark-v1 with a guest launchMs span) via bootBenchmarkDiff. The launch span is a WITNESS (cross-
+// hypervisor substrate bias), so a large launch delta is REPORTED, never hard-failed. Gates the diff machinery
+// on synthetic records now; swaps in the real WIN + LINUX LabVIEW-launch records when they land.
+check('capture-ring-workload-cross-plane', () => {
+  const rec = (plane, hv, launchMs) => ({ schema: 'labview-benchmark-actor/boot-benchmark-v1', iteration: `${plane}-lv`, plane, hypervisor: hv, workload: 'labview-ide-launch', fingerprintAlgo: 'dhash-64', frames: [{ caseId: 'READY', counter: 0, settled: true, perceptualFingerprint: 'a1b2c3d4e5f60718', fingerprintAlgo: 'dhash-64' }], spans: [{ id: 'launchMs', ms: launchMs, clock: 'guest', scope: 'cross-plane' }] });
+  const r = workloadCrossPlaneReceipt(rec('WIN', 'vmware', 8200), rec('LINUX', 'virtualbox', 6100));
+  assert(r.verdict === 'PASS' && r.launch.witness === true && r.launch.msA === 6100 && r.launch.msB === 8200 && r.launch.deltaMs === 2100, 'launchMs witness diff (LINUX 6100 -> WIN 8200)');
+  const big = workloadCrossPlaneReceipt(rec('WIN', 'vmware', 20000), rec('LINUX', 'virtualbox', 6100));
+  assert(big.verdict === 'PASS' && big.timing.witnessDeltas.includes('launchMs') && big.timing.regressed.length === 0, 'a big cross-hypervisor launch delta is reported (witness), not failed');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'workload-cross-plane.selftest.mjs')], { stdio: 'pipe' });
+  return { launchSpan: 'launchMs (witness)', suite: 'workload-cross-plane subprocess 2/2', ready: 'awaiting real WIN + LINUX LabVIEW-launch records' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
