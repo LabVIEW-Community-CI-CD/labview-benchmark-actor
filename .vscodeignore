@@ -9,10 +9,17 @@ experiments/**
 tools/**
 docs/**
 vagrant/**
+reviewer-workstation/**
+**/.vagrant/**
 cleanroom/**
 scripts/**
 extension-agents/**
 node_modules/**
+.devcontainer/**
+.dockerignore
+.editorconfig
+.gitattributes
+package-lock.json
 .gitignore
 .git/**
 **/.DS_Store
