@@ -135,6 +135,7 @@ cat <<NEXT
 Next (matches the operator's real snapshot workflow):
   1) After the unattended install finishes + the guest reboots, copy provision-guest.sh into the guest and
      install LabVIEW 2026 Community (UNACTIVATED):        sudo ./provision-guest.sh
+  1b) Make the box build lbabus itself on first boot:     sudo ./provision-lbabus-fromsource.sh
   2) Snapshot the clean pre-activation state:             VBoxManage snapshot "$VM_NAME" take labview2026-installed-preactivation
   3) OPERATOR activates LabVIEW Community (NI sign-in), then snapshot the activated state:
                                                           VBoxManage snapshot "$VM_NAME" take labview2026-activated-ready

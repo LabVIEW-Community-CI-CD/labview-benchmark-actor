@@ -112,16 +112,20 @@ it is not another way to build the golden VM. The two stages compose:
 ```
 stock Ubuntu 24.04 ISO
   |- build-virtualbox.sh (from scratch) --> golden VM (LabVIEW 2026 Community, unactivated)
-       |- sudo ./install-lbabus.sh --> pinned self-contained lbabus (mesh coordination; no dotnet runtime)
+       |- sudo ./provision-lbabus-fromsource.sh --> bake SDK + pinned source + vendored cache; lbabus BUILDS FROM SOURCE on first boot
        |- operator activates --> snapshot labview2026-activated-ready
             |- vagrant package --> self-contained golden box (e.g. vihs/labview-ubuntu2404-sc)
                  |- Vagrant multi-VM topology --> N instances coordinating over `lbabus net` (TCP 7420 / UDP 7421)
 ```
 
-`install-lbabus.sh` drops the **pinned, self-contained** `lbabus-<ver>-linux-x64` binary from the
-`collab-cli-v*` release into `/usr/local/bin` (the runtime is bundled — **no dotnet on the actors**). Run it
-on the golden box **before `vagrant package`** so every mesh clone inherits the same lbabus version as the
-host + the Windows reviewer box, and can run `lbabus net beacon`/`listen`.
+`provision-lbabus-fromsource.sh` makes each VM **build lbabus itself from source on first boot** — the only
+lbabus path (no pre-built binary download). Run once on the golden box **before `vagrant package`**: it installs
+the .NET SDK, bakes the **pinned** collab-cli source (`/opt/lba/src`) + a **vendored offline NuGet cache**
+(`/opt/lba/nuget`), and enables a first-boot `systemd` oneshot that publishes a self-contained single-file
+`lbabus` **fully offline** into `/usr/local/bin`. No binary is baked, so **every mesh clone rebuilds lbabus on
+its first boot** (`ConditionPathExists=!/usr/local/bin/lbabus`) and can then run `lbabus net beacon`/`listen`
+(TCP 7420 / UDP 7421). The `collab-cli-v*` release remains a tagged **source** snapshot for provenance; no
+consumer downloads its binary.
 
 Once the golden VM is activated, package it into a self-contained box and mesh N copies with the same
 pattern as [experiments/multi-vm-topology](../../experiments/multi-vm-topology) (there in its Windows form:

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # install-lbabus.sh — install the pinned, self-contained lbabus onto the Ubuntu golden box.
 #
+# DEPRECATED (2026-07-30): superseded by provision-lbabus-fromsource.sh. The operator directive is now
+# BUILD-FROM-SOURCE on first boot (no pre-built binary download). Kept ONLY for the in-flight WIN golden-box
+# repackage transition; will be removed once both planes build lbabus from source.
+#
 # The mesh actors coordinate over `lbabus net` (TCP 7420 / UDP 7421). lbabus is a .NET tool, but the
 # collab-cli-v* release publishes a SELF-CONTAINED single-file linux-x64 binary (the runtime is bundled),
 # so the actors need NO dotnet runtime + no `dotnet tool install`. Run this on the GOLDEN box BEFORE
