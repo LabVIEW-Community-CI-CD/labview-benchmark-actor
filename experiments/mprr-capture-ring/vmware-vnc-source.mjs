@@ -230,7 +230,8 @@ export function createVmwareVncSource({
       sampler.tick(nowMs);
       if (nowMs - startMs >= durationMs) { stop(); resolve({ frames: sampler.frameIndex }); }
     }, periodMs);
-    timer?.unref?.();
+    // NOTE: the cadence timer is intentionally NOT unref'd — it is the foreground driver of the capture and
+    // must keep the event loop alive until durationMs; stop() clears it (and closes the socket) at the end.
   }));
   function stop() { if (timer) { clearTimer(timer); timer = null; } stream.close(); }
   return { ready: stream.ready, done, stop, dims: () => stream.dims(), updateCount: () => stream.updateCount() };
