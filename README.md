@@ -17,7 +17,7 @@ Codespace** or a **Vagrant golden VM**, it lets an operator drive
 **benchmarking** through that agentic infrastructure and review results through
 a **time-cursor benchmark viewer**.
 
-Four capabilities distinguish it from the parent repo:
+Five capabilities distinguish it from the parent repo:
 
 1. **Benchmark time-cursor UI** — a benchmark chart with a draggable **vertical
    time cursor**; dragging it left↔right selects a point in time, and the
@@ -40,6 +40,10 @@ Four capabilities distinguish it from the parent repo:
    concentrates runs onto the host (out-of-band) to improve an **ollama**
    comparison layer over previous runs (LBA-REQ-010,
    [ADR-0006](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0006-run-concentration-ollama-comparison.md)).
+5. **MCP tools for agent mode** — the extension contributes a **Model Context
+   Protocol** server (a dependency-free stdio JSON-RPC server) so Copilot agent
+   mode can call the extension's own tools directly: host capabilities, the
+   deterministic benchmark series, and the coordination bus (poll / post).
 
 ## Absorbed model
 

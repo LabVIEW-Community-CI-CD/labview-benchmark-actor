@@ -69,7 +69,25 @@ point in time (LBA-REQ-004/005).
    concentrated corpus (LBA-REQ-010).
 5. Tear the topology down cleanly when finished.
 
-## 5. Where to look next
+## 5. Programmatic access (MCP tools, optional)
+
+The extension registers a **Model Context Protocol (MCP) server**, so an
+MCP-capable client (such as an AI agent in your editor) can query the actor's
+state through structured tools instead of the UI:
+
+- **get_host_capabilities** — report the host's benchmark-relevant capacity
+  (CPU, memory, platform).
+- **get_benchmark_series** — read the current metric time-series that backs the
+  time-cursor viewer.
+- **poll_coordination_bus** — read recent inter-actor coordination messages
+  (claims, handoffs, acks, dones) — **coordination only, no run data**.
+- **post_coordination_note** — post a coordination note onto the bus.
+
+The server runs **locally over stdio** and starts on demand; nothing is sent to
+the internet. For the full tool contract (inputs, outputs, examples) see
+[../mcp-tools.md](../mcp-tools.md).
+
+## 6. Where to look next
 
 - What the system must do: [../requirements/srs.md](../requirements/srs.md)
 - How it is structured: [../architecture/overview.md](../architecture/overview.md)
