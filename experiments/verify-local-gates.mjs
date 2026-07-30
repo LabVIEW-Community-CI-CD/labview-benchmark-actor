@@ -21,7 +21,7 @@ import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity } from './corroboration-confidence-reference.mjs';
-import { ingestShortPackets, MPRR_RING_SCHEMA, TICKS_PER_MS, DEFAULT_BLOCK_DURATION_MS, DEFAULT_BLOCK_DURATION_TICKS, ADMISSION_CAPACITY_HEADROOM, AUTHORITATIVE_BOUNDARY_VARIATION_PCT, NORMAL_LOAD_BOUNDARY_VARIATION_PCT } from './mprr-ring/mprrRing.mjs';
+import { ingestShortPackets, MPRR_RING_SCHEMA, TICKS_PER_MS, DEFAULT_BLOCK_DURATION_MS, DEFAULT_BLOCK_DURATION_TICKS, ADMISSION_CAPACITY_HEADROOM, AUTHORITATIVE_BOUNDARY_VARIATION_PCT, NORMAL_LOAD_BOUNDARY_VARIATION_PCT, createShortRing, CLI_DEFAULT_CAPACITY_BYTES } from './mprr-ring/mprrRing.mjs';
 import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
 import { correlateDualStream } from './mprr-ring/mprrDualPacket.mjs';
 import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
@@ -35,6 +35,7 @@ import { parseJournalMonotonic } from './mprr-boot-benchmark/journal-monotonic.m
 import { createVmwareBackend, vmwareSerialConfigVmx, vmwareVncConfigVmx, upsertVmxConfig } from './mprr-boot-benchmark/capture-backend-vmware.mjs';
 import { bootBenchmarkDiff } from './mprr-boot-benchmark/boot-benchmark-diff.mjs';
 import { bootbenchDiff } from './mesh-runs/bootbench-diff.mjs';
+import { PACKET_BYTES, PACKET_VERSION, OFFSETS, MILESTONE_IDS, encodeCaptureFrame, decodeCaptureFrame, writeCaptureFrame, readCaptureFrames } from './mprr-capture-ring/capture-ring.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1016,6 +1017,45 @@ check('bootbench-cross-plane-diff-receipt', () => {
   assert(build.deltaMs === receipt.timing.buildMs.deltaMs && mesh.deltaMs === receipt.timing.meshFormMs.deltaMs,
     'span deltas must match the committed receipt (no fixture/receipt drift)');
   return { verdict: diff.verdict, buildMs: `${build.msA}->${build.msB} (${build.deltaMs}ms/${build.status})`, meshFormMs: `${mesh.deltaMs}ms/${mesh.status}` };
+});
+
+// Capture-ring ingest adapter (mprr-capture-ring/capture-ring.mjs): the SHARED 24-byte capture-frame contract
+// both planes serialize against (LINUX VBox VNC source, WIN VMware VNC source). In-process gates the rot-prone
+// surface — the exact 24-byte little-endian layout + packetVersion/reserved bytes, DataView-LE decode at an
+// UNALIGNED offset (where a BigUint64Array view would throw), the MILESTONE_IDS single-source map, and the
+// OPTIONAL-dhash milestone-only marker round-tripping through a real ring — then runs the full synthetic-frame
+// suite as a subprocess (mirrors the boot-benchmark gates) so the whole adapter is gated in CI on both planes.
+check('capture-ring-ingest-adapter', () => {
+  // Exact 24-byte little-endian layout + self-describing version/reserved bytes.
+  const buf = encodeCaptureFrame({ timingTicks64: 0x0102030405060708n, frameIndex: 1, dhash64: 0x1112131415161718n, caseId: 'MESH-OK', settled: true });
+  assert(buf.byteLength === PACKET_BYTES, 'capture record must be exactly 24 bytes');
+  assert(buf[OFFSETS.timingTicks64] === 0x08 && buf[OFFSETS.timingTicks64 + 7] === 0x01, 'timingTicks64 stored little-endian');
+  assert(buf[OFFSETS.dhash64] === 0x18 && buf[OFFSETS.dhash64 + 7] === 0x11, 'dhash64 stored little-endian');
+  assert(buf[OFFSETS.packetVersion] === PACKET_VERSION && buf[OFFSETS.reserved] === 0, 'packetVersion(=1)/reserved(=0) bytes present (self-describing record)');
+  // MILESTONE_IDS single source (LBABUS- prefix on BUILD-START/BUILT so the recorder reconstructs LBABENCH caseIds).
+  assert(MILESTONE_IDS[2] === 'LBABUS-BUILD-START' && MILESTONE_IDS[3] === 'LBABUS-BUILT' && MILESTONE_IDS[4] === 'MESH-OK',
+    'MILESTONE_IDS pins the LBABUS- caseIds');
+  // DataView-LE decodes at an UNALIGNED offset where a BigUint64Array view would throw (the ring is byte-offset
+  // addressed, so a record can land at any physical offset). Place the record at odd offset 3 and decode it.
+  const scratch = new Uint8Array(PACKET_BYTES + 3);
+  scratch.set(buf, 3);
+  const view = scratch.subarray(3, 3 + PACKET_BYTES);
+  assert(view.byteOffset % 8 !== 0, 'scratch view is at a non-8-aligned offset');
+  let bigUintThrew = false;
+  try { new BigUint64Array(view.buffer, view.byteOffset, 1); } catch { bigUintThrew = true; }
+  assert(bigUintThrew, 'BigUint64Array would throw at the unaligned offset (why DataView access is mandatory)');
+  const dv = decodeCaptureFrame(view);
+  assert(dv.caseId === 'MESH-OK' && dv.settled === true && dv.hasFrame === true, 'DataView decodes the record at the unaligned offset');
+  // OPTIONAL dhash: a milestone-only marker (dhash64 == 0, milestoneId > 0) round-trips through a real ring.
+  const ring = createShortRing(CLI_DEFAULT_CAPACITY_BYTES);
+  const s = ring.state().headPublished;
+  const e = writeCaptureFrame(ring, { timingTicks64: 5n, frameIndex: 0, caseId: 'LBABUS-BUILT' }).absoluteEndOffset;
+  const [rec] = readCaptureFrames(ring, s, e);
+  assert(rec.hasFrame === false && rec.dhash64 === 0n && rec.caseId === 'LBABUS-BUILT',
+    'milestone-only marker (optional dhash) round-trips through the ring');
+  // full synthetic-frame suite (round-trip + unaligned/wrap + fail-closed) as a subprocess
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-capture-ring.mjs')], { stdio: 'pipe' });
+  return { packet: `${PACKET_BYTES}B v${PACKET_VERSION}`, access: 'DataView-LE', suite: 'verify-capture-ring subprocess 10/10' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
