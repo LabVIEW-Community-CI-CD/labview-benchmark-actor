@@ -1207,15 +1207,28 @@ check('capture-ring-combined-visual-dual-clock', () => {
 // visual-ring WORKLOAD benchmark (e.g. a LabVIEW IDE launch) -- diff two sealed workload records (boot-
 // benchmark-v1 with a guest launchMs span) via bootBenchmarkDiff. The launch span is a WITNESS (cross-
 // hypervisor substrate bias), so a large launch delta is REPORTED, never hard-failed. Gates the diff machinery
-// on synthetic records now; swaps in the real WIN + LINUX LabVIEW-launch records when they land.
+// on synthetic records AND on the REAL WIN + LINUX LabVIEW-launch records (both planes captured LIVE): the
+// committed receipt can't silently rot.
 check('capture-ring-workload-cross-plane', () => {
   const rec = (plane, hv, launchMs) => ({ schema: 'labview-benchmark-actor/boot-benchmark-v1', iteration: `${plane}-lv`, plane, hypervisor: hv, workload: 'labview-ide-launch', fingerprintAlgo: 'dhash-64', frames: [{ caseId: 'READY', counter: 0, settled: true, perceptualFingerprint: 'a1b2c3d4e5f60718', fingerprintAlgo: 'dhash-64' }], spans: [{ id: 'launchMs', ms: launchMs, clock: 'guest', scope: 'cross-plane' }] });
   const r = workloadCrossPlaneReceipt(rec('WIN', 'vmware', 8200), rec('LINUX', 'virtualbox', 6100));
   assert(r.verdict === 'PASS' && r.launch.witness === true && r.launch.msA === 6100 && r.launch.msB === 8200 && r.launch.deltaMs === 2100, 'launchMs witness diff (LINUX 6100 -> WIN 8200)');
   const big = workloadCrossPlaneReceipt(rec('WIN', 'vmware', 20000), rec('LINUX', 'virtualbox', 6100));
   assert(big.verdict === 'PASS' && big.timing.witnessDeltas.includes('launchMs') && big.timing.regressed.length === 0, 'a big cross-hypervisor launch delta is reported (witness), not failed');
+  // REAL cross-plane evidence: the two LIVE LabVIEW-launch records (WIN VMware VNC + LINUX VBox VNC) -> receipt.
+  const fx = (n) => JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', n), 'utf8'));
+  const winRec = fx('labview-launch-record-win.json');
+  const linuxRec = fx('labview-launch-record.json');
+  assert(winRec.plane === 'WIN' && winRec.hypervisor === 'vmware-vnc' && linuxRec.plane === 'LINUX' && linuxRec.hypervisor === 'vbox-vnc', 'the two real records are the WIN(VMware) + LINUX(VBox) planes');
+  // Cross-plane VISUAL fidelity: both planes' LabVIEW Getting-Started window settled to the SAME dhash pin.
+  assert(winRec.frames[0].perceptualFingerprint === linuxRec.frames[0].perceptualFingerprint, 'both planes settle on the identical LabVIEW Getting-Started dhash pin');
+  const real = workloadCrossPlaneReceipt(winRec, linuxRec);
+  assert(real.verdict === 'PASS' && real.launchSpanId === 'launchMs' && real.launch.witness === true && real.launch.status === 'match', 'the real LabVIEW-launch cross-plane receipt is a witnessed PASS/match');
+  assert(real.launch.msA === linuxRec.spans[0].ms && real.launch.msB === winRec.spans[0].ms, 'the receipt carries both planes\' real launchMs (LINUX baseline, WIN candidate)');
+  const committed = fx('workload-cross-plane-receipt.json');
+  assert(JSON.stringify(committed) === JSON.stringify(real), 'the committed cross-plane receipt matches a fresh recompute (no rot)');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'workload-cross-plane.selftest.mjs')], { stdio: 'pipe' });
-  return { launchSpan: 'launchMs (witness)', suite: 'workload-cross-plane subprocess 2/2', ready: 'awaiting real WIN + LINUX LabVIEW-launch records' };
+  return { launchSpan: 'launchMs (witness)', real: `LINUX ${real.launch.msA} -> WIN ${real.launch.msB}  Δ${real.launch.deltaMs}ms  ${real.launch.status}`, pin: winRec.frames[0].perceptualFingerprint };
 });
 
 // Settle detection (mprr-capture-ring/settle-detect.mjs): the deterministic "UI ready" pin a visual-ring

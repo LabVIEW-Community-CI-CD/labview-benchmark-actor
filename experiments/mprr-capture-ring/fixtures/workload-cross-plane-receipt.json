@@ -1,0 +1,35 @@
+{
+  "schema": "labview-benchmark-actor/workload-cross-plane-receipt@1",
+  "workload": "labview-ide-launch",
+  "launchSpanId": "launchMs",
+  "win": {
+    "plane": "WIN",
+    "hypervisor": "vmware-vnc",
+    "iteration": "labview-launch-1785444693814",
+    "launchMs": 2895
+  },
+  "linux": {
+    "plane": "LINUX",
+    "hypervisor": "vbox-vnc",
+    "iteration": "labview-launch-1785443707079",
+    "launchMs": 2577
+  },
+  "launch": {
+    "id": "launchMs",
+    "clock": "host",
+    "scope": "cross-plane",
+    "msA": 2577,
+    "msB": 2895,
+    "deltaMs": 318,
+    "toleranceMs": 8000,
+    "witness": true,
+    "status": "match"
+  },
+  "verdict": "PASS",
+  "timing": {
+    "verdict": "TIMING_OK",
+    "witnessDeltas": [],
+    "regressed": []
+  },
+  "rerun": "node experiments/mprr-capture-ring/workload-cross-plane.mjs"
+}
