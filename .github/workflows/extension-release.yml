@@ -94,6 +94,18 @@ jobs:
           cp labview-benchmark-actor.vsix "staging/labview-benchmark-actor-${{ steps.ver.outputs.version }}.vsix"
           ls -l staging
 
+      - name: Guard .vsix size (interim; the #123 allow-set guard supersedes)
+        run: |
+          set -eu
+          bytes=$(stat -c%s "staging/labview-benchmark-actor-${{ steps.ver.outputs.version }}.vsix")
+          echo "packaged .vsix is ${bytes} bytes"
+          # A real extension .vsix is tiny (~18 KB). Fail closed above 1 MB so a non-runtime leak
+          # (e.g. a VM disk under reviewer-workstation/.vagrant) can never be released or published.
+          if [ "$bytes" -gt 1048576 ]; then
+            echo "::error::.vsix is ${bytes} bytes (> 1 MB) -- non-runtime content leaked; refusing to release." >&2
+            exit 1
+          fi
+
       - name: Extract release notes from CHANGELOG
         id: notes
         run: |
@@ -127,3 +139,20 @@ jobs:
           --title "LabVIEW Benchmark Actor ${{ steps.ver.outputs.version }}"
           --notes-file "${{ steps.notes.outputs.path }}"
           staging/*
+
+      - name: Publish to VS Code Marketplace
+        # Fork-safe: only the canonical repo publishes. Fail-OPEN on a missing PAT so the GitHub Release
+        # (which reviewer-workstation provisioning pulls) still succeeds without Marketplace credentials.
+        # The operator supplies the VSCE_PAT secret to actually publish -- AFTER the human reviewer-VM
+        # last gate and the bidirectional WIN <-> LINUX agreement gate above. Publishes the EXACT staged
+        # artifact already built, tested, and agreement-gated.
+        if: ${{ github.repository == 'LabVIEW-Community-CI-CD/labview-benchmark-actor' }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -eu
+          if [ -z "${VSCE_PAT:-}" ]; then
+            echo "VSCE_PAT secret not set -- skipping Marketplace publish (the GitHub Release was still created). Set VSCE_PAT to enable Marketplace publishing."
+            exit 0
+          fi
+          npx vsce publish --packagePath "staging/labview-benchmark-actor-${{ steps.ver.outputs.version }}.vsix" -p "$VSCE_PAT"
