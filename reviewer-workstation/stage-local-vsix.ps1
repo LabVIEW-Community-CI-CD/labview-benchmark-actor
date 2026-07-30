@@ -60,6 +60,20 @@ try {
     throw ("VSIX is {0:N1} MB -- too large to publish; audit .vscodeignore (VM disk / node_modules leak) then rebuild." -f ($sizeBytes / 1MB))
   }
 
+  # Agent last gate: run the automated publishability pre-vet BEFORE staging for the human reviewer, so a
+  # person only ever inspects an already-green candidate + the evidence. Guarded so the flow still works if
+  # the gate script is not present (it ships in a separate PR); a FAIL verdict refuses to stage.
+  $gate = Join-Path $repoRoot 'scripts\agent-last-gate.mjs'
+  if (Test-Path $gate) {
+    Step 'agent last gate (scripts/agent-last-gate.mjs --skip-tests)'
+    node $gate --skip-tests
+    if ($LASTEXITCODE -ne 0) {
+      throw 'Agent last gate FAILED -- candidate not ready for the human reviewer. See experiments/agent-last-gate/receipt.json.'
+    }
+  } else {
+    Step 'WARN agent last gate script (scripts/agent-last-gate.mjs) not present; skipping the pre-vet.'
+  }
+
   $env:VAGRANT_CWD = $PSScriptRoot
   # 2) The VM must be up.
   Step 'vagrant status'
