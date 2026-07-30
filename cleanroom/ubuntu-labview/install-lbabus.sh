@@ -17,7 +17,7 @@ set -euo pipefail
 
 log() { echo "[install-lbabus] $*"; }
 
-LBABUS_VERSION="${LBABUS_VERSION:-0.10.0}"
+LBABUS_VERSION="${LBABUS_VERSION:-0.11.0}"
 REPO="${LBABUS_REPO:-LabVIEW-Community-CI-CD/labview-benchmark-actor}"
 DEST="${LBABUS_DEST:-/usr/local/bin/lbabus}"
 LOCAL_BINARY="${LBABUS_LOCAL_BINARY:-}"
