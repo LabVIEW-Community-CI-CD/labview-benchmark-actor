@@ -31,7 +31,7 @@ Five capabilities distinguish it from the parent repo:
 3. **VM cleanroom storage** — a run's data (metrics **and** pictures) is stored
    **locally in each VM** via the **mprr** ring buffer model
    (absorbed in-repo, dependency-free — see
-   [ADR-0009](docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md));
+   [ADR-0009](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md));
    **no run data crosses the bus** — the
    whole ring buffer is VM-local (LBA-REQ-009,
    [ADR-0005](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md)).
@@ -52,7 +52,7 @@ Five capabilities distinguish it from the parent repo:
   in-repo as dependency-free mirrors** under `experiments/mprr-ring/` and exercised by
   `experiments/verify-local-gates.mjs`. The `mprr` name is retained for the local model;
   labview-benchmark-actor owns it and does not track an external repository
-  ([ADR-0009](docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md)).
+  ([ADR-0009](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md)).
 
 ## Standards coverage
 
