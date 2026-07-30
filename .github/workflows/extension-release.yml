@@ -94,17 +94,12 @@ jobs:
           cp labview-benchmark-actor.vsix "staging/labview-benchmark-actor-${{ steps.ver.outputs.version }}.vsix"
           ls -l staging
 
-      - name: Guard .vsix size (interim; the #123 allow-set guard supersedes)
-        run: |
-          set -eu
-          bytes=$(stat -c%s "staging/labview-benchmark-actor-${{ steps.ver.outputs.version }}.vsix")
-          echo "packaged .vsix is ${bytes} bytes"
-          # A real extension .vsix is tiny (~18 KB). Fail closed above 1 MB so a non-runtime leak
-          # (e.g. a VM disk under reviewer-workstation/.vagrant) can never be released or published.
-          if [ "$bytes" -gt 1048576 ]; then
-            echo "::error::.vsix is ${bytes} bytes (> 1 MB) -- non-runtime content leaked; refusing to release." >&2
-            exit 1
-          fi
+      - name: Agent last gate (required pre-publish machine pre-vet -- #123 allow-set + size + manifest)
+        # OS-agnostic pre-vet (scripts/agent-last-gate.mjs, #128): asserts vsix-allow-set + vsix-size (the
+        # #123 leak guard), icon >=128, CHANGELOG, Marketplace-safe README, and gallery metadata. Fails
+        # closed, so a leaky or incomplete candidate can never reach the GitHub Release or the Marketplace.
+        # --skip-tests: the `build` job already ran `npm test` green; the package step above compiled out/.
+        run: node scripts/agent-last-gate.mjs --skip-tests
 
       - name: Extract release notes from CHANGELOG
         id: notes
