@@ -36,6 +36,7 @@ import { createVmwareBackend, vmwareSerialConfigVmx, vmwareVncConfigVmx, upsertV
 import { bootBenchmarkDiff } from './mprr-boot-benchmark/boot-benchmark-diff.mjs';
 import { bootbenchDiff } from './mesh-runs/bootbench-diff.mjs';
 import { PACKET_BYTES, PACKET_VERSION, OFFSETS, MILESTONE_IDS, encodeCaptureFrame, decodeCaptureFrame, writeCaptureFrame, readCaptureFrames } from './mprr-capture-ring/capture-ring.mjs';
+import { ringFrameFromDescriptor, makeRingSink } from './mprr-capture-ring/vmware-ring-capture.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1056,6 +1057,28 @@ check('capture-ring-ingest-adapter', () => {
   // full synthetic-frame suite (round-trip + unaligned/wrap + fail-closed) as a subprocess
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-capture-ring.mjs')], { stdio: 'pipe' });
   return { packet: `${PACKET_BYTES}B v${PACKET_VERSION}`, access: 'DataView-LE', suite: 'verify-capture-ring subprocess 10/10' };
+});
+
+// WIN wiring: the VMware VNC streaming source -> makeRingSink -> the shared capture ring. Gates the seam that a
+// live-shaped vmware-vnc-source descriptor (dhash64 as 16-hex, milestoneId, settled) maps + round-trips through
+// the 24-byte ring byte-for-byte, that a visual frame can ride a MESH-OK milestone marker, and that an EMPTY
+// (uniform all-zero-dhash, no milestone) sample is SKIPPED rather than tripping the adapter's fail-closed guard.
+check('capture-ring-vmware-wiring', () => {
+  const ring = createShortRing(CLI_DEFAULT_CAPACITY_BYTES);
+  const sink = makeRingSink(ring);
+  sink.onFrame({ timingTicks64: 12345n, frameIndex: 7, dhash64: 'a1b2c3d4e5f60718', milestoneId: 0, settled: true });   // pure visual
+  sink.onFrame({ timingTicks64: 20000n, frameIndex: 8, dhash64: 'a1b2c3d4e5f60718', milestoneId: 4, settled: false });  // visual riding MESH-OK
+  sink.onFrame({ timingTicks64: 30000n, frameIndex: 9, dhash64: '0000000000000000', milestoneId: 0 });                  // empty -> skipped
+  const { written, skipped } = sink.stats();
+  assert(written === 2 && skipped === 1, `sink must write 2 + skip 1 empty (got ${written}/${skipped})`);
+  const decoded = readCaptureFrames(ring, sink.writes[0].absoluteStartOffset, sink.writes.at(-1).absoluteEndOffset);
+  assert(decoded.length === 2, 'two records round-trip');
+  assert(decoded[0].timingTicks64 === 12345n && decoded[0].frameIndex === 7 && decoded[0].dhashHex === 'a1b2c3d4e5f60718' && decoded[0].settled === true && decoded[0].hasFrame === true,
+    'visual frame: timing/index/dhash(hex<->u64)/settled round-trip');
+  assert(decoded[1].milestoneId === 4 && decoded[1].caseId === 'MESH-OK' && decoded[1].hasFrame === true,
+    'a visual frame riding the MESH-OK milestone marker round-trips');
+  assert(ringFrameFromDescriptor({ dhash64: '0000000000000000', milestoneId: 0 }) === null, 'empty descriptor maps to null (skipped, not fail-closed)');
+  return { written, skipped, marker: decoded[1].caseId };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
