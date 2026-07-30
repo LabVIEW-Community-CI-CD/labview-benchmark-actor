@@ -1306,6 +1306,21 @@ check('capture-ring-labview-trend-receipt', () => {
   return { verdict: t.verdict, runs: t.n, meanMs: t.stats.mean, spreadMs: t.stats.spread, slopeMsPerRun: t.slopeMsPerRun };
 });
 
+// WIN LabVIEW launch TREND receipt: the WIN-plane mirror of the LINUX trend -- a REAL continuous run of N LabVIEW
+// IDE launches through the visual ring on the VMware clean-room (launchMs per run). Re-validates the committed
+// WIN trend + RE-DERIVES it from the committed run values (deterministic), so the real WIN continuous-benchmark
+// evidence can't silently rot -- and pairs with the LINUX trend for the cross-plane trend-of-trends.
+check('capture-ring-labview-trend-receipt-win', () => {
+  const t = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-trend-win.json'), 'utf8'));
+  assert(t.schema === 'labview-benchmark-actor/workload-trend@1' && t.metric === 'launchMs' && t.n >= 3, 'a WIN LabVIEW launchMs trend over >= 3 runs');
+  assert(t.plane === 'WIN' && t.hypervisor === 'vmware-vnc', 'the WIN/VMware plane');
+  assert(Array.isArray(t.values) && t.values.length === t.n && t.values.every((v) => v > 0), 'the run series is present + positive');
+  const re = buildTrend({ series: t.values, metric: 'launchMs', toleranceMs: t.toleranceMs, driftThresholdMsPerRun: t.driftThresholdMsPerRun });
+  assert(re.verdict === t.verdict && re.stats.mean === t.stats.mean && re.stats.spread === t.stats.spread && re.baselineMs === t.baselineMs && re.slopeMsPerRun === t.slopeMsPerRun,
+    'the committed WIN trend re-derives from its run values (no drift in the analysis)');
+  return { plane: t.plane, verdict: t.verdict, runs: t.n, meanMs: t.stats.mean, spreadMs: t.stats.spread, slopeMsPerRun: t.slopeMsPerRun };
+});
+
 // Benchmark UI surfaces wired into the shipping extension: the single-run panel, the trend panel, and the
 // vertical-line FRAME CORRELATOR scrubber all build from the REAL committed record + trend via the PURE, staged
 // builders. Gates the rot-prone surfaces in-proc (strict CSP, real launchMs/verdict, one scrubber point per run,
