@@ -1,0 +1,48 @@
+{
+  "schema": "labview-benchmark-actor/bootbench-4milestone@1",
+  "runId": "bootbench-38845bf-r001",
+  "prefix": "bb-38845bf-r001",
+  "commit": "38845bf",
+  "image": "lbabus-linux-verify:bootbench",
+  "network": "bb-38845bf-r001-net",
+  "actors": 2,
+  "plane": "WIN",
+  "substrate": "docker-container",
+  "clock": "guest CLOCK_MONOTONIC (/proc/uptime)",
+  "milestones": [
+    "BOOT-START",
+    "LBABUS-BUILD-START",
+    "LBABUS-BUILT",
+    "MESH-OK"
+  ],
+  "startedAt": "2026-07-30T18:01:46.232Z",
+  "durationMs": 6718,
+  "result": "PASS",
+  "okCount": 2,
+  "buildMs": {
+    "min": 2930,
+    "max": 3080,
+    "mean": 3005
+  },
+  "meshFormMs": {
+    "min": 2260,
+    "max": 2490,
+    "mean": 2375
+  },
+  "perActor": [
+    {
+      "name": "bb-38845bf-r001-actor-1",
+      "exitCode": 0,
+      "meshOk": true,
+      "buildMs": 3080,
+      "meshFormMs": 2490
+    },
+    {
+      "name": "bb-38845bf-r001-actor-2",
+      "exitCode": 0,
+      "meshOk": true,
+      "buildMs": 2930,
+      "meshFormMs": 2260
+    }
+  ]
+}

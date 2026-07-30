@@ -34,6 +34,7 @@ import { parseSerialLog, parseSerialMarkerLine } from './mprr-boot-benchmark/ser
 import { parseJournalMonotonic } from './mprr-boot-benchmark/journal-monotonic.mjs';
 import { createVmwareBackend, vmwareSerialConfigVmx, vmwareVncConfigVmx, upsertVmxConfig } from './mprr-boot-benchmark/capture-backend-vmware.mjs';
 import { bootBenchmarkDiff } from './mprr-boot-benchmark/boot-benchmark-diff.mjs';
+import { bootbenchDiff } from './mesh-runs/bootbench-diff.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -995,6 +996,26 @@ check('boot-benchmark-cross-plane-co-run-receipt', () => {
   assert(vbox.seal.recordHash === receipt.records.A.recordHash && vmware.seal.recordHash === receipt.records.B.recordHash,
     'receipt recordHashes must match the committed fixtures (no fixture/receipt drift)');
   return { verdict: diff.verdict, buildMs: `${build.msA}->${build.msB} (${build.deltaMs}ms/${build.status})` };
+});
+
+// Container-vs-container 4-milestone (bootbench): re-run the bootbench cross-plane diff on the committed WIN +
+// LINUX bootbench fixtures + assert it still PASSes and matches the committed receipt (no fixture/receipt drift).
+check('bootbench-cross-plane-diff-receipt', () => {
+  const dir = join(here, 'mesh-runs', 'fixtures');
+  const win = JSON.parse(readFileSync(join(dir, 'win-bootbench-4milestone.json'), 'utf8'));
+  const linux = JSON.parse(readFileSync(join(dir, 'linux-bootbench-4milestone.json'), 'utf8'));
+  const receipt = JSON.parse(readFileSync(join(dir, 'cross-plane-bootbench-diff-receipt.json'), 'utf8'));
+  const diff = bootbenchDiff(win, linux);
+  assert(diff.verdict === 'PASS', `bootbench cross-plane must be PASS (got ${diff.verdict})`);
+  assert(diff.verdict === receipt.verdict, `verdict drift vs committed receipt (${diff.verdict} vs ${receipt.verdict})`);
+  const build = diff.timing.spans.find((s) => s.id === 'buildMs');
+  const mesh = diff.timing.spans.find((s) => s.id === 'meshFormMs');
+  assert(build && build.scope === 'cross-plane' && build.status === 'match',
+    'buildMs must be the guest/cross-plane span and match within tolerance');
+  assert(mesh && mesh.witness === true, 'meshFormMs must be the witness span');
+  assert(build.deltaMs === receipt.timing.buildMs.deltaMs && mesh.deltaMs === receipt.timing.meshFormMs.deltaMs,
+    'span deltas must match the committed receipt (no fixture/receipt drift)');
+  return { verdict: diff.verdict, buildMs: `${build.msA}->${build.msB} (${build.deltaMs}ms/${build.status})`, meshFormMs: `${mesh.deltaMs}ms/${mesh.status}` };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
