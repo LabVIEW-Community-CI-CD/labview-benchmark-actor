@@ -86,6 +86,7 @@ volatile region (`visual.gated` defaults to `false` for cut 1). WIN owns tuning 
 | [`verify-boot-benchmark-vmware.mjs`](verify-boot-benchmark-vmware.mjs) | 23-check CI proof (contract, `.vmx` config, RFB decode vs a scripted mock — no VM) | **WIN** |
 | [`boot-benchmark-diff.mjs`](boot-benchmark-diff.mjs) | cross-iteration diff: timing hard gate (guest cross-plane spans; refuses within-plane across hypervisors) + visual witness | **WIN** |
 | [`verify-boot-benchmark-diff.mjs`](verify-boot-benchmark-diff.mjs) | 25-check CI proof (timing gate, cross-plane refusal, visual witness, guards) | **WIN** |
+| [`record-vmware-boot.mjs`](record-vmware-boot.mjs) | live co-run entry: capture + seal a REAL VMware from-source boot (driver + VNC backend + serial tail + journald over SSH) | **WIN** |
 
 Fingerprint + PNG decode are reused from `../manual-procedure-record/` (`fingerprint.mjs`,
 `capture-adapter.mjs`), so "same `fingerprintAlgo`" is bit-identical cross-plane by construction.
