@@ -32,12 +32,12 @@ Four capabilities distinguish it from the parent repo:
    **locally in each VM** via the existing **mprr** ring buffer
    (`svelderrainruiz/mprr`, `develop`); **no run data crosses the bus** — the
    whole ring buffer is VM-local (LBA-REQ-009,
-   [ADR-0005](docs/architecture/adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md)).
+   [ADR-0005](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md)).
 4. **Own-run review + host ollama comparison** — each actor reviews only its
    **own** previous runs; there is **no cross-VM comparison**. The operator
    concentrates runs onto the host (out-of-band) to improve an **ollama**
    comparison layer over previous runs (LBA-REQ-010,
-   [ADR-0006](docs/architecture/adr/ADR-0006-run-concentration-ollama-comparison.md)).
+   [ADR-0006](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0006-run-concentration-ollama-comparison.md)).
 
 ## External dependency
 
@@ -51,12 +51,12 @@ Four capabilities distinguish it from the parent repo:
 
 | Standard | Lane | Package artifact |
 | --- | --- | --- |
-| ISO/IEC/IEEE 29148 | Requirements | [docs/requirements/srs.md](docs/requirements/srs.md) |
-| ISO/IEC/IEEE 42010 | Architecture description | [docs/architecture/overview.md](docs/architecture/overview.md) |
-| ISO/IEC/IEEE 29119-2/3 | Test | [docs/testing/test-plan.md](docs/testing/test-plan.md) |
-| ISO 10007 / ISO/IEC/IEEE 12207 | Configuration management & release | [docs/cm/cm-plan.md](docs/cm/cm-plan.md) |
-| ISO/IEC/IEEE 26514:2022 | Information for users | [docs/information-for-users/user-guide.md](docs/information-for-users/user-guide.md) |
-| ISO/IEC/IEEE 15289 | Information item map | [docs/information-item-map.md](docs/information-item-map.md) |
+| ISO/IEC/IEEE 29148 | Requirements | [docs/requirements/srs.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/requirements/srs.md) |
+| ISO/IEC/IEEE 42010 | Architecture description | [docs/architecture/overview.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/overview.md) |
+| ISO/IEC/IEEE 29119-2/3 | Test | [docs/testing/test-plan.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/testing/test-plan.md) |
+| ISO 10007 / ISO/IEC/IEEE 12207 | Configuration management & release | [docs/cm/cm-plan.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/cm/cm-plan.md) |
+| ISO/IEC/IEEE 26514:2022 | Information for users | [docs/information-for-users/user-guide.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-for-users/user-guide.md) |
+| ISO/IEC/IEEE 15289 | Information item map | [docs/information-item-map.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-item-map.md) |
 
 Cite standards as `Std §clause` throughout; keep observations separate from
 assumptions; show repo-relative evidence for load-bearing claims.

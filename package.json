@@ -9,10 +9,32 @@
     "type": "git",
     "url": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor"
   },
+  "homepage": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor#readme",
+  "bugs": {
+    "url": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/issues"
+  },
+  "qna": false,
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#181A21",
+    "theme": "dark"
+  },
+  "keywords": [
+    "labview",
+    "benchmark",
+    "benchmarking",
+    "mcp",
+    "coordination",
+    "cross-plane",
+    "lbabus",
+    "agentic"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
+    "Visualization",
+    "Testing",
     "Other"
   ],
   "activationEvents": [],
