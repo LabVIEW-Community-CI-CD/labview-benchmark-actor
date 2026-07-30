@@ -97,10 +97,10 @@
           "summary": "LabVIEW Benchmark Actor 0.2.0 -- first FEATURE release since 0.1.1 (ext-v0.1.1 is already a published/immutable tag; 0.1.1 was the 7-command Node-20->24 patch). MINOR bump for a new user-facing capability: the extension now contributes a dependency-free MCP (Model Context Protocol) stdio server exposing 4 tools to Copilot agent mode (get_host_capabilities, get_benchmark_series, poll_coordination_bus, post_coordination_note). Also: Marketplace listing polish (icon, banner, keywords, categories) and the fork-safe PAT-gated fail-open Marketplace publish path behind the bidirectional agreement gate. Repo-internal (not in the .vsix): mprr absorbed as a self-owned dependency-free model (ADR-0009), the agent last gate enforced in CI, the reviewer human-last-gate flow, and the ADR-0009 Marketplace-safe README fix + its shift-left CI guard.",
           "signoffs": {
             "LINUX": {
-              "agreed": false,
-              "reviewedCommit": null,
-              "at": null,
-              "note": "PENDING LINUX review of the aggregate 0.2.0 content (all constituent PRs #124/#125/#126/#127/#128/#130/#131/#132/#134 already merged + reviewed individually). Flip to agreed:true after confirming main is publish-ready on the LINUX plane."
+              "agreed": true,
+              "reviewedCommit": "6a34d45502b0d4a73759457792a7b167f1604395",
+              "at": "2026-07-30T04:32:00Z",
+              "note": "Validated on the LINUX plane (24-core, node v22.22.1) at main 6a34d45. All 11 constituent PRs (#124 MCP server / #125 reviewer flow + #121 + .vscodeignore leak fix / #126 mprr absorb ADR-0009 / #127 Marketplace metadata / #128 agent-last-gate / #130 CI-enforced gate + shift-left deny-set / #131 receipt->human handoff / #132 MCP docs / #133 reviewer TC-10 / #134 Marketplace-safe README / #136 recovered readme-marketplace-safe-links shift-left guard) cross-reviewed + merged. LINUX parity proven: npm test green incl. the mcp-stdio spawned round-trip; agent-last-gate PASS 8/8 on linux-x64; verify-local-gates 40/40. Ran the queue-A extension-release.yml dry-run end-to-end: the required agent-last-gate --skip-tests step fail-CLOSES on real content (it caught the #126 repo-relative-README regression that would have blocked the operator's first ext-v* -- fixed by #134) and the vsce publish step fail-OPENS cleanly with no VSCE_PAT (Release still created; publish scoped to the canonical repo). ext-v0.1.1 is already published/immutable, so this feature set correctly ships as 0.2.0 (semver MINOR: new MCP capability). LINUX agrees to publish extension 0.2.0; the human visual judgment pass remains an operator/reviewer action before tagging ext-v0.2.0."
             },
             "WIN": {
               "agreed": true,
