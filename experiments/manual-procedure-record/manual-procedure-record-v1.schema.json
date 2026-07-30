@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/experiments/manual-procedure-record/manual-procedure-record-v1.schema.json",
+  "title": "manual-procedure-record-v1",
+  "description": "A SEALED, deterministic record of one manual reviewer-procedure (TC-00..TC-10) session run on a golden-box iteration, after the extension is installed. It is the cross-plane seam of the manual-procedure deterministic-record verification method: the LINUX plane produces this record (viewer monotonic counter + known-digit correlation + seal); the WIN plane's cross-iteration frame-diff consumes it. Once the on-screen counter is deterministically correlated to the viewer's emitted series the record is CLOSED: raw frames are DISCARDED, and only the time anchor + per-frame perceptual fingerprints + integrity hashes remain. Two distinct artifacts live here: (a) the counter series that CORRELATES to seal, and (b) the per-frame perceptual fingerprint used for cross-iteration visual-delta magnitude.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "iteration", "sessionId", "sealedAt", "procedure", "fingerprintAlgo", "fingerprintSpecVersion", "anchor", "frames", "seal"],
+  "properties": {
+    "schema": {
+      "const": "labview-benchmark-actor/manual-procedure-record-v1"
+    },
+    "iteration": {
+      "type": "string",
+      "description": "The golden-box iteration identity being verified (e.g. 'v1', 'v2', or a box tag). Cross-iteration diff pairs two records with different iteration values.",
+      "minLength": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "description": "Unique id for this capture session."
+    },
+    "sealedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when the record was correlated + sealed (raw frames discarded)."
+    },
+    "fingerprintAlgo": {
+      "type": "string",
+      "enum": ["dhash-64"],
+      "description": "The perceptual-fingerprint algorithm, RECORD-level (not per-frame) — every frame in this record uses it, and the cross-iteration frame-diff asserts both records match before comparing. Pinned to dhash-64 (integer-only -> bit-identical cross-plane); the exact preprocessing is fixed by the shared fingerprint.mjs."
+    },
+    "fingerprintSpecVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The pinned preprocessing-spec version of the shared fingerprint.mjs (FINGERPRINT_SPEC_VERSION). Changing any preprocessing step (resize filter, luma coefficients, bit order) bumps this; two records must share it to be comparable."
+    },
+    "procedure": {
+      "type": "object",
+      "description": "The manual reviewer procedure this session recorded.",
+      "additionalProperties": false,
+      "required": ["id", "cases"],
+      "properties": {
+        "id": { "type": "string", "description": "Procedure id, e.g. 'reviewer-manual-test-plan'." },
+        "version": { "type": "string" },
+        "cases": {
+          "type": "array",
+          "description": "The ordered cases exercised, e.g. TC-00 .. TC-10.",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "description": "The DETERMINISTIC time anchor + the correlation that CLOSED the record. Ground truth is the viewer's emitted monotonic counter series (we render it); the read series is the known-digit template read of the on-screen counter. The record only seals when they correlate.",
+      "additionalProperties": false,
+      "required": ["source", "counterStart", "counterEnd", "correlation"],
+      "properties": {
+        "source": {
+          "const": "viewer-monotonic-counter",
+          "description": "The stopwatch is a monotonic counter surfaced by the extension viewer as plain high-contrast digits (NOT a colon-formatted OS clock, which OCR misreads per experiments/ocr-primitive-proof finding #3). It IS the mprr time-anchor, so the record is self-consistent."
+        },
+        "counterStart": { "type": "integer", "minimum": 0, "description": "Viewer counter value at session start (the visible anchor)." },
+        "counterEnd": { "type": "integer", "minimum": 0, "description": "Viewer counter value at session close." },
+        "correlation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["readMethod", "matched", "mismatches"],
+          "properties": {
+            "readMethod": {
+              "const": "known-digit-template",
+              "description": "Linux-native deterministic known-digit / 7-seg template matcher (NOT fuzzy Windows.Media.Ocr). Template match => 100% deterministic read of glyphs we control."
+            },
+            "matched": { "type": "boolean", "description": "True iff every sampled read counter equals the expected viewer-emitted value. Sealing requires matched=true." },
+            "mismatches": { "type": "integer", "minimum": 0, "description": "Count of sampled frames where read != expected. Must be 0 to seal." },
+            "samples": {
+              "type": "array",
+              "description": "Optional per-sample correlation proof (kept small; not the raw frame).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["frameIndex", "expected", "read"],
+                "properties": {
+                  "frameIndex": { "type": "integer", "minimum": 0 },
+                  "expected": { "type": "integer" },
+                  "read": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "frames": {
+      "type": "array",
+      "description": "One entry per retained frame, in capture order. RAW pixels are NOT here (discarded on seal) — only the counter read, a perceptual fingerprint (for cross-iteration visual-delta magnitude), and a cryptographic integrity hash of the original raw frame.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "counter", "caseId", "perceptualFingerprint", "integrityHash"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "counter": { "type": "integer", "minimum": 0, "description": "Deterministic known-digit read of the viewer monotonic counter (wall-time) in this frame — the INTRA-session correlate->seal anchor. It is NOT the cross-iteration pairing key (two human sessions run at different speeds); pair by caseId." },
+          "caseId": { "type": "string", "minLength": 1, "description": "The reviewer-procedure case (e.g. 'TC-03') this frame belongs to — emitted as a viewer marker at each case boundary. The cross-iteration frame-diff PAIRS by caseId (v1 vs v2), since caseId is stable across sessions while the counter is not." },
+          "settled": { "type": "boolean", "description": "Optional: true for the representative 'settled' frame of a case (the last frame before the next caseId begins = the UI state after that case completes). The frame-diff pairs settled-vs-settled per caseId, robust to differing intra-case frame counts." },
+          "perceptualFingerprint": {
+            "type": "string",
+            "description": "Record-level fingerprintAlgo hash of the frame — supports MAGNITUDE comparison (Hamming distance) across iterations, unlike a cryptographic hash which is binary identical/not. THIS is what the cross-iteration frame-diff consumes. Computed by the LINUX seal step (before raw is discarded) via the shared fingerprint.mjs.",
+            "pattern": "^[0-9a-f]{16}$"
+          },
+          "integrityHash": {
+            "type": "string",
+            "description": "SHA-256 of the original raw frame bytes. The raw frame is discarded on seal; this hash proves it existed + was not altered, without retaining pixels.",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "seal": {
+      "type": "object",
+      "description": "Proof the record is CLOSED/CLEARED: raw capture discarded, only anchor + fingerprints + hashes retained.",
+      "additionalProperties": false,
+      "required": ["rawDiscarded", "frameCount", "recordHash"],
+      "properties": {
+        "rawDiscarded": { "const": true, "description": "Raw frames are NOT retained. This is the privacy/storage property the operator asked for." },
+        "frameCount": { "type": "integer", "minimum": 1 },
+        "recordHash": {
+          "type": "string",
+          "description": "SHA-256 over the ordered per-frame tuple (index, counter, perceptualFingerprint, integrityHash) — the tamper-evident id of the sealed record.",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}
