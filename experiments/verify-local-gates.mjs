@@ -44,6 +44,7 @@ import { DUAL_CLOCK_TICKS, buildDecodeTable, correlateVisualDualClock } from './
 import { workloadCrossPlaneReceipt } from './mprr-capture-ring/workload-cross-plane.mjs';
 import { detectSettle } from './mprr-capture-ring/settle-detect.mjs';
 import { buildWorkloadRecord } from './mprr-capture-ring/workload-benchmark.mjs';
+import { buildTrend } from './mprr-capture-ring/trend.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1274,6 +1275,33 @@ check('capture-ring-labview-launch-receipt', () => {
   assert(rec.sourceDetail.stableTailFrames >= rec.sourceDetail.settleOpts.window, 'the UI reached a stable tail >= the settle window');
   assert(bootBenchmarkDiff(rec, rec).verdict === 'PASS', 'the real LabVIEW launch record self-diffs PASS through bootBenchmarkDiff');
   return { workload: rec.workload, launchMs: launch.ms, stableTail: `${rec.sourceDetail.stableTailFrames}/${rec.sourceDetail.framesCaptured}` };
+});
+
+// Continuous/TREND analysis (mprr-capture-ring/trend.mjs): turn repeated visual-ring workload benchmarks (e.g.
+// launchMs over N LabVIEW launches) into a trend -- stats + a REGRESSION verdict vs a baseline + a DRIFT slope.
+// In-process checks a stable series (PASS), a late spike (REGRESSION), and a slope (drift); subprocess the suite.
+check('capture-ring-workload-trend', () => {
+  const stable = buildTrend({ series: [2500, 2577, 2540, 2560, 2530], metric: 'launchMs', toleranceMs: 2000 });
+  assert(stable.verdict === 'PASS' && stable.regressed === false && stable.baselineMs === 2540, 'a stable launchMs series -> PASS (baseline = median)');
+  const spike = buildTrend({ series: [2500, 2530, 2560, 2540, 9000], toleranceMs: 2000 });
+  assert(spike.verdict === 'REGRESSION' && spike.latest === 9000, 'a late spike -> REGRESSION vs baseline');
+  const drift = buildTrend({ series: [2000, 2500, 3000, 3500, 4000], toleranceMs: 2000, driftThresholdMsPerRun: 300 });
+  assert(drift.slopeMsPerRun === 500 && drift.drifting === true, 'a gradual slope -> drift detected');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-trend.mjs')], { stdio: 'pipe' });
+  return { metric: 'launchMs', regression: 'latest > baseline + tol', drift: 'least-squares slope', suite: 'verify-trend subprocess 7/7' };
+});
+
+// LabVIEW launch TREND receipt: a REAL continuous run of N LabVIEW IDE launches through the visual ring on VBox
+// (launchMs per run). Re-validates the committed trend + RE-DERIVES it from the committed run values
+// (deterministic), so the real continuous-benchmark evidence can't silently rot.
+check('capture-ring-labview-trend-receipt', () => {
+  const t = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-trend.json'), 'utf8'));
+  assert(t.schema === 'labview-benchmark-actor/workload-trend@1' && t.metric === 'launchMs' && t.n >= 3, 'a LabVIEW launchMs trend over >= 3 runs');
+  assert(Array.isArray(t.values) && t.values.length === t.n && t.values.every((v) => v > 0), 'the run series is present + positive');
+  const re = buildTrend({ series: t.values, metric: 'launchMs', toleranceMs: t.toleranceMs, driftThresholdMsPerRun: t.driftThresholdMsPerRun });
+  assert(re.verdict === t.verdict && re.stats.mean === t.stats.mean && re.stats.spread === t.stats.spread && re.baselineMs === t.baselineMs && re.slopeMsPerRun === t.slopeMsPerRun,
+    'the committed trend re-derives from its run values (no drift in the analysis)');
+  return { verdict: t.verdict, runs: t.n, meanMs: t.stats.mean, spreadMs: t.stats.spread, slopeMsPerRun: t.slopeMsPerRun };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
