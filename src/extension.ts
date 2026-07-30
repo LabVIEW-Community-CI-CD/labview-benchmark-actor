@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 
+import { registerBenchmarkActorMcpServerProvider } from './mcp/benchmarkActorMcpServerProvider';
+
 const execFileAsync = promisify(execFile);
 
 // The labview-benchmark-actor extension packages the standalone agentic infrastructure (LBA-REQ-001): it
@@ -323,6 +325,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('labviewBenchmarkActor.showAgents', () => showAgentsCommand(context)),
     vscode.commands.registerCommand('labviewBenchmarkActor.checkAgents', () => checkAgentsCommand(context, output))
   );
+
+  // Model Context Protocol surface (VS Code 1.101+): expose this extension's own tools (host capabilities,
+  // the deterministic benchmark series, the coordination bus) to Copilot agent mode via a bundled stdio
+  // JSON-RPC server. No-op on hosts predating the stable MCP API.
+  registerBenchmarkActorMcpServerProvider(context);
 }
 
 export function deactivate(): void {

@@ -781,6 +781,35 @@ check('cross-plane-comparison-proven-green', () => {
   }
   return { linux: r.linuxRunId, win: r.winRunId };
 });
+// The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
+// artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
+// compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch
+// + a real spawned stdio round-trip).
+check('mcp-server-surface-contract', () => {
+  const pkg = readJson('package.json');
+  const providers = pkg.contributes?.mcpServerDefinitionProviders;
+  assert(Array.isArray(providers) && providers.length === 1, 'manifest must contribute exactly one MCP server definition provider');
+  const manifestId = providers[0].id;
+  assert(typeof manifestId === 'string' && manifestId.length > 0, 'the MCP provider contribution needs an id');
+  // manifest id <-> runtime provider id binding (VS Code requires them equal to bind the contribution).
+  const providerSrc = readFileSync(join(pkgRoot, 'src', 'mcp', 'benchmarkActorMcpServerProvider.ts'), 'utf8');
+  const idMatch = /BENCHMARK_ACTOR_MCP_PROVIDER_ID\s*=\s*'([^']+)'/.exec(providerSrc);
+  assert(idMatch && idMatch[1] === manifestId, `provider id constant must equal the manifest id (${manifestId})`);
+  assert(/runBenchmarkActorMcpServer\.js/.test(providerSrc) && /'out'/.test(providerSrc), 'provider must launch the bundled out/mcp entrypoint');
+  // Tool registry: the 4 tools + the pinned MCP protocol version.
+  const coreSrc = readFileSync(join(pkgRoot, 'src', 'mcp', 'benchmarkActorMcpServer.ts'), 'utf8');
+  for (const t of ['get_host_capabilities', 'get_benchmark_series', 'poll_coordination_bus', 'post_coordination_note']) {
+    assert(coreSrc.includes(`name: '${t}'`), `tool ${t} must be in the registry`);
+  }
+  assert(/BENCHMARK_ACTOR_MCP_PROTOCOL_VERSION\s*=\s*'2025-06-18'/.test(coreSrc), 'MCP protocol version must be pinned to 2025-06-18');
+  // Packaging (issue #123): the entrypoint ships (out/ not ignored) and source stays out.
+  const ignore = readFileSync(join(pkgRoot, '.vscodeignore'), 'utf8').split(/\r?\n/).map((l) => l.trim());
+  assert(ignore.includes('src/**'), '.vscodeignore must exclude src/**');
+  assert(!ignore.some((l) => l === 'out/**' || l === 'out/'), '.vscodeignore must NOT exclude out/ (the MCP entrypoint must ship)');
+  // The dynamic protocol round-trip is wired into npm test.
+  assert(/test\/mcp-server\.mjs/.test(pkg.scripts?.test ?? ''), 'npm test must run test/mcp-server.mjs');
+  return { providerId: manifestId, tools: 4, protocol: '2025-06-18' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
