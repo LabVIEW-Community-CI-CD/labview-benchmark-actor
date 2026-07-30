@@ -1,0 +1,52 @@
+{
+  "schema": "labview-benchmark-actor/cross-plane-diff-receipt@1",
+  "ranAt": "2026-07-30T15:25:28.038Z",
+  "task": "manual-procedure-deterministic-record",
+  "pinnedSource": "collab-cli-v0.11.0",
+  "verdict": "PASS",
+  "records": {
+    "A": {
+      "plane": "LINUX",
+      "hypervisor": "virtualbox",
+      "iteration": "collab-cli-v0.11.0",
+      "buildMs": 4788,
+      "recordHash": "b31d52e9132c85cc95e7f4fa9bf052164a6fe46e761aa5164d079cf47e93f614",
+      "fixture": "fixtures/vbox-boot-collab-cli-v0.11.0.json"
+    },
+    "B": {
+      "plane": "WIN",
+      "hypervisor": "vmware",
+      "iteration": "collab-cli-v0.11.0",
+      "buildMs": 6174,
+      "recordHash": "4a6dbc14f7a1a374c4ac7ffd7def10320c4eefd314656274e88f8b136796ba50",
+      "fixture": "fixtures/vmware-boot-collab-cli-v0.11.0.json"
+    }
+  },
+  "timing": {
+    "toleranceMs": 2000,
+    "spans": [
+      {
+        "id": "buildMs",
+        "clock": "guest",
+        "scope": "cross-plane",
+        "msA": 4788,
+        "msB": 6174,
+        "deltaMs": 1386,
+        "toleranceMs": 2000,
+        "status": "match"
+      }
+    ],
+    "regressed": [],
+    "improved": [],
+    "incomparable": [],
+    "structural": [],
+    "verdict": "TIMING_OK"
+  },
+  "visual": {
+    "gated": false,
+    "verdict": "WITNESS_MATCH",
+    "deltas": []
+  },
+  "rerun": "node experiments/mprr-boot-benchmark/boot-benchmark-diff.mjs experiments/mprr-boot-benchmark/fixtures/vbox-boot-collab-cli-v0.11.0.json experiments/mprr-boot-benchmark/fixtures/vmware-boot-collab-cli-v0.11.0.json",
+  "note": "Cross-plane co-run: collab-cli-v0.11.0 offline single-file from-source build. buildMs (guest/cross-plane) is compared; the host-clock within-plane bootToMeshMs is absent (BUILD-leg, no mesh) and would be refused across hypervisors anyway. verdict PASS = neither plane regressed beyond 2000ms."
+}

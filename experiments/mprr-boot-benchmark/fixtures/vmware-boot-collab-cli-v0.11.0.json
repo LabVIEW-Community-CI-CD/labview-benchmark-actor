@@ -1,0 +1,974 @@
+{
+  "schema": "labview-benchmark-actor/boot-benchmark-v1",
+  "iteration": "collab-cli-v0.11.0",
+  "sessionId": "win-1785424878117",
+  "sealedAt": "2026-07-30T15:22:49.651Z",
+  "plane": "WIN",
+  "hypervisor": "vmware",
+  "capture": {
+    "backend": "vmware-vnc",
+    "transport": "vnc://127.0.0.1:5901 framebuffer (RemoteDisplay.vnc)",
+    "cadenceHz": 2,
+    "vm": "C:\\stage\\actor-golden\\actor-golden.vmx"
+  },
+  "procedure": {
+    "id": "mesh-actor-boot",
+    "milestones": [
+      "BOOT-START",
+      "LBABUS-BUILD-START",
+      "LBABUS-BUILT"
+    ]
+  },
+  "fingerprintAlgo": "dhash-64",
+  "fingerprintSpecVersion": 1,
+  "anchor": {
+    "source": "host-capture-timeline",
+    "hostT0MonotonicMs": 38.6981,
+    "hostClock": "monotonic-ms",
+    "guestClock": "journald-short-monotonic",
+    "correlation": {
+      "method": "serial-pin+journal-monotonic",
+      "allMilestonesPinned": true,
+      "skewToleranceMs": 500,
+      "pins": [
+        {
+          "caseId": "BOOT-START",
+          "frameIndex": 14,
+          "hostMonotonicMs": 11854.2376,
+          "guestMonotonicMs": 5015,
+          "serialMonotonicMs": 5010,
+          "skewMs": 5
+        },
+        {
+          "caseId": "LBABUS-BUILD-START",
+          "frameIndex": 14,
+          "hostMonotonicMs": 11854.2376,
+          "guestMonotonicMs": 5186,
+          "serialMonotonicMs": 5170,
+          "skewMs": 16
+        },
+        {
+          "caseId": "LBABUS-BUILT",
+          "frameIndex": 24,
+          "hostMonotonicMs": 17939.4473,
+          "guestMonotonicMs": 11360,
+          "serialMonotonicMs": 11350,
+          "skewMs": 10
+        }
+      ]
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "hostMonotonicMs": 3254.0382,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "10f4d37bc929077c1d41b064466013afdccb783a7fb766897ecf6f85d84b63f0"
+    },
+    {
+      "index": 1,
+      "hostMonotonicMs": 4428.3495,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 2,
+      "hostMonotonicMs": 4997.0296,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "10f4d37bc929077c1d41b064466013afdccb783a7fb766897ecf6f85d84b63f0"
+    },
+    {
+      "index": 3,
+      "hostMonotonicMs": 5575.1799,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "10f4d37bc929077c1d41b064466013afdccb783a7fb766897ecf6f85d84b63f0"
+    },
+    {
+      "index": 4,
+      "hostMonotonicMs": 6142.1033,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 5,
+      "hostMonotonicMs": 6713.744,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 6,
+      "hostMonotonicMs": 7274.8824,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 7,
+      "hostMonotonicMs": 7837.4547,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "5786293636c3fb5652c22e062aface3d4e736989cb2e8dfa49c4535d53665bf1"
+    },
+    {
+      "index": 8,
+      "hostMonotonicMs": 8408.1499,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "5786293636c3fb5652c22e062aface3d4e736989cb2e8dfa49c4535d53665bf1"
+    },
+    {
+      "index": 9,
+      "hostMonotonicMs": 8975.5205,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 10,
+      "hostMonotonicMs": 9540.9601,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 11,
+      "hostMonotonicMs": 10102.8596,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 12,
+      "hostMonotonicMs": 10651.013,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 13,
+      "hostMonotonicMs": 11242.2711,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "d0b89b2fdd00a1508db18a915591ebdc4bb4941e6edd423725e12448fa266899"
+    },
+    {
+      "index": 14,
+      "hostMonotonicMs": 11854.2376,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "1c07bc17158be50064b2836c6e4c58b35f20f7396177e315a23ecf6a96d84801",
+      "caseId": "LBABUS-BUILD-START",
+      "guestMonotonicMs": 5186,
+      "settled": true
+    },
+    {
+      "index": 15,
+      "hostMonotonicMs": 12476.8791,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "8c06e58367228304a57eed232e2ed177cdd1d6973655e0a105257a1335b287a6"
+    },
+    {
+      "index": 16,
+      "hostMonotonicMs": 13087.8154,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "8c06e58367228304a57eed232e2ed177cdd1d6973655e0a105257a1335b287a6"
+    },
+    {
+      "index": 17,
+      "hostMonotonicMs": 13698.4159,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "8c06e58367228304a57eed232e2ed177cdd1d6973655e0a105257a1335b287a6"
+    },
+    {
+      "index": 18,
+      "hostMonotonicMs": 14309.3912,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "8c06e58367228304a57eed232e2ed177cdd1d6973655e0a105257a1335b287a6"
+    },
+    {
+      "index": 19,
+      "hostMonotonicMs": 14919.5441,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "8c06e58367228304a57eed232e2ed177cdd1d6973655e0a105257a1335b287a6"
+    },
+    {
+      "index": 20,
+      "hostMonotonicMs": 15526.5037,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "afcfc2b19a717b45c683ca3f1e316e502f4b9abe13ec7270b79562e5d0a219e0"
+    },
+    {
+      "index": 21,
+      "hostMonotonicMs": 16134.2489,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 22,
+      "hostMonotonicMs": 16744.212,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 23,
+      "hostMonotonicMs": 17341.8062,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 24,
+      "hostMonotonicMs": 17939.4473,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292",
+      "caseId": "LBABUS-BUILT",
+      "guestMonotonicMs": 11360,
+      "settled": true
+    },
+    {
+      "index": 25,
+      "hostMonotonicMs": 18539.8581,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 26,
+      "hostMonotonicMs": 19132.8142,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 27,
+      "hostMonotonicMs": 19729.1222,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 28,
+      "hostMonotonicMs": 20324.7551,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 29,
+      "hostMonotonicMs": 20929.2539,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 30,
+      "hostMonotonicMs": 21531.0995,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 31,
+      "hostMonotonicMs": 22129.8892,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 32,
+      "hostMonotonicMs": 22730.6184,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 33,
+      "hostMonotonicMs": 23328.3781,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 34,
+      "hostMonotonicMs": 23927.4577,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 35,
+      "hostMonotonicMs": 24528.7275,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 36,
+      "hostMonotonicMs": 25123.8284,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 37,
+      "hostMonotonicMs": 25715.7142,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 38,
+      "hostMonotonicMs": 26313.5061,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 39,
+      "hostMonotonicMs": 26913.5027,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 40,
+      "hostMonotonicMs": 27516.2536,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 41,
+      "hostMonotonicMs": 28115.1897,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 42,
+      "hostMonotonicMs": 28699.6428,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 43,
+      "hostMonotonicMs": 29300.3077,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 44,
+      "hostMonotonicMs": 29898.3931,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 45,
+      "hostMonotonicMs": 30494.2979,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 46,
+      "hostMonotonicMs": 31096.5241,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 47,
+      "hostMonotonicMs": 31691.4468,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 48,
+      "hostMonotonicMs": 32297.0253,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 49,
+      "hostMonotonicMs": 32896.4074,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 50,
+      "hostMonotonicMs": 33498.5692,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 51,
+      "hostMonotonicMs": 34099.6239,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 52,
+      "hostMonotonicMs": 34704.7051,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 53,
+      "hostMonotonicMs": 35305.2455,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 54,
+      "hostMonotonicMs": 35906.4964,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 55,
+      "hostMonotonicMs": 36497.2173,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 56,
+      "hostMonotonicMs": 37106.3068,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 57,
+      "hostMonotonicMs": 37706.2473,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 58,
+      "hostMonotonicMs": 38302.1736,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 59,
+      "hostMonotonicMs": 38909.265,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 60,
+      "hostMonotonicMs": 39508.5273,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 61,
+      "hostMonotonicMs": 40103.69,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 62,
+      "hostMonotonicMs": 40697.6038,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 63,
+      "hostMonotonicMs": 41317.6033,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 64,
+      "hostMonotonicMs": 41908.4066,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "27da11992b6dd1ef7e501fc18e22e9fb73005503d9e5e8b477d0c0c03768f292"
+    },
+    {
+      "index": 65,
+      "hostMonotonicMs": 42510.6605,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 66,
+      "hostMonotonicMs": 43108.7348,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 67,
+      "hostMonotonicMs": 43710.4045,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 68,
+      "hostMonotonicMs": 44307.4159,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 69,
+      "hostMonotonicMs": 44903.7415,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 70,
+      "hostMonotonicMs": 45507.675,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 71,
+      "hostMonotonicMs": 46106.013,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 72,
+      "hostMonotonicMs": 46704.2692,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 73,
+      "hostMonotonicMs": 47300.4924,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 74,
+      "hostMonotonicMs": 47898.0343,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 75,
+      "hostMonotonicMs": 48496.7521,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 76,
+      "hostMonotonicMs": 49085.7617,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 77,
+      "hostMonotonicMs": 49682.202,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 78,
+      "hostMonotonicMs": 50285.2181,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 79,
+      "hostMonotonicMs": 50881.2176,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 80,
+      "hostMonotonicMs": 51485.9334,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 81,
+      "hostMonotonicMs": 52086.9129,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 82,
+      "hostMonotonicMs": 52687.4954,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 83,
+      "hostMonotonicMs": 53284.2198,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 84,
+      "hostMonotonicMs": 53897.6626,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 85,
+      "hostMonotonicMs": 54498.0448,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 86,
+      "hostMonotonicMs": 55105.2135,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 87,
+      "hostMonotonicMs": 55700.3713,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 88,
+      "hostMonotonicMs": 56309.3443,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 89,
+      "hostMonotonicMs": 56909.5434,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 90,
+      "hostMonotonicMs": 57513.7263,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 91,
+      "hostMonotonicMs": 58108.9836,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 92,
+      "hostMonotonicMs": 58708.3841,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 93,
+      "hostMonotonicMs": 59309.2322,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 94,
+      "hostMonotonicMs": 59894.8098,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 95,
+      "hostMonotonicMs": 60498.0022,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 96,
+      "hostMonotonicMs": 61098.2424,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 97,
+      "hostMonotonicMs": 61688.7919,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 98,
+      "hostMonotonicMs": 62285.9882,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 99,
+      "hostMonotonicMs": 62881.9841,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 100,
+      "hostMonotonicMs": 63482.5413,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 101,
+      "hostMonotonicMs": 64085.4167,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 102,
+      "hostMonotonicMs": 64683.8592,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 103,
+      "hostMonotonicMs": 65275.9625,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 104,
+      "hostMonotonicMs": 65873.8805,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 105,
+      "hostMonotonicMs": 66471.7691,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 106,
+      "hostMonotonicMs": 67068.7027,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 107,
+      "hostMonotonicMs": 67667.5095,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 108,
+      "hostMonotonicMs": 68263.3367,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 109,
+      "hostMonotonicMs": 68858.5236,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 110,
+      "hostMonotonicMs": 69468.1436,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 111,
+      "hostMonotonicMs": 70071.1347,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 112,
+      "hostMonotonicMs": 70662.3329,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 113,
+      "hostMonotonicMs": 71252.3871,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 114,
+      "hostMonotonicMs": 71849.7449,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 115,
+      "hostMonotonicMs": 72453.3263,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 116,
+      "hostMonotonicMs": 73048.0558,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 117,
+      "hostMonotonicMs": 73649.7177,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 118,
+      "hostMonotonicMs": 74246.0134,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 119,
+      "hostMonotonicMs": 74837.2646,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 120,
+      "hostMonotonicMs": 75441.5952,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 121,
+      "hostMonotonicMs": 76034.7998,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 122,
+      "hostMonotonicMs": 76632.6188,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 123,
+      "hostMonotonicMs": 77220.1432,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 124,
+      "hostMonotonicMs": 77821.0508,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 125,
+      "hostMonotonicMs": 78426.8834,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 126,
+      "hostMonotonicMs": 79027.0875,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 127,
+      "hostMonotonicMs": 79619.7547,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 128,
+      "hostMonotonicMs": 80226.7949,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 129,
+      "hostMonotonicMs": 80830.1457,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 130,
+      "hostMonotonicMs": 81443.7205,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 131,
+      "hostMonotonicMs": 82037.4276,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 132,
+      "hostMonotonicMs": 82641.5104,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 133,
+      "hostMonotonicMs": 83239.3517,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 134,
+      "hostMonotonicMs": 83841.6741,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 135,
+      "hostMonotonicMs": 84448.7565,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 136,
+      "hostMonotonicMs": 85046.4894,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 137,
+      "hostMonotonicMs": 85641.1912,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 138,
+      "hostMonotonicMs": 86232.6148,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 139,
+      "hostMonotonicMs": 86833.9281,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 140,
+      "hostMonotonicMs": 87426.9876,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 141,
+      "hostMonotonicMs": 88018.1271,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 142,
+      "hostMonotonicMs": 88615.5783,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 143,
+      "hostMonotonicMs": 89214.3091,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    },
+    {
+      "index": 144,
+      "hostMonotonicMs": 89805.1281,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "5ffd58ed33234b09f33c64ad870a9f4b0acf0ecb3607ea93dc7848ba77f27272"
+    }
+  ],
+  "spans": [
+    {
+      "id": "buildMs",
+      "from": "LBABUS-BUILD-START",
+      "to": "LBABUS-BUILT",
+      "clock": "guest",
+      "scope": "cross-plane",
+      "ms": 6174
+    }
+  ],
+  "visual": {
+    "gated": false,
+    "perMilestone": [
+      {
+        "caseId": "BOOT-START",
+        "hammingTolerance": 64,
+        "roiMask": null
+      },
+      {
+        "caseId": "LBABUS-BUILD-START",
+        "hammingTolerance": 64,
+        "roiMask": null
+      },
+      {
+        "caseId": "LBABUS-BUILT",
+        "hammingTolerance": 64,
+        "roiMask": null
+      }
+    ]
+  },
+  "seal": {
+    "rawDiscarded": true,
+    "frameCount": 145,
+    "recordHash": "4a6dbc14f7a1a374c4ac7ffd7def10320c4eefd314656274e88f8b136796ba50"
+  }
+}

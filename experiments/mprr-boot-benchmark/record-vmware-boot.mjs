@@ -28,7 +28,7 @@
 //   node experiments/mprr-boot-benchmark/record-vmware-boot.mjs
 
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, readFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { recordBoot, fileSerialSource } from './boot-recorder.mjs';
@@ -40,7 +40,16 @@ const VMX = env.LBA_VMX;
 if (!VMX) { console.error('[abort] set LBA_VMX=<path to the .vmx>'); process.exit(2); }
 const VNC_PORT = Number(env.LBA_VNC_PORT ?? 5901);
 const SERIAL = env.LBA_SERIAL ?? join(tmpdir(), 'lba-serial.txt');
-const VMRUN = env.LBA_VMRUN ?? 'vmrun';
+// vmrun is usually NOT on PATH on Windows -> resolve the standard install locations when a bare name is given
+// (an explicit LBA_VMRUN path is used as-is). On other OSes the PATH lookup stands.
+function resolveVmrun(v) {
+  if (v !== 'vmrun') return v;
+  for (const p of ['C:\\Program Files (x86)\\VMware\\VMware Workstation\\vmrun.exe', 'C:\\Program Files\\VMware\\VMware Workstation\\vmrun.exe']) {
+    if (existsSync(p)) return p;
+  }
+  return v;
+}
+const VMRUN = resolveVmrun(env.LBA_VMRUN ?? 'vmrun');
 const SSH_KEY = env.LBA_SSH_KEY ?? join(homedir(), '.vagrant.d', 'insecure_private_key');
 const SSH_PORT = env.LBA_SSH_PORT ?? '22';
 const OUT = env.LBA_OUT ?? join(tmpdir(), 'vmware-boot-record.json');
@@ -76,7 +85,7 @@ function sshHost() {
   if (env.LBA_SSH_HOST) return env.LBA_SSH_HOST;
   try { return `actor@${vmrun(['getGuestIPAddress', VMX, '-wait']).trim()}`; } catch { return 'actor@127.0.0.1'; }
 }
-const SSH_BASE = ['-i', SSH_KEY, '-p', SSH_PORT, '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'IdentitiesOnly=yes', '-o', 'ConnectTimeout=8'];
+const SSH_BASE = ['-i', SSH_KEY, '-p', SSH_PORT, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'IdentitiesOnly=yes', '-o', 'ConnectTimeout=8'];
 function ssh(cmd) {
   return execFileSync('ssh', [...SSH_BASE, sshHost(), cmd], { encoding: 'utf8' });
 }
