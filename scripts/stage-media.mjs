@@ -27,6 +27,14 @@ writeFileSync(
   readFileSync(join(repo, 'experiments', 'viewer-cursor', 'viewerCursor.mjs'))
 );
 
+// 1b. Viewer monotonic-counter renderer (manual-procedure-record on-screen anchor); media/viewer.js imports
+//     it verbatim. Self-contained (inline glyphs) so it is stageable; verify-counter.mjs guards those glyphs
+//     stay byte-identical to the known-digit-reader, so a captured frame's counter reads back exactly.
+writeFileSync(
+  join(repo, 'media', 'counter-render.mjs'),
+  readFileSync(join(repo, 'experiments', 'manual-procedure-record', 'counter-render.mjs'))
+);
+
 // 2. Real mprr ring-buffer series for the deployed viewer.
 const fixture = JSON.parse(
   readFileSync(join(repo, 'experiments', 'mprr-ring', 'fixtures', 'short-packet-run.json'), 'utf8')
@@ -53,4 +61,4 @@ if (!agents.ok) {
 writeFileSync(join(repo, 'media', 'AGENTS.md'), readFileSync(join(repo, 'extension-agents', 'AGENTS.md')));
 writeFileSync(join(repo, 'media', 'agents.manifest.json'), readFileSync(join(repo, 'extension-agents', 'agents.manifest.json')));
 
-console.log(`staged media/viewerCursor.mjs + media/mprr-series.json (${series.length} points) + media/AGENTS.md`);
+console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/mprr-series.json (${series.length} points) + media/AGENTS.md`);
