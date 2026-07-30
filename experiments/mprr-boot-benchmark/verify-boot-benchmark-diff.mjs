@@ -66,6 +66,38 @@ console.log('timing hard gate');
   assert.equal(tight.verdict, 'REGRESSION'); ok('custom tighter tolerance (500ms) catches an 800ms regression');
 }
 
+console.log('per-span tolerance + witness spans (for noisy meshFormMs)');
+{
+  // buildMs tight (default 2000), meshFormMs wide (10000): a +5000 meshFormMs passes but a +3000 buildMs fails
+  const perSpan = bootBenchmarkDiff(
+    makeRecord({ buildMs: 8000, meshFormMs: 1000 }),
+    makeRecord({ buildMs: 8000, meshFormMs: 6000 }),
+    { timingToleranceMs: { default: 2000, meshFormMs: 10000 } },
+  );
+  assert.equal(perSpan.verdict, 'PASS'); ok('meshFormMs +5000 within its wide 10000 tolerance -> PASS');
+  assert.equal(perSpan.timing.spans.find((s) => s.id === 'meshFormMs').toleranceMs, 10000); ok('per-span meshFormMs tolerance applied (10000)');
+  assert.equal(perSpan.timing.spans.find((s) => s.id === 'buildMs').toleranceMs, 2000); ok('per-span default tolerance applied to buildMs (2000)');
+
+  const buildReg = bootBenchmarkDiff(
+    makeRecord({ buildMs: 8000 }), makeRecord({ buildMs: 11000 }),
+    { timingToleranceMs: { default: 2000, meshFormMs: 10000 } },
+  );
+  assert.equal(buildReg.verdict, 'REGRESSION'); ok('buildMs +3000 > its tight 2000 tolerance -> REGRESSION (per-span)');
+
+  // witness span: a meshFormMs delta beyond tolerance is REPORTED but does NOT fail the gate
+  const witness = bootBenchmarkDiff(
+    makeRecord({ meshFormMs: 1000 }), makeRecord({ meshFormMs: 30000 }),
+    { witnessSpans: ['meshFormMs'] },
+  );
+  assert.equal(witness.verdict, 'PASS'); ok('witness meshFormMs huge delta does NOT fail the gate');
+  assert.equal(witness.timing.spans.find((s) => s.id === 'meshFormMs').status, 'witness-regressed'); ok('witness span status = witness-regressed');
+  assert.deepEqual(witness.timing.witnessDeltas, ['meshFormMs']); ok('witness delta reported in timing.witnessDeltas');
+  assert.deepEqual(witness.timing.regressed, []); ok('witness span excluded from the gating regressed[]');
+
+  const scalar = bootBenchmarkDiff(makeRecord({ buildMs: 8000 }), makeRecord({ buildMs: 9000 }), { timingToleranceMs: 2000 });
+  assert.equal(scalar.timing.toleranceMs, 2000); ok('scalar timingToleranceMs preserved (backward compat)');
+}
+
 console.log('cross-plane scope refusal (the key rule)');
 {
   // A=VBox, B=VMware. bootToMeshMs (host/within-plane) differs wildly but MUST be refused, not gated.

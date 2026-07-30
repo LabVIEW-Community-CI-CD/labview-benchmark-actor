@@ -43,8 +43,13 @@ function visualPolicyFor(record, caseId, fallback) {
  * Cross-iteration diff of two sealed boot-benchmark-v1 records.
  * @param {object} recordA sealed boot-benchmark-v1 (baseline iteration)
  * @param {object} recordB sealed boot-benchmark-v1 (candidate iteration)
- * @param {{timingToleranceMs?:number, visualThreshold?:number}} [options]
- *   timingToleranceMs: max |Δ| before a comparable span is a regression/improvement (default 2000).
+ * @param {{timingToleranceMs?:number|Record<string,number>, witnessSpans?:string[], visualThreshold?:number}} [options]
+ *   timingToleranceMs: max |Δ| before a comparable span is a regression (default 2000). A NUMBER applies to
+ *     every span; an OBJECT gives PER-SPAN tolerances ({ default?, buildMs?, meshFormMs?, ... }) -- buildMs is
+ *     deterministic (tight) but meshFormMs carries mesh-formation variance (peer readiness + the
+ *     Restart=always retry cadence), so it wants a wider tolerance.
+ *   witnessSpans: span ids compared + reported but NOT gating (a delta on them is 'witness-*', never fails)
+ *     -- for a span too noisy to gate (e.g. meshFormMs) while still measuring it cross-plane.
  *   visualThreshold: fallback Hamming tolerance when a milestone has no visual.perMilestone entry (default 10).
  * @returns {object} the diff report ({ verdict, timing, visual, crossPlane, ... }).
  */
@@ -52,7 +57,12 @@ export function bootBenchmarkDiff(recordA, recordB, options = {}) {
   assertBootRecord(recordA, 'recordA');
   assertBootRecord(recordB, 'recordB');
 
-  const timingToleranceMs = Number.isFinite(options.timingToleranceMs) ? options.timingToleranceMs : 2000;
+  const tolOpt = options.timingToleranceMs;
+  const witnessSpans = new Set(Array.isArray(options.witnessSpans) ? options.witnessSpans : []);
+  const tolFor = (id) => {
+    if (tolOpt && typeof tolOpt === 'object') return Number.isFinite(tolOpt[id]) ? tolOpt[id] : (Number.isFinite(tolOpt.default) ? tolOpt.default : 2000);
+    return Number.isFinite(tolOpt) ? tolOpt : 2000;
+  };
   const visualFallback = Number.isInteger(options.visualThreshold) ? options.visualThreshold : 10;
   const crossPlane = recordA.hypervisor !== recordB.hypervisor;
 
@@ -71,11 +81,15 @@ export function bootBenchmarkDiff(recordA, recordB, options = {}) {
       continue;
     }
     const deltaMs = sb.ms - sa.ms;
-    const status = deltaMs > timingToleranceMs ? 'regressed' : deltaMs < -timingToleranceMs ? 'improved' : 'match';
-    spans.push({ id, clock: sa.clock, scope: sa.scope, msA: sa.ms, msB: sb.ms, deltaMs, toleranceMs: timingToleranceMs, status });
+    const tol = tolFor(id);
+    const raw = deltaMs > tol ? 'regressed' : deltaMs < -tol ? 'improved' : 'match';
+    const isWitness = witnessSpans.has(id);
+    const status = isWitness && raw !== 'match' ? `witness-${raw}` : raw;
+    spans.push({ id, clock: sa.clock, scope: sa.scope, msA: sa.ms, msB: sb.ms, deltaMs, toleranceMs: tol, ...(isWitness ? { witness: true } : {}), status });
   }
-  const regressed = spans.filter((s) => s.status === 'regressed').map((s) => s.id);
+  const regressed = spans.filter((s) => s.status === 'regressed').map((s) => s.id); // gating regressions only (witness-* excluded)
   const improved = spans.filter((s) => s.status === 'improved').map((s) => s.id);
+  const witnessDeltas = spans.filter((s) => s.status === 'witness-regressed' || s.status === 'witness-improved').map((s) => s.id);
   const structural = spans.filter((s) => s.status === 'only-in-A' || s.status === 'only-in-B').map((s) => s.id);
   // A regression OR a vanished span fails the gate (can't confirm no regression if a span disappeared).
   const timingVerdict = regressed.length === 0 && structural.length === 0 ? 'TIMING_OK' : 'TIMING_REGRESSION';
@@ -111,7 +125,7 @@ export function bootBenchmarkDiff(recordA, recordB, options = {}) {
     crossPlane,
     hypervisorA: recordA.hypervisor ?? null,
     hypervisorB: recordB.hypervisor ?? null,
-    timing: { toleranceMs: timingToleranceMs, spans, regressed, improved, incomparable: spans.filter((s) => s.status === 'incomparable-cross-plane').map((s) => s.id), structural, verdict: timingVerdict },
+    timing: { toleranceMs: (tolOpt && typeof tolOpt === 'object') ? tolOpt : (Number.isFinite(tolOpt) ? tolOpt : 2000), spans, regressed, improved, witnessDeltas, incomparable: spans.filter((s) => s.status === 'incomparable-cross-plane').map((s) => s.id), structural, verdict: timingVerdict },
     visual: {
       gated,
       perMilestone,
