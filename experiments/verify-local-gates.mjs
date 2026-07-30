@@ -29,6 +29,9 @@ import { validateViAnalyzerReport } from './vi-analyzer/validate-vi-analyzer-rep
 import { parseAsciiReport, parseSummary } from './vi-analyzer/parse-vi-analyzer-ascii.mjs';
 import { verifyManifest as verifyExtensionAgentsManifest, agentsSha256, readManifest as readExtensionAgentsManifest, AGENTS_MD as EXTENSION_AGENTS_MD } from '../scripts/agentsManifest.mjs';
 import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
+import { sealBootBenchmark } from './mprr-boot-benchmark/seal-boot-benchmark.mjs';
+import { parseSerialLog, parseSerialMarkerLine } from './mprr-boot-benchmark/serial-marker.mjs';
+import { parseJournalMonotonic } from './mprr-boot-benchmark/journal-monotonic.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -861,6 +864,51 @@ check('mprr-absorbed-constants-match-mprr-spec', () => {
   assert(AUTHORITATIVE_BOUNDARY_VARIATION_PCT === 5.0, `MPRR-REQ-106 non-authoritative boundary must be 5.0 pct, got ${AUTHORITATIVE_BOUNDARY_VARIATION_PCT}`);
   assert(ADMISSION_CAPACITY_HEADROOM === 1.1, `MPRR-REQ-110 admission headroom must be 1.1 (10 pct), got ${ADMISSION_CAPACITY_HEADROOM}`);
   return { blockMs: DEFAULT_BLOCK_DURATION_MS, headroomPct: (ADMISSION_CAPACITY_HEADROOM - 1) * 100, ticksPerMs: Number(TICKS_PER_MS) };
+});
+
+// boot-benchmark recorder seam (experiments/mprr-boot-benchmark): the boot-as-benchmark sibling of the
+// manual-procedure-record method. Seals a synthetic mesh-actor boot and pins the clock-tagged spans + the
+// fail-closed correlation gate + the serial/journald parsers, so the dual-clock design cannot silently rot.
+check('boot-benchmark-seal-spans-and-fail-closed', () => {
+  const gray = () => new Uint8Array([128, 128, 128, 255]); // 1x1 gray frame (fingerprint/integrity only)
+  const frames = [];
+  for (let i = 0; i < 6; i += 1) frames.push({ hostMonotonicMs: 100 + i * 100, rgba: gray(), width: 1, height: 1 });
+  const base = {
+    iteration: 'gate', sessionId: 'gate', hypervisor: 'virtualbox', plane: 'LINUX',
+    capture: { backend: 'vbox-screenshotpng', transport: 'VBoxManage controlvm screenshotpng', cadenceHz: 2 },
+    procedure: { id: 'mesh-actor-boot', milestones: ['BOOT-START', 'LBABUS-BUILD-START', 'LBABUS-BUILT', 'MESH-OK'] },
+    hostT0MonotonicMs: 0,
+    frames,
+    serialMarkers: [
+      { caseId: 'BOOT-START', serialMonotonicMs: 50, hostArrivalMonotonicMs: 100 },
+      { caseId: 'LBABUS-BUILD-START', serialMonotonicMs: 1000, hostArrivalMonotonicMs: 200 },
+      { caseId: 'LBABUS-BUILT', serialMonotonicMs: 9000, hostArrivalMonotonicMs: 500 },
+      { caseId: 'MESH-OK', serialMonotonicMs: 9500, hostArrivalMonotonicMs: 600 },
+    ],
+    guestTiming: { 'BOOT-START': 50, 'LBABUS-BUILD-START': 1000, 'LBABUS-BUILT': 9000, 'MESH-OK': 9500 },
+  };
+  const rec = sealBootBenchmark(base);
+  assert(rec.schema === 'labview-benchmark-actor/boot-benchmark-v1', 'boot-benchmark schema id');
+  assert(rec.anchor.correlation.allMilestonesPinned === true, 'all milestones must pin');
+  assert(rec.seal.rawDiscarded === true && /^[0-9a-f]{64}$/.test(rec.seal.recordHash), 'sealed + recordHash');
+  assert(rec.frames.every((f) => !('rgba' in f) && !('png' in f)), 'raw pixels must be discarded on seal');
+  const span = (id) => rec.spans.find((s) => s.id === id);
+  assert(span('buildMs').ms === 8000 && span('buildMs').clock === 'guest' && span('buildMs').scope === 'cross-plane',
+    'buildMs must be 8000ms guest/cross-plane');
+  assert(span('meshFormMs').ms === 500 && span('meshFormMs').scope === 'cross-plane', 'meshFormMs guest/cross-plane');
+  assert(span('bootToMeshMs').clock === 'host' && span('bootToMeshMs').scope === 'within-plane',
+    'bootToMeshMs must be host/within-plane (includes firmware; not cross-plane comparable)');
+  // fail-closed determinism: a missing milestone pin must NOT seal
+  let threw = false;
+  try { sealBootBenchmark({ ...base, serialMarkers: base.serialMarkers.slice(0, 3) }); } catch { threw = true; }
+  assert(threw, 'a missing serial pin must fail closed (NOT sealed)');
+  // parsers (the two milestone channels)
+  const t = parseJournalMonotonic('[   9.000000] h u[1]: lbabus built -> /usr/local/bin/lbabus\n[   9.500000] h m[1]: MESH OK');
+  assert(t['LBABUS-BUILT'] === 9000 && t['MESH-OK'] === 9500, 'journald short-monotonic parser maps milestones');
+  const m = parseSerialMarkerLine('LBABENCH MESH-OK mono=9.5');
+  assert(m && m.caseId === 'MESH-OK' && m.serialMonotonicMs === 9500, 'serial LBABENCH marker parse');
+  assert(parseSerialLog('noise\nLBABENCH BOOT-START mono=0.05\nLBABENCH BOOT-START mono=9').length === 1, 'serial log first-per-case');
+  return { buildMs: span('buildMs').ms, meshFormMs: span('meshFormMs').ms, bootToMeshMs: span('bootToMeshMs').ms };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.

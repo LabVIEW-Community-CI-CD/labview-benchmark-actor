@@ -1,0 +1,127 @@
+# mprr-boot-benchmark — record a mesh-actor BOOT as a deterministic benchmark
+
+The boot-time sibling of [`manual-procedure-record`](../manual-procedure-record/README.md). Instead of a
+reviewer stepping through TC-00..TC-10 in the viewer, a **recorder** (a host process) starts a session
+**before** the actor boots, captures the boot as an image stream, and correlates the milestone markers the
+guest emits — sealing a record that **benchmarks the from-source first boot** (build `lbabus` ~8 s + form
+the host-only mesh) and **witnesses it visually**. A cross-iteration diff then catches regressions the gates
+and screenshot-hash can't: the build slows, or the boot screen changes.
+
+Co-designed cross-plane (LINUX/VirtualBox ↔ WIN/VMware) on the deterministic-record seam. This directory is
+the **LINUX side + the shared core**; WIN owns the VMware VNC capture backend + the cross-iteration diff.
+
+## Why the anchor is dual-clock
+
+A booting console has **no viewer monotonic counter** to read, so there is no single on-screen anchor. The
+record uses **two clocks, each authoritative for one thing**:
+
+| Clock | Field | Role |
+|---|---|---|
+| **Host** `CLOCK_MONOTONIC` | `frame.hostMonotonicMs` | the **visual timeline** — a serial marker pins a milestone to the closest-in-host-time frame, LIVE |
+| **Guest** `CLOCK_MONOTONIC` (journald) | `frame.guestMonotonicMs` | the **authoritative timing** — `buildMs`/`meshFormMs` come from here (cross-plane comparable) |
+
+The serial marker's `mono=` is **not** the number of record — it only **cross-checks** the pin (`skewMs`).
+
+## The two milestone channels
+
+```
+guest                                                      host recorder
+  │  lba-lbabus-build.service / lba-mesh / boot-start oneshot
+  │        │ emit-boot-marker.sh <caseId>
+  │        ├──────────────► /dev/ttyS0  "LBABENCH <caseId> mono=<uptime>" ──► serial file ──► LIVE frame-pin
+  │        └──────────────► journald (logger -t lbabench) ──────────────────► (post-MESH-OK) ─► journalctl
+  │                                                                            -o short-monotonic
+  ▼                                                                            = AUTHORITATIVE guest ms
+```
+
+- **Serial** = live frame-pin. Written only when a serial sink is attached (`[ -w /dev/ttyS0 ]`), so it is a
+  silent no-op off-bench.
+- **journald short-monotonic** = authoritative guest timing, read once after `MESH-OK`. `BUILD-START`,
+  `LBABUS-BUILT`, and `MESH-OK` reuse the unit log lines that **already exist**; `BOOT-START` uses the
+  `logger -t lbabench` line the early drop-in writes.
+
+## The benchmark spans (clock decides comparability)
+
+| Span | From → To | Clock | Scope |
+|---|---|---|---|
+| `buildMs` | `LBABUS-BUILD-START` → `LBABUS-BUILT` | guest | **cross-plane** |
+| `meshFormMs` | `LBABUS-BUILT` → `MESH-OK` | guest | **cross-plane** |
+| `bootToMeshMs` | `hostT0` → `MESH-OK` | host | **within-plane** only |
+
+Guest-clock spans are comparable VBox ↔ VMware. `bootToMeshMs` includes hypervisor firmware (BIOS/GRUB), so
+it is only comparable **same-hypervisor-over-time** — the cross-iteration diff must refuse to cross-plane
+compare a `within-plane` span, or it would be diffing firmware, not the build.
+
+## Determinism (fail-closed)
+
+The record **seals only if** every declared milestone is pinned to a frame **and** every pin's
+`skewMs = |serialMono − journalMono|` is within tolerance (default 500 ms). A missing pin, a missing
+authoritative guest time, an out-of-tolerance skew, or a non-monotonic span **throws — not sealed**. A boot
+you cannot deterministically correlate is not a record (same rule as `correlate-seal.mjs`).
+
+On seal, **raw pixels are discarded**; only per-frame `perceptualFingerprint` (dhash-64) + `integrityHash`
+(SHA-256) + the dual-clock anchor + the spans remain.
+
+## Visual delta is a WITNESS, not the gate
+
+A booting console has volatile regions (blinking cursor, on-screen clock, DHCP/hostname text) that make raw
+dhash-64 deltas spurious run-to-run. So the **guest-clock timing spans are the hard regression gate**; the
+visual delta is corroboration with a per-milestone Hamming **tolerance** + optional **ROI mask** over the
+volatile region (`visual.gated` defaults to `false` for cut 1). WIN owns tuning the tolerances.
+
+## Files
+
+| File | Role | Owner |
+|---|---|---|
+| [`boot-benchmark-v1.schema.json`](boot-benchmark-v1.schema.json) | the sealed-record schema (the cross-plane seam) | shared |
+| [`seal-boot-benchmark.mjs`](seal-boot-benchmark.mjs) | pure producer: correlate milestones → clock-tagged spans → seal | shared core |
+| [`serial-marker.mjs`](serial-marker.mjs) | the `LBABENCH` wire contract + parser (live frame-pin) | shared |
+| [`journal-monotonic.mjs`](journal-monotonic.mjs) | `journalctl -o short-monotonic` → authoritative guest ms | shared |
+| [`emit-boot-marker.sh`](emit-boot-marker.sh) | guest emit helper (serial + journald), verbatim both planes | shared |
+| [`capture-backend-vbox.mjs`](capture-backend-vbox.mjs) | VBox capture backend (`controlvm screenshotpng`) + serial config | LINUX |
+| [`verify-boot-benchmark.mjs`](verify-boot-benchmark.mjs) | 36-check CI proof (seal, spans, gates, parsers, backend, delta) | LINUX |
+| VMware VNC capture backend + serial-to-file config | `RemoteDisplay.vnc.enabled` framebuffer grab | **WIN** |
+| cross-iteration diff (timing hard gate + visual witness) | extends `frame-diff.mjs` with the span comparison | **WIN** |
+
+Fingerprint + PNG decode are reused from `../manual-procedure-record/` (`fingerprint.mjs`,
+`capture-adapter.mjs`), so "same `fingerprintAlgo`" is bit-identical cross-plane by construction.
+
+## Capture backend seam
+
+The recorder core is provider-agnostic; a backend implements:
+
+```
+backend    : string                      // capture.backend recorded in the sealed record
+transport  : string
+probe()    : { ok, state }               // is the VM present + running?
+capture(destPngPath) : { ok, path }      // write ONE framebuffer PNG (works from power-on, no guest agent)
+```
+
+LINUX = `vbox-screenshotpng` (`VBoxManage controlvm <vm> screenshotpng`). WIN = `vmware-vnc` (a framebuffer
+grab off the VM's built-in VNC console — **not** `vmrun captureScreen`, which is VMware-Tools+login-gated and
+cannot see the BIOS/GRUB/early-kernel boot window we benchmark).
+
+## Run
+
+```bash
+node experiments/mprr-boot-benchmark/verify-boot-benchmark.mjs   # 36/36, no VM required
+node experiments/verify-local-gates.mjs                          # includes boot-benchmark-seal-spans-and-fail-closed
+```
+
+## Milestone emit wiring (co-owned, drop-ins)
+
+`emit-boot-marker.sh <caseId>` is called from (drop-ins, so the proven from-source boot path is not edited
+until the wire shape is confirmed):
+
+| Milestone | Emitted from |
+|---|---|
+| `BOOT-START` | an early oneshot (before `lba-lbabus-build.service`) |
+| `LBABUS-BUILD-START` | `lba-lbabus-build.service` `ExecStartPre=` |
+| `LBABUS-BUILT` | `lba-lbabus-build.service` `ExecStartPost=` |
+| `MESH-OK` | the mesh unit when it logs `MESH OK` |
+
+## Status
+
+Draft (cut 1): schema + shared seal core + serial/journald parsers + VBox backend + emit helper + the
+36-check verify, gated in `verify-local-gates.mjs`. **Open with WIN:** VMware VNC backend + serial-to-file
+config + the cross-iteration diff, then wiring the emit drop-ins into the boot units.
