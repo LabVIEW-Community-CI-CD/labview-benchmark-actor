@@ -10,8 +10,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 - Marketplace listing polish: extension icon, gallery banner, keywords, and `Visualization` / `Testing`
   categories.
 - Marketplace publish: the `extension-release` workflow now publishes the built `.vsix` to the VS Code
-  Marketplace (fork-safe, PAT-gated, fail-open) after the bidirectional WIN&harr;LINUX agreement gate, and
-  guards the `.vsix` size so a non-runtime leak can never be released or published.
+  Marketplace (fork-safe, PAT-gated, fail-open) after the bidirectional WIN&harr;LINUX agreement gate.
+- Durable packaging guard (#123): `scripts/check-package-allowlist.mjs` asserts `vsce ls` ships only the
+  runtime allow-set (`LICENSE`, `README.md`, `CHANGELOG.md`, `package.json`, `media/**`, `out/**`) and that
+  the `.vsix` stays under a 1 MB ceiling in `extension-release`; the local gates additionally assert the heavy
+  non-runtime trees (the reviewer VM disk, `node_modules`, `experiments`, `tools`, `docs`, ...) stay
+  `.vscodeignore`d — so the 14 GB reviewer-workstation leak class can never regress.
 
 ## [0.1.1]
 

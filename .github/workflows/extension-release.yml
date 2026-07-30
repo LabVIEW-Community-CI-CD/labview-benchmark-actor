@@ -94,17 +94,12 @@ jobs:
           cp labview-benchmark-actor.vsix "staging/labview-benchmark-actor-${{ steps.ver.outputs.version }}.vsix"
           ls -l staging
 
-      - name: Guard .vsix size (interim; the #123 allow-set guard supersedes)
-        run: |
-          set -eu
-          bytes=$(stat -c%s "staging/labview-benchmark-actor-${{ steps.ver.outputs.version }}.vsix")
-          echo "packaged .vsix is ${bytes} bytes"
-          # A real extension .vsix is tiny (~18 KB). Fail closed above 1 MB so a non-runtime leak
-          # (e.g. a VM disk under reviewer-workstation/.vagrant) can never be released or published.
-          if [ "$bytes" -gt 1048576 ]; then
-            echo "::error::.vsix is ${bytes} bytes (> 1 MB) -- non-runtime content leaked; refusing to release." >&2
-            exit 1
-          fi
+      - name: Guard packaging allow-set + size (#123)
+        # Durable supersede of the interim size-only guard: assert `vsce ls` ships ONLY the runtime
+        # allow-set (LICENSE, README.md, CHANGELOG.md, package.json, media/**, out/**) AND that the built
+        # .vsix is under the size ceiling. Fails closed, so a .vscodeignore regression that re-admits a VM
+        # disk (reviewer-workstation/.vagrant), node_modules, experiments, tools, docs or src can never ship.
+        run: node scripts/check-package-allowlist.mjs "staging/labview-benchmark-actor-${{ steps.ver.outputs.version }}.vsix"
 
       - name: Extract release notes from CHANGELOG
         id: notes
