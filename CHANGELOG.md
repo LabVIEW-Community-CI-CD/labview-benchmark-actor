@@ -6,6 +6,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-30
+
 ### Added
 - MCP tools: the extension contributes a **Model Context Protocol** server (a dependency-free stdio
   JSON-RPC server) exposing its own tools to Copilot agent mode — `get_host_capabilities`,
