@@ -978,6 +978,25 @@ check('boot-benchmark-cross-iteration-diff', () => {
   return { diff: 'boot-benchmark-diff@1', suite: 'subprocess 25/25' };
 });
 
+// cross-plane co-run EVIDENCE (mprr-boot-benchmark/fixtures): re-validate the committed live records so the
+// PASS can't silently rot. Re-runs bootBenchmarkDiff on LINUX's real VBox record + WIN's real VMware record
+// (both collab-cli-v0.11.0, BUILD-leg) and asserts it still matches the committed cross-plane-diff-receipt.
+check('boot-benchmark-cross-plane-co-run-receipt', () => {
+  const dir = join(here, 'mprr-boot-benchmark', 'fixtures');
+  const vbox = JSON.parse(readFileSync(join(dir, 'vbox-boot-collab-cli-v0.11.0.json'), 'utf8'));
+  const vmware = JSON.parse(readFileSync(join(dir, 'vmware-boot-collab-cli-v0.11.0.json'), 'utf8'));
+  const receipt = JSON.parse(readFileSync(join(dir, 'cross-plane-diff-receipt.json'), 'utf8'));
+  const diff = bootBenchmarkDiff(vbox, vmware);
+  assert(diff.verdict === 'PASS', `cross-plane co-run must be PASS (got ${diff.verdict})`);
+  assert(diff.verdict === receipt.verdict, `verdict drift vs committed receipt (${diff.verdict} vs ${receipt.verdict})`);
+  const build = diff.timing.spans.find((s) => s.id === 'buildMs');
+  assert(build && build.scope === 'cross-plane' && build.status === 'match',
+    'buildMs must be the guest/cross-plane span and match within tolerance');
+  assert(vbox.seal.recordHash === receipt.records.A.recordHash && vmware.seal.recordHash === receipt.records.B.recordHash,
+    'receipt recordHashes must match the committed fixtures (no fixture/receipt drift)');
+  return { verdict: diff.verdict, buildMs: `${build.msA}->${build.msB} (${build.deltaMs}ms/${build.status})` };
+});
+
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
 // Shift-left of the agent last gate's `readme-marketplace-safe` check so every PR's
 // CI catches a broken listing link before it can reach the final pre-publish gate.
