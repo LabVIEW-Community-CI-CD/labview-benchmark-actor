@@ -72,9 +72,11 @@ Vagrant.configure("2") do |config|
       SH
 
       # Auto-form the host-only lbabus mesh ON BOOT: install the shared mesh workload + a systemd unit that runs
-      # it (listen 7420/7421 + send/beacon --hosts <peer IPs> with 0.11.0 --bind <self host-only IP>), retrying
-      # (Restart=on-failure, no rate limit) until every peer is up -- so the mesh forms regardless of `vagrant up`
-      # ordering, and the host observer (the .1 gateway, running mesh-monitor.mjs) sees per-actor presence.
+      # it (listen 7420/7421 + send/beacon --hosts <peer IPs> with 0.11.0 --bind <self host-only IP>) in a
+      # CONTINUOUS prove loop (Restart=always, no rate limit): each round exits 0 on MESH OK then restarts, so
+      # listeners/beacons stay live and a peer that completes first keeps beaconing for a slower, staggered peer
+      # (Restart=on-failure would let the first finisher exit and strand the other). The mesh forms regardless
+      # of `vagrant up` ordering, and the host observer (the .1 gateway, mesh-monitor.mjs) sees continuous presence.
       peers    = ACTORS.reject { |x| x["hostname"] == a["hostname"] }.map { |x| x["ip"] }.join(",")
       observer = a["ip"].sub(/\.\d+$/, ".1")   # host-only gateway = the host running the read-only viewers
       unit = <<~UNIT
@@ -96,8 +98,8 @@ Vagrant.configure("2") do |config|
         Environment=TCP_PORT=#{a['tcp_port']}
         Environment=UDP_PORT=#{a['udp_port']}
         ExecStart=/usr/local/bin/lba-mesh-actor.sh
-        Restart=on-failure
-        RestartSec=5
+        Restart=always
+        RestartSec=2
 
         [Install]
         WantedBy=multi-user.target
