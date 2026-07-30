@@ -40,6 +40,7 @@ import { ringFrameFromDescriptor, makeRingSink } from './mprr-capture-ring/vmwar
 import { recordFromRing } from './mprr-capture-ring/capture-ring-recorder.mjs';
 import { fiducialDhash } from './mprr-capture-ring/fiducial-vnc-server.mjs';
 import { createVboxVncSource, VBOX_DEFAULT_VNC_PORT, sampleDescriptor } from './mprr-capture-ring/vbox-vnc-source.mjs';
+import { DUAL_CLOCK_TICKS, buildDecodeTable, correlateVisualDualClock } from './mprr-capture-ring/visual-dual-clock.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1163,6 +1164,25 @@ check('capture-ring-fiducial-cross-plane', () => {
     'both None-auth (VMware) and VNC-auth (VBox) capture paths == ground truth');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'fiducial-cross-plane.mjs')], { stdio: 'pipe' });
   return { ticks: receipt.ticks.length, verdict: receipt.verdict, paths: 'none-auth(VMware) == vnc-auth(VBox) == ground truth' };
+});
+
+// Visual dual-clock (mprr-capture-ring/visual-dual-clock.mjs): the guest renders a fiducial "stopwatch" on its
+// OWN display advanced on the GUEST monotonic clock; the host captures over VNC + DECODES which step each frame
+// shows, pairing guest-display-time -> host-capture-time (the visual analog of the boot-benchmark dual-clock,
+// read straight off the pixels). In-process gates tick-distinctness + the correlation math (synthetic guest log
+// + capture stream); subprocess runs the full correlator suite (jitter recovery + drift + fail-closed).
+check('capture-ring-visual-dual-clock', () => {
+  const table = buildDecodeTable();
+  assert(table.size === DUAL_CLOCK_TICKS.length, 'dual-clock ticks must decode distinctly at the guest resolution');
+  // synthetic: guest advances every 250ms; host captures each +30ms (constant latency) -> zero drift + spread.
+  const guestSteps = DUAL_CLOCK_TICKS.map((tick, step) => ({ step, tick, guestMonoMs: 1000 + step * 250 }));
+  const captured = [];
+  for (const [dhashHex, { step }] of table) captured.push({ hostMs: 500000 + step * 250 + 30, dhashHex });
+  const rec = correlateVisualDualClock({ guestSteps, captured });
+  assert(rec.pairedSteps === DUAL_CLOCK_TICKS.length && rec.driftMs.spreadMs === 0,
+    'constant capture latency -> all steps pair with zero (host-guest) drift spread');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-visual-dual-clock.mjs')], { stdio: 'pipe' });
+  return { steps: DUAL_CLOCK_TICKS.length, correlate: 'guest-display -> host-capture', suite: 'verify-visual-dual-clock subprocess 5/5' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
