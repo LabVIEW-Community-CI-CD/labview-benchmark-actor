@@ -81,6 +81,7 @@ volatile region (`visual.gated` defaults to `false` for cut 1). WIN owns tuning 
 | [`emit-boot-marker.sh`](emit-boot-marker.sh) | guest emit helper (serial + journald), verbatim both planes | shared |
 | [`capture-backend-vbox.mjs`](capture-backend-vbox.mjs) | VBox capture backend (`controlvm screenshotpng`) + serial config | LINUX |
 | [`verify-boot-benchmark.mjs`](verify-boot-benchmark.mjs) | 41-check CI proof (seal, spans, gates, parsers, backend, driver await, delta) | LINUX |
+| [`record-vbox-boot.mjs`](record-vbox-boot.mjs) | live co-run entry: capture + seal a REAL VBox from-source boot (driver + VBox backend + serial tail + journald over SSH) | LINUX |
 | [`capture-backend-vmware.mjs`](capture-backend-vmware.mjs) | VMware capture backend (`RemoteDisplay.vnc` framebuffer grab, minimal RFB) + serial/VNC `.vmx` config | **WIN** |
 | [`verify-boot-benchmark-vmware.mjs`](verify-boot-benchmark-vmware.mjs) | 23-check CI proof (contract, `.vmx` config, RFB decode vs a scripted mock — no VM) | **WIN** |
 | [`boot-benchmark-diff.mjs`](boot-benchmark-diff.mjs) | cross-iteration diff: timing hard gate (guest cross-plane spans; refuses within-plane across hypervisors) + visual witness | **WIN** |
@@ -143,6 +144,19 @@ node experiments/mprr-boot-benchmark/verify-boot-benchmark-diff.mjs    # 25/25, 
 node experiments/verify-local-gates.mjs                                # boot-benchmark-{seal-spans-and-fail-closed, vmware-vnc-backend, cross-iteration-diff}
 ```
 
+## Live capture (co-run)
+
+[`record-vbox-boot.mjs`](record-vbox-boot.mjs) is the LINUX half of the live co-run: it starts a VBox VM,
+captures the from-source boot at cadence, tails the serial sink for the `LBABENCH` pins, reads the guest
+`journalctl -o short-monotonic` over SSH, and seals a `boot-benchmark-v1`. Prep (powered off):
+`VBoxManage modifyvm <vm> --uart1 0x3F8 4 --uartmode1 file <serialFile>`, and the VM must have no baked
+`lbabus` so the boot is a real from-source build. Env-configurable (`LBA_VM`, `LBA_SERIAL`, `LBA_MILESTONES`,
+`LBA_MATCH`, …). WIN runs the VMware VNC equivalent; the two sealed records are then `bootBenchmarkDiff`ed.
+
+**Proven end-to-end** (2026-07-30, scratch VM, mesh-less BUILD leg): 150 frames, all pins correlated,
+`buildMs = 5167 ms`, serial↔journald **skews 6–11 ms** (the dual-channel design holds on real hardware), raw
+discarded on seal — and the record passes WIN's `boot-benchmark-diff` (self-diff → `PASS` / `TIMING_OK`).
+
 ## Milestone emit wiring (LANDED)
 
 Wire shape confirmed cross-plane; [`emit-boot-marker.sh`](emit-boot-marker.sh) is embedded verbatim in
@@ -161,6 +175,8 @@ perturbs the proven from-source boot path):
 
 Draft (cut 1): schema + shared seal core + the live driver + serial/journald parsers + both capture backends
 (VBox screenshotpng, VMware VNC) + emit helper wired into provisioning + the **cross-iteration diff** (timing
-hard gate + visual witness) + the verifies, all gated in `verify-local-gates.mjs`. **Open:** the live
-end-to-end boot proof (capture + seal + diff two real from-source boots), co-run cross-plane (WIN captures the
-VMware boot, LINUX the VBox boot).
+hard gate + visual witness) + the verifies, all gated in `verify-local-gates.mjs`. The **LINUX live capture is
+proven** (`record-vbox-boot.mjs`: a real VBox from-source boot sealed, `buildMs=5167ms`, 6–11 ms skews,
+passes the diff). **Open:** the cross-plane co-run finale — WIN captures a live VMware boot, LINUX a live VBox
+boot (same source pin), and `bootBenchmarkDiff` compares the guest spans (`bootToMeshMs` auto-refused across
+hypervisors).
