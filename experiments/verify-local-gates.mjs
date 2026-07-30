@@ -33,6 +33,7 @@ import { sealBootBenchmark } from './mprr-boot-benchmark/seal-boot-benchmark.mjs
 import { parseSerialLog, parseSerialMarkerLine } from './mprr-boot-benchmark/serial-marker.mjs';
 import { parseJournalMonotonic } from './mprr-boot-benchmark/journal-monotonic.mjs';
 import { createVmwareBackend, vmwareSerialConfigVmx, vmwareVncConfigVmx, upsertVmxConfig } from './mprr-boot-benchmark/capture-backend-vmware.mjs';
+import { bootBenchmarkDiff } from './mprr-boot-benchmark/boot-benchmark-diff.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -949,6 +950,32 @@ check('boot-benchmark-vmware-vnc-backend', () => {
   // full async RFB (VNC) decode against a scripted mock server — subprocess so the async path is gated too
   execFileSync(process.execPath, [join(here, 'mprr-boot-benchmark', 'verify-boot-benchmark-vmware.mjs')], { stdio: 'pipe' });
   return { backend: 'vmware-vnc', vncGrab: 'RFB subprocess 23/23' };
+});
+
+// boot-benchmark cross-iteration diff (mprr-boot-benchmark/boot-benchmark-diff.mjs): the WIN consumer side.
+// Timing is the HARD GATE (guest-clock cross-plane spans); the host-clock within-plane span is REFUSED across
+// hypervisors (it would diff firmware, not the build); the visual dhash-64 delta is a witness, not the gate.
+check('boot-benchmark-cross-iteration-diff', () => {
+  const rec = (o) => ({
+    schema: 'labview-benchmark-actor/boot-benchmark-v1', iteration: o.it, hypervisor: o.hv ?? 'vmware',
+    fingerprintAlgo: 'dhash-64', fingerprintSpecVersion: 1,
+    frames: [{ index: 0, hostMonotonicMs: 0, settled: true, caseId: 'MESH-OK', perceptualFingerprint: o.fp ?? '0000000000000000', integrityHash: 'a'.repeat(64) }],
+    spans: [
+      { id: 'buildMs', from: 'LBABUS-BUILD-START', to: 'LBABUS-BUILT', clock: 'guest', scope: 'cross-plane', ms: o.build },
+      { id: 'bootToMeshMs', from: 'hostT0', to: 'MESH-OK', clock: 'host', scope: 'within-plane', ms: o.boot ?? 20000 },
+    ],
+    visual: { gated: false, perMilestone: [{ caseId: 'MESH-OK', hammingTolerance: 8, roiMask: null }] },
+  });
+  assert(bootBenchmarkDiff(rec({ it: 'a', build: 8000 }), rec({ it: 'b', build: 12000 })).verdict === 'REGRESSION',
+    'a guest-clock buildMs regression (8000->12000) fails the timing gate');
+  const xp = bootBenchmarkDiff(rec({ it: 'a', hv: 'virtualbox', build: 8000, boot: 20000 }), rec({ it: 'b', hv: 'vmware', build: 8000, boot: 40000 }));
+  assert(xp.verdict === 'PASS' && xp.timing.incomparable.includes('bootToMeshMs'),
+    'a within-plane host span is REFUSED across hypervisors (firmware not diffed)');
+  const vd = bootBenchmarkDiff(rec({ it: 'a', build: 8000, fp: '0000000000000000' }), rec({ it: 'b', build: 8000, fp: 'ffffffffffffffff' }));
+  assert(vd.verdict === 'PASS' && vd.visual.verdict === 'WITNESS_DELTA', 'visual delta is a witness, not the gate');
+  // full 25/25 diff suite as a subprocess (mirrors the VMware backend gate)
+  execFileSync(process.execPath, [join(here, 'mprr-boot-benchmark', 'verify-boot-benchmark-diff.mjs')], { stdio: 'pipe' });
+  return { diff: 'boot-benchmark-diff@1', suite: 'subprocess 25/25' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.

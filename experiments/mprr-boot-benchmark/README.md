@@ -83,7 +83,8 @@ volatile region (`visual.gated` defaults to `false` for cut 1). WIN owns tuning 
 | [`verify-boot-benchmark.mjs`](verify-boot-benchmark.mjs) | 41-check CI proof (seal, spans, gates, parsers, backend, driver await, delta) | LINUX |
 | [`capture-backend-vmware.mjs`](capture-backend-vmware.mjs) | VMware capture backend (`RemoteDisplay.vnc` framebuffer grab, minimal RFB) + serial/VNC `.vmx` config | **WIN** |
 | [`verify-boot-benchmark-vmware.mjs`](verify-boot-benchmark-vmware.mjs) | 23-check CI proof (contract, `.vmx` config, RFB decode vs a scripted mock — no VM) | **WIN** |
-| cross-iteration diff (timing hard gate + visual witness) | extends `frame-diff.mjs` with the span comparison | **WIN** (next) |
+| [`boot-benchmark-diff.mjs`](boot-benchmark-diff.mjs) | cross-iteration diff: timing hard gate (guest cross-plane spans; refuses within-plane across hypervisors) + visual witness | **WIN** |
+| [`verify-boot-benchmark-diff.mjs`](verify-boot-benchmark-diff.mjs) | 25-check CI proof (timing gate, cross-plane refusal, visual witness, guards) | **WIN** |
 
 Fingerprint + PNG decode are reused from `../manual-procedure-record/` (`fingerprint.mjs`,
 `capture-adapter.mjs`), so "same `fingerprintAlgo`" is bit-identical cross-plane by construction.
@@ -118,12 +119,28 @@ A VNC grab is async, so `vmware-vnc`'s `capture()` returns a Promise. The shared
 `await`-compatible (`await <non-promise>` is a no-op) — so **one driver fits both backends** (the verify
 proves a sync and an async backend seal a byte-identical record).
 
+## Cross-iteration diff (WIN)
+
+[`boot-benchmark-diff.mjs`](boot-benchmark-diff.mjs) pairs two sealed records and reports two layers:
+
+- **Timing = the hard gate.** Spans are paired by id; a comparable span slower than baseline beyond
+  `timingToleranceMs` (default 2000) is a **regression** → the gate fails. Comparability follows `span.scope`:
+  guest-clock `cross-plane` spans (`buildMs`, `meshFormMs`) are always compared; the host-clock
+  `within-plane` span (`bootToMeshMs`) is **refused across different hypervisors**
+  (`incomparable-cross-plane`) — comparing it VBox↔VMware would diff firmware, not the build.
+- **Visual = a witness.** Reuses [`frame-diff.mjs`](../manual-procedure-record/frame-diff.mjs) to Hamming the
+  milestone `settled` frames, re-scored against each milestone's `visual.perMilestone.hammingTolerance`. It
+  does not fail the gate unless the record sets `visual.gated=true`. A declared `roiMask` can't be applied
+  post-seal (raw pixels are discarded), so it is surfaced as declared-only and the witness Hamming is
+  whole-frame.
+
 ## Run
 
 ```bash
 node experiments/mprr-boot-benchmark/verify-boot-benchmark.mjs         # 41/41, no VM required
 node experiments/mprr-boot-benchmark/verify-boot-benchmark-vmware.mjs  # 23/23, no VM required (VMware backend + RFB decode)
-node experiments/verify-local-gates.mjs                                # includes boot-benchmark-seal-spans-and-fail-closed + boot-benchmark-vmware-vnc-backend
+node experiments/mprr-boot-benchmark/verify-boot-benchmark-diff.mjs    # 25/25, no VM required (cross-iteration timing gate + visual witness)
+node experiments/verify-local-gates.mjs                                # boot-benchmark-{seal-spans-and-fail-closed, vmware-vnc-backend, cross-iteration-diff}
 ```
 
 ## Milestone emit wiring (LANDED)
@@ -143,6 +160,7 @@ perturbs the proven from-source boot path):
 ## Status
 
 Draft (cut 1): schema + shared seal core + the live driver + serial/journald parsers + both capture backends
-(VBox screenshotpng, VMware VNC) + emit helper wired into provisioning + the 41-check verify, gated in
-`verify-local-gates.mjs`. **Open with WIN:** the cross-iteration diff (timing hard gate reading `span.scope`
-+ visual witness) and the live end-to-end boot proof (capture + seal + diff two real from-source boots).
+(VBox screenshotpng, VMware VNC) + emit helper wired into provisioning + the **cross-iteration diff** (timing
+hard gate + visual witness) + the verifies, all gated in `verify-local-gates.mjs`. **Open:** the live
+end-to-end boot proof (capture + seal + diff two real from-source boots), co-run cross-plane (WIN captures the
+VMware boot, LINUX the VBox boot).
