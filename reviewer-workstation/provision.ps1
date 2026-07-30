@@ -99,6 +99,33 @@ function Resolve-Tag([string]$prefix, [string]$tag) {
   return $match.tag_name
 }
 
+# Install the extension into the INTERACTIVE console user's VS Code profile -- NOT the WinRM 'vagrant'
+# profile provisioning runs as -- or the human reviewer never sees it (#121). Extensions are per-user; the
+# profile FOLDER can differ from the username (e.g. user 'vitech' -> 'C:\Users\VI-Tech'), so resolve the
+# real profile path from the user's SID via Win32_UserProfile. Falls back to the provisioning profile only
+# when no one is logged on at the console.
+function Install-ExtensionForInteractiveUser([string]$VsixPath) {
+  $extDirArgs = @()
+  $consoleUser = (Get-CimInstance Win32_ComputerSystem).UserName
+  if ($consoleUser) {
+    try {
+      $sid = (New-Object System.Security.Principal.NTAccount($consoleUser)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+      $profilePath = (Get-CimInstance Win32_UserProfile | Where-Object { $_.SID -eq $sid }).LocalPath
+      if ($profilePath) {
+        $extDir = Join-Path $profilePath '.vscode\extensions'
+        New-Item -ItemType Directory -Force -Path $extDir | Out-Null
+        $extDirArgs = @('--extensions-dir', $extDir)
+        Step "target profile: $consoleUser -> $extDir"
+      }
+    } catch {
+      Step "WARN could not resolve console-user profile ($consoleUser): $($_.Exception.Message)"
+    }
+  } else {
+    Step 'WARN no interactive console user detected; installing into the provisioning profile.'
+  }
+  code --install-extension $VsixPath @extDirArgs --force
+}
+
 # 1) Extension .vsix from the ext-v* Release.
 $extResolved = Resolve-Tag 'ext-v' $extTag
 $dir = Join-Path $env:TEMP 'lba-ext'
@@ -107,8 +134,8 @@ Step "Downloading extension .vsix from $extResolved"
 gh release download $extResolved --repo $repo --pattern '*.vsix' --dir $dir --clobber
 $vsix = Get-ChildItem $dir -Filter '*.vsix' | Select-Object -First 1
 if (-not $vsix) { throw "No .vsix asset in release $extResolved." }
-Step "Installing extension $($vsix.Name)"
-code --install-extension $vsix.FullName --force
+Step "Installing extension $($vsix.Name) into the interactive reviewer's profile"
+Install-ExtensionForInteractiveUser $vsix.FullName
 
 # 2) lbabus CLI (self-contained win-x64) from the collab-cli Release.
 $lbTag  = Resolve-Tag 'collab-cli-v' $lbabusTag

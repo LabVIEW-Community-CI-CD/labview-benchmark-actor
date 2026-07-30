@@ -43,6 +43,26 @@ Follow [docs/testing/reviewer-manual-test-plan.md](../docs/testing/reviewer-manu
 from the Command Palette (`Ctrl+Shift+P` → `LabVIEW Benchmark Actor: ...`). The bus and
 capabilities commands require `gh auth login` first (reviewer-supplied).
 
+## Stage a LOCAL candidate (pre-publish last gate)
+
+`provision.ps1` installs a **published** `ext-v*` release. To review the **pre-publish candidate**
+built from the current working tree — so a human is the last gate **before** anything reaches the
+VS Code Marketplace — use [stage-local-vsix.ps1](stage-local-vsix.ps1) against an already-running VM:
+
+```powershell
+# VM already up (vagrant up ...), then from the repo root on the host:
+pwsh -File reviewer-workstation/stage-local-vsix.ps1
+# or install a prebuilt .vsix without rebuilding:
+pwsh -File reviewer-workstation/stage-local-vsix.ps1 -SkipBuild -Vsix .\labview-benchmark-actor.vsix
+```
+
+It builds + packages the candidate (`npm test` + `vsce package`), **guards the `.vsix` size** (a fat
+`.vsix` means `.vscodeignore` leaked non-runtime content such as the VM disk under `.vagrant/`),
+`vagrant upload`s it, installs it with `code --install-extension --force`, verifies the `id@version`
+by listing extensions, and drops `C:\lba-review\REVIEW-CHECKLIST.txt` for the reviewer. Then open VS
+Code in the VM and inspect the Extensions-view README page (the Marketplace listing), the command
+surface, and the benchmark viewer. Nothing is published until the reviewer approves.
+
 ## Configuration (env)
 
 | Variable | Default | Purpose |
@@ -63,7 +83,9 @@ capabilities commands require `gh auth login` first (reviewer-supplied).
 
 1. Ensures `code` (VS Code) and `gh` are on `PATH`, winget-installing them when the box lacks
    them (the VirtualBox golden box ships them; the VMware cleanroom box and BYO boxes may not).
-2. Downloads and installs the extension `.vsix` from the resolved `ext-v*` Release.
+2. Downloads and installs the extension `.vsix` from the resolved `ext-v*` Release **into the
+   interactive console user's VS Code profile** (resolved from its SID), so the human reviewer — who
+   logs in interactively, not as the WinRM `vagrant` provisioning user — actually sees it (#121).
 3. Downloads the self-contained `lbabus` (`*win-x64.exe`) from the resolved `collab-cli-v*`
    Release into `C:\lba-bin` and adds it to the machine `PATH`.
 4. Creates the `C:\lba-review` scratch workspace.
