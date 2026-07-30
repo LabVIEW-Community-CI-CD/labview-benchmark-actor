@@ -132,6 +132,7 @@ const importEsm: (specifier: string) => Promise<Record<string, unknown>> = new F
 interface PanelBuilders {
   buildBenchmarkPanelHtml(record: unknown, nonce: string): string;
   buildTrendPanelHtml(trend: unknown, nonce: string): string;
+  buildCrossPlaneTrendPanelHtml(receipt: unknown, winTrend: unknown, linuxTrend: unknown, nonce: string): string;
   scrubberModelFromTrend(trend: unknown, opts: { pinDhash?: string; title?: string }): unknown;
 }
 interface ScrubberBuilder {
@@ -226,6 +227,19 @@ async function openFrameCorrelatorCommand(context: vscode.ExtensionContext, outp
     panel.webview.html = scrubber.buildBenchmarkFrameScrubberHtml(model, getNonce());
   } catch (err) {
     reportUiError(output, 'Open Frame Correlator', err);
+  }
+}
+
+async function openCrossPlaneTrendCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const panels = await loadPanelBuilders(context.extensionUri);
+    const receipt = loadBenchmarkJson(context.extensionUri, 'cross-plane-trend-receipt.json');
+    const winTrend = loadBenchmarkJson(context.extensionUri, 'labview-launch-trend-win.json');
+    const linuxTrend = loadBenchmarkJson(context.extensionUri, 'labview-launch-trend.json');
+    const panel = makeBenchmarkPanel(context, 'lbaCrossPlaneTrend', 'Cross-Plane Benchmark Trend', false);
+    panel.webview.html = panels.buildCrossPlaneTrendPanelHtml(receipt, winTrend, linuxTrend, getNonce());
+  } catch (err) {
+    reportUiError(output, 'Open Cross-Plane Trend', err);
   }
 }
 
@@ -439,6 +453,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.openFrameCorrelator', () =>
       openFrameCorrelatorCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.openCrossPlaneTrend', () =>
+      openCrossPlaneTrendCommand(context, output)
     )
   );
 

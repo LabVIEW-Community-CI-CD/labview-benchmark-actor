@@ -47,6 +47,7 @@ import { buildWorkloadRecord } from './mprr-capture-ring/workload-benchmark.mjs'
 import { buildTrend } from './mprr-capture-ring/trend.mjs';
 import { buildBenchmarkPanelHtml, buildTrendPanelHtml, scrubberModelFromTrend, dhashGridCells } from './mprr-capture-ring/benchmark-panels.mjs';
 import { buildBenchmarkFrameScrubberHtml } from './dashboard-slider/buildBenchmarkFrameScrubberHtml.mjs';
+import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1346,6 +1347,23 @@ check('capture-ring-benchmark-panels', () => {
   assert(dhashGridCells(pin).flat().filter(Boolean).length === 5, 'the UI-READY dhash grid renders the real fingerprint bits');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-benchmark-panels.mjs')], { stdio: 'pipe' });
   return { surfaces: 'single-run + trend + frame-correlator', launchMs: rec.spans[0].ms, verdict: trend.verdict, suite: 'verify-benchmark-panels subprocess' };
+});
+
+// CROSS-PLANE TREND-OF-TRENDS receipt: the WIN launchMs trend vs the LINUX launchMs trend (both REAL, both on
+// main). Re-computes the receipt from the two committed trends + asserts it matches the committed receipt
+// (no-rot). The cross-hypervisor mean delta is a WITNESS (substrate bias) -- reported, never gated; the gate is
+// per-plane regression.
+check('capture-ring-cross-plane-trend', () => {
+  const winT = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-trend-win.json'), 'utf8'));
+  const linuxT = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-trend.json'), 'utf8'));
+  const committed = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'cross-plane-trend-receipt.json'), 'utf8'));
+  const re = crossPlaneTrendReceipt(winT, linuxT);
+  assert(re.schema === 'labview-benchmark-actor/cross-plane-trend-receipt@1' && re.metric === 'launchMs', 'a launchMs cross-plane trend receipt');
+  assert(re.verdict === 'PASS' && re.win.verdict === 'PASS' && re.linux.verdict === 'PASS', 'both planes\' trends are non-regressed -> PASS');
+  assert(re.witness.status === 'match' && re.witness.faster === 'WIN', 'the cross-hypervisor mean delta is a witnessed match');
+  assert(JSON.stringify(committed) === JSON.stringify(re), 'the committed cross-plane trend receipt matches a fresh recompute (no rot)');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-cross-plane-trend.mjs')], { stdio: 'pipe' });
+  return { linuxMean: re.linux.mean, winMean: re.win.mean, meanDeltaMs: re.witness.meanDeltaMs, faster: re.witness.faster, verdict: re.verdict };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.

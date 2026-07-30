@@ -1,0 +1,47 @@
+{
+  "schema": "labview-benchmark-actor/cross-plane-trend-receipt@1",
+  "metric": "launchMs",
+  "workload": "labview-ide-launch",
+  "win": {
+    "plane": "WIN",
+    "hypervisor": "vmware-vnc",
+    "n": 5,
+    "mean": 2410.6,
+    "median": 2309,
+    "stddev": 192.9,
+    "spread": 489,
+    "slopeMsPerRun": -92.7,
+    "baselineMs": 2309,
+    "verdict": "PASS",
+    "regressed": false,
+    "drifting": false
+  },
+  "linux": {
+    "plane": "LINUX",
+    "hypervisor": "vbox-vnc",
+    "n": 5,
+    "mean": 2604.2,
+    "median": 2664,
+    "stddev": 189.1,
+    "spread": 488,
+    "slopeMsPerRun": -29.7,
+    "baselineMs": 2664,
+    "verdict": "PASS",
+    "regressed": false,
+    "drifting": false
+  },
+  "witness": {
+    "meanDeltaMs": -193.6,
+    "medianDeltaMs": -355,
+    "slopeDeltaMsPerRun": -63,
+    "spreadDeltaMs": 1,
+    "toleranceMs": 8000,
+    "status": "match",
+    "faster": "WIN"
+  },
+  "flags": [],
+  "regressedPlanes": [],
+  "bothStable": true,
+  "verdict": "PASS",
+  "rerun": "node experiments/mprr-capture-ring/cross-plane-trend.mjs"
+}

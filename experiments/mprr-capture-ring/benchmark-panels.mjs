@@ -327,8 +327,101 @@ export function buildTrendPanelHtml(trend, nonce) {
   return panelDoc(`${trend?.metric || 'metric'} trend`, nonce, body);
 }
 
-// --- 3. frame-correlator scrubber models -----------------------------------
+// --- 2b. cross-plane trend-of-trends ---------------------------------------
 
+/** Plot one run series as an SVG polyline + markers over a shared [xOf,yOf] mapping. */
+function plotSeries(values, xOf, yOf, color) {
+  const parts = [];
+  if (values.length >= 2) {
+    parts.push(`<polyline fill="none" stroke="${color}" stroke-width="2" points="${values.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ')}"/>`);
+  }
+  values.forEach((v, i) => {
+    parts.push(`<circle cx="${xOf(i).toFixed(1)}" cy="${yOf(v).toFixed(1)}" r="4" fill="${color}"/>`);
+  });
+  return parts.join('');
+}
+
+/**
+ * Build the CROSS-PLANE trend panel: the WIN launchMs trend overlaid on the LINUX launchMs trend, plus the
+ * witnessed cross-hypervisor deltas (substrate bias) and the per-plane verdicts. STATIC (no client script).
+ * @param {object} receipt cross-plane-trend-receipt@1 (from crossPlaneTrendReceipt)
+ * @param {object} winTrend the WIN workload-trend@1 (for its run values)
+ * @param {object} linuxTrend the LINUX workload-trend@1 (for its run values)
+ * @param {string} nonce per-load CSP nonce
+ * @returns {string} self-contained HTML
+ */
+export function buildCrossPlaneTrendPanelHtml(receipt, winTrend, linuxTrend, nonce) {
+  const winVals = Array.isArray(winTrend?.values) ? winTrend.values.map(Number) : [];
+  const linuxVals = Array.isArray(linuxTrend?.values) ? linuxTrend.values.map(Number) : [];
+  const WIN_COLOR = '#ffa657', LINUX_COLOR = '#4fc1ff';
+  const nMax = Math.max(winVals.length, linuxVals.length, 1);
+  const W = 720, H = 300, PADL = 52, PADR = 16, PADT = 20, PADB = 34;
+  const all = winVals.concat(linuxVals).filter((v) => Number.isFinite(v));
+  const vMin = all.length ? Math.min(...all) : 0;
+  const vMax = all.length ? Math.max(...all) : 1;
+  const padV = Math.max(1, (vMax - vMin) * 0.15);
+  const yLo = vMin - padV, yHi = vMax + padV;
+  const xOf = (i) => PADL + (nMax <= 1 ? (W - PADL - PADR) / 2 : (i / (nMax - 1)) * (W - PADL - PADR));
+  const yOf = (v) => PADT + (1 - (v - yLo) / (yHi - yLo || 1)) * (H - PADT - PADB);
+
+  const axis = [];
+  for (let i = 0; i < nMax; i += 1) {
+    axis.push(`<text x="${xOf(i).toFixed(1)}" y="${(H - 12).toFixed(1)}" fill="var(--vscode-foreground,#ddd)" font-size="10" text-anchor="middle" opacity="0.6">${i + 1}</text>`);
+  }
+  const svg =
+    `<svg class="chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="cross-plane ${escapeHtml(receipt?.metric || 'metric')} trends">` +
+    plotSeries(linuxVals, xOf, yOf, LINUX_COLOR) +
+    plotSeries(winVals, xOf, yOf, WIN_COLOR) +
+    axis.join('') +
+    '</svg>';
+
+  const w = (receipt && receipt.witness) || {};
+  const pass = receipt?.verdict === 'PASS';
+  const planeCard = (label, p, color) => {
+    if (!p) return '';
+    return `<div class="card"><table>
+      <tr><td class="k" style="color:${color}">${escapeHtml(label)}</td><td class="v">${escapeHtml(p.hypervisor || '')}</td></tr>
+      <tr><td class="k">mean</td><td class="v">${escapeHtml(p.mean)} ms</td></tr>
+      <tr><td class="k">median</td><td class="v">${escapeHtml(p.median)} ms</td></tr>
+      <tr><td class="k">spread</td><td class="v">${escapeHtml(p.spread)} ms</td></tr>
+      <tr><td class="k">slope</td><td class="v">${escapeHtml(p.slopeMsPerRun)} ms/run</td></tr>
+      <tr><td class="k">verdict</td><td class="v">${escapeHtml(p.verdict)}</td></tr>
+    </table></div>`;
+  };
+  const witnessRows = [
+    ['mean Δ (WIN − LINUX)', `${w.meanDeltaMs} ms`],
+    ['median Δ', w.medianDeltaMs != null ? `${w.medianDeltaMs} ms` : null],
+    ['slope Δ', w.slopeDeltaMsPerRun != null ? `${w.slopeDeltaMsPerRun} ms/run` : null],
+    ['witness', `${w.status} (tol ${w.toleranceMs} ms)`],
+    ['faster plane', w.faster],
+    ['flags', (receipt?.flags || []).length ? receipt.flags.join(', ') : 'none'],
+  ]
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([k, v]) => `<tr><td class="k">${escapeHtml(k)}</td><td class="v">${escapeHtml(v)}</td></tr>`)
+    .join('');
+
+  const body = `
+    <h2>${escapeHtml(receipt?.workload || 'benchmark')} \u2014 cross-plane ${escapeHtml(receipt?.metric || 'metric')} trend
+      <span class="badge ${pass ? 'pass' : 'fail'}">${escapeHtml(receipt?.verdict || '?')}</span></h2>
+    <div class="sub">WIN (${escapeHtml(receipt?.win?.hypervisor || '?')}) vs LINUX (${escapeHtml(receipt?.linux?.hypervisor || '?')}) \u2014 the cross-hypervisor mean delta is a WITNESS (substrate bias), never a gate fail</div>
+    <div class="row">
+      <div>
+        ${svg}
+        <div class="legend">
+          <span><span class="dot" style="background:${LINUX_COLOR}"></span>LINUX ${escapeHtml(receipt?.linux?.hypervisor || 'vbox')}</span>
+          <span><span class="dot" style="background:${WIN_COLOR}"></span>WIN ${escapeHtml(receipt?.win?.hypervisor || 'vmware')}</span>
+        </div>
+      </div>
+      <div class="card"><table>${witnessRows}</table></div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      ${planeCard('LINUX', receipt?.linux, LINUX_COLOR)}
+      ${planeCard('WIN', receipt?.win, WIN_COLOR)}
+    </div>`;
+  return panelDoc(`cross-plane ${receipt?.metric || 'metric'} trend`, nonce, body);
+}
+
+// --- 3. frame-correlator scrubber models -----------------------------------
 /**
  * Map a workload-trend@1 record into a BenchmarkFrameScrubberModel: one scrubber
  * point per run (evenly spaced), the run's metric on the graph, and the captured

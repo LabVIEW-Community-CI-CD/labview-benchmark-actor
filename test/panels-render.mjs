@@ -22,13 +22,15 @@ function assert(cond, msg) {
   }
 }
 
-const { buildBenchmarkPanelHtml, buildTrendPanelHtml, scrubberModelFromTrend } = await import(
+const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, scrubberModelFromTrend } = await import(
   mediaUrl('benchmark-panels.mjs')
 );
 const { buildBenchmarkFrameScrubberHtml } = await import(mediaUrl('buildBenchmarkFrameScrubberHtml.mjs'));
 
 const record = mediaJson('labview-launch-record.json');
 const trend = mediaJson('labview-launch-trend.json');
+const winTrend = mediaJson('labview-launch-trend-win.json');
+const crossReceipt = mediaJson('cross-plane-trend-receipt.json');
 const NONCE = 'render-nonce-000000000000000000ab';
 
 // --- 1. single-run panel (static) renders the launchMs headline, the dhash-grid frame, and stats ------------
@@ -59,6 +61,21 @@ const NONCE = 'render-nonce-000000000000000000ab';
     assert(svg.textContent.includes(String(v)), `trend chart labels run value ${v}`);
   }
   assert(doc.body.textContent.includes(`${trend.slopeMsPerRun} ms/run`), 'trend panel shows the slope');
+}
+
+// --- 2b. cross-plane trend panel (static) overlays both series + witnessed deltas + both verdicts -----------
+{
+  const dom = new JSDOM(buildCrossPlaneTrendPanelHtml(crossReceipt, winTrend, trend, NONCE));
+  const doc = dom.window.document;
+  const svg = doc.querySelector('svg.chart');
+  assert(svg, 'cross-plane panel renders the overlay chart');
+  assert(svg.querySelectorAll('polyline').length === 2, 'cross-plane panel overlays BOTH plane series');
+  assert(svg.querySelectorAll('circle').length === winTrend.values.length + trend.values.length, 'a marker per run on both planes');
+  const badge = doc.querySelector('.badge');
+  assert(badge && badge.textContent.trim() === crossReceipt.verdict, `cross-plane verdict badge (${crossReceipt.verdict})`);
+  assert(doc.body.textContent.includes(String(crossReceipt.witness.meanDeltaMs)), 'cross-plane panel shows the witnessed mean delta');
+  assert(doc.body.textContent.includes('vmware-vnc') && doc.body.textContent.includes('vbox-vnc'), 'cross-plane panel names both hypervisors');
+  assert(!doc.querySelector('script'), 'cross-plane panel is fully static');
 }
 
 // --- 3. frame correlator (interactive) renders + scrubs; the selection tracks the vertical slider -----------
