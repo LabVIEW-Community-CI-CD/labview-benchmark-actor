@@ -1,0 +1,347 @@
+{
+  "schema": "labview-benchmark-actor/boot-benchmark-v1",
+  "iteration": "collab-cli-v0.11.0-mesh",
+  "sessionId": "linux-1785427763546",
+  "sealedAt": "2026-07-30T16:09:44.527Z",
+  "plane": "LINUX",
+  "hypervisor": "virtualbox",
+  "capture": {
+    "backend": "vbox-screenshotpng",
+    "transport": "VBoxManage controlvm screenshotpng",
+    "cadenceHz": 2,
+    "vm": "lba-ubuntu2404-labview2026-scratch"
+  },
+  "procedure": {
+    "id": "mesh-actor-boot",
+    "milestones": [
+      "BOOT-START",
+      "LBABUS-BUILD-START",
+      "LBABUS-BUILT",
+      "MESH-OK"
+    ]
+  },
+  "fingerprintAlgo": "dhash-64",
+  "fingerprintSpecVersion": 1,
+  "anchor": {
+    "source": "host-capture-timeline",
+    "hostT0MonotonicMs": 93.514549,
+    "hostClock": "monotonic-ms",
+    "guestClock": "journald-short-monotonic",
+    "correlation": {
+      "method": "serial-pin+journal-monotonic",
+      "allMilestonesPinned": true,
+      "skewToleranceMs": 2000,
+      "pins": [
+        {
+          "caseId": "BOOT-START",
+          "frameIndex": 18,
+          "hostMonotonicMs": 10740.515702,
+          "guestMonotonicMs": 5984,
+          "serialMonotonicMs": 5970,
+          "skewMs": 14
+        },
+        {
+          "caseId": "LBABUS-BUILD-START",
+          "frameIndex": 18,
+          "hostMonotonicMs": 10740.515702,
+          "guestMonotonicMs": 6045,
+          "serialMonotonicMs": 6040,
+          "skewMs": 5
+        },
+        {
+          "caseId": "LBABUS-BUILT",
+          "frameIndex": 27,
+          "hostMonotonicMs": 16152.007997,
+          "guestMonotonicMs": 11003,
+          "serialMonotonicMs": 11000,
+          "skewMs": 3
+        },
+        {
+          "caseId": "MESH-OK",
+          "frameIndex": 34,
+          "hostMonotonicMs": 20371.268221,
+          "guestMonotonicMs": 15684,
+          "serialMonotonicMs": 15680,
+          "skewMs": 4
+        }
+      ]
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "hostMonotonicMs": 450.195042,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "5cb04520a0aa4843f07be8cd53595fe8123d2a4e4dd2bdb18a71760faf0646cc"
+    },
+    {
+      "index": 1,
+      "hostMonotonicMs": 1023.84034,
+      "perceptualFingerprint": "0000000002000000",
+      "integrityHash": "d78487e85ccb32e8de0b040f9961019ef6f054343632482544ab121c98d0c030"
+    },
+    {
+      "index": 2,
+      "hostMonotonicMs": 1593.629006,
+      "perceptualFingerprint": "0000000002000000",
+      "integrityHash": "d78487e85ccb32e8de0b040f9961019ef6f054343632482544ab121c98d0c030"
+    },
+    {
+      "index": 3,
+      "hostMonotonicMs": 2154.79766,
+      "perceptualFingerprint": "0000000002000000",
+      "integrityHash": "d78487e85ccb32e8de0b040f9961019ef6f054343632482544ab121c98d0c030"
+    },
+    {
+      "index": 4,
+      "hostMonotonicMs": 2723.728136,
+      "perceptualFingerprint": "0000000002000000",
+      "integrityHash": "d78487e85ccb32e8de0b040f9961019ef6f054343632482544ab121c98d0c030"
+    },
+    {
+      "index": 5,
+      "hostMonotonicMs": 3285.911141,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "10f4d37bc929077c1d41b064466013afdccb783a7fb766897ecf6f85d84b63f0"
+    },
+    {
+      "index": 6,
+      "hostMonotonicMs": 3851.869329,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "10f4d37bc929077c1d41b064466013afdccb783a7fb766897ecf6f85d84b63f0"
+    },
+    {
+      "index": 7,
+      "hostMonotonicMs": 4412.359797,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "07e6d62fc43839f7daccd3ee6c6548fa116d0fbe366ef504d2cd4a4058f8fc0e"
+    },
+    {
+      "index": 8,
+      "hostMonotonicMs": 4976.632801,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "07e6d62fc43839f7daccd3ee6c6548fa116d0fbe366ef504d2cd4a4058f8fc0e"
+    },
+    {
+      "index": 9,
+      "hostMonotonicMs": 5545.687967,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 10,
+      "hostMonotonicMs": 6116.616606,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "07e6d62fc43839f7daccd3ee6c6548fa116d0fbe366ef504d2cd4a4058f8fc0e"
+    },
+    {
+      "index": 11,
+      "hostMonotonicMs": 6676.770873,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 12,
+      "hostMonotonicMs": 7243.391534,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "07e6d62fc43839f7daccd3ee6c6548fa116d0fbe366ef504d2cd4a4058f8fc0e"
+    },
+    {
+      "index": 13,
+      "hostMonotonicMs": 7809.761638,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 14,
+      "hostMonotonicMs": 8369.446611,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 15,
+      "hostMonotonicMs": 8932.500677,
+      "perceptualFingerprint": "0000000000000000",
+      "integrityHash": "a31446594d9210a0b55cc8c6af7691f5d3e5a96c4aacc45e31269e786d3de3ef"
+    },
+    {
+      "index": 16,
+      "hostMonotonicMs": 9517.751407,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "ab3bb0d75233b04328ca90cd1353d2c2f6cf2161dc41f684badf2e94e1537564"
+    },
+    {
+      "index": 17,
+      "hostMonotonicMs": 10131.027995,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "375dd0b660c7315f8c5a88d58773aa940e294fc53f845c71b65cbf8c8a1bec25"
+    },
+    {
+      "index": 18,
+      "hostMonotonicMs": 10740.515702,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "940a36e1474850c120296a4710f6db8e14cbfbd08e92ce6a3c42f8f591ea034e",
+      "caseId": "LBABUS-BUILD-START",
+      "guestMonotonicMs": 6045,
+      "settled": true
+    },
+    {
+      "index": 19,
+      "hostMonotonicMs": 11346.133353,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "296665d40b5200b3adddb983abca89a902bc8b8f3cc546e26fd2f089149c1299"
+    },
+    {
+      "index": 20,
+      "hostMonotonicMs": 11944.849094,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "296665d40b5200b3adddb983abca89a902bc8b8f3cc546e26fd2f089149c1299"
+    },
+    {
+      "index": 21,
+      "hostMonotonicMs": 12547.236581,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "296665d40b5200b3adddb983abca89a902bc8b8f3cc546e26fd2f089149c1299"
+    },
+    {
+      "index": 22,
+      "hostMonotonicMs": 13149.39242,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "296665d40b5200b3adddb983abca89a902bc8b8f3cc546e26fd2f089149c1299"
+    },
+    {
+      "index": 23,
+      "hostMonotonicMs": 13751.32006,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 24,
+      "hostMonotonicMs": 14341.5725,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 25,
+      "hostMonotonicMs": 14943.819438,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 26,
+      "hostMonotonicMs": 15545.044331,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 27,
+      "hostMonotonicMs": 16152.007997,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a",
+      "caseId": "LBABUS-BUILT",
+      "guestMonotonicMs": 11003,
+      "settled": true
+    },
+    {
+      "index": 28,
+      "hostMonotonicMs": 16752.79422,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 29,
+      "hostMonotonicMs": 17351.735865,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 30,
+      "hostMonotonicMs": 17955.347319,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 31,
+      "hostMonotonicMs": 18564.492729,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 32,
+      "hostMonotonicMs": 19160.695662,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 33,
+      "hostMonotonicMs": 19760.552414,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a"
+    },
+    {
+      "index": 34,
+      "hostMonotonicMs": 20371.268221,
+      "perceptualFingerprint": "0000000000000008",
+      "integrityHash": "b88280eeadaff3397668b00b16ccf8ba184c17ed0b180a220cacacf20c7f163a",
+      "caseId": "MESH-OK",
+      "guestMonotonicMs": 15684,
+      "settled": true
+    }
+  ],
+  "spans": [
+    {
+      "id": "buildMs",
+      "from": "LBABUS-BUILD-START",
+      "to": "LBABUS-BUILT",
+      "clock": "guest",
+      "scope": "cross-plane",
+      "ms": 4958
+    },
+    {
+      "id": "meshFormMs",
+      "from": "LBABUS-BUILT",
+      "to": "MESH-OK",
+      "clock": "guest",
+      "scope": "cross-plane",
+      "ms": 4681
+    },
+    {
+      "id": "bootToMeshMs",
+      "from": "hostT0",
+      "to": "MESH-OK",
+      "clock": "host",
+      "scope": "within-plane",
+      "ms": 20277.753672
+    }
+  ],
+  "visual": {
+    "gated": false,
+    "perMilestone": [
+      {
+        "caseId": "BOOT-START",
+        "hammingTolerance": 64,
+        "roiMask": null
+      },
+      {
+        "caseId": "LBABUS-BUILD-START",
+        "hammingTolerance": 64,
+        "roiMask": null
+      },
+      {
+        "caseId": "LBABUS-BUILT",
+        "hammingTolerance": 64,
+        "roiMask": null
+      },
+      {
+        "caseId": "MESH-OK",
+        "hammingTolerance": 64,
+        "roiMask": null
+      }
+    ]
+  },
+  "seal": {
+    "rawDiscarded": true,
+    "frameCount": 35,
+    "recordHash": "ad2fa40242a2f4da87b33c8aae8f8c6cd80e045d76b34ad7305c392a52c97b7b"
+  }
+}

@@ -1,0 +1,29 @@
+[Unit]
+# Generic lbabus mesh unit for a VirtualBox INTERNAL-network (intnet) mesh node. Clone-friendly: identity is
+# read from /etc/lba-mesh-actor (per-node), so a single golden image is cloned N times and only the env file
+# differs. Adapts cleanroom/ubuntu-labview/mesh/Vagrantfile (VMware/vmnet) to VirtualBox intnet.
+Description=lbabus intnet mesh (auto-form + self-prove on boot) — VirtualBox
+# NOTE: deliberately NOT ordered After/Wants network-online.target. On a VBox intnet NIC with no DHCP,
+# network-online.target waits on the unconfigured NIC and stalls the mesh; we self-assign the IP below.
+After=lba-lbabus-build.service
+Wants=lba-lbabus-build.service
+StartLimitIntervalSec=0
+ConditionPathExists=/usr/local/bin/lbabus
+ConditionPathExists=/etc/lba-mesh-actor
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/lba-mesh-actor
+# Self-assign the mesh NIC IP: a VBox intnet has no DHCP, and NetworkManager owns the Ubuntu desktop (so
+# netplan/networkd fights it). Setting it here — idempotent (replace), best-effort (-) — is renderer-agnostic
+# and per-node (MESH_BIND/MESH_IFACE come from the EnvironmentFile). MESH_BIND also pins the lbabus net
+# source NIC (--bind) so beacons egress the mesh, not the NAT default route.
+ExecStartPre=-/bin/sh -c 'ip addr replace ${MESH_BIND}/24 dev ${MESH_IFACE} && ip link set ${MESH_IFACE} up'
+ExecStart=/usr/local/bin/lba-mesh-actor.sh
+# Continuous prove loop: each round exits 0 on MESH OK then restarts, so listeners/beacons stay live for a
+# staggered peer and the mesh forms regardless of boot order (belt-and-suspenders self-heal).
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
