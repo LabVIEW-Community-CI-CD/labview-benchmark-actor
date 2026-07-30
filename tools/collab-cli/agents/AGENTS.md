@@ -8,6 +8,11 @@ and cut a new release. Verify a local copy with `lbabus agents --check <path>`.
 
 ## Identity & version
 - Set `VIHS_COLLAB_AGENT` to your plane (`WIN` or `LINUX`) before any bus call.
+- **A commit can name the actor.** Add an `Actor: <role>` trailer to a commit message and any actor built
+  from that commit derives its role from it — `lbabus agents --role-from-commit` (reads the `Actor:` trailer
+  of the checked-out commit) emits the base instructions **plus** the matching role overlay
+  (`agents/roles/<role>.md`), a more specific brief. `--role <name>` selects one explicitly; `--list-roles`
+  enumerates. The base stays canonical and pinned; overlays specialize it without editing it.
 - Both planes pull the SAME immutable SemVer `lbabus` release — they cannot drift.
 - `post`/`wait` fail closed (exit 3) the moment a newer release publishes — this is by design;
   adopt the new version (`dotnet tool update`) and re-arm the watcher on it.

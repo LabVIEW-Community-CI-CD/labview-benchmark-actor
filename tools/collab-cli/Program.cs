@@ -708,7 +708,8 @@ internal static class CommandRouter
               lbabus delta [--agent <A>] [--tail <N>] [--since <iso>]   # CLI-measured response deltas (symmetric)
               lbabus net <listen|send|beacon|ping> ...   # local TCP/UDP coordination bus (LBA-REQ-007, ADR-0003/0004)
               lbabus resource <list|status|acquire|release|renew> [name] [--agent <id>] [--ttl <sec>] [--wait [--timeout <sec>]]
-              lbabus agents [--out <path> | --check <path>]   # emit/verify the version-pinned agent base instructions
+              lbabus agents [--out <path> | --check <path>] [--role <name> | --role-from-commit [<ref>] [--repo <dir>]] [--list-roles]
+                                                     # emit/verify the version-pinned agent base instructions (+ optional commit-derived role overlay)
               lbabus docs [--out <path> | --check <path>]     # emit/verify the version-pinned documentation package
 
             AGENT GUARDRAILS (fail-closed)

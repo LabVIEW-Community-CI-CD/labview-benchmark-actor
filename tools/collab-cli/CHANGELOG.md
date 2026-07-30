@@ -10,6 +10,24 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-07-30
+
+### Added
+
+- **Commit-derived actor role → role-specific instructions.** `lbabus agents` now emits an optional role
+  overlay on top of the pinned base instructions:
+  - `lbabus agents --role <name>` appends the embedded `agents/roles/<name>.md` overlay — a more specific,
+    role-scoped brief — to the base.
+  - `lbabus agents --role-from-commit [<ref>] [--repo <dir>]` derives the role from the commit DESCRIPTION
+    (the last `Actor:`/`Agent:` git trailer of the checked-out commit, default `HEAD`). So an actor built
+    from a commit can reconstruct its specialized instructions from just that commit — the commit names the
+    actor, the actor derives it via the commit.
+  - `lbabus agents --list-roles` enumerates the overlays embedded in this version.
+  - `--out`/`--check` honor the selected role (the stamp header records `role:<name>` and the combined sha);
+    an unknown role or a commit without an `Actor:` trailer falls back to base-only (stderr note, exit 0).
+  - The base `AGENTS.md` stays canonical and pinned; overlays specialize it without editing it. Ships one
+    overlay, `mesh-actor`.
+
 ## [0.11.0] — 2026-07-30
 
 ### Added
