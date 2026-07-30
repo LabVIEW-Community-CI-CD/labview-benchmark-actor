@@ -45,6 +45,8 @@ import { workloadCrossPlaneReceipt } from './mprr-capture-ring/workload-cross-pl
 import { detectSettle } from './mprr-capture-ring/settle-detect.mjs';
 import { buildWorkloadRecord } from './mprr-capture-ring/workload-benchmark.mjs';
 import { buildTrend } from './mprr-capture-ring/trend.mjs';
+import { buildBenchmarkPanelHtml, buildTrendPanelHtml, scrubberModelFromTrend, dhashGridCells } from './mprr-capture-ring/benchmark-panels.mjs';
+import { buildBenchmarkFrameScrubberHtml } from './dashboard-slider/buildBenchmarkFrameScrubberHtml.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1302,6 +1304,33 @@ check('capture-ring-labview-trend-receipt', () => {
   assert(re.verdict === t.verdict && re.stats.mean === t.stats.mean && re.stats.spread === t.stats.spread && re.baselineMs === t.baselineMs && re.slopeMsPerRun === t.slopeMsPerRun,
     'the committed trend re-derives from its run values (no drift in the analysis)');
   return { verdict: t.verdict, runs: t.n, meanMs: t.stats.mean, spreadMs: t.stats.spread, slopeMsPerRun: t.slopeMsPerRun };
+});
+
+// Benchmark UI surfaces wired into the shipping extension: the single-run panel, the trend panel, and the
+// vertical-line FRAME CORRELATOR scrubber all build from the REAL committed record + trend via the PURE, staged
+// builders. Gates the rot-prone surfaces in-proc (strict CSP, real launchMs/verdict, one scrubber point per run,
+// dhash-grid frames) + runs the full deterministic panel self-test (dhash-decode drift guard, XSS escaping).
+check('capture-ring-benchmark-panels', () => {
+  const rec = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-record.json'), 'utf8'));
+  const trend = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-trend.json'), 'utf8'));
+  // single-run panel: a STATIC strict-CSP webview doc carrying the real launchMs + the UI-READY dhash frame.
+  const runHtml = buildBenchmarkPanelHtml(rec, 'g');
+  assert(runHtml.includes("default-src 'none'") && !/<script/i.test(runHtml) && runHtml.includes(String(rec.spans[0].ms)) && runHtml.includes('data:image/svg+xml;base64,'),
+    'single-run panel is a static strict-CSP doc carrying launchMs + the dhash-grid frame');
+  // trend panel: the verdict badge + the run-series svg chart.
+  const trendHtml = buildTrendPanelHtml(trend, 'g');
+  assert(trendHtml.includes(trend.verdict) && trendHtml.includes('<svg class="chart"') && !/<script/i.test(trendHtml),
+    'trend panel renders the verdict + the run chart (static)');
+  // frame correlator: one scrubber point per run, each carrying the captured UI-READY dhash frame.
+  const pin = rec.frames.find((f) => f && f.settled).perceptualFingerprint;
+  const model = scrubberModelFromTrend(trend, { pinDhash: pin });
+  assert(model.points.length === trend.n && model.points.every((p) => p.image.startsWith('data:image/svg+xml;base64,')), 'frame correlator has one dhash-grid point per run');
+  const scrub = buildBenchmarkFrameScrubberHtml(model, 'g');
+  assert(scrub.includes("script-src 'nonce-g'") && scrub.includes('data:image/svg+xml;base64,'), 'frame correlator builds a nonce-scoped scrubber doc');
+  // the dhash grid IS the 64-bit perceptual fingerprint (the real UI-READY pin has 5 lit cells).
+  assert(dhashGridCells(pin).flat().filter(Boolean).length === 5, 'the UI-READY dhash grid renders the real fingerprint bits');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-benchmark-panels.mjs')], { stdio: 'pipe' });
+  return { surfaces: 'single-run + trend + frame-correlator', launchMs: rec.spans[0].ms, verdict: trend.verdict, suite: 'verify-benchmark-panels subprocess' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.

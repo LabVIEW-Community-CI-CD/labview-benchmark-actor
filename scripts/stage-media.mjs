@@ -35,6 +35,28 @@ writeFileSync(
   readFileSync(join(repo, 'experiments', 'manual-procedure-record', 'counter-render.mjs'))
 );
 
+// 1c. Benchmark UI builders + the real committed benchmark fixtures for the shipped webview commands
+//     (Open Benchmark Run / Open Benchmark Trend / Open Frame Correlator). The extension host imports the two
+//     PURE builders (both self-contained ESM, gated by verify-benchmark-panels.mjs + verify-scrubber.mjs) and
+//     feeds them the staged REAL LabVIEW launch record + 5-run trend, so the deployed extension renders the
+//     same real benchmark evidence the local gates re-validate.
+writeFileSync(
+  join(repo, 'media', 'benchmark-panels.mjs'),
+  readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'benchmark-panels.mjs'))
+);
+writeFileSync(
+  join(repo, 'media', 'buildBenchmarkFrameScrubberHtml.mjs'),
+  readFileSync(join(repo, 'experiments', 'dashboard-slider', 'buildBenchmarkFrameScrubberHtml.mjs'))
+);
+writeFileSync(
+  join(repo, 'media', 'labview-launch-record.json'),
+  readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-record.json'))
+);
+writeFileSync(
+  join(repo, 'media', 'labview-launch-trend.json'),
+  readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-trend.json'))
+);
+
 // 2. Real mprr ring-buffer series for the deployed viewer.
 const fixture = JSON.parse(
   readFileSync(join(repo, 'experiments', 'mprr-ring', 'fixtures', 'short-packet-run.json'), 'utf8')
@@ -61,4 +83,4 @@ if (!agents.ok) {
 writeFileSync(join(repo, 'media', 'AGENTS.md'), readFileSync(join(repo, 'extension-agents', 'AGENTS.md')));
 writeFileSync(join(repo, 'media', 'agents.manifest.json'), readFileSync(join(repo, 'extension-agents', 'agents.manifest.json')));
 
-console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/mprr-series.json (${series.length} points) + media/AGENTS.md`);
+console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/benchmark-panels.mjs + media/buildBenchmarkFrameScrubberHtml.mjs + media/mprr-series.json (${series.length} points) + benchmark fixtures + media/AGENTS.md`);
