@@ -1,0 +1,68 @@
+# Ubuntu clean-room MESH — spawns N actor instances from the golden box `actor/ubuntu2404-labview`.
+#
+# Reads the gitignored per-actor store `../mesh-actors.csv` (schema: role,actor_id,hostname,username,
+# ip,tcp_port,udp_port,password). One VM per `role=mesh` row, on a host-only private network so the
+# actors coordinate over `lbabus net` (TCP bus + UDP presence) at the recorded ports, and the host can
+# observe the traffic per actor.
+#
+#   VAGRANT_CWD=cleanroom/ubuntu-labview/mesh vagrant up
+#
+# Each instance is a linked clone of the golden box (LabVIEW 2026 Community, activated by the operator on
+# the golden box before packaging). The golden box is the USER's property; AGENTS.md just facilitates it.
+require "csv"
+
+CSV_PATH = File.expand_path("../mesh-actors.csv", __dir__)
+raise "missing #{CSV_PATH} (copy mesh-actors.csv.example and let the agent fill it)" unless File.exist?(CSV_PATH)
+ACTORS = CSV.read(CSV_PATH, headers: true).select { |r| r["role"] == "mesh" }
+raise "no role=mesh rows in #{CSV_PATH}" if ACTORS.empty?
+
+# Mesh instances are lighter than the 12 GB golden (coordination, not heavy LabVIEW work).
+MESH_MEM_MB = ENV.fetch("MESH_MEM_MB", "4096")
+MESH_VCPUS  = ENV.fetch("MESH_VCPUS", "2")
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "actor/ubuntu2404-labview"
+  config.vm.guest = :ubuntu                           # Ubuntu guest => netplan configure_networks (generic :linux lacks it)
+  config.ssh.username = "actor"                       # golden guest login (Vagrant insecure key baked in)
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  ACTORS.each do |a|
+    config.vm.define a["hostname"] do |node|
+      node.vm.hostname = a["hostname"]
+      node.vm.network "private_network", ip: a["ip"]  # host-only vmnet -> stable inter-actor IPs
+
+      node.vm.provider "vmware_desktop" do |v|
+        v.gui = true                                  # WS25 rejects headless `vmrun start nogui`; start with GUI
+        v.vmx["memsize"]  = MESH_MEM_MB
+        v.vmx["numvcpus"] = MESH_VCPUS
+        v.vmx["displayName"] = "mesh-#{a['hostname']}"
+        # The plugin normalizes NICs to e1000e (PCIe); WS25 then has "no PCIe slot for Ethernet0"
+        # and crashes vmware-vmx. Provide PCIe root-port bridges so both NICs get slots.
+        v.vmx["pciBridge0.present"]    = "TRUE"
+        v.vmx["pciBridge4.present"]    = "TRUE"
+        v.vmx["pciBridge4.virtualDev"] = "pcieRootPort"
+        v.vmx["pciBridge4.functions"]  = "8"
+        v.vmx["pciBridge5.present"]    = "TRUE"
+        v.vmx["pciBridge5.virtualDev"] = "pcieRootPort"
+        v.vmx["pciBridge5.functions"]  = "8"
+        v.vmx["pciBridge6.present"]    = "TRUE"
+        v.vmx["pciBridge6.virtualDev"] = "pcieRootPort"
+        v.vmx["pciBridge6.functions"]  = "8"
+        v.vmx["pciBridge7.present"]    = "TRUE"
+        v.vmx["pciBridge7.virtualDev"] = "pcieRootPort"
+        v.vmx["pciBridge7.functions"]  = "8"
+      end
+
+      # Per-actor dev credential (from the CSV row) + record this actor's lbabus net endpoint so the
+      # host-side viewers can attribute traffic. Password is dev-only + local (gitignored source).
+      node.vm.provision "shell", inline: <<~SH
+        set -e
+        echo "actor:#{a['password']}" | sudo chpasswd
+        printf 'ACTOR_ID=%s\nHOSTNAME=%s\nIP=%s\nTCP_PORT=%s\nUDP_PORT=%s\n' \
+          "#{a['actor_id']}" "#{a['hostname']}" "#{a['ip']}" "#{a['tcp_port']}" "#{a['udp_port']}" \
+          | sudo tee /etc/lba-mesh-actor >/dev/null
+        echo "[mesh] actor #{a['actor_id']} (#{a['hostname']}) ready at #{a['ip']} tcp=#{a['tcp_port']} udp=#{a['udp_port']}"
+      SH
+    end
+  end
+end
