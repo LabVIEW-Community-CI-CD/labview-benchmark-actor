@@ -15,3 +15,6 @@ reviewer-workstation/.vagrant/
 # Host-side GitHub token handed off to the reviewer VM for INTERNAL-repo release downloads (NEVER commit)
 reviewer-workstation/.gh-token
 **/.gh-token
+
+# Agent-last-gate per-run verdict receipt (regenerated each run)
+experiments/agent-last-gate/receipt.json
