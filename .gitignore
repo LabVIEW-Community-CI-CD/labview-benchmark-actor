@@ -17,5 +17,13 @@ reviewer-workstation/.vagrant/
 reviewer-workstation/.gh-token
 **/.gh-token
 
+# Ubuntu clean-room per-actor credential store (dev-only passwords; user-owned property; NEVER commit).
+# The committed `mesh-actors.csv.example` is the schema template; the filled-in real file is ignored.
+cleanroom/ubuntu-labview/mesh-actors.csv
+cleanroom/ubuntu-labview/.actor-pw
+# Ubuntu clean-room local build artifacts + Vagrant mesh runtime state
+cleanroom/ubuntu-labview/.build/
+cleanroom/ubuntu-labview/mesh/.vagrant/
+
 # Agent-last-gate per-run verdict receipt (regenerated each run)
 experiments/agent-last-gate/receipt.json

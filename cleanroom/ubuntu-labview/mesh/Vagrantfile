@@ -1,0 +1,125 @@
+# Ubuntu clean-room MESH — spawns N actor instances from the golden box `actor/ubuntu2404-labview`.
+#
+# Reads the gitignored per-actor store `../mesh-actors.csv` (schema: role,actor_id,hostname,username,
+# ip,tcp_port,udp_port,password). One VM per `role=mesh` row, on a host-only private network so the
+# actors coordinate over `lbabus net` (TCP bus + UDP presence) at the recorded ports, and the host can
+# observe the traffic per actor.
+#
+#   VAGRANT_CWD=cleanroom/ubuntu-labview/mesh vagrant up
+#
+# Each instance is a linked clone of the golden box (LabVIEW 2026 Community, activated by the operator on
+# the golden box before packaging). The golden box is the USER's property; AGENTS.md just facilitates it.
+require "csv"
+require "base64"
+
+CSV_PATH = File.expand_path("../mesh-actors.csv", __dir__)
+raise "missing #{CSV_PATH} (copy mesh-actors.csv.example and let the agent fill it)" unless File.exist?(CSV_PATH)
+ACTORS = CSV.read(CSV_PATH, headers: true).select { |r| r["role"] == "mesh" }
+raise "no role=mesh rows in #{CSV_PATH}" if ACTORS.empty?
+
+# The per-actor mesh workload is SHARED with Docker-CI (tools/collab-cli/ci/mesh-actor.sh). Read + normalize it
+# to LF here (a Windows host checkout may be CRLF) and deliver it base64 so no line ending survives to the guest.
+MESH_ACTOR_SRC = File.expand_path("../../../tools/collab-cli/ci/mesh-actor.sh", __dir__)
+raise "missing #{MESH_ACTOR_SRC}" unless File.exist?(MESH_ACTOR_SRC)
+MESH_ACTOR_B64 = Base64.strict_encode64(File.read(MESH_ACTOR_SRC).gsub(/\r\n?/, "\n"))
+
+# Mesh instances are lighter than the 12 GB golden (coordination, not heavy LabVIEW work).
+MESH_MEM_MB = ENV.fetch("MESH_MEM_MB", "4096")
+MESH_VCPUS  = ENV.fetch("MESH_VCPUS", "2")
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "actor/ubuntu2404-labview"
+  config.vm.guest = :ubuntu                           # Ubuntu guest => netplan configure_networks (generic :linux lacks it)
+  config.ssh.username = "actor"                       # golden guest login (Vagrant insecure key baked in)
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  ACTORS.each do |a|
+    config.vm.define a["hostname"] do |node|
+      node.vm.hostname = a["hostname"]
+      node.vm.network "private_network", ip: a["ip"]  # host-only vmnet -> stable inter-actor IPs
+
+      node.vm.provider "vmware_desktop" do |v|
+        v.gui = true                                  # WS25 rejects headless `vmrun start nogui`; start with GUI
+        v.vmx["memsize"]  = MESH_MEM_MB
+        v.vmx["numvcpus"] = MESH_VCPUS
+        v.vmx["displayName"] = "mesh-#{a['hostname']}"
+        # The plugin normalizes NICs to e1000e (PCIe); WS25 then has "no PCIe slot for Ethernet0"
+        # and crashes vmware-vmx. Provide PCIe root-port bridges so both NICs get slots.
+        v.vmx["pciBridge0.present"]    = "TRUE"
+        v.vmx["pciBridge4.present"]    = "TRUE"
+        v.vmx["pciBridge4.virtualDev"] = "pcieRootPort"
+        v.vmx["pciBridge4.functions"]  = "8"
+        v.vmx["pciBridge5.present"]    = "TRUE"
+        v.vmx["pciBridge5.virtualDev"] = "pcieRootPort"
+        v.vmx["pciBridge5.functions"]  = "8"
+        v.vmx["pciBridge6.present"]    = "TRUE"
+        v.vmx["pciBridge6.virtualDev"] = "pcieRootPort"
+        v.vmx["pciBridge6.functions"]  = "8"
+        v.vmx["pciBridge7.present"]    = "TRUE"
+        v.vmx["pciBridge7.virtualDev"] = "pcieRootPort"
+        v.vmx["pciBridge7.functions"]  = "8"
+      end
+
+      # Per-actor dev credential (from the CSV row) + record this actor's lbabus net endpoint so the
+      # host-side viewers can attribute traffic. Password is dev-only + local (gitignored source).
+      node.vm.provision "shell", inline: <<~SH
+        set -e
+        echo "actor:#{a['password']}" | sudo chpasswd
+        printf 'ACTOR_ID=%s\nHOSTNAME=%s\nIP=%s\nTCP_PORT=%s\nUDP_PORT=%s\n' \
+          "#{a['actor_id']}" "#{a['hostname']}" "#{a['ip']}" "#{a['tcp_port']}" "#{a['udp_port']}" \
+          | sudo tee /etc/lba-mesh-actor >/dev/null
+        echo "[mesh] actor #{a['actor_id']} (#{a['hostname']}) ready at #{a['ip']} tcp=#{a['tcp_port']} udp=#{a['udp_port']}"
+      SH
+
+      # Auto-form the host-only lbabus mesh ON BOOT: install the shared mesh workload + a systemd unit that runs
+      # it (listen 7420/7421 + send/beacon --hosts <peer IPs> with 0.11.0 --bind <self host-only IP>) in a
+      # CONTINUOUS prove loop (Restart=always, no rate limit): each round exits 0 on MESH OK then restarts, so
+      # listeners/beacons stay live and a peer that completes first keeps beaconing for a slower, staggered peer
+      # (Restart=on-failure would let the first finisher exit and strand the other). The mesh forms regardless
+      # of `vagrant up` ordering, and the host observer (the .1 gateway, mesh-monitor.mjs) sees continuous presence.
+      # Ordered After=/Wants= lba-lbabus-build.service (the from-source first-boot oneshot that builds
+      # /usr/local/bin/lbabus): oneshot+RemainAfterExit means After= waits for the build to COMPLETE on first
+      # boot (lbabus present before the mesh starts), and a Condition-skip on later boots is treated as
+      # satisfied for ordering -- clean both boots. Restart=always stays as the self-heal belt-and-suspenders.
+      peers    = ACTORS.reject { |x| x["hostname"] == a["hostname"] }.map { |x| x["ip"] }.join(",")
+      observer = a["ip"].sub(/\.\d+$/, ".1")   # host-only gateway = the host running the read-only viewers
+      unit = <<~UNIT
+        [Unit]
+        Description=lbabus host-only mesh (auto-form + self-prove on boot)
+        After=network-online.target lba-lbabus-build.service
+        Wants=network-online.target lba-lbabus-build.service
+        StartLimitIntervalSec=0
+        ConditionPathExists=/usr/local/bin/lbabus
+        ConditionPathExists=/etc/lba-mesh-actor
+
+        [Service]
+        Type=simple
+        Environment=VIHS_COLLAB_AGENT=#{a['actor_id']}
+        Environment=LBABUS=/usr/local/bin/lbabus
+        Environment=MESH_PEERS=#{peers}
+        Environment=MESH_BIND=#{a['ip']}
+        Environment=MESH_OBSERVERS=#{observer}
+        Environment=TCP_PORT=#{a['tcp_port']}
+        Environment=UDP_PORT=#{a['udp_port']}
+        ExecStart=/usr/local/bin/lba-mesh-actor.sh
+        Restart=always
+        RestartSec=2
+
+        [Install]
+        WantedBy=multi-user.target
+      UNIT
+      unit_b64 = Base64.strict_encode64(unit)
+
+      node.vm.provision "shell", inline: <<~SH
+        set -e
+        echo "#{MESH_ACTOR_B64}" | base64 -d | sudo tee /usr/local/bin/lba-mesh-actor.sh >/dev/null
+        sudo chmod +x /usr/local/bin/lba-mesh-actor.sh
+        echo "#{unit_b64}" | base64 -d | sudo tee /etc/systemd/system/lba-mesh.service >/dev/null
+        sudo systemctl daemon-reload
+        sudo systemctl enable lba-mesh.service >/dev/null 2>&1 || true
+        sudo systemctl restart lba-mesh.service || true
+        echo "[mesh] lba-mesh.service installed + started (peers=#{peers} bind=#{a['ip']} observer=#{observer})"
+      SH
+    end
+  end
+end

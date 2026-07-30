@@ -28,6 +28,24 @@ UDP_BEACONS="${UDP_BEACONS:-3}"
 SEND_RETRIES="${SEND_RETRIES:-45}"
 SEND_RETRY_MS="${SEND_RETRY_MS:-1000}"
 
+# --- Vagrant host-only mesh parity (all opt-in; the Docker-CI defaults below are unchanged) ---
+MESH_BIND="${MESH_BIND:-}"             # 0.11.0 `net --bind <ip>`: pin the SOURCE NIC (the host-only 192.168.56.x)
+                                       # so beacons egress the mesh regardless of the NAT default route. Unset => auto.
+MESH_OBSERVERS="${MESH_OBSERVERS:-}"   # extra comma-separated beacon TARGETS (e.g. the host observer 192.168.56.1)
+                                       # that RECEIVE presence but are NOT counted as required mesh peers.
+
+# Run the CLI: a framework .dll (Docker-CI /out/cli/lbabus.dll) via `dotnet`; a self-contained single-file
+# binary (the Vagrant actors' /usr/local/bin/lbabus) directly.
+run_lbabus() {
+  case "$LBABUS" in
+    *.dll) dotnet "$LBABUS" "$@" ;;
+    *)     "$LBABUS" "$@" ;;
+  esac
+}
+
+bind_arg=""
+[ -n "$MESH_BIND" ] && bind_arg="--bind $MESH_BIND"
+
 actor="${VIHS_COLLAB_AGENT:-actor-$$}"
 
 # split PEERS csv, trim, drop self.
@@ -44,12 +62,12 @@ tcp_out="$(mktemp)"; udp_out="$(mktemp)"
 echo "[$actor] mesh start: expected=$expected tcp=$TCP_PORT udp=$UDP_PORT"
 
 # 1a. background TCP listener: collect exactly $expected reliable frames, echo an ACK to each sender.
-dotnet "$LBABUS" net listen --tcp "$TCP_PORT" --echo --count "$expected" --timeout "$TIMEOUT_SEC" > "$tcp_out" 2>/dev/null &
+run_lbabus net listen --tcp "$TCP_PORT" --echo --count "$expected" --timeout "$TIMEOUT_SEC" > "$tcp_out" 2>/dev/null &
 tcp_pid=$!
 # 1b. background UDP listener: collect presence beacons, exiting as soon as it has heard EVERY distinct peer
 # (--count-distinct) or the timeout fires. Identity-based early-exit removes the old timeout-vs-latency tradeoff:
 # the timeout can be long (so late beacons at scale still land on a live listener) yet a formed mesh finishes fast.
-dotnet "$LBABUS" net listen --udp "$UDP_PORT" --count-distinct "$expected" --timeout "$UDP_TIMEOUT_SEC" > "$udp_out" 2>/dev/null &
+run_lbabus net listen --udp "$UDP_PORT" --count-distinct "$expected" --timeout "$UDP_TIMEOUT_SEC" > "$udp_out" 2>/dev/null &
 udp_pid=$!
 
 sleep 2   # let our own listeners bind before the peers start hammering them
@@ -58,15 +76,19 @@ sleep 2   # let our own listeners bind before the peers start hammering them
 # its listener accepts (startup race). One process per actor -- not one per peer -- keeps the mesh at O(N)
 # total dotnet launches instead of O(N^2), so the proof measures the lbabus net transport rather than dotnet
 # process-startup contention. A clean exit is also our barrier that every peer is alive.
-if ! dotnet "$LBABUS" net send --hosts "$peer_csv" --tcp "$TCP_PORT" --type CLAIM --task mesh \
+if ! run_lbabus net send --hosts "$peer_csv" --tcp "$TCP_PORT" --type CLAIM --task mesh \
     --message "hello from $actor" --await 2 --retries "$SEND_RETRIES" --retry-ms "$SEND_RETRY_MS" >/dev/null 2>&1; then
   echo "[$actor] WARN one or more TCP peers unreachable after $SEND_RETRIES tries"
 fi
 
 # 3. UDP: ONE `lbabus net beacon` fans presence beacons out to EVERY peer via --hosts (the CLI resolves each
 # container name to its bridge IPv4 itself, so no pre-resolve is needed). Every envelope carries THIS actor's
-# identity, so a peer attributes each beacon regardless of datagram loss or address translation.
-dotnet "$LBABUS" net beacon --hosts "$peer_csv" --udp "$UDP_PORT" --count "$UDP_BEACONS" --interval 1 --task mesh >/dev/null 2>&1
+# identity, so a peer attributes each beacon regardless of datagram loss or address translation. On the Vagrant
+# mesh we also beacon to MESH_OBSERVERS (the host .1 monitor) so the read-only host viewer sees presence, and
+# --bind pins the host-only source NIC; observers are extra TARGETS, never required peers.
+beacon_hosts="$peer_csv"
+[ -n "$MESH_OBSERVERS" ] && beacon_hosts="${beacon_hosts:+$beacon_hosts,}$MESH_OBSERVERS"
+run_lbabus net beacon --hosts "$beacon_hosts" --udp "$UDP_PORT" $bind_arg --count "$UDP_BEACONS" --interval 1 --task mesh >/dev/null 2>&1
 
 # 4. wait for both listeners, then count DISTINCT peers heard from over each transport.
 wait "$tcp_pid" 2>/dev/null

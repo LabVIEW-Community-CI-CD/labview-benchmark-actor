@@ -1,0 +1,24 @@
+# Ubuntu clean-room per-actor store — TEMPLATE (schema reference).
+#
+# The AGENT generates + self-injects the credentials: it writes the real, gitignored `mesh-actors.csv`
+# with strong dev-only passwords, hashes them locally for the autoinstall seed / clone injection, and
+# never prints them. You never fill a password. This template documents the schema only.
+#
+# The real `mesh-actors.csv` is gitignored (dev-only, YOUR property, never committed).
+#
+# Columns:
+#   role     = golden | mesh        (golden = the box template's base actor account; mesh = a spawned clone)
+#   actor_id = logical id           (golden, 1, 2, ... ; mesh rows map 1:1 to spawned instances)
+#   hostname = guest hostname       (actor for golden; actor1, actor2, ... for the mesh)
+#   username = guest login          (constant: actor — parity with the Windows ACTOR identity)
+#   ip       = host-only IP         (192.168.56.0/24: golden .10, actor1 .11, actor2 .12, ...)
+#   tcp_port = lbabus net TCP       (bus-msg@1 length-prefixed coordination; lbabus `net listen` binds 7420)
+#   udp_port = lbabus net UDP       (presence beacon; lbabus `net beacon` uses 7421)
+#   password = dev-only plaintext   (AGENT-generated; hashed locally at build/inject time)
+#
+# The mesh Vagrantfile (mesh/Vagrantfile) reads the role=mesh rows: one VM per row, host-only IP, and a
+# per-actor chpasswd + /etc/lba-mesh-actor endpoint record. Extend the mesh by appending mesh rows.
+role,actor_id,hostname,username,ip,tcp_port,udp_port,password
+golden,golden,actor,actor,192.168.56.10,7420,7421,AGENT_GENERATED
+mesh,1,actor1,actor,192.168.56.11,7420,7421,AGENT_GENERATED
+mesh,2,actor2,actor,192.168.56.12,7420,7421,AGENT_GENERATED
