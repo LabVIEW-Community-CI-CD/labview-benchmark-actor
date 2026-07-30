@@ -39,18 +39,22 @@ LINUX known-digit template read of each frame's counter  ──►  correlate re
                      per-frame integrity hash } as manual-procedure-record-v1
                                                                     │
                                                                     ▼
-   cross-iteration verify = frame-diff of two sealed records, paired by counter anchor:
-        Hamming distance between perceptualFingerprints  ──►  visual-delta MAGNITUDE
+   cross-iteration verify = frame-diff of two sealed records, paired by caseId (TC-xx):
+        Hamming distance between per-case settled perceptualFingerprints  ──►  visual-delta MAGNITUDE
 ```
 
 ## Two distinct artifacts (do not conflate)
 
-1. **Correlation ground truth** = the viewer's **emitted monotonic counter series**. The record only
-   **seals** when the known-digit read of the on-screen counter matches it (`mismatches == 0`).
-2. **Cross-iteration diff artifact** = a per-frame **perceptual fingerprint** (pHash / small
-   downsample). A *cryptographic* hash is binary (identical / not); a perceptual fingerprint yields
+1. **Correlation ground truth** = the viewer's **emitted monotonic counter series** (wall-time). The
+   record only **seals** when the known-digit read of the on-screen counter matches it
+   (`mismatches == 0`). The counter is the INTRA-session anchor — **not** the cross-session pairing key.
+2. **Cross-iteration diff artifact** = a per-frame **perceptual fingerprint**. Record-level
+   `fingerprintAlgo` = **`dhash-64`** (integer-only → bit-identical cross-plane), computed by the shared
+   `fingerprint.mjs`. A *cryptographic* hash is binary (identical / not); a perceptual fingerprint yields
    **magnitude** (Hamming distance), which is what "visual deltas" needs. A crypto `integrityHash`
    is *also* kept, but only to prove the discarded raw frame existed unaltered.
+3. **Pairing key** = **`caseId`** (TC-xx). Two human sessions run at different speeds, so the counter
+   won't align across iterations; the frame-diff pairs by `caseId` + the per-case **`settled`** frame.
 
 ## Seal = closed/cleared
 

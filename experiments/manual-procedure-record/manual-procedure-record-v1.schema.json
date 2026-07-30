@@ -5,7 +5,7 @@
   "description": "A SEALED, deterministic record of one manual reviewer-procedure (TC-00..TC-10) session run on a golden-box iteration, after the extension is installed. It is the cross-plane seam of the manual-procedure deterministic-record verification method: the LINUX plane produces this record (viewer monotonic counter + known-digit correlation + seal); the WIN plane's cross-iteration frame-diff consumes it. Once the on-screen counter is deterministically correlated to the viewer's emitted series the record is CLOSED: raw frames are DISCARDED, and only the time anchor + per-frame perceptual fingerprints + integrity hashes remain. Two distinct artifacts live here: (a) the counter series that CORRELATES to seal, and (b) the per-frame perceptual fingerprint used for cross-iteration visual-delta magnitude.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "iteration", "sessionId", "sealedAt", "procedure", "anchor", "frames", "seal"],
+  "required": ["schema", "iteration", "sessionId", "sealedAt", "procedure", "fingerprintAlgo", "fingerprintSpecVersion", "anchor", "frames", "seal"],
   "properties": {
     "schema": {
       "const": "labview-benchmark-actor/manual-procedure-record-v1"
@@ -23,6 +23,16 @@
       "type": "string",
       "format": "date-time",
       "description": "UTC timestamp when the record was correlated + sealed (raw frames discarded)."
+    },
+    "fingerprintAlgo": {
+      "type": "string",
+      "enum": ["dhash-64"],
+      "description": "The perceptual-fingerprint algorithm, RECORD-level (not per-frame) — every frame in this record uses it, and the cross-iteration frame-diff asserts both records match before comparing. Pinned to dhash-64 (integer-only -> bit-identical cross-plane); the exact preprocessing is fixed by the shared fingerprint.mjs."
+    },
+    "fingerprintSpecVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The pinned preprocessing-spec version of the shared fingerprint.mjs (FINGERPRINT_SPEC_VERSION). Changing any preprocessing step (resize filter, luma coefficients, bit order) bumps this; two records must share it to be comparable."
     },
     "procedure": {
       "type": "object",
@@ -88,19 +98,16 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["index", "counter", "perceptualFingerprint", "fingerprintAlgo", "integrityHash"],
+        "required": ["index", "counter", "caseId", "perceptualFingerprint", "integrityHash"],
         "properties": {
           "index": { "type": "integer", "minimum": 0 },
-          "counter": { "type": "integer", "minimum": 0, "description": "Deterministic known-digit read of the viewer counter in this frame (the anchor for pairing across iterations)." },
+          "counter": { "type": "integer", "minimum": 0, "description": "Deterministic known-digit read of the viewer monotonic counter (wall-time) in this frame — the INTRA-session correlate->seal anchor. It is NOT the cross-iteration pairing key (two human sessions run at different speeds); pair by caseId." },
+          "caseId": { "type": "string", "minLength": 1, "description": "The reviewer-procedure case (e.g. 'TC-03') this frame belongs to — emitted as a viewer marker at each case boundary. The cross-iteration frame-diff PAIRS by caseId (v1 vs v2), since caseId is stable across sessions while the counter is not." },
+          "settled": { "type": "boolean", "description": "Optional: true for the representative 'settled' frame of a case (the last frame before the next caseId begins = the UI state after that case completes). The frame-diff pairs settled-vs-settled per caseId, robust to differing intra-case frame counts." },
           "perceptualFingerprint": {
             "type": "string",
-            "description": "Perceptual hash of the frame — supports MAGNITUDE comparison (Hamming distance) across iterations, unlike a cryptographic hash which is binary identical/not. THIS is what the cross-iteration frame-diff consumes.",
-            "pattern": "^[0-9a-f]+$"
-          },
-          "fingerprintAlgo": {
-            "type": "string",
-            "enum": ["phash-dct-64", "ahash-64", "dhash-64", "downsample-8x8-gray"],
-            "description": "The perceptual-fingerprint algorithm. Both planes MUST use the same algo to compare."
+            "description": "Record-level fingerprintAlgo hash of the frame — supports MAGNITUDE comparison (Hamming distance) across iterations, unlike a cryptographic hash which is binary identical/not. THIS is what the cross-iteration frame-diff consumes. Computed by the LINUX seal step (before raw is discarded) via the shared fingerprint.mjs.",
+            "pattern": "^[0-9a-f]{16}$"
           },
           "integrityHash": {
             "type": "string",
