@@ -1,0 +1,42 @@
+{
+  "schema": "labview-benchmark-actor/cleanroom-provisioning-manifest-v1",
+  "description": "Single PINNED source of truth for the from-scratch LabVIEW clean-room VM builders. Provisioning FACTS only (OS ISO, NI LabVIEW feed, toolchain) shared by build-virtualbox.sh (LINUX/VirtualBox) and build-vmware.ps1 (WIN/VMware) + the guest provisioners. NOT lbabus/CLI behavior (that lives in the CLI). Bump this file when NI or Ubuntu moves the pinned artifacts.",
+  "os": {
+    "distro": "ubuntu",
+    "release": "24.04.4",
+    "codename": "noble",
+    "vbox_ostype": "Ubuntu24_LTS_64",
+    "iso": {
+      "amd64": {
+        "filename": "ubuntu-24.04.4-desktop-amd64.iso",
+        "url": "https://releases.ubuntu.com/24.04/ubuntu-24.04.4-desktop-amd64.iso",
+        "sha256": "3a4c9877b483ab46d7c3fbe165a0db275e1ae3cfe56a5657e5a47c2f99a99d1e",
+        "sha256sums_url": "https://releases.ubuntu.com/24.04/SHA256SUMS"
+      }
+    }
+  },
+  "labview": {
+    "product": "LabVIEW",
+    "edition": "community",
+    "year": "2026",
+    "quarter": "Q1",
+    "unactivated": true,
+    "activation": "operator-only (NI-account sign-in); never automated",
+    "apt_repo": "https://download.ni.com/ni-linux-desktop/LabVIEW/2026/Q1/f1/community/deb/ni-labview-2026/noble",
+    "apt_suite": "ni-labview-2026",
+    "apt_components": "noble",
+    "metapackage": "ni-labview-2026-community",
+    "metapackage_version": "26.1.1.49170-0+f18",
+    "keyring_file": "ni-labview-2026-noble-community.asc",
+    "keyring_dest": "/usr/share/keyrings/ni-labview-2026-noble-community.asc",
+    "install_path": "/usr/local/natinst/LabVIEW-2026-64"
+  },
+  "lbabus": {
+    "model": "build-from-source-on-first-boot",
+    "note": "each VM builds lbabus itself on first boot from pinned public source + a vendored offline NuGet cache; no pre-built binary is downloaded or baked (see provision-lbabus-fromsource.sh).",
+    "dotnet_sdk_pkg": "dotnet-sdk-8.0",
+    "source_repo": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor",
+    "source_ref": "collab-cli-v0.11.0",
+    "runtime_identifier": "linux-x64"
+  }
+}
