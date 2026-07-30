@@ -76,6 +76,10 @@
         "title": "LabVIEW Benchmark Actor: Open Benchmark Frame Correlator"
       },
       {
+        "command": "labviewBenchmarkActor.openCrossPlaneTrend",
+        "title": "LabVIEW Benchmark Actor: Open Cross-Plane Benchmark Trend"
+      },
+      {
         "command": "labviewBenchmarkActor.writeAgents",
         "title": "LabVIEW Benchmark Actor: Write Agent Instructions"
       },

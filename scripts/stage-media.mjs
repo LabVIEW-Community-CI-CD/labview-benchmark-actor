@@ -56,6 +56,14 @@ writeFileSync(
   join(repo, 'media', 'labview-launch-trend.json'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-trend.json'))
 );
+writeFileSync(
+  join(repo, 'media', 'labview-launch-trend-win.json'),
+  readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-trend-win.json'))
+);
+writeFileSync(
+  join(repo, 'media', 'cross-plane-trend-receipt.json'),
+  readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'cross-plane-trend-receipt.json'))
+);
 
 // 2. Real mprr ring-buffer series for the deployed viewer.
 const fixture = JSON.parse(

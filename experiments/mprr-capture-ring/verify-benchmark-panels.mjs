@@ -18,12 +18,14 @@ import {
   dhashGridDataUri,
   buildBenchmarkPanelHtml,
   buildTrendPanelHtml,
+  buildCrossPlaneTrendPanelHtml,
   scrubberModelFromTrend,
   scrubberModelFromRecord,
   escapeHtml,
 } from './benchmark-panels.mjs';
 import { buildBenchmarkFrameScrubberHtml } from '../dashboard-slider/buildBenchmarkFrameScrubberHtml.mjs';
 import { dhashHexToBits } from '../manual-procedure-record/fingerprint.mjs';
+import { crossPlaneTrendReceipt } from './cross-plane-trend.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 let failures = 0;
@@ -147,6 +149,21 @@ check('deterministic', buildTrendPanelHtml(trend, nonce) === thtml);
 // a regressed trend flips the badge
 const bad = buildTrendPanelHtml({ ...trend, verdict: 'REGRESSION', regressed: true, latest: 9000, values: [2414, 2843, 2745, 2664, 9000] }, nonce);
 check('REGRESSION badge on a regressed trend', bad.includes('badge fail') && bad.includes('REGRESSION'));
+
+// ---------------------------------------------------------------------------
+// 4b. cross-plane trend panel (WIN vs LINUX overlay)
+// ---------------------------------------------------------------------------
+console.log('cross-plane trend panel');
+const winTrend = { ...trend, plane: 'WIN', hypervisor: 'vmware-vnc', values: [2796, 2309, 2307, 2308, 2333], stats: { min: 2307, max: 2796, mean: 2410.6, median: 2309, stddev: 192.9, spread: 489 }, baselineMs: 2309, slopeMsPerRun: -92.7, latest: 2333 };
+const xreceipt = crossPlaneTrendReceipt(winTrend, trend);
+const xhtml = buildCrossPlaneTrendPanelHtml(xreceipt, winTrend, trend, nonce);
+check('cross-plane DOCTYPE + strict CSP + no script', /^<!DOCTYPE html>/.test(xhtml) && xhtml.includes("default-src 'none'") && !/<script/i.test(xhtml));
+check('cross-plane PASS badge', xhtml.includes('badge pass') && xhtml.includes('PASS'));
+check('cross-plane overlays BOTH series (2 polylines)', (xhtml.match(/<polyline/g) || []).length === 2);
+check('cross-plane markers = win + linux runs (10)', (xhtml.match(/<circle/g) || []).length === winTrend.values.length + trend.values.length);
+check('cross-plane shows the witnessed mean delta', xhtml.includes(String(xreceipt.witness.meanDeltaMs)) && /mean .* \(WIN/.test(xhtml));
+check('cross-plane names both planes/hypervisors', xhtml.includes('vmware-vnc') && xhtml.includes('vbox-vnc'));
+check('cross-plane deterministic', buildCrossPlaneTrendPanelHtml(xreceipt, winTrend, trend, nonce) === xhtml);
 
 // ---------------------------------------------------------------------------
 // 5. scrubber model mappers -> feed the proven scrubber builder
