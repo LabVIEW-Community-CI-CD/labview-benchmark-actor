@@ -1149,6 +1149,22 @@ check('capture-ring-fiducial-groundtruth', () => {
   return { ticks: 16, suite: 'fiducial-capture subprocess (real RFB server<->client<->ring fidelity) 3/3' };
 });
 
+// Fiducial CROSS-PLANE receipt: both capture paths — WIN VMware (RFB None-auth) + LINUX VBox (RFB VNC-auth,
+// #186) — capture the SAME host-advanced fiducial timeline over real sockets and must produce dhash sequences
+// IDENTICAL to each other AND to the ground truth (the visual analog of the bootbench cross-plane diff, but
+// deterministic — no VM). In-process re-checks the committed receipt (no fiducial/core drift) + runs the live
+// dual-auth re-capture as a subprocess.
+check('capture-ring-fiducial-cross-plane', () => {
+  const receipt = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'fiducial-cross-plane-receipt.json'), 'utf8'));
+  assert(receipt.verdict === 'IDENTICAL', `cross-plane fiducial must be IDENTICAL (got ${receipt.verdict})`);
+  const gt = receipt.ticks.map((t) => fiducialDhash(t));
+  assert(gt.every((h, i) => h === receipt.groundTruth[i]), 'committed ground truth still equals the recomputed fiducial (no drift)');
+  assert(receipt.win.dhashSeq.every((h, i) => h === gt[i]) && receipt.linux.dhashSeq.every((h, i) => h === gt[i]),
+    'both None-auth (VMware) and VNC-auth (VBox) capture paths == ground truth');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'fiducial-cross-plane.mjs')], { stdio: 'pipe' });
+  return { ticks: receipt.ticks.length, verdict: receipt.verdict, paths: 'none-auth(VMware) == vnc-auth(VBox) == ground truth' };
+});
+
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
 // Shift-left of the agent last gate's `readme-marketplace-safe` check so every PR's
 // CI catches a broken listing link before it can reach the final pre-publish gate.
