@@ -10,6 +10,23 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-07-30
+
+Updates the embedded agent base instructions (surfaced by `lbabus agents`) — no CLI code change. Both
+planes should `dotnet tool update` to `0.10.0` once the tag is cut so every session shares the new base.
+
+### Added
+
+- **`AGENTS.md`: new "Fork posture & merge ownership" section** — codifies the shared-repo role split so
+  two agents never step on each other: one plane is the fork CONTRIBUTOR (raises PRs from feature branches,
+  never lands to `main`), the other the upstream MAINTAINER (reviews + merges + owns CI/release/publish);
+  non-overlapping branches; "maintainer merges, race-loser rebases"; the squash-race guard (squash only
+  when the commit set is final); poll-before-ship; and the same-identity self-approve caveat.
+- **`AGENTS.md`: new "Clean-room provisioning (agent-driven, from scratch)" section** — the agent drives
+  building the LabVIEW clean-room VM from a stock OS ISO end-to-end; the ISO download is the agent's job but
+  gated on EXPLICIT user approval (verify the vendor `SHA256SUMS`); build + provision run unattended via
+  `cleanroom/ubuntu-labview/`; the user's ONLY responsibility is activating LabVIEW with their NI license.
+
 ## [0.9.0] — 2026-07-29
 
 Updates the embedded agent base instructions (surfaced by `lbabus agents`) — no CLI code change. Both

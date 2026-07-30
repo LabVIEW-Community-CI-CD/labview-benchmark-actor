@@ -91,6 +91,25 @@ the runtime `image` in `.devcontainer/devcontainer.json`.
   `docker exec` as root onto the bind mount — root-owned files there cause EACCES for the non-root `node`
   user; use `docker exec -u node`.
 
+## Clean-room provisioning (agent-driven, from scratch)
+The agent DRIVES building the LabVIEW clean-room VM end-to-end, from nothing but a stock OS ISO — the
+user's ONLY responsibility is to activate LabVIEW with their own NI license. Never hand VM-build steps back
+to the user as manual work; own them.
+- **Download the OS ISO — the agent's job, gated on EXPLICIT user approval.** The stock Ubuntu 24.04 LTS
+  ISO (and any comparably large build asset) is downloaded BY THE AGENT from the vendor's official source
+  (releases.ubuntu.com), never hand-fetched by the user. Ask for explicit approval before starting the
+  download (it is large + long), then verify it against the vendor `SHA256SUMS` before use. No approval =>
+  do not download; stop and ask.
+- **Build + provision from scratch, unattended.** Create the VM to the pinned guest spec and run the shared
+  `provision-guest.sh` (LabVIEW Community, UNACTIVATED) — see `cleanroom/ubuntu-labview/`
+  (`build-virtualbox.sh` on VirtualBox / `build-vmware.ps1` on VMware). The builders are dry-run-by-default
+  + clobber-safe; the agent runs them, captures the receipt, and reaches a green boot.
+- **Activation is the user's ONLY step.** LabVIEW activation needs the user's NI-account sign-in and is
+  NEVER automated. Take the VM to "ready for activation" (installed + booted green), flag the user, stop.
+- **Secrets stay with the user.** NI feed/package strings and license credentials are user/operator-held;
+  the provisioner fail-closes without them rather than guessing. Never embed or request a secret through a
+  coordination channel.
+
 ## Spec ↔ implementation gap closure
 The built spec is `docs/requirements/srs.md` (LBA-REQ-* definitions) + `docs/requirements/rtm.csv`
 (ReqID → Requirement → TestID → CodeRef → Status → Notes) + `docs/architecture/adr/` + the test plan;
@@ -127,6 +146,26 @@ Behave predictably when addressed:
 - **Reprioritize on urgency.** A `P0`/`P1` message addressed to you that outranks your current task
   pauses you: attend to it, then resume. An equal-or-lower addressed message gets the secondary-ACK and
   you continue. Broadcasts never preempt — pull them on your own cadence.
+
+## Fork posture & merge ownership
+Both planes share ONE canonical repo, so every session must know its posture or two agents WILL step on
+each other. Declare it up front and hold to it.
+- **One plane is the fork CONTRIBUTOR, the other the upstream MAINTAINER.** The contributor raises work as
+  PRs from feature branches and NEVER lands to the canonical `main`; the maintainer reviews, merges, and
+  owns CI / release / publish. State which you are before you push; when in doubt, take contributor posture
+  and open a PR rather than pushing to `main`.
+- **Split the work so branches don't overlap.** Own a file/region; if two planes must touch the same file,
+  ONE owns it and the other rebases onto the merged result — never both edit the same region in parallel.
+- **The maintainer merges; the loser of a race rebases.** Never force-push a branch a peer may still be
+  pushing to, and never rewrite published history.
+- **Squash only when the PR's commit set is FINAL.** A squash-merge taken while a peer is still pushing
+  drops their later commit (squash-race) — use a merge commit when a peer may still push, or confirm the
+  branch is final first; recover any dropped commit as a follow-up cherry-pick.
+- **Poll before ship, publish before push; re-poll right before acting on a stale read.** Reconcile crossed
+  posts with `poll --full` and clear any now-stale `WAITER` instead of re-chasing finished work.
+- **Same GitHub identity can't self-approve.** If both planes are one account, a review cannot be a formal
+  `--approve` — record the sign-off as a PR comment + on the bus. A PR stacked on a peer's branch
+  auto-retargets to `main` when the base lands.
 
 ## Delegation & parallelism
 Both planes work concurrently; the goal is that NEITHER plane sits idle waiting on the other. Treat the
