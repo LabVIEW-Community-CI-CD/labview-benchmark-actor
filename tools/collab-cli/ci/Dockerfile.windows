@@ -1,0 +1,76 @@
+# escape=`
+# Windows-container parity of tools/collab-cli/ci/Dockerfile: VERIFIES lbabus on the WINDOWS plane.
+#
+# "Lean" = NO NI LabVIEW ISO/feed install (no LabVIEW, no VI Analyzer) -- just the .NET toolchain that
+# builds and exercises the lbabus CLI. Its counterpart, the LabVIEW clean-room Windows image, lives at
+# cleanroom/docker-windows/Dockerfile.windows and is a separate, licensed, private lane.
+#
+# This image is a PULLABLE lbabus Windows verification artifact: `docker run` executes the full harness
+# (verify-windows.ps1) and exits non-zero on any failure. The SAME script also gates the build (RUN in
+# the `verify` stage), so a broken lbabus fails the image. The release lane publishes it fork-only, the
+# same way .github/workflows/devcontainer-prebuild.yml publishes the Linux devcontainer image.
+#
+# WINDOWS-container engine required (Docker Desktop switched to Windows containers, or a Windows Server
+# host); it CANNOT build on a Linux Docker engine. The build context is tools/collab-cli (NOT the repo
+# root): this lane needs only the collab-cli source, and the repo root carries multi-GB reviewer-
+# workstation + clean-room LabVIEW-feed artifacts a lean lbabus image must never pull in. Build with the
+# Windows-container engine:
+#
+#   # fast standalone gate (build + the cross-process lease stress check):
+#   docker build -f tools/collab-cli/ci/Dockerfile.windows --target ci-stress -t lbabus-win-verify:stress tools/collab-cli
+#   # the full pullable verification artifact:
+#   docker build -f tools/collab-cli/ci/Dockerfile.windows -t lbabus-win-verify:latest tools/collab-cli
+#   docker run --rm lbabus-win-verify:latest        # re-run the verification from the published image
+
+ARG DOTNET_SDK=mcr.microsoft.com/dotnet/sdk:8.0-windowsservercore-ltsc2022
+# Lean artifact: BUILD on the SDK, but RUN the published DLLs on the far smaller .NET *runtime* base --
+# the verify/mesh/ci-stress stages only execute pre-published DLLs (`dotnet <dll>`) + PowerShell, neither
+# of which needs the SDK. Servercore runtime (NOT nanoserver) is required: it ships Windows PowerShell 5.1
+# for verify-windows.ps1 / mesh-actor.ps1, and `dotnet` is on PATH to run the DLLs.
+ARG DOTNET_RUNTIME=mcr.microsoft.com/dotnet/runtime:8.0-windowsservercore-ltsc2022
+
+# ---- build: publish the CLI + case runner + GitHub mock + stress gate with the Windows .NET SDK ----
+FROM ${DOTNET_SDK} AS build
+SHELL ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';"]
+WORKDIR C:\src
+COPY . .
+# PowerShell SHELL: `;` separates statements and backtick continues the line. Windows PowerShell 5.1
+# does NOT propagate a native tool's non-zero exit, so guard each publish with an explicit $LASTEXITCODE
+# check -- otherwise a failed publish would not fail the image build.
+RUN dotnet publish LbaBus.csproj -c Release -o C:\out\cli; `
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; `
+    dotnet publish ci\LbaBus.Ci\LbaBus.Ci.csproj -c Release -o C:\out\ci; `
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; `
+    dotnet publish ci\LbaBus.Ci.Mock\LbaBus.Ci.Mock.csproj -c Release -o C:\out\mock; `
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; `
+    dotnet publish ci\LbaBus.Ci.Stress\LbaBus.Ci.Stress.csproj -c Release -o C:\out\stress; `
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+# ---- ci-stress: cross-process lease mutual-exclusion regression gate on WINDOWS (fast standalone) --
+# The single highest-value Windows check -- Windows file-lock / process semantics differ from Linux, so
+# the mutual-exclusion invariants (free + stale lease, ttl/pid steal, idempotent release, wait) must be
+# re-proven here. Mirrors the Linux ci-stress stage (LBABUS #15/#18). Runs the stress DLL on the runtime base.
+FROM ${DOTNET_RUNTIME} AS ci-stress
+COPY --from=build C:\out C:\out
+RUN dotnet C:\out\stress\lbabus-stress.dll --lbabus C:\out\cli\lbabus.dll --agents 16 --rounds 30
+
+# ---- mesh: the isolated-actor TCP/UDP mesh workload image (driven by ci/mesh-windows.ps1) ----------
+# Bakes lbabus + mesh-actor.ps1. N of these run as ISOLATED named actors on a user-defined docker
+# network and coordinate ONLY over `lbabus net` (TCP/UDP, ADR-0003/0004) -- no shared volume/store.
+# The ENTRYPOINT is the per-actor workload; the orchestrator passes -Peers <comma-separated names>.
+FROM ${DOTNET_RUNTIME} AS mesh
+COPY --from=build C:\out C:\out
+COPY ci\mesh-actor.ps1 C:\mesh-actor.ps1
+EXPOSE 7420 7421/udp
+ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\mesh-actor.ps1"]
+
+# ---- verify: the pullable artifact -- bakes /out + cases + verify-windows.ps1 and runs the full suite
+FROM ${DOTNET_RUNTIME} AS verify
+WORKDIR C:\repo
+COPY --from=build C:\out C:\out
+COPY ci C:\repo\tools\collab-cli\ci
+COPY ci\verify-windows.ps1 C:\verify-windows.ps1
+# build-time gate: the exact verification `docker run` re-runs, so a broken lbabus fails the image build.
+RUN powershell -NoProfile -ExecutionPolicy Bypass -File C:\verify-windows.ps1 -Out C:\out -Repo C:\repo
+ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\verify-windows.ps1"]
+CMD ["-Out", "C:\\out", "-Repo", "C:\\repo"]

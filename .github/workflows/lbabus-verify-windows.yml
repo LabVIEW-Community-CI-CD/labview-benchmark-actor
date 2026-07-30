@@ -1,0 +1,92 @@
+name: lbabus-verify-windows
+
+# Build + (fork-only) publish the LEAN, LabVIEW-less Windows container image that VERIFIES lbabus
+# (tools/collab-cli/ci/Dockerfile.windows, target `verify`). The image self-verifies at BUILD time
+# (verify-windows.ps1 runs as a RUN gate, so a broken lbabus fails the build) and again on `docker run`
+# (the ENTRYPOINT re-runs the suite), so a green published image carries its own proof.
+#
+# Cross-plane note: this is the Windows twin of the Linux lbabus CI harness. Windows-container builds need a
+# Windows runner; GitHub-hosted windows-latest runs Windows containers by default and its Server 2022 base
+# matches the image's windowsservercore-ltsc2022 tag.
+#
+# Publish is FORK-ONLY (mirrors .github/workflows/devcontainer-prebuild.yml): only pushes from the
+# svelderrainruiz fork log in to GHCR and push. On the org repo and on every pull_request the job stops at
+# build-and-verify (no login, no push) -- still a real CI proof the image builds + self-verifies on a clean
+# hosted runner. Seed :latest once (workflow_dispatch or the first fork main push) before consumers pull.
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'lbabus-verify-win-v*.*.*'
+  pull_request:
+    paths:
+      - 'tools/collab-cli/**'
+      - '.github/workflows/lbabus-verify-windows.yml'
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/svelderrainruiz/labview-benchmark-actor-lbabus-verify
+
+# Serialize runs on the same ref so two quick pushes cannot race the :latest tag.
+concurrency:
+  group: lbabus-verify-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-verify-publish:
+    name: build + verify + publish (fork-only) the Windows lbabus-verify image
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # Publish only from the fork; the org repo and all PRs stop at build+verify (no login, no push).
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request' && github.repository == 'svelderrainruiz/labview-benchmark-actor'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Compute tags: always latest + the commit SHA; on an lbabus-verify-win-vX.Y.Z tag, also :X.Y.Z.
+      - name: Compute image tags
+        id: tags
+        shell: bash
+        run: |
+          tags="latest ${GITHUB_SHA}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tags="${tags} ${GITHUB_REF_NAME#lbabus-verify-win-v}"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      # Build the `verify` target. verify-windows.ps1 runs as a build-time RUN gate, so this step FAILS if
+      # lbabus is broken on Windows -- the build itself is the first verification.
+      - name: Build the verify image (build-time self-verification)
+        shell: pwsh
+        run: |
+          $imageTags = @()
+          foreach ($t in "${{ steps.tags.outputs.tags }}".Split(' ')) { $imageTags += @('-t', "${env:IMAGE}:$t") }
+          docker build -f tools/collab-cli/ci/Dockerfile.windows --target verify @imageTags tools/collab-cli
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Re-run the verification through the ENTRYPOINT -- the exact pull-and-run consumer path.
+      - name: Verify via docker run (pull-and-run path)
+        shell: pwsh
+        run: |
+          docker run --rm "${env:IMAGE}:latest"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Push all tags (fork-only).
+      - name: Publish (fork-only)
+        if: github.event_name != 'pull_request' && github.repository == 'svelderrainruiz/labview-benchmark-actor'
+        shell: pwsh
+        run: |
+          foreach ($t in "${{ steps.tags.outputs.tags }}".Split(' ')) {
+            docker push "${env:IMAGE}:$t"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
