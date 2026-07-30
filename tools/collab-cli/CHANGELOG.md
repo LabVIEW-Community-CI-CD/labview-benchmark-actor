@@ -10,6 +10,8 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-07-30
+
 ### Added
 
 - **`lbabus net beacon --bind <ip>`** — pin the SOURCE interface so presence beacons egress a chosen NIC
