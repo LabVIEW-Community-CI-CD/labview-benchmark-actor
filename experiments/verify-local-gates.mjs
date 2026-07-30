@@ -38,6 +38,7 @@ import { bootbenchDiff } from './mesh-runs/bootbench-diff.mjs';
 import { PACKET_BYTES, PACKET_VERSION, OFFSETS, MILESTONE_IDS, encodeCaptureFrame, decodeCaptureFrame, writeCaptureFrame, readCaptureFrames } from './mprr-capture-ring/capture-ring.mjs';
 import { ringFrameFromDescriptor, makeRingSink } from './mprr-capture-ring/vmware-ring-capture.mjs';
 import { recordFromRing } from './mprr-capture-ring/capture-ring-recorder.mjs';
+import { createVboxVncSource, VBOX_DEFAULT_VNC_PORT, sampleDescriptor } from './mprr-capture-ring/vbox-vnc-source.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1109,6 +1110,30 @@ check('capture-ring-recorder', () => {
     execFileSync(process.execPath, [join(here, 'mprr-capture-ring', t)], { stdio: 'pipe' });
   }
   return { buildMs: span('buildMs').ms, meshFormMs: span('meshFormMs').ms, subprocessSelftests: 3 };
+});
+
+// LINUX wiring: the VirtualBox VNC source (vbox-vnc-source.mjs) rides the SAME shared RFB core (vnc-source.mjs)
+// as WIN's VMware source, so it emits byte-identical capture-ring descriptors. In-process gates the VBox VNC
+// port default + a descriptor -> makeRingSink -> ring round-trip (dhash hex<->u64 + a MESH-OK marker + settled),
+// then runs the full fake-socket source suite (port default + round-trip + cross-plane byte-identity) as a
+// subprocess (mirrors the boot-benchmark + capture-ring-ingest-adapter gates).
+check('capture-ring-vbox-source', () => {
+  assert(VBOX_DEFAULT_VNC_PORT === 5900, 'VBox VNC source defaults to the standard VNC port');
+  // A descriptor as the VBox source emits it (dhash64 as 16-hex) maps through makeRingSink + round-trips.
+  const fb = new Uint8Array(16 * 16 * 4);
+  for (let i = 0; i < fb.length; i += 4) { fb[i] = (i * 7) & 255; fb[i + 1] = (i * 13) & 255; fb[i + 2] = (i * 29) & 255; fb[i + 3] = 255; }
+  const desc = sampleDescriptor(fb, 16, 16, { frameIndex: 3, t0Ms: 1000, nowMs: 1050, milestoneId: 4, settled: 1 });
+  assert(typeof desc.dhash64 === 'string' && desc.dhash64.length === 16, 'descriptor carries dhash64 as 16-hex');
+  const ring = createShortRing(CLI_DEFAULT_CAPACITY_BYTES);
+  const sink = makeRingSink(ring);
+  sink.onFrame(desc);
+  const [rec] = readCaptureFrames(ring, sink.writes[0].absoluteStartOffset, sink.writes.at(-1).absoluteEndOffset);
+  assert(rec.dhashHex === desc.dhash64 && rec.timingTicks64 === desc.timingTicks64 && rec.frameIndex === 3,
+    'VBox descriptor round-trips through the ring (dhash hex<->u64, timing, index)');
+  assert(rec.milestoneId === 4 && rec.caseId === 'MESH-OK' && rec.settled === true, 'MESH-OK marker + settled round-trip');
+  // full fake-socket suite (port default + round-trip + cross-plane byte-identity) as a subprocess
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'vbox-vnc-source.selftest.mjs')], { stdio: 'pipe' });
+  return { port: VBOX_DEFAULT_VNC_PORT, marker: rec.caseId, suite: 'vbox-vnc-source subprocess 3/3' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
