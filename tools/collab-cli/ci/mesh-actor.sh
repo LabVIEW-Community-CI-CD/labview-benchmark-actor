@@ -106,7 +106,10 @@ if [ "$tcp_received" -ge "$expected" ] && [ "$udp_distinct" -ge "$expected" ]; t
   # boot-benchmark MESH-OK milestone (co-owned drop-in): emit ONLY when a serial sink is attached
   # ([ -w /dev/ttyS0 ]) so this is a silent no-op off-bench (Docker-CI + normal mesh write nothing). The
   # shared emit helper writes the serial frame-pin + a journald lbabench line; best-effort, never fatal.
-  [ -w /dev/ttyS0 ] && [ -x /usr/local/bin/emit-boot-marker.sh ] && /usr/local/bin/emit-boot-marker.sh MESH-OK >/dev/null 2>&1 || true
+  # Resolve the helper by the PATH-standard location first (/usr/local/bin) then the provisioner dir
+  # (/opt/lba), so a MESH-OK pin works regardless of which provision version installed it.
+  _emit=; for _p in /usr/local/bin/emit-boot-marker.sh /opt/lba/emit-boot-marker.sh; do [ -x "$_p" ] && { _emit="$_p"; break; }; done
+  [ -w /dev/ttyS0 ] && [ -n "$_emit" ] && "$_emit" MESH-OK >/dev/null 2>&1 || true
   exit 0
 fi
 echo "[$actor] MESH INCOMPLETE"; exit 1
