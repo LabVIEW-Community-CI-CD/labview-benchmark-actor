@@ -46,7 +46,7 @@ for (const a of actors) {
   state.set(a.ip, { ...a, busOpen: null, lastPresence: 0, beacons: 0, lastMsg: '' });
 }
 
-// One UDP listener per distinct presence port (they typically share 8777).
+// One UDP listener per distinct presence port (lbabus net beacon uses 7421).
 const udpPorts = [...new Set(actors.map((a) => Number(a.udp_port)))];
 for (const port of udpPorts) {
   const sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });

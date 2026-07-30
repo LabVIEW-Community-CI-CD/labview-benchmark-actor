@@ -23,7 +23,7 @@ if (-not (Get-Command pktmon.exe -ErrorAction SilentlyContinue)) { Write-Error '
 
 # Mesh ports from the store.
 $csv = Join-Path $PSScriptRoot '..\..\mesh-actors.csv'
-$ports = @(8776, 8777)
+$ports = @(7420, 7421)
 if (Test-Path $csv) {
   $rows = Import-Csv $csv | Where-Object role -eq 'mesh'
   $ports = @($rows.tcp_port + $rows.udp_port | ForEach-Object { [int]$_ } | Sort-Object -Unique)
