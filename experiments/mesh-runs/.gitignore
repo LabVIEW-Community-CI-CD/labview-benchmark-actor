@@ -2,3 +2,5 @@
 # They accumulate and are reproducible, so they are not committed by default. Commit a specific run only
 # if it is being pinned as a fixture (like the boot-benchmark fixtures).
 */
+# Pinned records (a specific run promoted to a committed cross-plane fixture) live under fixtures/.
+!fixtures/
