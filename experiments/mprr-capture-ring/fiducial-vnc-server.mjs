@@ -8,6 +8,7 @@
 
 import net from 'node:net';
 import { dhash64FromRgba } from '../manual-procedure-record/fingerprint.mjs';
+import { vncAuthResponse } from './vnc-source.mjs';
 
 export const FIDUCIAL_W = 64;
 export const FIDUCIAL_H = 64;
@@ -56,7 +57,7 @@ function encodeRawUpdate(rgba, w, h) {
  * fiducial and, if the connected client has an outstanding FramebufferUpdateRequest, immediately pushes the new
  * frame — the standard RFB "answer a pending request when content changes" behaviour, driven by the host.
  */
-export function createFiducialServer({ width = FIDUCIAL_W, height = FIDUCIAL_H, host = '127.0.0.1', port = 0 } = {}) {
+export function createFiducialServer({ width = FIDUCIAL_W, height = FIDUCIAL_H, host = '127.0.0.1', port = 0, password } = {}) {
   let tick = 0;
   let pendingReq = false;
   let sentTick = -1;
@@ -80,9 +81,19 @@ export function createFiducialServer({ width = FIDUCIAL_W, height = FIDUCIAL_H, 
     (async () => {
       s.write(Buffer.from('RFB 003.008\n', 'latin1'));
       await read(12);                       // client ProtocolVersion
-      s.write(Buffer.from([1, 1]));         // security: count=1, type None(1)
-      await read(1);                        // client chooses None
-      s.write(Buffer.from([0, 0, 0, 0]));   // SecurityResult = OK
+      if (password) {
+        s.write(Buffer.from([1, 2]));       // security: count=1, type VNC-auth(2) — mirrors VirtualBox's VNC VRDE
+        await read(1);                      // client chooses VNC-auth
+        const challenge = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]); // fixed test challenge
+        s.write(challenge);
+        const response = await read(16);
+        if (!response.equals(vncAuthResponse(challenge, password))) { s.write(Buffer.from([0, 0, 0, 1])); s.destroy(); return; }
+        s.write(Buffer.from([0, 0, 0, 0]));  // SecurityResult = OK
+      } else {
+        s.write(Buffer.from([1, 1]));       // security: count=1, type None(1)
+        await read(1);                      // client chooses None
+        s.write(Buffer.from([0, 0, 0, 0])); // SecurityResult = OK
+      }
       await read(1);                        // ClientInit (shared)
       const si = Buffer.alloc(24);
       si.writeUInt16BE(width, 0); si.writeUInt16BE(height, 2);
