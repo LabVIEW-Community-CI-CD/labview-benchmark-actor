@@ -30,7 +30,7 @@ inputs here) produced real `short.tdms` + `long.tdms` and these receipts:
   `startSkewTicks=2` (measured trigger→writer skew, mprr MPRR-REQ-087).
 
 Only the **image-fidelity** leg (image-derived timing = a real rendered
-fiducial/stopwatch or real vihs LabVIEW frames vs the ground-truth ledger, inside
+fiducial/stopwatch or real LabVIEW frames vs the ground-truth ledger, inside
 `review:capture:self-test:conformance`) needs a real render — the mprr surface
 producer is `net8.0-windows` GUI. That leg is de-risked on the **golden VM**
 (LINUX plane); its inputs are shipped back for a Windows conformance cross-check.

@@ -6,23 +6,23 @@
 // dark<128 -> 1) -- pure Node, no Windows.Media.Ocr. See ADR-0007.
 //
 // Usage (Linux OR Windows):
-//   VIHS_MPRR_ROOT=/path/to/mprr [VIHS_CONFORMANCE_OUT=/tmp/out] node produce-conformance.cjs
+//   LBA_MPRR_ROOT=/path/to/mprr [LBA_CONFORMANCE_OUT=/tmp/out] node produce-conformance.cjs
 //   (on a runtime newer than .NET 8, prefix DOTNET_ROLL_FORWARD=LatestMajor)
 //
 // Binds the committed shared inputs (./inputs/, contract-a shapes). The committed
 // receipt-linux.json + image-derived-timing.json + transport-output/ + strips/ are a
 // SNAPSHOT from the Linux authoritative run (authoritativeOutcome=authoritative,
 // missingComparisons=0, all maxAbsoluteSkew 0). Re-running writes fresh artifacts to
-// VIHS_CONFORMANCE_OUT (default: a temp dir) so the committed snapshot is never clobbered.
+// LBA_CONFORMANCE_OUT (default: a temp dir) so the committed snapshot is never clobbered.
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const MPRR = process.env.VIHS_MPRR_ROOT;
-if (!MPRR) { console.error('Set VIHS_MPRR_ROOT to an mprr checkout (develop).'); process.exit(64); }
+const MPRR = process.env.LBA_MPRR_ROOT || process.env.VIHS_MPRR_ROOT;
+if (!MPRR) { console.error('Set LBA_MPRR_ROOT to an mprr checkout (develop).'); process.exit(64); }
 const INPUTS = path.join(__dirname, 'inputs');
-const OUT = process.env.VIHS_CONFORMANCE_OUT || path.join(os.tmpdir(), 'mprr-self-test-conformance-out');
+const OUT = process.env.LBA_CONFORMANCE_OUT || process.env.VIHS_CONFORMANCE_OUT || path.join(os.tmpdir(), 'mprr-self-test-conformance-out');
 
 const mod = require(path.join(MPRR, 'scripts', 'vmLiveStopwatchTimingValidation.js'));
 const decode = mod.extractBinaryStripReadingFromPortableGrayMap;

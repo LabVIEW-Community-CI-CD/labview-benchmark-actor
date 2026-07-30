@@ -109,8 +109,9 @@ multi-VM / Codespace topology.
 | AD-5 | TCP for order, UDP for presence/liveness (advisory time) | Reliability where needed, low latency where tolerable | LBA-REQ-007 |
 | AD-6 | Loopback / private-network bind by default | Offline, air-gapped, no public exposure | LBA-REQ-007 |
 | AD-7 | Mirror the collab-bus semantics on the new transport | Preserve a proven coordination model across a transport change | LBA-REQ-007 |
-| AD-8 | Store all run data in the VM-local mprr ring buffer; bus carries inter-actor comms only | Reuse mprr's governed bounded-RAM ring buffer; keep the bus data-agnostic; cleanroom isolation | LBA-REQ-009 |
+| AD-8 | Store all run data in the VM-local mprr ring buffer; bus carries inter-actor comms only | Reuse the absorbed mprr model's governed bounded-RAM ring buffer; keep the bus data-agnostic; cleanroom isolation | LBA-REQ-009 |
 | AD-9 | No cross-VM comparison; concentrate runs to the host for an ollama layer | Preserve cleanroom isolation; improve comparison on one concentrated corpus | LBA-REQ-010 |
+| AD-10 | Own the mprr ring/timing model in-repo (absorbed, dependency-free); retire the external `svelderrainruiz/mprr` dependency | Self-contained + testable in-repo; no outside schema to track; the `mprr` name is kept for the local model (ADR-0009) | LBA-REQ-003, LBA-REQ-005, LBA-REQ-009 |
 
 ## 5. Risks and open questions
 

@@ -9,8 +9,10 @@ version-over-version. Do not hand-edit a materialized copy — iterate the sourc
 ## What this is (and is not)
 - **This package** ships the *documentation posture* for the labview-benchmark-actor ecosystem: where
   the docs live, the information-item model to grow toward, and the loop for evolving them.
-- It does **not** bundle the review tooling. `repo-standards-review` and `mprr` are **local source
-  references** (still under construction) consulted during evolution — never distributed. Only this
+- It does **not** bundle the review tooling. `repo-standards-review` is a **local source
+  reference** (still under construction) consulted during evolution — never distributed.
+  The `mprr` ring-buffer/timing model is **absorbed in-repo** (dependency-free mirrors
+  under `experiments/mprr-ring/`, ADR-0009), not an external reference. Only this
   distilled guide ships.
 
 ## Documentation map (where things live)
@@ -26,8 +28,9 @@ Documentation is hardened the same way `AGENTS.md` is (v0.6.1 → v0.6.2 …). T
    `run_assurance.py <repo> --profile 26514-review --output documentation-proof`. Its findings feed a
    docs PR. It is a **local driver, not a hosted gate** — the skill/image are heavy, the same reason
    real-runtime LabVIEW/Vagrant validation is a maintainer step, not hosted CI.
-2. **Reference** `mprr` (local GitLab clone, read-only, via ripgrep) as a mature exemplar — e.g. the
-   rigor of its `docs/architecture/adr/` tree. Borrow structure and discipline, not content.
+2. **Reference** `mprr` (absorbed in-repo under `experiments/mprr-ring/`, ADR-0009) as a
+   mature exemplar — e.g. the rigor of its architecture/self-test discipline. Borrow
+   structure and discipline.
 3. **PR** the change to `tools/collab-cli/docs/DOCS.md` (this file). Bank recurring cross-plane findings
    on the shared hardening feedback discussion (#28), which `AGENTS.md` and docs share.
 4. **Release**: the docs owner bumps `LbaBus.csproj <Version>` and cuts `collab-cli-vX.Y.Z`; the

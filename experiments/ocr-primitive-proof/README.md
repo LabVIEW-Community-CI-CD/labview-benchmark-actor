@@ -25,7 +25,7 @@ Reproduce (needs an mprr checkout + Windows PowerShell 5.1 + a display):
 
 ```
 pwsh -NoProfile -File render-surface.ps1 -OutPath surface.png
-# VIHS_MPRR_ROOT defaults to C:\dev\mprr
+# LBA_MPRR_ROOT defaults to C:\dev\mprr
 node ocr-driver.js surface.png "00:00:12.34"
 ```
 
