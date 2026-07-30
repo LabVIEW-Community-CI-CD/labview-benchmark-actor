@@ -10,7 +10,7 @@
     "url": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.101.0"
   },
   "categories": [
     "Other"
@@ -18,6 +18,12 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "labviewBenchmarkActor",
+        "label": "LabVIEW Benchmark Actor: MCP tools"
+      }
+    ],
     "commands": [
       {
         "command": "labviewBenchmarkActor.showCapabilities",
@@ -53,7 +59,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./ && node scripts/stage-media.mjs",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node test/extension-activation.mjs && node test/viewer-render.mjs",
+    "test": "npm run compile && node test/extension-activation.mjs && node test/viewer-render.mjs && node test/mcp-server.mjs && node scripts/mcpToolDoc.mjs --check docs/mcp-tools.md",
     "package": "vsce package --out labview-benchmark-actor.vsix"
   },
   "devDependencies": {
