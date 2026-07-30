@@ -806,6 +806,12 @@ check('mcp-server-surface-contract', () => {
   const ignore = readFileSync(join(pkgRoot, '.vscodeignore'), 'utf8').split(/\r?\n/).map((l) => l.trim());
   assert(ignore.includes('src/**'), '.vscodeignore must exclude src/**');
   assert(!ignore.some((l) => l === 'out/**' || l === 'out/'), '.vscodeignore must NOT exclude out/ (the MCP entrypoint must ship)');
+  // #123 packaging-leak guard (static, every-PR half; the empirical `vsce ls` allow-set is the agent-last-gate's
+  // vsix-allow-set check at release/staging). The heavy non-runtime trees -- above all the reviewer VM disk
+  // behind the 14 GB leak -- MUST stay excluded from the .vsix, and this runs on both OS runners.
+  for (const deny of ['reviewer-workstation/**', '**/.vagrant/**', 'node_modules/**', 'experiments/**', 'tools/**', 'docs/**', 'cleanroom/**', 'scripts/**']) {
+    assert(ignore.includes(deny), `.vscodeignore must exclude ${deny} (#123 packaging-leak guard)`);
+  }
   // The dynamic protocol round-trip is wired into npm test.
   assert(/test\/mcp-server\.mjs/.test(pkg.scripts?.test ?? ''), 'npm test must run test/mcp-server.mjs');
   return { providerId: manifestId, tools: 4, protocol: '2025-06-18' };
