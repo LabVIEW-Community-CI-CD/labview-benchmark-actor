@@ -13,9 +13,10 @@
 
   PARITY CONTRACT: same guest spec + the same provision-guest.sh as the VirtualBox reference. Only the
   hypervisor-creation step and the guest-tools package differ (open-vm-tools here vs virtualbox-guest-utils
-  there). The one genuine VMware-vs-VBox divergence is how the unattended install is TRIGGERED (see the
-  "autoinstall trigger" note printed at the end): VBoxManage injects the answer file directly; VMware needs
-  either Easy Install or a one-time boot-menu `autoinstall` kernel arg pointing at the CIDATA seed built here.
+  there). The unattended install is driven by a NoCloud "cidata" seed ISO that subiquity AUTO-DETECTS (no
+  kernel arg, no ISO remaster, no Easy Install) - the VMware equivalent of VBoxManage unattended. (Proven:
+  the actor guest built + booted Ubuntu 24.04.4 this way; the desktop installer's one-time Review->Install
+  confirm is the sole manual touch, and only for the golden VM - mesh clones come from vagrant package.)
 
 .NOTES
   SAFE BY DEFAULT: prints the exact commands (dry-run). Pass -Run to execute. Refuses to touch an existing VM
@@ -31,13 +32,13 @@ param(
   [string]$StartMode    = $(if ($env:START_MODE)     { $env:START_MODE }     else { 'headless' }),
   [string]$VMName       = $(if ($env:VM_NAME)        { $env:VM_NAME }        else { 'lba-ubuntu2404-labview2026-scratch' }),
   [string]$Iso          = $env:ISO,                  # path to the stock Ubuntu 24.04 ISO (you download it; required for -Run)
-  [int]   $DiskGB       = $(if ($env:DISK_GB)        { [int]$env:DISK_GB }   else { 60 }),
+  [int]   $DiskGB       = $(if ($env:DISK_GB)        { [int]$env:DISK_GB }   else { 80 }),
   [int]   $MemMB        = $(if ($env:MEM_MB)         { [int]$env:MEM_MB }    else { 12288 }),   # matches the operator's working VM
   [int]   $Cpus         = $(if ($env:CPUS)           { [int]$env:CPUS }      else { 6 }),
   [int]   $VramMB       = $(if ($env:VRAM_MB)        { [int]$env:VRAM_MB }   else { 128 }),
   [string]$BaseFolder   = $(if ($env:BASEFOLDER)     { $env:BASEFOLDER }     else { Join-Path $HOME 'VMware VMs' }),
-  [string]$GuestUser    = $(if ($env:GUEST_USER)     { $env:GUEST_USER }     else { 'labview' }),
-  [string]$GuestFullName= $(if ($env:GUEST_FULLNAME) { $env:GUEST_FULLNAME } else { 'LabVIEW Community' })
+  [string]$GuestUser    = $(if ($env:GUEST_USER)     { $env:GUEST_USER }     else { 'actor' }),
+  [string]$GuestFullName= $(if ($env:GUEST_FULLNAME) { $env:GUEST_FULLNAME } else { 'actor' })
 )
 
 $ErrorActionPreference = 'Stop'
@@ -162,7 +163,7 @@ if ($mkisofs) {
   Write-Host "  [note] no ISO builder found - seed written to '$seedDir' but NOT packed into $seedIso."
   Write-Host "         Build it with any of:  oscdimg -lCIDATA `"$seedDir`" `"$seedIso`""
   Write-Host "                                mkisofs -o `"$seedIso`" -V CIDATA -J -R `"$seedDir`""
-  Write-Host "         (or install Ubuntu manually / via VMware Easy Install - see the autoinstall-trigger note below)."
+  Write-Host "         (label the volume CIDATA so subiquity auto-detects it)."
 }
 
 # 4) Write the .vmx - matched hardware profile (BIOS, 6 vCPU / 12 GB, 128 MB svga, SATA-AHCI, IDE optical, NAT).
@@ -194,17 +195,22 @@ ide1:1.present = "TRUE"
 ide1:1.deviceType = "cdrom-image"
 ide1:1.fileName = "seed-cidata.iso"
 ide1:1.startConnected = "TRUE"
-# NAT networking (NIC1 NAT, matches the VBox reference).
+# NAT networking (NIC1 NAT, matches the VBox reference). e1000 (PCI), NOT e1000e (PCIe): a hand-written
+# minimal vmx has no PCIe root-port bridge, so an e1000e NIC finds no PCIe slot and CRASHES vmware-vmx
+# (msg.pci.noslotavail). e1000 is a plain PCI device and just works. (Proven on VMware Workstation 25.)
 ethernet0.present = "TRUE"
 ethernet0.connectionType = "nat"
-ethernet0.virtualDev = "e1000e"
+ethernet0.virtualDev = "e1000"
 ethernet0.addressType = "generated"
 # Minimal, headless-friendly.
-usb.present = "TRUE"
-ehci.present = "TRUE"
+usb.present = "FALSE"
+usb_xhci.present = "FALSE"
 sound.present = "FALSE"
 tools.syncTime = "TRUE"
 rtc.diffFromUTC = "0"
+# Auto-answer the first-boot moved/copied (uuid) dialog so a scripted start never blocks on it.
+msg.autoAnswer = "TRUE"
+uuid.action = "create"
 "@
 Write-Step "write .vmx -> '$vmx'" { [IO.File]::WriteAllText($vmx, ($vmxText -replace "`r`n", "`n")) }
 
@@ -220,13 +226,15 @@ if ($StartMode -ne 'none') {
 @"
 
 Next (matches the operator's real snapshot workflow):
-  1) autoinstall TRIGGER (the one VMware-vs-VBox creation-step divergence):
-       - VMware Easy Install may drive it automatically for supported Ubuntu builds; OR
-       - at the ISO boot menu press 'e' and append to the kernel line:  autoinstall ds=nocloud
-         (cloud-init then reads the CIDATA seed built above). Unattended Ubuntu 24.04 + open-vm-tools follow.
-  2) After the install finishes + the guest reboots, copy provision-guest.sh into the guest and install
-     LabVIEW 2026 Community (UNACTIVATED) - the SAME script both planes use:
-       sudo NI_FEED_DEB=<NI Ubuntu-24.04 feed .deb URL> LABVIEW_PKG=<e.g. labview-2026-community> ./provision-guest.sh
+  1) The CIDATA seed built above is AUTO-DETECTED by subiquity (NoCloud "cidata" volume label) - no kernel
+     arg, no ISO remaster, no Easy Install. GRUB auto-boots the stock ISO and the unattended Ubuntu 24.04 +
+     open-vm-tools install runs. NOTE: the DESKTOP installer shows one "Review your choices -> Install"
+     confirm - a single click, ONCE, for this golden VM only (mesh clones come from vagrant package, not a
+     re-install). Readiness = vmrun getGuestIPAddress returns an IP (open-vm-tools up).
+  2) After the guest reboots, copy provision-guest.sh + its bundled NI keyring (ni-labview-2026-noble-
+     community.asc) into the guest and install LabVIEW 2026 Community (UNACTIVATED) - the SAME script both
+     planes use, now with NO args (the NI apt repo + public keyring are baked in):
+       sudo ./provision-guest.sh
   3) Snapshot the clean pre-activation state:
        vmrun -T ws snapshot "$vmx" labview2026-installed-preactivation
   4) OPERATOR activates LabVIEW Community (NI sign-in), then snapshot the activated state:
