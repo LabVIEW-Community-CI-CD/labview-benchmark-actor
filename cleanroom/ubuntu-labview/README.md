@@ -2,8 +2,9 @@
 
 A **reproducible, from-scratch** recipe that builds an **Ubuntu 24.04 LTS + LabVIEW 2026 Community** VM on
 either hypervisor **from nothing but the stock public Ubuntu ISO**. We distribute **no VM image** — the
-user downloads the stock Ubuntu ISO from ubuntu.com and this recipe creates + provisions the VM locally.
-"VM creation from scratch" is the shipped feature.
+**agent** downloads the stock Ubuntu ISO from the vendor (releases.ubuntu.com) after **explicit user
+approval** + `SHA256SUMS` verification, then creates + provisions the VM locally; the user's ONLY job is
+activating LabVIEW. "VM creation from scratch" is the shipped feature.
 
 This recipe produces the **golden VM** (one image). Replicating it into a *mesh of many instances* is a
 separate downstream stage driven by **Vagrant** — see [Downstream — meshing](#downstream--meshing-vagrant).
@@ -36,8 +37,9 @@ The reference these scripts reproduce is the operator's activated VirtualBox VM
 ## Prerequisites (both planes)
 
 1. The hypervisor: **VirtualBox** (LINUX) or **VMware Workstation** (WIN).
-2. The **stock Ubuntu 24.04 ISO** you download yourself (e.g. `ubuntu-24.04-desktop-amd64.iso`) — this is
-   the only "image", and it's the vendor's, not ours.
+2. The **stock Ubuntu 24.04 ISO** — the **agent** downloads it from the vendor (releases.ubuntu.com) after
+   **explicit user approval** and verifies it against the vendor `SHA256SUMS`; it's the only "image", and
+   it's the vendor's, not ours. No approval => the agent does not download.
 3. The NI feed URL + LabVIEW package name (operator-confirmed — see [LabVIEW install](#labview-install)).
 
 ## VirtualBox (LINUX plane)
@@ -53,8 +55,10 @@ ISO=/path/to/ubuntu-24.04-desktop-amd64.iso ./build-virtualbox.sh --run
 ```
 
 The builder is **safe by default** (dry-run) and **refuses to touch an existing VM** of the same name
-(so it can never clobber `lba-ubuntu2404-labview2026`). Override the spec via env vars —
-`VM_NAME DISK_GB MEM_MB CPUS VRAM_MB OSTYPE_ID BASEFOLDER GUEST_USER GUEST_FULLNAME GUEST_PASSWORD`.
+(so it can never clobber `lba-ubuntu2404-labview2026`). The guest defaults to the **`actor`** identity
+(user `actor`, hostname `actor`, passwordless sudo via `provision-guest.sh`) for cross-plane parity with
+the Windows cleanroom. Override the spec via env vars —
+`VM_NAME DISK_GB MEM_MB CPUS VRAM_MB OSTYPE_ID BASEFOLDER GUEST_USER GUEST_FULLNAME GUEST_HOSTNAME GUEST_PASSWORD`.
 Verify the OS-type id on your host with `VBoxManage list ostypes | grep -i ubuntu`.
 
 ## VMware (WIN plane) — the mirror
