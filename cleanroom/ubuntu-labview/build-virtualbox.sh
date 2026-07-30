@@ -22,8 +22,9 @@ CPUS="${CPUS:-6}"
 VRAM_MB="${VRAM_MB:-128}"
 OSTYPE_ID="${OSTYPE_ID:-Ubuntu24_LTS_64}"   # verify on your host: VBoxManage list ostypes | grep -i ubuntu
 BASEFOLDER="${BASEFOLDER:-$HOME/VirtualBox VMs}"
-GUEST_USER="${GUEST_USER:-labview}"
-GUEST_FULLNAME="${GUEST_FULLNAME:-LabVIEW Community}"
+GUEST_USER="${GUEST_USER:-actor}"           # 'actor' = cross-plane identity parity with the Windows cleanroom
+GUEST_FULLNAME="${GUEST_FULLNAME:-LBA Actor}"
+GUEST_HOSTNAME="${GUEST_HOSTNAME:-actor}"
 START_MODE="${START_MODE:-headless}"        # headless | gui | none
 DRY_RUN=1
 FORCE=0
@@ -32,8 +33,8 @@ usage() {
   sed -n '2,13p' "$0"
   echo
   echo "Usage:  ISO=/path/ubuntu-24.04-desktop-amd64.iso $0 [--run] [--force] [--gui|--headless]"
-  echo "Env overrides: VM_NAME DISK_GB MEM_MB CPUS VRAM_MB OSTYPE_ID BASEFOLDER GUEST_USER GUEST_FULLNAME"
-  echo "               GUEST_PASSWORD (local dev-only; defaults to 'labview'; written to a 0600 temp file)"
+  echo "Env overrides: VM_NAME DISK_GB MEM_MB CPUS VRAM_MB OSTYPE_ID BASEFOLDER GUEST_USER GUEST_FULLNAME GUEST_HOSTNAME"
+  echo "               GUEST_PASSWORD (local dev-only; defaults to 'actor'; written to a 0600 temp file)"
 }
 
 while [ $# -gt 0 ]; do
@@ -95,7 +96,7 @@ run VBoxManage storagectl "$VM_NAME" --name IDE --add ide --controller PIIX4
 
 # 5) Unattended Ubuntu 24.04 install + Guest Additions, straight from the stock ISO. The local dev-only
 #    guest credential is written to a 0600 temp file — never on the CLI (process list) or in the repo.
-PWFILE="$(mktemp)"; chmod 600 "$PWFILE"; printf '%s' "${GUEST_PASSWORD:-labview}" > "$PWFILE"
+PWFILE="$(mktemp)"; chmod 600 "$PWFILE"; printf '%s' "${GUEST_PASSWORD:-actor}" > "$PWFILE"
 trap 'rm -f "$PWFILE"' EXIT
 
 UNATTENDED_ARGS=(
@@ -103,7 +104,7 @@ UNATTENDED_ARGS=(
   "--iso=${ISO:-/path/to/ubuntu-24.04-desktop-amd64.iso}"
   "--user=$GUEST_USER" "--password-file=$PWFILE" "--full-user-name=$GUEST_FULLNAME"
   --install-additions --locale=en_US --country=US --time-zone=UTC
-  "--hostname=${VM_NAME}.local"
+  "--hostname=${GUEST_HOSTNAME}.local"
 )
 [ "$START_MODE" != none ] && UNATTENDED_ARGS+=( "--start-vm=$START_MODE" )
 run VBoxManage unattended install "${UNATTENDED_ARGS[@]}"

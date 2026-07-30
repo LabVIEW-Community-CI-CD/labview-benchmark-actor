@@ -29,6 +29,18 @@ apt-get install -y --no-install-recommends \
   ca-certificates curl gnupg apt-transport-https \
   libglu1-mesa libxinerama1 libxrandr2 libxcursor1 libxi6 libgl1
 
+# 1b) Passwordless sudo for the primary 'actor' user (cross-plane identity parity with the Windows
+#     cleanroom; used by the downstream Vagrant golden box + mesh clones). Idempotent; validated by visudo.
+PRIMARY_USER="${PRIMARY_USER:-actor}"
+if id "$PRIMARY_USER" >/dev/null 2>&1; then
+  log "configuring passwordless sudo for '$PRIMARY_USER'..."
+  printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$PRIMARY_USER" > "/etc/sudoers.d/90-${PRIMARY_USER}-nopasswd"
+  chmod 0440 "/etc/sudoers.d/90-${PRIMARY_USER}-nopasswd"
+  visudo -cf "/etc/sudoers.d/90-${PRIMARY_USER}-nopasswd" >/dev/null
+else
+  log "[warn] primary user '$PRIMARY_USER' not present — skipping passwordless sudo (override with PRIMARY_USER)."
+fi
+
 NI_FEED_DEB="${NI_FEED_DEB:-}"
 LABVIEW_PKG="${LABVIEW_PKG:-}"
 
