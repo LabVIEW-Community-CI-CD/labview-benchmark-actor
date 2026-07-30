@@ -32,6 +32,8 @@ import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 import { sealBootBenchmark } from './mprr-boot-benchmark/seal-boot-benchmark.mjs';
 import { parseSerialLog, parseSerialMarkerLine } from './mprr-boot-benchmark/serial-marker.mjs';
 import { parseJournalMonotonic } from './mprr-boot-benchmark/journal-monotonic.mjs';
+import { createVmwareBackend, vmwareSerialConfigVmx, vmwareVncConfigVmx, upsertVmxConfig } from './mprr-boot-benchmark/capture-backend-vmware.mjs';
+import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -909,6 +911,30 @@ check('boot-benchmark-seal-spans-and-fail-closed', () => {
   assert(m && m.caseId === 'MESH-OK' && m.serialMonotonicMs === 9500, 'serial LBABENCH marker parse');
   assert(parseSerialLog('noise\nLBABENCH BOOT-START mono=0.05\nLBABENCH BOOT-START mono=9').length === 1, 'serial log first-per-case');
   return { buildMs: span('buildMs').ms, meshFormMs: span('meshFormMs').ms, bootToMeshMs: span('bootToMeshMs').ms };
+});
+
+// boot-benchmark WIN/VMware capture backend (mprr-boot-benchmark/capture-backend-vmware.mjs): the VMware side
+// of the shared capture seam. In-process gates the sync contract + .vmx serial/VNC config + vmx upsert (the
+// rot-prone surface, matching the LINUX seal gate's in-process style); then runs the full async RFB-decode
+// suite as a subprocess so the VNC framebuffer grab is gated in CI on both planes too.
+check('boot-benchmark-vmware-vnc-backend', () => {
+  const exec = (file, a) => (a.at(-1) === 'list'
+    ? { status: 0, stdout: 'Total running VMs: 1\nC:/x.vmx\n', stderr: '' }
+    : { status: 0, stdout: '', stderr: '' });
+  const be = createVmwareBackend({ vmx: 'C:/x.vmx', vncPort: 5901, exec });
+  assert(be.backend === 'vmware-vnc', 'vmware capture backend id');
+  assert(be.probe().ok === true, 'probe -> running when vmx in `vmrun list`');
+  assert(createVmwareBackend({ vmx: 'C:/absent.vmx', exec }).probe().state === 'stopped', 'probe -> stopped when absent');
+  assert(vmwareSerialConfigVmx({ hostFile: '/tmp/s' }).some(([k, v]) => k === 'serial0.fileType' && v === 'file'),
+    'serial0 file sink (VMware analog of --uartmode1 file)');
+  assert(vmwareVncConfigVmx({ port: 5901 }).some(([k, v]) => k === 'RemoteDisplay.vnc.enabled' && v === 'TRUE'),
+    'RemoteDisplay.vnc enabled (power-on framebuffer, not Tools-gated captureScreen)');
+  const vmx = upsertVmxConfig('serial0.present = "FALSE"\n', [['serial0.present', 'TRUE']]);
+  assert(/serial0\.present = "TRUE"/.test(vmx) && (vmx.match(/serial0\.present/g) || []).length === 1,
+    'vmx upsert replaces in place (no duplicate key)');
+  // full async RFB (VNC) decode against a scripted mock server — subprocess so the async path is gated too
+  execFileSync(process.execPath, [join(here, 'mprr-boot-benchmark', 'verify-boot-benchmark-vmware.mjs')], { stdio: 'pipe' });
+  return { backend: 'vmware-vnc', vncGrab: 'RFB subprocess 23/23' };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
