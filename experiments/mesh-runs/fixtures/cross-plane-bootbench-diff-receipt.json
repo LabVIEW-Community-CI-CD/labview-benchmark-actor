@@ -1,0 +1,64 @@
+{
+  "schema": "labview-benchmark-actor/bootbench-cross-plane-diff-receipt@1",
+  "verdict": "PASS",
+  "substrate": "docker-container (hypervisor-free)",
+  "win": {
+    "plane": "WIN",
+    "runId": "bootbench-38845bf-r001",
+    "commit": "38845bf",
+    "buildMs": {
+      "min": 2930,
+      "max": 3080,
+      "mean": 3005
+    },
+    "meshFormMs": {
+      "min": 2260,
+      "max": 2490,
+      "mean": 2375
+    }
+  },
+  "linux": {
+    "plane": "LINUX",
+    "runId": "bootbench-0aff64c-r001",
+    "commit": "0aff64c",
+    "buildMs": {
+      "min": 2720,
+      "max": 2730,
+      "mean": 2725
+    },
+    "meshFormMs": {
+      "min": 2270,
+      "max": 2490,
+      "mean": 2380
+    }
+  },
+  "toleranceMs": {
+    "buildMs": 2000,
+    "meshFormMs": "5000 (witness)"
+  },
+  "timing": {
+    "verdict": "TIMING_OK",
+    "buildMs": {
+      "id": "buildMs",
+      "clock": "guest",
+      "scope": "cross-plane",
+      "msA": 2725,
+      "msB": 3005,
+      "deltaMs": 280,
+      "toleranceMs": 2000,
+      "status": "match"
+    },
+    "meshFormMs": {
+      "id": "meshFormMs",
+      "clock": "guest",
+      "scope": "cross-plane",
+      "msA": 2380,
+      "msB": 2375,
+      "deltaMs": -5,
+      "toleranceMs": 5000,
+      "witness": true,
+      "status": "match"
+    }
+  },
+  "rerun": "node experiments/mesh-runs/bootbench-diff.mjs"
+}
