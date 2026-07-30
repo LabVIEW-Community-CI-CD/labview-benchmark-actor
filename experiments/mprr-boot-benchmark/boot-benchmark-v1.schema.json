@@ -1,0 +1,211 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/experiments/mprr-boot-benchmark/boot-benchmark-v1.schema.json",
+  "title": "boot-benchmark-v1",
+  "description": "A SEALED, deterministic record of ONE mesh-actor BOOT, captured as a benchmark. It is the boot-time sibling of manual-procedure-record-v1: instead of a reviewer stepping through TC-00..TC-10 in the viewer, the RECORDER (a host process) starts a session BEFORE the actor boots, captures the boot as an image stream, and correlates milestone markers the guest emits so the record benchmarks the from-source first boot (build lbabus ~8s + form the host-only mesh). A booting console has no viewer monotonic counter, so the anchor is DUAL-CLOCK: the host capture timeline (hostMonotonicMs, the visual/frame-pin clock) plus the guest CLOCK_MONOTONIC (guestMonotonicMs, authoritative for cross-plane timing). On seal, raw pixels are DISCARDED; only the dual-clock anchor + per-frame perceptual fingerprints + integrity hashes + the timing spans remain. Cross-plane rule (why the seal tags each span): GUEST-clock spans (buildMs, meshFormMs) are cross-plane comparable; the HOST-clock span (bootToMeshMs) includes hypervisor firmware (BIOS/GRUB) and is WITHIN-plane only. The visual delta is a WITNESS (tolerance + optional ROI mask over volatile cursor/clock regions), NOT the hard gate; the guest-clock timing spans are the regression gate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "iteration", "sessionId", "sealedAt", "plane", "hypervisor", "capture", "procedure", "fingerprintAlgo", "fingerprintSpecVersion", "anchor", "frames", "spans", "visual", "seal"],
+  "properties": {
+    "schema": {
+      "const": "labview-benchmark-actor/boot-benchmark-v1"
+    },
+    "iteration": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The identity being benchmarked (box tag, the pinned collab-cli source ref the actor built, or a build id). Cross-iteration diff pairs two records with different iteration values."
+    },
+    "sessionId": { "type": "string", "minLength": 1, "description": "Unique id for this boot-capture session." },
+    "sealedAt": { "type": "string", "format": "date-time", "description": "UTC timestamp when the record was correlated + sealed (raw frames discarded)." },
+    "plane": {
+      "type": "string",
+      "enum": ["LINUX", "WIN"],
+      "description": "Which plane recorded this boot. LINUX = VirtualBox recorder; WIN = VMware recorder. The recorder CORE + schema are shared; only the capture backend differs (capture.backend)."
+    },
+    "hypervisor": {
+      "type": "string",
+      "enum": ["virtualbox", "vmware"],
+      "description": "The hypervisor running the booted actor. Governs which host-clock spans are comparable to which other records (host-clock spans include this hypervisor's firmware)."
+    },
+    "capture": {
+      "type": "object",
+      "description": "HOW the boot image stream was grabbed. Recorded so a sealed record declares its capture path; the schema is capture-backend-agnostic (no Tools/login assumption).",
+      "additionalProperties": false,
+      "required": ["backend", "transport", "cadenceHz"],
+      "properties": {
+        "backend": {
+          "type": "string",
+          "enum": ["vbox-screenshotpng", "vmware-vnc"],
+          "description": "The capture backend. vbox-screenshotpng = `VBoxManage controlvm <vm> screenshotpng` (works from power-on, headless). vmware-vnc = a framebuffer grab off the VM's built-in VNC console (RemoteDisplay.vnc.enabled) — NOT `vmrun captureScreen`, which is VMware-Tools+login-gated and cannot see the boot window."
+        },
+        "transport": { "type": "string", "minLength": 1, "description": "The concrete capture command/mechanism, e.g. 'VBoxManage controlvm screenshotpng' or 'vnc://127.0.0.1:5901 framebuffer'." },
+        "cadenceHz": { "type": "number", "exclusiveMinimum": 0, "description": "Nominal capture cadence (frames/second), e.g. 2. The visual frame-pin resolution is ~1/(2*cadenceHz)s; timing accuracy is guest-clock and does NOT depend on this." },
+        "vm": { "type": "string", "description": "The captured VM name/id (optional; provenance)." }
+      }
+    },
+    "procedure": {
+      "type": "object",
+      "description": "The boot 'procedure' this session recorded: the ordered milestones expected during a from-source first boot.",
+      "additionalProperties": false,
+      "required": ["id", "milestones"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "Procedure id, e.g. 'mesh-actor-boot'." },
+        "version": { "type": "string" },
+        "milestones": {
+          "type": "array",
+          "description": "The ordered boot milestones (caseIds). Canonical: BOOT-START, LBABUS-BUILD-START, LBABUS-BUILT, MESH-OK. Every declared milestone MUST be pinned to a frame for the record to seal.",
+          "items": { "type": "string", "enum": ["BOOT-START", "LBABUS-BUILD-START", "LBABUS-BUILT", "MESH-OK"] },
+          "minItems": 2,
+          "uniqueItems": true
+        }
+      }
+    },
+    "fingerprintAlgo": {
+      "type": "string",
+      "enum": ["dhash-64"],
+      "description": "The perceptual-fingerprint algorithm, RECORD-level. Pinned to dhash-64 (integer-only -> bit-identical cross-plane) via the shared fingerprint.mjs. The cross-iteration diff asserts both records match before comparing."
+    },
+    "fingerprintSpecVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The pinned preprocessing-spec version of the shared fingerprint.mjs (FINGERPRINT_SPEC_VERSION). Two records must share it to be comparable."
+    },
+    "anchor": {
+      "type": "object",
+      "description": "The DUAL-CLOCK time anchor + the milestone correlation that CLOSED the record. hostT0MonotonicMs is the pre-boot host reference (t0). The record seals only when EVERY declared milestone is pinned to a frame AND the serial-emitted guest monotonic cross-checks the authoritative journald guest monotonic within skewToleranceMs (a bad/misaligned pin fails closed).",
+      "additionalProperties": false,
+      "required": ["source", "hostT0MonotonicMs", "hostClock", "guestClock", "correlation"],
+      "properties": {
+        "source": {
+          "const": "host-capture-timeline",
+          "description": "The visual timeline is the recorder's host CLOCK_MONOTONIC (a booting console has no viewer counter to read). Milestone timing is anchored on the GUEST CLOCK_MONOTONIC (authoritative, cross-plane), not this host clock."
+        },
+        "hostT0MonotonicMs": { "type": "number", "description": "Host CLOCK_MONOTONIC (ms) captured at session open, BEFORE the actor booted. bootToMeshMs is measured from here." },
+        "hostClock": { "const": "monotonic-ms", "description": "The host visual-timeline clock: process/host CLOCK_MONOTONIC in ms (frame.hostMonotonicMs)." },
+        "guestClock": { "const": "journald-short-monotonic", "description": "The authoritative guest timing clock: journalctl -o short-monotonic (guest CLOCK_MONOTONIC since boot) for the milestone unit log lines. Serial mono= is only the live frame-pin cross-check, never the number of record." },
+        "correlation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "allMilestonesPinned", "skewToleranceMs", "pins"],
+          "properties": {
+            "method": { "const": "serial-pin+journal-monotonic", "description": "Serial LBABENCH markers pin milestone->frame LIVE (host-arrival closest frame); journald short-monotonic supplies the authoritative guest ms. skewMs = |serialMono - journalMono| cross-checks the pin." },
+            "allMilestonesPinned": { "const": true, "description": "Every declared procedure.milestone was pinned to a frame. Sealing requires this true." },
+            "skewToleranceMs": { "type": "number", "minimum": 0, "description": "Max allowed |serialMono - journalMono| per milestone; a pin exceeding it fails the seal (suspect pin/clock)." },
+            "pins": {
+              "type": "array",
+              "description": "One entry per milestone: the frame it pinned + both guest clocks + the skew cross-check.",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["caseId", "frameIndex", "hostMonotonicMs", "guestMonotonicMs", "serialMonotonicMs", "skewMs"],
+                "properties": {
+                  "caseId": { "type": "string", "enum": ["BOOT-START", "LBABUS-BUILD-START", "LBABUS-BUILT", "MESH-OK"] },
+                  "frameIndex": { "type": "integer", "minimum": 0, "description": "Index into frames[] of the pinned (settled) frame — the frame on screen when the milestone fired." },
+                  "hostMonotonicMs": { "type": "number", "description": "Host CLOCK_MONOTONIC ms of the pinned frame (visual timeline)." },
+                  "guestMonotonicMs": { "type": "number", "description": "AUTHORITATIVE guest CLOCK_MONOTONIC ms (from journald short-monotonic). Spans are computed from this." },
+                  "serialMonotonicMs": { "type": "number", "description": "Guest monotonic ms from the serial marker's mono= field (/proc/uptime at emit). Cross-check only." },
+                  "skewMs": { "type": "number", "minimum": 0, "description": "|serialMonotonicMs - guestMonotonicMs|; must be <= skewToleranceMs to seal." }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "frames": {
+      "type": "array",
+      "description": "The BOOT IMAGE STREAM, one entry per captured frame in host-capture order (the 'images once the actor begins to boot'). RAW pixels are DISCARDED on seal — only hostMonotonicMs, a perceptual fingerprint (for cross-iteration visual-delta), and a crypto integrity hash remain. A frame that pinned a milestone additionally carries caseId + guestMonotonicMs + settled:true (the diff/pairing anchor).",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "hostMonotonicMs", "perceptualFingerprint", "integrityHash"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "hostMonotonicMs": { "type": "number", "description": "Host CLOCK_MONOTONIC ms when this frame was captured (visual timeline anchor)." },
+          "caseId": { "type": "string", "enum": ["BOOT-START", "LBABUS-BUILD-START", "LBABUS-BUILT", "MESH-OK"], "description": "Present iff this frame pinned a milestone. The cross-iteration frame-diff PAIRS by caseId on settled frames (identical to manual-procedure-record-v1), so WIN's frame-diff consumes boot records unchanged." },
+          "guestMonotonicMs": { "type": "number", "description": "Present iff a milestone pin: authoritative guest CLOCK_MONOTONIC ms (journald). Spans are computed from these." },
+          "settled": { "type": "boolean", "description": "true on a milestone-pinned frame (the state at the milestone). frame-diff pairs settled-vs-settled per caseId." },
+          "perceptualFingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$",
+            "description": "Record-level fingerprintAlgo (dhash-64) hash of the frame — MAGNITUDE-comparable (Hamming) across iterations. Computed by the seal step before raw is discarded, via the shared fingerprint.mjs."
+          },
+          "integrityHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "SHA-256 of the raw frame bytes. Proves the discarded frame existed + was unaltered, without retaining pixels."
+          }
+        }
+      }
+    },
+    "spans": {
+      "type": "array",
+      "description": "The benchmark measurements: durations between milestones, each tagged by CLOCK SOURCE and comparison SCOPE. GUEST-clock spans are cross-plane comparable; the HOST-clock span is within-plane only (it includes hypervisor firmware). frame-diff MUST refuse to cross-plane-compare a within-plane span.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "from", "to", "clock", "scope", "ms"],
+        "properties": {
+          "id": { "type": "string", "enum": ["buildMs", "meshFormMs", "bootToMeshMs"], "description": "buildMs = the ~8s from-source build; meshFormMs = build-done -> host-only mesh formed; bootToMeshMs = operator-visible power-on -> mesh (host clock)." },
+          "from": { "type": "string", "description": "Start reference: a caseId, or 'hostT0' for the pre-boot host reference." },
+          "to": { "type": "string", "enum": ["BOOT-START", "LBABUS-BUILD-START", "LBABUS-BUILT", "MESH-OK"], "description": "End milestone caseId." },
+          "clock": { "type": "string", "enum": ["guest", "host"], "description": "guest = guest CLOCK_MONOTONIC (journald); host = recorder host CLOCK_MONOTONIC." },
+          "scope": { "type": "string", "enum": ["cross-plane", "within-plane"], "description": "cross-plane = comparable VBox<->VMware (guest clock); within-plane = only same-hypervisor-over-time (host clock; includes firmware)." },
+          "ms": { "type": "number", "minimum": 0, "description": "Duration in milliseconds." }
+        }
+      }
+    },
+    "visual": {
+      "type": "object",
+      "description": "Visual-delta policy: a WITNESS, not the hard gate. A booting console has volatile regions (blinking cursor, on-screen clock, DHCP/hostname text) that make raw dhash-64 deltas spurious run-to-run, so the guest-clock timing spans are the regression gate and the visual delta is corroboration with a per-milestone Hamming tolerance + optional ROI mask. WIN owns tuning tolerances; cut 1 defaults are permissive (gated:false).",
+      "additionalProperties": false,
+      "required": ["gated", "perMilestone"],
+      "properties": {
+        "gated": { "type": "boolean", "description": "Whether the visual delta contributes to PASS/FAIL. cut 1 = false (timing is the only gate)." },
+        "perMilestone": {
+          "type": "array",
+          "description": "Per-milestone visual policy.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["caseId", "hammingTolerance"],
+            "properties": {
+              "caseId": { "type": "string", "enum": ["BOOT-START", "LBABUS-BUILD-START", "LBABUS-BUILT", "MESH-OK"] },
+              "hammingTolerance": { "type": "integer", "minimum": 0, "description": "Max dhash-64 Hamming distance still considered a visual match for this milestone (empirically set from baseline boots)." },
+              "roiMask": {
+                "type": ["object", "null"],
+                "description": "Optional rectangle to EXCLUDE from the visual comparison (the volatile cursor/clock region). null = whole frame.",
+                "additionalProperties": false,
+                "required": ["x", "y", "w", "h"],
+                "properties": {
+                  "x": { "type": "integer", "minimum": 0 },
+                  "y": { "type": "integer", "minimum": 0 },
+                  "w": { "type": "integer", "minimum": 1 },
+                  "h": { "type": "integer", "minimum": 1 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "seal": {
+      "type": "object",
+      "description": "Proof the record is CLOSED: raw capture discarded, only anchor + fingerprints + hashes + spans retained.",
+      "additionalProperties": false,
+      "required": ["rawDiscarded", "frameCount", "recordHash"],
+      "properties": {
+        "rawDiscarded": { "const": true, "description": "Raw frames are NOT retained." },
+        "frameCount": { "type": "integer", "minimum": 2 },
+        "recordHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 over the ordered per-frame tuple (index, hostMonotonicMs, caseId|'', guestMonotonicMs|'', perceptualFingerprint, integrityHash) plus the ordered spans — the tamper-evident id of the sealed record."
+        }
+      }
+    }
+  }
+}
