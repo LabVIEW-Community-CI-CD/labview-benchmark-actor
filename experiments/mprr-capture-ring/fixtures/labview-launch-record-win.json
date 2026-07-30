@@ -1,0 +1,52 @@
+{
+  "schema": "labview-benchmark-actor/boot-benchmark-v1",
+  "source": "labview-workload-visual-ring",
+  "workload": "labview-ide-launch",
+  "iteration": "labview-launch-1785444693814",
+  "plane": "WIN",
+  "hypervisor": "vmware-vnc",
+  "substrate": "vm-vnc-visual-ring",
+  "fingerprintAlgo": "dhash-64",
+  "fingerprintSpecVersion": 1,
+  "frames": [
+    {
+      "index": 30,
+      "hostMonotonicMs": 1785444656671,
+      "settled": true,
+      "caseId": "UI-READY",
+      "perceptualFingerprint": "0000010101010100",
+      "integrityHash": "d45eaf6eaf0647249cc12dac202caafd6892250d493500e9e7ccd16a2168b132"
+    }
+  ],
+  "spans": [
+    {
+      "id": "launchMs",
+      "from": "WORKLOAD-START",
+      "to": "UI-READY",
+      "clock": "host",
+      "scope": "cross-plane",
+      "ms": 2895
+    }
+  ],
+  "visual": {
+    "gated": false,
+    "perMilestone": [
+      {
+        "caseId": "UI-READY",
+        "hammingTolerance": 8,
+        "roiMask": null
+      }
+    ]
+  },
+  "sourceDetail": {
+    "framesCaptured": 429,
+    "stableTailFrames": 399,
+    "settleMs": 1785444656671,
+    "workloadStartMs": 1785444653776,
+    "workloadStartGuestMonoNs": 94590000000,
+    "settleOpts": {
+      "window": 10,
+      "toleranceHamming": 3
+    }
+  }
+}
