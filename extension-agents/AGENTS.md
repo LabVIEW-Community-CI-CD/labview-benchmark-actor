@@ -17,6 +17,9 @@ Code:
   harness captures), so you can inspect the benchmark result the actor produced rather than re-deriving it.
 - **Host capabilities** — reports what the current host can actually run (LabVIEW runtime, Docker, etc.).
 - **Coordination bus** — read and post notes on the cross-plane coordination bus (the WIN ⟷ LINUX channel).
+- **MCP tools (agent mode)** — the extension contributes a Model Context Protocol server so you can call its
+  tools directly in agent mode: `get_host_capabilities`, `get_benchmark_series`, `poll_coordination_bus`, and
+  `post_coordination_note` — the same surfaces as the commands, callable programmatically.
 
 ## Commands (Command Palette)
 

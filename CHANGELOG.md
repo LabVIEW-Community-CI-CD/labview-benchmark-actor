@@ -7,6 +7,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- MCP tools: the extension contributes a **Model Context Protocol** server (a dependency-free stdio
+  JSON-RPC server) exposing its own tools to Copilot agent mode — `get_host_capabilities`,
+  `get_benchmark_series`, `poll_coordination_bus`, and `post_coordination_note`.
 - Marketplace listing polish: extension icon, gallery banner, keywords, and `Visualization` / `Testing`
   categories.
 - Marketplace publish: the `extension-release` workflow now publishes the built `.vsix` to the VS Code
