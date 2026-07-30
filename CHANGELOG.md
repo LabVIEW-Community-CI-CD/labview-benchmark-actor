@@ -9,6 +9,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ### Added
 - Marketplace listing polish: extension icon, gallery banner, keywords, and `Visualization` / `Testing`
   categories.
+- Marketplace publish: the `extension-release` workflow now publishes the built `.vsix` to the VS Code
+  Marketplace (fork-safe, PAT-gated, fail-open) after the bidirectional WIN&harr;LINUX agreement gate, and
+  guards the `.vsix` size so a non-runtime leak can never be released or published.
 
 ## [0.1.1]
 
