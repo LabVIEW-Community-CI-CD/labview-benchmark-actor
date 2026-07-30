@@ -53,6 +53,29 @@ RUN sed -i 's/\r$//' /mesh-actor.sh && chmod +x /mesh-actor.sh
 EXPOSE 7420 7421/udp
 ENTRYPOINT ["bash", "/mesh-actor.sh"]
 
+# ---- bootbench: from-source "boot" container for the 4-milestone TIMING record -------------------------
+# Reliable, hypervisor-free analog of the VM's first-boot build + mesh. Unlike the `mesh` stage (which bakes
+# a prebuilt lbabus), this stage bakes the SOURCE + a pre-warmed OFFLINE NuGet cache and BUILDS lbabus at
+# container START via boot-entrypoint.sh, emitting BOOT-START / LBABUS-BUILD-START / LBABUS-BUILT / MESH-OK
+# with the guest CLOCK_MONOTONIC. N of these run as a mesh (driven by a harness) to yield buildMs+meshFormMs.
+FROM ${DOTNET_SDK} AS bootbench
+WORKDIR /src
+COPY . /src
+# Pre-warm the NuGet cache ONLINE (build has network) with the exact runtime publish, so the container's
+# start-time build is OFFLINE + fast + deterministic (mirrors the VM's baked /opt/lba/nuget). Keep only the
+# populated cache; discard the throwaway binary so the build genuinely re-runs on start.
+RUN set -eux; NUGET_PACKAGES=/nuget dotnet publish LbaBus.csproj -c Release -r linux-x64 --self-contained \
+      -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o /throwaway; \
+    rm -rf /throwaway /src/bin /src/obj
+# Offline NuGet config: the start-time build resolves ONLY from the vendored cache (no network variance).
+RUN printf '<?xml version="1.0"?>\n<configuration>\n  <packageSources><clear/></packageSources>\n  <fallbackPackageFolders><clear/><add key="lba" value="/nuget"/></fallbackPackageFolders>\n</configuration>\n' > /src/NuGet.config
+COPY ci/mesh-actor.sh /mesh-actor.sh
+COPY ci/boot-entrypoint.sh /boot-entrypoint.sh
+RUN sed -i 's/\r$//' /mesh-actor.sh /boot-entrypoint.sh && chmod +x /mesh-actor.sh /boot-entrypoint.sh
+ENV LBA_SRC=/src LBA_NUGET=/nuget LBA_DEST=/usr/local/bin/lbabus
+EXPOSE 7420 7421/udp
+ENTRYPOINT ["bash", "/boot-entrypoint.sh"]
+
 # ---- verify: the pullable artifact -- bakes /out + cases + verify-linux.sh and runs the full suite -------
 FROM ${DOTNET_RUNTIME} AS verify
 WORKDIR /repo
