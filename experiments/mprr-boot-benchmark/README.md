@@ -75,11 +75,12 @@ volatile region (`visual.gated` defaults to `false` for cut 1). WIN owns tuning 
 |---|---|---|
 | [`boot-benchmark-v1.schema.json`](boot-benchmark-v1.schema.json) | the sealed-record schema (the cross-plane seam) | shared |
 | [`seal-boot-benchmark.mjs`](seal-boot-benchmark.mjs) | pure producer: correlate milestones → clock-tagged spans → seal | shared core |
+| [`boot-recorder.mjs`](boot-recorder.mjs) | the live driver: capture loop + serial pins + journald read → seal (uniformly `await`s `capture()`, so one driver fits sync + async backends) | shared core |
 | [`serial-marker.mjs`](serial-marker.mjs) | the `LBABENCH` wire contract + parser (live frame-pin) | shared |
 | [`journal-monotonic.mjs`](journal-monotonic.mjs) | `journalctl -o short-monotonic` → authoritative guest ms | shared |
 | [`emit-boot-marker.sh`](emit-boot-marker.sh) | guest emit helper (serial + journald), verbatim both planes | shared |
 | [`capture-backend-vbox.mjs`](capture-backend-vbox.mjs) | VBox capture backend (`controlvm screenshotpng`) + serial config | LINUX |
-| [`verify-boot-benchmark.mjs`](verify-boot-benchmark.mjs) | 36-check CI proof (seal, spans, gates, parsers, backend, delta) | LINUX |
+| [`verify-boot-benchmark.mjs`](verify-boot-benchmark.mjs) | 41-check CI proof (seal, spans, gates, parsers, backend, driver await, delta) | LINUX |
 | [`capture-backend-vmware.mjs`](capture-backend-vmware.mjs) | VMware capture backend (`RemoteDisplay.vnc` framebuffer grab, minimal RFB) + serial/VNC `.vmx` config | **WIN** |
 | [`verify-boot-benchmark-vmware.mjs`](verify-boot-benchmark-vmware.mjs) | 23-check CI proof (contract, `.vmx` config, RFB decode vs a scripted mock — no VM) | **WIN** |
 | cross-iteration diff (timing hard gate + visual witness) | extends `frame-diff.mjs` with the span comparison | **WIN** (next) |
@@ -112,31 +113,36 @@ up while powered off (apply with `upsertVmxConfig`, or feed the Vagrant provider
   recorder tails live).
 - `vmwareVncConfigVmx({ port })` → `RemoteDisplay.vnc.enabled` / `RemoteDisplay.vnc.port`.
 
-A VNC grab is async, so `vmware-vnc`'s `capture()` returns a Promise — the shared driver should
-`await backend.capture(path)`. VBox's sync return is `await`-compatible, so one driver fits both backends.
+A VNC grab is async, so `vmware-vnc`'s `capture()` returns a Promise. The shared driver
+[`boot-recorder.mjs`](boot-recorder.mjs) does `await backend.capture(path)`, and VBox's sync return is
+`await`-compatible (`await <non-promise>` is a no-op) — so **one driver fits both backends** (the verify
+proves a sync and an async backend seal a byte-identical record).
 
 ## Run
 
 ```bash
-node experiments/mprr-boot-benchmark/verify-boot-benchmark.mjs         # 36/36, no VM required
+node experiments/mprr-boot-benchmark/verify-boot-benchmark.mjs         # 41/41, no VM required
 node experiments/mprr-boot-benchmark/verify-boot-benchmark-vmware.mjs  # 23/23, no VM required (VMware backend + RFB decode)
 node experiments/verify-local-gates.mjs                                # includes boot-benchmark-seal-spans-and-fail-closed + boot-benchmark-vmware-vnc-backend
 ```
 
-## Milestone emit wiring (co-owned, drop-ins)
+## Milestone emit wiring (LANDED)
 
-`emit-boot-marker.sh <caseId>` is called from (drop-ins, so the proven from-source boot path is not edited
-until the wire shape is confirmed):
+Wire shape confirmed cross-plane; [`emit-boot-marker.sh`](emit-boot-marker.sh) is embedded verbatim in
+[`../../cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh`](../../cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh)
+and called from these units (all best-effort via systemd's `-` prefix, so a failed/absent emit never
+perturbs the proven from-source boot path):
 
 | Milestone | Emitted from |
 |---|---|
-| `BOOT-START` | an early oneshot (before `lba-lbabus-build.service`) |
+| `BOOT-START` | `lba-boot-marker.service` oneshot (`Before=lba-lbabus-build.service`) |
 | `LBABUS-BUILD-START` | `lba-lbabus-build.service` `ExecStartPre=` |
 | `LBABUS-BUILT` | `lba-lbabus-build.service` `ExecStartPost=` |
-| `MESH-OK` | the mesh unit when it logs `MESH OK` |
+| `MESH-OK` | WIN's `lba-mesh` drop-in (guarded on `[ -w /dev/ttyS0 ]`) |
 
 ## Status
 
-Draft (cut 1): schema + shared seal core + serial/journald parsers + VBox backend + emit helper + the
-36-check verify, gated in `verify-local-gates.mjs`. **Open with WIN:** VMware VNC backend + serial-to-file
-config + the cross-iteration diff, then wiring the emit drop-ins into the boot units.
+Draft (cut 1): schema + shared seal core + the live driver + serial/journald parsers + both capture backends
+(VBox screenshotpng, VMware VNC) + emit helper wired into provisioning + the 41-check verify, gated in
+`verify-local-gates.mjs`. **Open with WIN:** the cross-iteration diff (timing hard gate reading `span.scope`
++ visual witness) and the live end-to-end boot proof (capture + seal + diff two real from-source boots).
