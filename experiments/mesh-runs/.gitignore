@@ -1,0 +1,4 @@
+# Per-run outputs (each run's actor logs + manifest.json) are LOCAL evidence for cross-run comparison.
+# They accumulate and are reproducible, so they are not committed by default. Commit a specific run only
+# if it is being pinned as a fixture (like the boot-benchmark fixtures).
+*/

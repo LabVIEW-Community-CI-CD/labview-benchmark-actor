@@ -48,6 +48,22 @@ bind_arg=""
 
 actor="${VIHS_COLLAB_AGENT:-actor-$$}"
 
+# --- Role brief (opt-in): the actor's name -> a more specific AGENTS.md ---------------------------------
+# When a role is known, materialize the pinned base instructions PLUS the matching role overlay so this
+# actor carries the specialized brief its commit named. The role comes from LBA_AGENTS_ROLE (the launcher
+# passes it) or, failing that, the Actor:/Agent: trailer of the commit in LBA_AGENTS_REPO
+# (`lbabus agents --role-from-commit`). Best-effort: a missing lbabus/role/overlay never perturbs the mesh.
+if [ -n "${LBA_AGENTS_ROLE:-}${LBA_AGENTS_REPO:-}" ]; then
+  _brief_out="${LBA_AGENTS_OUT:-AGENTS.md}"
+  if [ -n "${LBA_AGENTS_ROLE:-}" ]; then
+    run_lbabus agents --role "$LBA_AGENTS_ROLE" --out "$_brief_out" >/dev/null 2>&1 \
+      && echo "[$actor] role brief: $_brief_out (role $LBA_AGENTS_ROLE)" || true
+  else
+    run_lbabus agents --role-from-commit --repo "$LBA_AGENTS_REPO" --out "$_brief_out" >/dev/null 2>&1 \
+      && echo "[$actor] role brief: $_brief_out (from commit in $LBA_AGENTS_REPO)" || true
+  fi
+fi
+
 # split PEERS csv, trim, drop self.
 others=""
 IFS=',' read -ra _peers <<< "$PEERS"

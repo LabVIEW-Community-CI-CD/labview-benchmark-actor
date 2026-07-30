@@ -15,7 +15,7 @@
     <PackageId>LabViewBenchmarkActor.CollabBus</PackageId>
 
     <!-- SemVer: the single source of truth for `lbabus version` and the released package. -->
-    <Version>0.11.0</Version>
+    <Version>0.12.0</Version>
     <Authors>LabVIEW-Community-CI-CD</Authors>
     <Description>Shared cross-plane coordination bus CLI for labview-benchmark-actor (WIN &lt;-&gt; LINUX). One versioned binary, one deterministic protocol, pulled from an immutable SemVer release.</Description>
     <PackageProjectUrl>https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor</PackageProjectUrl>
@@ -43,6 +43,14 @@
   -->
   <ItemGroup>
     <EmbeddedResource Include="agents/AGENTS.md" />
+    <!--
+      Role overlays (agents/roles/ROLE.md): commit-derived, role-specific specializations of the base,
+      surfaced by the `lbabus agents` role flags. LogicalName is set explicitly so the manifest resource
+      name is a stable `agents.roles.FILE` (default globbing mangles a hyphen in the filename).
+    -->
+    <EmbeddedResource Include="agents/roles/**/*.md">
+      <LogicalName>agents.roles.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <Target Name="CopyAgentsToOutput" AfterTargets="Build">

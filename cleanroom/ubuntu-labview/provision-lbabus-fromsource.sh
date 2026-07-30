@@ -22,6 +22,14 @@ set -euo pipefail
 log() { echo "[lbabus-fromsource] $*"; }
 [ "$(id -u)" = 0 ] || { echo "[abort] run as root:  sudo ./provision-lbabus-fromsource.sh" >&2; exit 1; }
 
+# Extract the actor ROLE from a commit's Actor:/Agent: git trailer (the same convention lbabus agents
+# --role-from-commit reads), lowercased to a dns/url-safe slug. Empty when the commit names no role.
+extract_role() { # <repo> <ref>
+  local r; r="$(git -C "$1" log -1 --format='%(trailers:key=Actor,valueonly)' "$2" 2>/dev/null | head -n1)"
+  [ -z "$r" ] && r="$(git -C "$1" log -1 --format='%(trailers:key=Agent,valueonly)' "$2" 2>/dev/null | head -n1)"
+  printf '%s' "$r" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-*//; s/-*$//'
+}
+
 LBA_DIR="${LBA_DIR:-/opt/lba}"
 SRC="$LBA_DIR/src"
 NUGET="$LBA_DIR/nuget"
@@ -50,6 +58,7 @@ if [ -n "$SRC_DIR" ] && [ -f "$SRC_DIR/LbaBus.csproj" ]; then
   log "baking source from local $SRC_DIR"
   cp -r "$SRC_DIR/." "$SRC"/
   COMMIT="$(git -C "$SRC_DIR" rev-parse HEAD 2>/dev/null || echo local)"
+  ROLE="$(extract_role "$SRC_DIR" HEAD 2>/dev/null || true)"
 else
   log "cloning $REPO_URL @ $REF (public; no token) ..."
   tmp="$(mktemp -d)"
@@ -57,10 +66,13 @@ else
   git -C "$tmp/repo" checkout -q "$REF"
   cp -r "$tmp/repo/tools/collab-cli/." "$SRC"/
   COMMIT="$(git -C "$tmp/repo" rev-parse HEAD)"
+  ROLE="$(extract_role "$tmp/repo" HEAD 2>/dev/null || true)"
   rm -rf "$tmp"
 fi
 rm -rf "$SRC"/obj "$SRC"/bin "$SRC"/ci/obj "$SRC"/ci/bin 2>/dev/null || true
 echo "$COMMIT" > "$LBA_DIR/SOURCE_COMMIT"
+printf '%s' "${ROLE:-}" > "$LBA_DIR/SOURCE_ROLE"
+[ -n "${ROLE:-}" ] && log "source commit names actor role: $ROLE" || log "source commit names no actor role (base brief)"
 
 # 3) Warm the VENDORED NuGet cache ONLINE with the EXACT first-boot build command, so single-file build deps
 #    (e.g. Microsoft.NET.ILLink.Tasks) + the linux-x64 runtime packs land in the cache. No offline NuGet.config
@@ -98,6 +110,14 @@ NUGET_PACKAGES="\$out/nuget" dotnet publish "$SRC/LbaBus.csproj" -c Release -r $
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "\$out/pub"
 install -m0755 "\$out/pub/lbabus" "$DEST"
 "$DEST" version && echo "lbabus built -> $DEST"
+# Materialize this actor's brief: the pinned base PLUS the role overlay named by the source commit's Actor:
+# trailer (SOURCE_ROLE, baked at provision). Base-only when the commit named no role. Best-effort.
+_role="\$(cat $LBA_DIR/SOURCE_ROLE 2>/dev/null || true)"
+if [ -n "\$_role" ]; then
+  "$DEST" agents --role "\$_role" --out $LBA_DIR/AGENTS.md >/dev/null 2>&1 && echo "role brief (\$_role) -> $LBA_DIR/AGENTS.md" || true
+else
+  "$DEST" agents --out $LBA_DIR/AGENTS.md >/dev/null 2>&1 || true
+fi
 SH
 chmod +x "$LBA_DIR/build-lbabus.sh"
 

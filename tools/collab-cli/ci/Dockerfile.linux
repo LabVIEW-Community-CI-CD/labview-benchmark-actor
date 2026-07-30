@@ -47,7 +47,9 @@ RUN dotnet /out/stress/lbabus-stress.dll --lbabus /out/cli/lbabus.dll --agents 1
 FROM ${DOTNET_RUNTIME} AS mesh
 COPY --from=build /out /out
 COPY ci/mesh-actor.sh /mesh-actor.sh
-RUN chmod +x /mesh-actor.sh
+# Normalize line endings: a build context checked out on Windows (autocrlf) delivers CRLF, which makes the
+# bash entrypoint choke ($'\r'). sed is a no-op on an already-LF file, so this is safe on every host.
+RUN sed -i 's/\r$//' /mesh-actor.sh && chmod +x /mesh-actor.sh
 EXPOSE 7420 7421/udp
 ENTRYPOINT ["bash", "/mesh-actor.sh"]
 
