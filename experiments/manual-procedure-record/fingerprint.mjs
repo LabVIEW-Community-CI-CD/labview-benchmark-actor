@@ -87,3 +87,33 @@ export function hammingHex(a, b) {
   }
   return d;
 }
+
+/**
+ * Serialize a dhash-64 hex fingerprint to its 64-bit value (BigInt). The capture ring stores the 64 BITS (u64),
+ * not the 16-hex string; this is the SINGLE-SOURCE hex->bits projection BOTH planes use, so a frame serialized
+ * on LINUX and one serialized on WIN are byte-identical on the wire. The dhash-64 algorithm and its 64 bits are
+ * UNCHANGED (dhash64FromRgba still emits the hex) — this is a serialization-FORM helper only and is therefore
+ * NOT a FINGERPRINT_SPEC_VERSION bump. Exact inverse of dhashBitsToHex: dhashBitsToHex(dhashHexToBits(h)) === h.
+ * @param {string} hex 16 hex chars (dhash-64), case-insensitive
+ * @returns {bigint} the 64-bit fingerprint value (MSB-first, matching the hex nibble packing)
+ */
+export function dhashHexToBits(hex) {
+  if (typeof hex !== 'string' || !/^[0-9a-fA-F]{16}$/.test(hex)) {
+    throw new Error('dhashHexToBits: exactly 16 hex chars required (dhash-64)');
+  }
+  return BigInt(`0x${hex}`);
+}
+
+/**
+ * Inverse of dhashHexToBits: render a 64-bit dhash value back to the pinned 16-char lowercase hex form, so
+ * hammingHex (which consumes hex) still works off a ring-decoded u64 without a second spec. Fails closed if the
+ * value does not fit in 64 bits. dhashBitsToHex(dhashHexToBits(h)) === h for every valid 16-hex h.
+ * @param {bigint} bits 64-bit fingerprint value in [0, 2^64)
+ * @returns {string} 16 lowercase hex chars (zero-padded, MSB-first)
+ */
+export function dhashBitsToHex(bits) {
+  if (typeof bits !== 'bigint' || bits < 0n || bits > 0xffffffffffffffffn) {
+    throw new Error('dhashBitsToHex: a BigInt in [0, 2^64) required');
+  }
+  return bits.toString(16).padStart(16, '0');
+}
