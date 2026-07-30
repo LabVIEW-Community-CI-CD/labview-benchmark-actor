@@ -16,7 +16,7 @@ set -euo pipefail
 
 VM_NAME="${VM_NAME:-lba-ubuntu2404-labview2026-scratch}"
 ISO="${ISO:-}"                        # path to the stock Ubuntu 24.04 ISO (you download it; required for --run)
-DISK_GB="${DISK_GB:-60}"
+DISK_GB="${DISK_GB:-80}"              # matches build-vmware.ps1 (headroom for the full LabVIEW 2026 stack)
 MEM_MB="${MEM_MB:-12288}"             # matches the operator's working VM
 CPUS="${CPUS:-6}"
 VRAM_MB="${VRAM_MB:-128}"
