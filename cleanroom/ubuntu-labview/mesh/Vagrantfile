@@ -10,11 +10,18 @@
 # Each instance is a linked clone of the golden box (LabVIEW 2026 Community, activated by the operator on
 # the golden box before packaging). The golden box is the USER's property; AGENTS.md just facilitates it.
 require "csv"
+require "base64"
 
 CSV_PATH = File.expand_path("../mesh-actors.csv", __dir__)
 raise "missing #{CSV_PATH} (copy mesh-actors.csv.example and let the agent fill it)" unless File.exist?(CSV_PATH)
 ACTORS = CSV.read(CSV_PATH, headers: true).select { |r| r["role"] == "mesh" }
 raise "no role=mesh rows in #{CSV_PATH}" if ACTORS.empty?
+
+# The per-actor mesh workload is SHARED with Docker-CI (tools/collab-cli/ci/mesh-actor.sh). Read + normalize it
+# to LF here (a Windows host checkout may be CRLF) and deliver it base64 so no line ending survives to the guest.
+MESH_ACTOR_SRC = File.expand_path("../../../tools/collab-cli/ci/mesh-actor.sh", __dir__)
+raise "missing #{MESH_ACTOR_SRC}" unless File.exist?(MESH_ACTOR_SRC)
+MESH_ACTOR_B64 = Base64.strict_encode64(File.read(MESH_ACTOR_SRC).gsub(/\r\n?/, "\n"))
 
 # Mesh instances are lighter than the 12 GB golden (coordination, not heavy LabVIEW work).
 MESH_MEM_MB = ENV.fetch("MESH_MEM_MB", "4096")
@@ -62,6 +69,50 @@ Vagrant.configure("2") do |config|
           "#{a['actor_id']}" "#{a['hostname']}" "#{a['ip']}" "#{a['tcp_port']}" "#{a['udp_port']}" \
           | sudo tee /etc/lba-mesh-actor >/dev/null
         echo "[mesh] actor #{a['actor_id']} (#{a['hostname']}) ready at #{a['ip']} tcp=#{a['tcp_port']} udp=#{a['udp_port']}"
+      SH
+
+      # Auto-form the host-only lbabus mesh ON BOOT: install the shared mesh workload + a systemd unit that runs
+      # it (listen 7420/7421 + send/beacon --hosts <peer IPs> with 0.11.0 --bind <self host-only IP>), retrying
+      # (Restart=on-failure, no rate limit) until every peer is up -- so the mesh forms regardless of `vagrant up`
+      # ordering, and the host observer (the .1 gateway, running mesh-monitor.mjs) sees per-actor presence.
+      peers    = ACTORS.reject { |x| x["hostname"] == a["hostname"] }.map { |x| x["ip"] }.join(",")
+      observer = a["ip"].sub(/\.\d+$/, ".1")   # host-only gateway = the host running the read-only viewers
+      unit = <<~UNIT
+        [Unit]
+        Description=lbabus host-only mesh (auto-form + self-prove on boot)
+        After=network-online.target
+        Wants=network-online.target
+        StartLimitIntervalSec=0
+        ConditionPathExists=/usr/local/bin/lbabus
+        ConditionPathExists=/etc/lba-mesh-actor
+
+        [Service]
+        Type=simple
+        Environment=VIHS_COLLAB_AGENT=#{a['actor_id']}
+        Environment=LBABUS=/usr/local/bin/lbabus
+        Environment=MESH_PEERS=#{peers}
+        Environment=MESH_BIND=#{a['ip']}
+        Environment=MESH_OBSERVERS=#{observer}
+        Environment=TCP_PORT=#{a['tcp_port']}
+        Environment=UDP_PORT=#{a['udp_port']}
+        ExecStart=/usr/local/bin/lba-mesh-actor.sh
+        Restart=on-failure
+        RestartSec=5
+
+        [Install]
+        WantedBy=multi-user.target
+      UNIT
+      unit_b64 = Base64.strict_encode64(unit)
+
+      node.vm.provision "shell", inline: <<~SH
+        set -e
+        echo "#{MESH_ACTOR_B64}" | base64 -d | sudo tee /usr/local/bin/lba-mesh-actor.sh >/dev/null
+        sudo chmod +x /usr/local/bin/lba-mesh-actor.sh
+        echo "#{unit_b64}" | base64 -d | sudo tee /etc/systemd/system/lba-mesh.service >/dev/null
+        sudo systemctl daemon-reload
+        sudo systemctl enable lba-mesh.service >/dev/null 2>&1 || true
+        sudo systemctl restart lba-mesh.service || true
+        echo "[mesh] lba-mesh.service installed + started (peers=#{peers} bind=#{a['ip']} observer=#{observer})"
       SH
     end
   end
