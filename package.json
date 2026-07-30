@@ -64,6 +64,18 @@
         "title": "LabVIEW Benchmark Actor: Open Benchmark Viewer"
       },
       {
+        "command": "labviewBenchmarkActor.openBenchmarkRun",
+        "title": "LabVIEW Benchmark Actor: Open Benchmark Run"
+      },
+      {
+        "command": "labviewBenchmarkActor.openBenchmarkTrend",
+        "title": "LabVIEW Benchmark Actor: Open Benchmark Trend"
+      },
+      {
+        "command": "labviewBenchmarkActor.openFrameCorrelator",
+        "title": "LabVIEW Benchmark Actor: Open Benchmark Frame Correlator"
+      },
+      {
         "command": "labviewBenchmarkActor.writeAgents",
         "title": "LabVIEW Benchmark Actor: Write Agent Instructions"
       },
@@ -81,7 +93,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./ && node scripts/stage-media.mjs",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node test/extension-activation.mjs && node test/viewer-render.mjs && node test/mcp-server.mjs && node scripts/mcpToolDoc.mjs --check docs/mcp-tools.md",
+    "test": "npm run compile && node test/extension-activation.mjs && node test/viewer-render.mjs && node test/panels-render.mjs && node test/mcp-server.mjs && node scripts/mcpToolDoc.mjs --check docs/mcp-tools.md",
     "package": "vsce package --out labview-benchmark-actor.vsix"
   },
   "devDependencies": {

@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
+import { pathToFileURL } from 'node:url';
 
 import { registerBenchmarkActorMcpServerProvider } from './mcp/benchmarkActorMcpServerProvider';
 
@@ -115,6 +116,117 @@ function viewerHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   <script type="module" nonce="${nonce}" src="${viewerJs}"></script>
 </body>
 </html>`;
+}
+
+// --- Real benchmark UI surfaces (single run / trend / frame correlator) -------------------------------------
+// The extension ships the REAL committed LabVIEW launch record + 5-run trend (staged into media/ by
+// scripts/stage-media.mjs) and renders them with the PURE, gated builders (media/benchmark-panels.mjs +
+// media/buildBenchmarkFrameScrubberHtml.mjs). The builders are ESM; tsc emits CommonJS, which downlevels a
+// literal `import()` to `require()` (cannot load ESM). This indirection keeps a GENUINE dynamic import so the
+// host loads the staged, self-contained ESM builder modules natively -- single-source with the local gates.
+const importEsm: (specifier: string) => Promise<Record<string, unknown>> = new Function(
+  's',
+  'return import(s);'
+) as (specifier: string) => Promise<Record<string, unknown>>;
+
+interface PanelBuilders {
+  buildBenchmarkPanelHtml(record: unknown, nonce: string): string;
+  buildTrendPanelHtml(trend: unknown, nonce: string): string;
+  scrubberModelFromTrend(trend: unknown, opts: { pinDhash?: string; title?: string }): unknown;
+}
+interface ScrubberBuilder {
+  buildBenchmarkFrameScrubberHtml(model: unknown, nonce: string): string;
+}
+
+let panelBuildersPromise: Promise<PanelBuilders> | undefined;
+let scrubberBuilderPromise: Promise<ScrubberBuilder> | undefined;
+
+function mediaEsmUrl(extensionUri: vscode.Uri, file: string): string {
+  return pathToFileURL(vscode.Uri.joinPath(extensionUri, 'media', file).fsPath).href;
+}
+function loadPanelBuilders(extensionUri: vscode.Uri): Promise<PanelBuilders> {
+  if (!panelBuildersPromise) {
+    panelBuildersPromise = importEsm(mediaEsmUrl(extensionUri, 'benchmark-panels.mjs')) as unknown as Promise<PanelBuilders>;
+  }
+  return panelBuildersPromise;
+}
+function loadScrubberBuilder(extensionUri: vscode.Uri): Promise<ScrubberBuilder> {
+  if (!scrubberBuilderPromise) {
+    scrubberBuilderPromise = importEsm(
+      mediaEsmUrl(extensionUri, 'buildBenchmarkFrameScrubberHtml.mjs')
+    ) as unknown as Promise<ScrubberBuilder>;
+  }
+  return scrubberBuilderPromise;
+}
+
+function loadBenchmarkJson(extensionUri: vscode.Uri, file: string): Record<string, unknown> {
+  const path = vscode.Uri.joinPath(extensionUri, 'media', file).fsPath;
+  return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+}
+
+function makeBenchmarkPanel(
+  context: vscode.ExtensionContext,
+  id: string,
+  title: string,
+  enableScripts: boolean
+): vscode.WebviewPanel {
+  return vscode.window.createWebviewPanel(id, title, vscode.ViewColumn.Active, {
+    enableScripts,
+    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')],
+  });
+}
+
+function reportUiError(output: vscode.OutputChannel, label: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  output.appendLine(`${label}: error: ${message}`);
+  output.show(true);
+  void vscode.window.showErrorMessage(`${label} failed: ${message}`);
+}
+
+// The settled (UI-READY) frame's perceptual fingerprint = the dhash the capture proved the launch reached.
+function settledPinDhash(record: Record<string, unknown>): string | undefined {
+  const frames = Array.isArray(record.frames) ? (record.frames as Array<Record<string, unknown>>) : [];
+  const settled = frames.find((f) => f && f.settled) || frames[0];
+  const pin = settled && settled.perceptualFingerprint;
+  return typeof pin === 'string' ? pin : undefined;
+}
+
+async function openBenchmarkRunCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const panels = await loadPanelBuilders(context.extensionUri);
+    const record = loadBenchmarkJson(context.extensionUri, 'labview-launch-record.json');
+    const panel = makeBenchmarkPanel(context, 'lbaBenchmarkRun', 'Benchmark Run', false);
+    panel.webview.html = panels.buildBenchmarkPanelHtml(record, getNonce());
+  } catch (err) {
+    reportUiError(output, 'Open Benchmark Run', err);
+  }
+}
+
+async function openBenchmarkTrendCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const panels = await loadPanelBuilders(context.extensionUri);
+    const trend = loadBenchmarkJson(context.extensionUri, 'labview-launch-trend.json');
+    const panel = makeBenchmarkPanel(context, 'lbaBenchmarkTrend', 'Benchmark Trend', false);
+    panel.webview.html = panels.buildTrendPanelHtml(trend, getNonce());
+  } catch (err) {
+    reportUiError(output, 'Open Benchmark Trend', err);
+  }
+}
+
+async function openFrameCorrelatorCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const [panels, scrubber] = await Promise.all([
+      loadPanelBuilders(context.extensionUri),
+      loadScrubberBuilder(context.extensionUri),
+    ]);
+    const trend = loadBenchmarkJson(context.extensionUri, 'labview-launch-trend.json');
+    const record = loadBenchmarkJson(context.extensionUri, 'labview-launch-record.json');
+    const model = panels.scrubberModelFromTrend(trend, { pinDhash: settledPinDhash(record) });
+    const panel = makeBenchmarkPanel(context, 'lbaFrameCorrelator', 'Benchmark Frame Correlator', true);
+    panel.webview.html = scrubber.buildBenchmarkFrameScrubberHtml(model, getNonce());
+  } catch (err) {
+    reportUiError(output, 'Open Frame Correlator', err);
+  }
 }
 
 // --- Extension-embedded AGENTS.md (issue #98) --------------------------------------------------------------
@@ -314,6 +426,20 @@ export function activate(context: vscode.ExtensionContext): void {
       );
       panel.webview.html = viewerHtml(panel.webview, context.extensionUri);
     })
+  );
+
+  // Real benchmark UI surfaces (LBA-REQ-004/005): render the shipped LabVIEW launch record + 5-run trend and
+  // the vertical-line frame correlator, all fed by the real committed fixtures the local gates re-validate.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.openBenchmarkRun', () =>
+      openBenchmarkRunCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.openBenchmarkTrend', () =>
+      openBenchmarkTrendCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.openFrameCorrelator', () =>
+      openFrameCorrelatorCommand(context, output)
+    )
   );
 
   // Extension-embedded AGENTS.md (issue #98): read-only canonical provider + materialize/show/check commands.
