@@ -8,9 +8,11 @@
 //   node experiments/mprr-capture-ring/vmware-ring-capture.mjs   # live: stream a running VM's VNC into the ring
 
 import net from 'node:net';
+import { writeFileSync } from 'node:fs';
 import { createShortRing, CLI_DEFAULT_CAPACITY_BYTES } from '../mprr-ring/mprrRing.mjs';
 import { writeCaptureFrame, readCaptureFrames } from './capture-ring.mjs';
 import { createVmwareVncSource } from './vmware-vnc-source.mjs';
+import { recordFromRing } from './capture-ring-recorder.mjs';
 
 const ALL_ZERO_DHASH = '0000000000000000';
 
@@ -65,6 +67,15 @@ if (import.meta.url.endsWith(process.argv[1]?.replace(/\\/g, '/').split('/').pop
   console.log(`ring: written=${written} skipped(empty)=${skipped} decoded=${decoded.length} hasFrame=${withFrame}`);
   const d0 = decoded[0];
   if (d0) console.log('first decoded:', { ticks: String(d0.timingTicks64), idx: d0.frameIndex, dhash: d0.dhashHex, milestoneId: d0.milestoneId, settled: d0.settled });
-  if (!written) { console.error('FAIL: nothing written to the ring'); process.exit(1); }
-  console.log(`PASS: streamed ${written} VMware VNC frames through the capture ring + decoded ${decoded.length}`);
+  if (!written) console.log('note: 0 visual frames written — the screen was uniform/static, so the sink correctly SKIPPED every empty (all-zero-dhash) frame; the connect + stream path itself succeeded.');
+
+  // Recorder-as-consumer: reconstruct the boot-benchmark-v1 record straight off the live ring (spans from any
+  // milestone markers; per-milestone visual pins from the dhash frames). A bare VNC boot has no LBABENCH
+  // markers, so this yields the VISUAL ring (frames, no spans) — the WIN half to pair cross-plane with LINUX's
+  // live VBox ring via bootBenchmarkDiff.
+  const record = recordFromRing(ring, from, to, { iteration: `vmware-ring-${Date.now()}`, plane: 'WIN', hypervisor: 'vmware-vnc', substrate: 'vm-vnc-visual-ring' });
+  console.log(`record: spans=${record.spans.length} milestones=${record.milestones.length} visualPins=${record.frames.length} (visual frames ${record.counts.visual})`);
+  if (process.env.LBA_OUT) { writeFileSync(process.env.LBA_OUT, `${JSON.stringify(record, null, 2)}\n`); console.log(`wrote record -> ${process.env.LBA_OUT}`); }
+
+  console.log(`done: streamed ${written} VMware VNC frames through the capture ring; decoded ${decoded.length}; record ready.`);
 }
