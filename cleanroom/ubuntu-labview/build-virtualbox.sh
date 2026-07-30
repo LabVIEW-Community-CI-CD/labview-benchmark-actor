@@ -35,6 +35,7 @@ usage() {
   echo "Usage:  ISO=/path/ubuntu-24.04-desktop-amd64.iso $0 [--run] [--force] [--gui|--headless]"
   echo "Env overrides: VM_NAME DISK_GB MEM_MB CPUS VRAM_MB OSTYPE_ID BASEFOLDER GUEST_USER GUEST_FULLNAME GUEST_HOSTNAME"
   echo "               GUEST_PASSWORD (local dev-only; defaults to 'actor'; written to a 0600 temp file)"
+  echo "               INSTALL_ADDITIONS=auto|0|1 (auto: install Guest Additions only if the host has the GA ISO)"
 }
 
 while [ $# -gt 0 ]; do
@@ -99,13 +100,33 @@ run VBoxManage storagectl "$VM_NAME" --name IDE --add ide --controller PIIX4
 PWFILE="$(mktemp)"; chmod 600 "$PWFILE"; printf '%s' "${GUEST_PASSWORD:-actor}" > "$PWFILE"
 trap 'rm -f "$PWFILE"' EXIT
 
+# Guest Additions is OPTIONAL. The Debian/Ubuntu 'virtualbox' package splits the GA ISO into a SEPARATE
+# 'virtualbox-guest-additions-iso' package that is often absent, and `unattended --install-additions` then
+# HARD-FAILS ("Could not locate the Guest Additions ISO file ''"). So auto-detect the ISO and only request
+# additions when it's present; otherwise skip (GA can be added in-guest later: `apt install
+# virtualbox-guest-utils`). Override with INSTALL_ADDITIONS=0 (never) or 1 (force; requires an ISO on PATH).
+INSTALL_ADDITIONS="${INSTALL_ADDITIONS:-auto}"
+GA_ISO=""
+for p in /usr/share/virtualbox/VBoxGuestAdditions.iso \
+         /usr/lib/virtualbox/additions/VBoxGuestAdditions.iso \
+         "$(dirname "$(command -v VBoxManage)")/additions/VBoxGuestAdditions.iso"; do
+  [ -f "$p" ] && { GA_ISO="$p"; break; }
+done
+
 UNATTENDED_ARGS=(
   "$VM_NAME"
   "--iso=${ISO:-/path/to/ubuntu-24.04-desktop-amd64.iso}"
   "--user=$GUEST_USER" "--password-file=$PWFILE" "--full-user-name=$GUEST_FULLNAME"
-  --install-additions --locale=en_US --country=US --time-zone=UTC
+  --locale=en_US --country=US --time-zone=UTC
   "--hostname=${GUEST_HOSTNAME}.local"
 )
+if [ "$INSTALL_ADDITIONS" != 0 ] && { [ -n "$GA_ISO" ] || [ "$INSTALL_ADDITIONS" = 1 ]; }; then
+  UNATTENDED_ARGS+=( --install-additions )
+  [ -n "$GA_ISO" ] && UNATTENDED_ARGS+=( "--additions-iso=$GA_ISO" )
+  echo "   Guest Additions: install${GA_ISO:+ (iso: $GA_ISO)}"
+else
+  echo "   Guest Additions: SKIPPED — no VBoxGuestAdditions.iso on host (install in-guest later: apt install virtualbox-guest-utils; or INSTALL_ADDITIONS=1 to force)."
+fi
 [ "$START_MODE" != none ] && UNATTENDED_ARGS+=( "--start-vm=$START_MODE" )
 run VBoxManage unattended install "${UNATTENDED_ARGS[@]}"
 
