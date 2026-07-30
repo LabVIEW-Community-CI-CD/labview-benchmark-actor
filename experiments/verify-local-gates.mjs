@@ -37,6 +37,7 @@ import { bootBenchmarkDiff } from './mprr-boot-benchmark/boot-benchmark-diff.mjs
 import { bootbenchDiff } from './mesh-runs/bootbench-diff.mjs';
 import { PACKET_BYTES, PACKET_VERSION, OFFSETS, MILESTONE_IDS, encodeCaptureFrame, decodeCaptureFrame, writeCaptureFrame, readCaptureFrames } from './mprr-capture-ring/capture-ring.mjs';
 import { ringFrameFromDescriptor, makeRingSink } from './mprr-capture-ring/vmware-ring-capture.mjs';
+import { recordFromRing } from './mprr-capture-ring/capture-ring-recorder.mjs';
 import { createVboxVncSource, VBOX_DEFAULT_VNC_PORT, sampleDescriptor } from './mprr-capture-ring/vbox-vnc-source.mjs';
 import { execFileSync } from 'node:child_process';
 
@@ -1080,6 +1081,35 @@ check('capture-ring-vmware-wiring', () => {
     'a visual frame riding the MESH-OK milestone marker round-trips');
   assert(ringFrameFromDescriptor({ dhash64: '0000000000000000', milestoneId: 0 }) === null, 'empty descriptor maps to null (skipped, not fail-closed)');
   return { written, skipped, marker: decoded[1].caseId };
+});
+
+// Recorder-as-consumer (mprr-capture-ring/capture-ring-recorder.mjs): reconstruct a boot-benchmark-v1 record
+// off the ring's decoded frames. Milestone markers -> guest-clock spans (buildMs/meshFormMs cross-plane), the
+// settled visual frame nearest each milestone -> a per-milestone pin. Gates the in-process reconstruction +
+// self-diff, then subprocess-runs the three async capture-ring self-tests (RFB parser + wiring + recorder) so
+// the socket/stream paths are CI-covered too.
+check('capture-ring-recorder', () => {
+  const MS = 10_000;
+  const ring = createShortRing(CLI_DEFAULT_CAPACITY_BYTES);
+  const w = [];
+  const put = (f) => w.push(writeCaptureFrame(ring, f));
+  put({ timingTicks64: 0, caseId: 'BOOT-START' });
+  put({ timingTicks64: 100 * MS, caseId: 'LBABUS-BUILD-START' });
+  put({ timingTicks64: 100 * MS, frameIndex: 3, dhashHex: '2222222222222222', settled: true });
+  put({ timingTicks64: 5000 * MS, frameIndex: 4, dhashHex: '3333333333333333', settled: true });
+  put({ timingTicks64: 5000 * MS, caseId: 'LBABUS-BUILT' });
+  put({ timingTicks64: 7000 * MS, frameIndex: 6, dhashHex: '4444444444444444', settled: true });
+  put({ timingTicks64: 7000 * MS, caseId: 'MESH-OK' });
+  const rec = recordFromRing(ring, w[0].absoluteStartOffset, w.at(-1).absoluteEndOffset, { plane: 'WIN', hypervisor: 'docker-wsl2' });
+  const span = (id) => rec.spans.find((s) => s.id === id);
+  assert(span('buildMs').ms === 4900 && span('buildMs').scope === 'cross-plane' && span('buildMs').clock === 'guest', 'buildMs=4900 guest cross-plane');
+  assert(span('meshFormMs').ms === 2000, 'meshFormMs=2000 from the MESH-OK - LBABUS-BUILT markers');
+  assert(rec.frames.find((f) => f.caseId === 'LBABUS-BUILT').perceptualFingerprint === '3333333333333333', 'BUILT settled visual pin reconstructed from the ring');
+  assert(bootBenchmarkDiff(rec, rec).verdict === 'PASS', 'reconstructed record self-diffs PASS through bootBenchmarkDiff');
+  for (const t of ['vmware-vnc-source.selftest.mjs', 'vmware-ring-capture.selftest.mjs', 'capture-ring-recorder.selftest.mjs']) {
+    execFileSync(process.execPath, [join(here, 'mprr-capture-ring', t)], { stdio: 'pipe' });
+  }
+  return { buildMs: span('buildMs').ms, meshFormMs: span('meshFormMs').ms, subprocessSelftests: 3 };
 });
 
 // LINUX wiring: the VirtualBox VNC source (vbox-vnc-source.mjs) rides the SAME shared RFB core (vnc-source.mjs)
