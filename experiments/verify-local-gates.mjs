@@ -43,6 +43,7 @@ import { createVboxVncSource, VBOX_DEFAULT_VNC_PORT, sampleDescriptor } from './
 import { DUAL_CLOCK_TICKS, buildDecodeTable, correlateVisualDualClock } from './mprr-capture-ring/visual-dual-clock.mjs';
 import { workloadCrossPlaneReceipt } from './mprr-capture-ring/workload-cross-plane.mjs';
 import { detectSettle } from './mprr-capture-ring/settle-detect.mjs';
+import { buildWorkloadRecord } from './mprr-capture-ring/workload-benchmark.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1228,6 +1229,38 @@ check('capture-ring-settle-detect', () => {
   assert(!changing.settled, 'still changing at capture end -> fails closed');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'settle-detect.selftest.mjs')], { stdio: 'pipe' });
   return { primitive: 'detectSettle (final steady state)', suite: 'settle-detect subprocess 5/5' };
+});
+
+// Visual-ring WORKLOAD benchmark (mprr-capture-ring/workload-benchmark.mjs): assemble a boot-benchmark-v1 record
+// for a REAL workload captured through the ring (e.g. a LabVIEW IDE launch) — WIN's settle detector finds the
+// UI-READY pin, launchMs = settle - workload-start (HOST-observed, within-plane like bootToMeshMs). In-process
+// builds a synthetic launch record + self-diffs it through bootBenchmarkDiff; subprocess runs the full suite.
+check('capture-ring-workload-benchmark', () => {
+  const fr = (ms, dhashHex) => ({ ms, dhashHex });
+  const frames = [fr(1000000, '0000000000000000'), fr(1000800, '00000000000000ff'), fr(1001600, '0000ffffffffffff')];
+  for (let i = 0; i < 10; i += 1) frames.push(fr(1002400 + i * 83, 'ffffffffffffffff'));
+  const rec = buildWorkloadRecord({ frames, workloadStartMs: 1000000, meta: { plane: 'LINUX', workload: 'labview-ide-launch' }, settle: { window: 8, toleranceHamming: 2 } });
+  const launch = rec.spans.find((s) => s.id === 'launchMs');
+  assert(launch && launch.scope === 'cross-plane' && launch.ms === 2400, 'launchMs = settle - workload-start (cross-plane witness)');
+  assert(rec.frames[0].caseId === 'UI-READY' && rec.frames[0].settled === true, 'the UI-READY visual pin is sealed');
+  assert(bootBenchmarkDiff(rec, rec).verdict === 'PASS', 'the workload record self-diffs PASS through bootBenchmarkDiff');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-workload-benchmark.mjs')], { stdio: 'pipe' });
+  return { workload: 'labview-ide-launch', launchMs: launch.ms, suite: 'verify-workload-benchmark subprocess 3/3' };
+});
+
+// LabVIEW launch RECEIPT: a REAL LabVIEW 2026 IDE launch captured LIVE through the visual ring on VBox (the
+// guest's LabVIEW Getting-Started window, rendered on the console X + captured over VNC; launchMs = the settled
+// UI - the launch trigger). Re-validates the committed record's structure + self-diffs it through
+// bootBenchmarkDiff (deterministic), so the real-workload evidence can't silently rot.
+check('capture-ring-labview-launch-receipt', () => {
+  const rec = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-record.json'), 'utf8'));
+  assert(rec.schema === 'labview-benchmark-actor/boot-benchmark-v1' && rec.workload === 'labview-ide-launch', 'a LabVIEW IDE-launch record');
+  const launch = rec.spans.find((s) => s.id === 'launchMs');
+  assert(launch && launch.clock === 'host' && launch.scope === 'cross-plane' && launch.ms > 0, 'launchMs is a positive host-observed cross-plane span');
+  assert(rec.frames[0].caseId === 'UI-READY' && rec.frames[0].settled === true, 'the UI-READY visual pin is sealed');
+  assert(rec.sourceDetail.stableTailFrames >= rec.sourceDetail.settleOpts.window, 'the UI reached a stable tail >= the settle window');
+  assert(bootBenchmarkDiff(rec, rec).verdict === 'PASS', 'the real LabVIEW launch record self-diffs PASS through bootBenchmarkDiff');
+  return { workload: rec.workload, launchMs: launch.ms, stableTail: `${rec.sourceDetail.stableTailFrames}/${rec.sourceDetail.framesCaptured}` };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.

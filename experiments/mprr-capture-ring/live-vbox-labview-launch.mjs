@@ -1,0 +1,68 @@
+// live-vbox-labview-launch.mjs — LIVE benchmark of a REAL LabVIEW workload (IDE launch) through the visual ring.
+// Captures the guest display via the VBox VNC source while LabVIEW launches on the console (xinit on the freed
+// VT), then WIN's settle detector finds the "UI READY" pin and we assemble a boot-benchmark-v1 workload record:
+//   launchMs = UI-ready-settle - launch-trigger  (HOST-observed, within-plane like bootToMeshMs).
+// Ungated live entry (needs the VM + LabVIEW). Prereqs on the guest: /etc/X11/Xwrapper.config allowed_users=
+// anybody (so xinit runs from SSH), passwordless sudo, VNC VRDE on (127.0.0.1:5900).
+//
+//   Env: LBA_VNC_HOST(127.0.0.1) LBA_VNC_PORT(5900) LBA_VNC_PASSWORD LBA_FPS(12) LBA_DURATION_MS(40000)
+//        LBA_SSH_KEY(~/.ssh/lba_scratch) LBA_SSH_PORT(2222) LBA_SSH_USER(actor)
+//        LBA_LABVIEW_BIN(/usr/local/bin/labview64) LBA_TOL(3) LBA_OUT(<record path>)
+//   node experiments/mprr-capture-ring/live-vbox-labview-launch.mjs
+
+import net from 'node:net';
+import os from 'node:os';
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { createVboxVncSource, VBOX_DEFAULT_VNC_PORT } from './vbox-vnc-source.mjs';
+import { buildWorkloadRecord } from './workload-benchmark.mjs';
+
+const host = process.env.LBA_VNC_HOST ?? '127.0.0.1';
+const port = Number(process.env.LBA_VNC_PORT ?? VBOX_DEFAULT_VNC_PORT);
+const fps = Number(process.env.LBA_FPS ?? 12);
+const password = process.env.LBA_VNC_PASSWORD ?? undefined;
+const sshKey = process.env.LBA_SSH_KEY ?? `${os.homedir()}/.ssh/lba_scratch`;
+const sshPort = process.env.LBA_SSH_PORT ?? '2222';
+const sshUser = process.env.LBA_SSH_USER ?? 'actor';
+const durationMs = Number(process.env.LBA_DURATION_MS ?? 40000);
+const labviewBin = process.env.LBA_LABVIEW_BIN ?? '/usr/local/bin/labview64';
+
+// 1) Start the capture (host-clock ms + frame dhash per sampled frame).
+const frames = [];
+const src = createVboxVncSource({
+  host, port, password, fps, durationMs,
+  connect: ({ host, port }) => net.connect({ host, port }),
+  onFrame: (d) => frames.push({ ms: Date.now(), dhashHex: d.dhash64 }),
+});
+const dims = await src.ready;
+console.log(`capture connected: ${dims.width}x${dims.height} @ ${host}:${port}; launching LabVIEW + capturing ${durationMs}ms...`);
+
+// 2) Trigger the LabVIEW launch ASYNC (so the capture keeps running through it): grab the guest CLOCK_MONOTONIC
+//    for provenance, stop gdm to free the VT, xinit labview64 on the console (detached).
+const launchStartMs = Date.now();
+const remote = `m=$(awk '{print $1}' /proc/uptime); echo WORKLOAD_START_MONO=$m; sudo -n systemctl stop gdm 2>/dev/null; sleep 1; nohup xinit ${labviewBin} -- :0 vt1 -nolisten tcp > /tmp/xinit.log 2>&1 & echo TRIGGERED`;
+const ssh = spawn('ssh', ['-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=12', '-i', sshKey, '-p', sshPort, `${sshUser}@127.0.0.1`, remote]);
+let sshOut = '';
+ssh.stdout.on('data', (b) => { sshOut += b.toString(); });
+ssh.stderr.on('data', () => {});
+await new Promise((resolve) => ssh.on('close', resolve));
+const monoMatch = /WORKLOAD_START_MONO=([\d.]+)/.exec(sshOut);
+const workloadStartGuestMonoNs = monoMatch ? Math.round(Number(monoMatch[1]) * 1e9) : null;
+console.log(`launch triggered (guest mono ${monoMatch?.[1] ?? '?'}s at launch)`);
+
+// 3) Let the capture run to durationMs (LabVIEW loads + settles; the static UI = the stable tail).
+await src.done;
+console.log(`captured ${frames.length} frames`);
+
+// 4) Assemble the workload record: WIN's settle detector -> launchMs + the UI-READY visual pin.
+const rec = buildWorkloadRecord({
+  frames,
+  workloadStartMs: launchStartMs,
+  meta: { plane: 'LINUX', hypervisor: 'vbox-vnc', workload: 'labview-ide-launch', workloadStartGuestMonoNs },
+  settle: { window: Number(process.env.LBA_WINDOW ?? 10), toleranceHamming: Number(process.env.LBA_TOL ?? 3) },
+});
+const launch = rec.spans.find((s) => s.id === 'launchMs');
+console.log(`LabVIEW IDE launch (visual ring): launchMs=${launch.ms}ms (host-observed, cross-plane witness)`);
+console.log(`  UI-READY pin: dhash ${rec.frames[0].perceptualFingerprint}, settleMs +${rec.sourceDetail.settleMs - launchStartMs}ms, stable tail ${rec.sourceDetail.stableTailFrames}/${rec.sourceDetail.framesCaptured} frames`);
+if (process.env.LBA_OUT) { writeFileSync(process.env.LBA_OUT, `${JSON.stringify(rec, null, 2)}\n`); console.log(`record -> ${process.env.LBA_OUT}`); }
+console.log('done: real LabVIEW workload benchmarked through the visual ring.');
