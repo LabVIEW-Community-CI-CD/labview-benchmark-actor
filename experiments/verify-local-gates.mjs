@@ -862,6 +862,19 @@ check('mprr-absorbed-constants-match-mprr-spec', () => {
   assert(ADMISSION_CAPACITY_HEADROOM === 1.1, `MPRR-REQ-110 admission headroom must be 1.1 (10 pct), got ${ADMISSION_CAPACITY_HEADROOM}`);
   return { blockMs: DEFAULT_BLOCK_DURATION_MS, headroomPct: (ADMISSION_CAPACITY_HEADROOM - 1) * 100, ticksPerMs: Number(TICKS_PER_MS) };
 });
+
+// README stays Marketplace-safe: repo-relative links 404 on the listing page.
+// Shift-left of the agent last gate's `readme-marketplace-safe` check so every PR's
+// CI catches a broken listing link before it can reach the final pre-publish gate.
+check('readme-marketplace-safe-links', () => {
+  const readme = readFileSync(join(pkgRoot, 'README.md'), 'utf8');
+  const rel = [...readme.matchAll(/\]\(([^)]+)\)/g)]
+    .map((m) => m[1].trim())
+    .filter((t) => !/^https?:/.test(t) && !t.startsWith('#') && !t.startsWith('mailto:'));
+  assert(rel.length === 0,
+    `README has ${rel.length} repo-relative link(s) that 404 on the Marketplace listing: ${rel.slice(0, 4).join(', ')}${rel.length > 4 ? ' ...' : ''}`);
+  return { links: 'all absolute or anchors' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
