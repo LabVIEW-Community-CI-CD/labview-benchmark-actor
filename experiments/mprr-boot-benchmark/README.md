@@ -130,6 +130,11 @@ proves a sync and an async backend seal a byte-identical record).
   guest-clock `cross-plane` spans (`buildMs`, `meshFormMs`) are always compared; the host-clock
   `within-plane` span (`bootToMeshMs`) is **refused across different hypervisors**
   (`incomparable-cross-plane`) — comparing it VBox↔VMware would diff firmware, not the build.
+- **Per-span tolerance.** `timingToleranceMs` may be a number (all spans) or an object
+  `{ default, buildMs, meshFormMs, … }`. `buildMs` is deterministic (tight), but `meshFormMs`
+  (`LBABUS-BUILT` → `MESH-OK`) carries mesh-formation variance (peer readiness + the `Restart=always` retry
+  cadence), so it wants a wider tolerance — or list it in `witnessSpans` to compare + report it cross-plane
+  (`witness-*`, surfaced in `timing.witnessDeltas`) without letting its noise fail the gate.
 - **Visual = a witness.** Reuses [`frame-diff.mjs`](../manual-procedure-record/frame-diff.mjs) to Hamming the
   milestone `settled` frames, re-scored against each milestone's `visual.perMilestone.hammingTolerance`. It
   does not fail the gate unless the record sets `visual.gated=true`. A declared `roiMask` can't be applied
@@ -141,7 +146,7 @@ proves a sync and an async backend seal a byte-identical record).
 ```bash
 node experiments/mprr-boot-benchmark/verify-boot-benchmark.mjs         # 41/41, no VM required
 node experiments/mprr-boot-benchmark/verify-boot-benchmark-vmware.mjs  # 23/23, no VM required (VMware backend + RFB decode)
-node experiments/mprr-boot-benchmark/verify-boot-benchmark-diff.mjs    # 25/25, no VM required (cross-iteration timing gate + visual witness)
+node experiments/mprr-boot-benchmark/verify-boot-benchmark-diff.mjs    # 34/34, no VM required (cross-iteration timing gate + per-span tolerance + visual witness)
 node experiments/verify-local-gates.mjs                                # boot-benchmark-{seal-spans-and-fail-closed, vmware-vnc-backend, cross-iteration-diff}
 ```
 
