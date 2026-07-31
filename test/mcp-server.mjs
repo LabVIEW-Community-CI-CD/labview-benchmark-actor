@@ -255,4 +255,47 @@ await new Promise((resolve, reject) => {
   send({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_host_capabilities' } });
 });
 console.log('mcp-stdio: PASS -- spawned server round-trips initialize + tools/list + tools/call over stdio');
+
+// ---- 4. STDIO with lbabus ABSENT (broken PATH): get_host_capabilities degrades to a SOFT ENOENT isError,
+//         not a transport crash -- the graceful-degradation path for an agent on a host without lbabus. ----
+await new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [serverPath], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, PATH: '/nonexistent-lba-path' },
+  });
+  let buf = '';
+  const timer = setTimeout(() => {
+    child.kill();
+    reject(new Error('stdio ENOENT round-trip timed out'));
+  }, 15000);
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => {
+    buf += chunk;
+    let i = buf.indexOf('\n');
+    while (i >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      i = buf.indexOf('\n');
+      if (!line) continue;
+      const msg = JSON.parse(line);
+      if (msg.id !== 7) continue;
+      clearTimeout(timer);
+      try {
+        assert(msg.result && msg.result.isError === true, '[stdio-noenv] lbabus-absent get_host_capabilities is a soft isError, not a crash');
+        assert(/not on PATH|lbabus/i.test(msg.result.content[0].text), `[stdio-noenv] the soft error names the missing lbabus CLI, got: ${msg.result.content[0].text}`);
+      } catch (e) {
+        child.kill();
+        reject(e);
+        return;
+      }
+      child.stdin.end();
+      child.on('close', () => resolve());
+    }
+  });
+  child.stderr.on('data', () => {}); // ready banner + diagnostics; ignore
+  child.on('error', reject);
+  child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 6, method: 'initialize' })}\n`);
+  child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'get_host_capabilities' } })}\n`);
+});
+console.log('mcp-stdio-noenv: PASS -- lbabus-absent host capabilities degrades to a soft isError (no crash)');
 console.log('mcp-server: PASS');
