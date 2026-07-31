@@ -10,6 +10,18 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+### Added
+
+- **`lbabus net send --stream` — persistent-connection, multi-frame streaming.** One TCP connection carries
+  `--count N` seq'd `bus-msg@1` frames (`seq S..S+N-1`; `--seq` sets S) plus an optional terminal `DONE(S+N-1)`
+  via `--done`, with a **single bulk flush** (`BusWire.WriteFrame(..., flush: false)`) instead of the
+  per-frame connect + flush of the single-frame send. This lifts a source from the ~O(100) frames/s of the
+  one-process-per-frame model to the transport/disk ceiling while preserving the bus framing and strict
+  per-`(sessionId, senderId)` seq order. Payload is `--message`/`--message-file`, or `--frame-bytes B` filler
+  for throughput. Measured (host loopback, net8 via `DOTNET_ROLL_FORWARD=Major` on a net10 runtime): ~784k
+  small frames/s; ~3.0 GB/s to the wire; ~1.46 GB/s landed on NVMe (disk-bound). Back-compat: without
+  `--stream`, `net send` is byte-for-byte unchanged.
+
 ## [0.12.0] — 2026-07-30
 
 ### Added
