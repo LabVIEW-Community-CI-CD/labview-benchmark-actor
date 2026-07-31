@@ -160,6 +160,147 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(root.getAttribute('data-selected-index') === '0', 'Home scrubs back to frame 0');
 }
 
+// --- 4. DEGENERATE / ALTERNATIVE branch fixtures: prove the builders render their FALLBACK markup for the
+//        paths the happy-path fixtures never reach (absent fields, non-PASS verdicts, drift/breach, negative
+//        deltas, missing planes/metrics). This is the branch-coverage floor for the shipped UI builders. ------
+
+// 4a. single-run panel, FULLY degenerate record ({}) -> "no captured frame", em-dash headline, 'metric' span.
+{
+  const dom = new JSDOM(buildBenchmarkPanelHtml({}, NONCE));
+  const doc = dom.window.document;
+  assert(doc.body.textContent.includes('no captured frame'), 'degenerate run panel shows the no-frame placeholder');
+  assert(!doc.querySelector('img'), 'degenerate run panel embeds no frame image');
+  const hl = doc.querySelector('.headline');
+  assert(hl && hl.textContent.trim().startsWith('\u2014'), `degenerate run panel headline is an em-dash, got: ${hl && hl.textContent}`);
+  assert(doc.querySelector('.headline small').textContent.includes('metric'), 'degenerate run panel falls back to the metric span label');
+  assert(doc.querySelectorAll('td.v').length === 0, 'degenerate run panel has no stat rows');
+}
+
+// 4b. single-run panel, PARTIAL record: a non-launchMs span with a non-numeric ms + an unsettled, fingerprint-
+//     less frame -> spans[0]/frames[0] fallbacks, span stats present but the dhash/integrity rows skipped.
+{
+  const partial = {
+    workload: 'partial',
+    spans: [{ id: 'bootMs', ms: 'n/a', from: 'a', to: 'b', clock: 'mono', scope: 'proc' }],
+    frames: [{ index: 0, settled: false }],
+  };
+  const dom = new JSDOM(buildBenchmarkPanelHtml(partial, NONCE));
+  const doc = dom.window.document;
+  assert(doc.querySelector('.headline').textContent.trim().startsWith('\u2014'), 'partial run panel headline is an em-dash (non-numeric ms)');
+  assert(doc.querySelector('.headline small').textContent.includes('bootMs'), 'partial run panel labels the first span (bootMs) as primary');
+  assert(doc.body.textContent.includes('no captured frame'), 'partial run panel shows no-frame (frame lacks a fingerprint)');
+  const cells = [...doc.querySelectorAll('td.v')].map((td) => td.textContent);
+  assert(cells.some((c) => c.includes('mono / proc')), `partial run panel shows the span clock/scope stat, got: ${cells.join(' | ')}`);
+  assert(!cells.some((c) => /\b[0-9a-f]{16}\b/.test(c)), 'partial run panel skips the dhash/integrity rows (no fingerprint)');
+}
+
+// 4c. trend panel, REGRESSING + DRIFTING: FAIL badge, over-baseline red markers, DRIFTING + BREACHED ceiling.
+{
+  const regress = {
+    workload: 'lv', metric: 'launchMs', plane: 'WIN', hypervisor: 'vmware',
+    values: [100, 120, 140], verdict: 'REGRESSION', regressed: true,
+    baselineMs: 100, toleranceMs: 10, driftThresholdMsPerRun: 5, drifting: true,
+    slopeMsPerRun: 20, latest: 140, stats: { mean: 120, median: 120, min: 100, max: 140, stddev: 16, spread: 40 },
+  };
+  const dom = new JSDOM(buildTrendPanelHtml(regress, NONCE));
+  const doc = dom.window.document;
+  const badge = doc.querySelector('.badge');
+  assert(badge && badge.textContent.trim() === 'REGRESSION' && badge.classList.contains('fail'), `regressing trend shows the REGRESSION fail badge, got: ${badge && badge.textContent}`);
+  assert(doc.querySelector('svg.chart circle[fill="#ff7b72"]'), 'regressing trend paints over-baseline runs with the red marker');
+  assert(doc.body.textContent.includes('DRIFTING'), 'regressing trend reports the drift verdict');
+  assert(doc.body.textContent.includes('BREACHED'), 'regressing trend reports the breached regression ceiling');
+}
+
+// 4d. trend panel, VERDICT-ABSENT + not regressed + no tolerance -> computed PASS, stable drift, no ceiling.
+{
+  const noVerdict = {
+    workload: 'lv', metric: 'launchMs', plane: 'LINUX', hypervisor: 'vbox',
+    values: [90, 92, 91], regressed: false, driftThresholdMsPerRun: 5, drifting: false,
+    slopeMsPerRun: 0.5, latest: 91, stats: { median: 91 },
+  };
+  const dom = new JSDOM(buildTrendPanelHtml(noVerdict, NONCE));
+  const doc = dom.window.document;
+  const badge = doc.querySelector('.badge');
+  assert(badge && badge.textContent.trim() === 'PASS' && badge.classList.contains('pass'), `verdict-absent trend computes PASS, got: ${badge && badge.textContent}`);
+  assert(doc.body.textContent.includes('stable'), 'verdict-absent trend reports the stable drift verdict');
+  assert(!doc.body.textContent.includes('regression ceiling'), 'verdict-absent trend omits the ceiling legend (no tolerance)');
+}
+
+// 4e. trend panel, SINGLE run (n=1), verdict-absent + regressed -> computed REGRESSION, one marker, no polyline.
+{
+  const single = { workload: 'lv', metric: 'launchMs', values: [200], regressed: true, stats: {} };
+  const dom = new JSDOM(buildTrendPanelHtml(single, NONCE));
+  const doc = dom.window.document;
+  const svg = doc.querySelector('svg.chart');
+  assert(doc.querySelector('.badge').textContent.trim() === 'REGRESSION', 'single-run + regressed computes REGRESSION');
+  assert(!svg.querySelector('polyline'), 'single-run trend draws no series polyline (n<2)');
+  assert(svg.querySelectorAll('circle').length === 2, `single-run trend draws one marker + the latest ring, got ${svg.querySelectorAll('circle').length}`);
+}
+
+// 4f. trend panel, EMPTY (n=0) -> no markers, no polyline.
+{
+  const empty = { workload: 'lv', metric: 'launchMs', values: [], stats: {} };
+  const dom = new JSDOM(buildTrendPanelHtml(empty, NONCE));
+  const doc = dom.window.document;
+  const svg = doc.querySelector('svg.chart');
+  assert(svg.querySelectorAll('circle').length === 0, 'empty trend draws no run markers');
+  assert(!svg.querySelector('polyline'), 'empty trend draws no polyline');
+}
+
+// 4g. cross-plane trend, NON-PASS verdict + a MISSING plane + null witness deltas + no flags + an empty series.
+{
+  const failReceipt = {
+    workload: 'lv', metric: 'launchMs', verdict: 'REVIEW',
+    witness: { meanDeltaMs: 5, status: 'within', toleranceMs: 20, faster: 'LINUX' },
+    linux: { hypervisor: 'vbox', mean: 90, median: 91, spread: 4, slopeMsPerRun: 0.2, verdict: 'PASS' },
+    flags: [],
+  };
+  const dom = new JSDOM(buildCrossPlaneTrendPanelHtml(failReceipt, { values: [] }, { values: [90, 91, 92] }, NONCE));
+  const doc = dom.window.document;
+  const badge = doc.querySelector('.badge');
+  assert(badge && badge.textContent.trim() === 'REVIEW' && badge.classList.contains('fail'), `cross-plane non-PASS verdict badge, got: ${badge && badge.textContent}`);
+  assert(doc.body.textContent.includes('WIN (?)'), 'cross-plane panel falls back to ? for the absent WIN hypervisor');
+  assert(doc.querySelectorAll('.card').length === 2, `cross-plane panel renders no WIN plane card (witness + LINUX only), got ${doc.querySelectorAll('.card').length}`);
+  assert(doc.querySelectorAll('svg.chart polyline').length === 1, 'cross-plane panel draws only the non-empty (LINUX) series polyline');
+  assert(doc.body.textContent.includes('none'), 'cross-plane panel shows no flags');
+}
+
+// 4h. resource panel, DEGENERATE: <2 samples (empty sparklines), a missing window, a negative delta.
+{
+  const degRc = {
+    workload: 'lv', plane: 'WIN', hypervisor: 'vmware', launchMs: 3000, triggerEpochMs: 1000,
+    samples: [{ epochMs: 1000, cpuPct: 5, ramMb: 10, diskPct: 1 }],
+    windows: { cpu: { pre: { mean: 50 }, post: { mean: 40 }, deltaMean: -10 }, disk: { pre: {}, post: {}, deltaMean: 0 } },
+    preSampleCount: 0, postSampleCount: 1, triggerFrameIndex: 0, hostGuestOffsetMs: 0,
+  };
+  const dom = new JSDOM(buildResourcePanelHtml(degRc, NONCE));
+  const doc = dom.window.document;
+  assert(doc.querySelectorAll('svg').length === 3, 'resource panel still renders three metric svgs');
+  assert(doc.querySelectorAll('svg polyline').length === 0, 'resource panel draws no sparkline polylines (< 2 samples)');
+  assert(doc.body.textContent.includes('\u2014'), 'resource panel shows an em-dash for the missing-window means');
+  assert(doc.body.textContent.includes('-10'), 'resource panel shows the negative CPU delta');
+}
+
+// 4i. cross-plane resource, NON-PASS + a DISAGREE metric + a MISSING metric (no RAM headline) + negative delta.
+{
+  const degCross = {
+    workload: 'lv', verdict: 'REVIEW', win: { hypervisor: 'vmware' }, linux: { hypervisor: 'vbox' }, launchDeltaMs: -5,
+    metrics: {
+      cpu: { status: 'disagree', win: { deltaMean: -3 }, linux: { deltaMean: 2 }, agreementDelta: 5, toleranceDelta: 1, witness: true },
+      disk: { status: 'agree', win: {}, linux: {}, agreementDelta: 0, toleranceDelta: 1 },
+    },
+  };
+  const dom = new JSDOM(buildCrossPlaneResourcePanelHtml(degCross, NONCE));
+  const doc = dom.window.document;
+  const badge = doc.querySelector('h2 .badge');
+  assert(badge && badge.textContent.trim() === 'REVIEW' && badge.classList.contains('fail'), `cross-plane resource non-PASS badge, got: ${badge && badge.textContent}`);
+  assert(doc.body.textContent.includes('DISAGREE'), 'cross-plane resource shows the DISAGREE metric status');
+  assert(doc.body.textContent.includes('AGREE'), 'cross-plane resource shows the AGREE metric status');
+  assert(doc.body.textContent.includes('witness'), 'cross-plane resource tags the witnessed metric');
+  assert(doc.body.textContent.includes('-3'), 'cross-plane resource shows the negative WIN delta');
+  assert(!doc.body.textContent.includes('RAM agreement:'), 'cross-plane resource omits the RAM headline when the ram metric is absent');
+}
+
 console.log(
   'panels-render: PASS -- the single-run + trend panels render their real launchMs/verdict/stats, and the ' +
     'frame correlator renders its CPU/RAM/disk curves + captured screenshot and tracks the red scrub line (jsdom).'
