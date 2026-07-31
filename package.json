@@ -106,6 +106,10 @@
       {
         "command": "labviewBenchmarkActor.checkAgents",
         "title": "LabVIEW Benchmark Actor: Check Agent Instructions"
+      },
+      {
+        "command": "labviewBenchmarkActor.createCleanroom",
+        "title": "LabVIEW Benchmark Actor: Create Cleanroom Worker VM"
       }
     ],
     "languageModelTools": [
