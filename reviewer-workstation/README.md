@@ -63,6 +63,23 @@ by listing extensions, and drops `C:\lba-review\REVIEW-CHECKLIST.txt` for the re
 Code in the VM and inspect the Extensions-view README page (the Marketplace listing), the command
 surface, and the benchmark viewer. Nothing is published until the reviewer approves.
 
+## Drive it from a Copilot agent (in the VM)
+
+Once the extension is installed in the VM, open VS Code there. The **Get started with LabVIEW Benchmark
+Actor** walkthrough opens automatically (or: `Ctrl+Shift+P` → `Welcome: Open Walkthrough...`), and every
+panel is under `Ctrl+Shift+P` → `LabVIEW Benchmark Actor: Open ...`.
+
+To review it the **agentic** way, open **Copilot Chat → Agent** mode in the VM and paste:
+
+> Use the LabVIEW Benchmark Actor tools: call #lbaBenchmarkSummary to summarize the captured benchmark
+> numbers, then use #lbaBenchmarkPanel to open the trend, the frame correlator, and the cross-plane
+> resource agreement panels, and explain what each one shows.
+
+The agent calls the extension's language-model tools — `lba-benchmark-summary` (the real launchMs / trend /
+cross-plane / resource numbers) and `lba-open-benchmark-panel` (opens `run` | `trend` | `frameCorrelator` |
+`crossPlaneTrend` | `resourceProfile` | `crossPlaneResource`) — so the panels open and the agent explains
+them without any menu hunting.
+
 ## Configuration (env)
 
 | Variable | Default | Purpose |

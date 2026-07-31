@@ -22,6 +22,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
   - **Open Benchmark Resource Profile** — CPU / RAM / disk sampled live during the launch and correlated
     to the frame timeline, split at the UI-READY trigger (pre = launching → post = settled).
   - **Open Cross-Plane Resource Agreement** — the two planes' resource deltas with per-metric agreement.
+- **Get Started walkthrough** — a guided *"Get started with LabVIEW Benchmark Actor"* walkthrough (opens on
+  install) that steps through the panels so the extension is self-explanatory.
+- **Copilot agent tools** — two language-model tools let a Copilot **agent** drive the extension from a
+  prompt: `lba-open-benchmark-panel` (open any panel) and `lba-benchmark-summary` (summarize the captured
+  numbers). Reference them in a prompt as `#lbaBenchmarkPanel` / `#lbaBenchmarkSummary`.
 
 ### Notes
 - First release to also carry the 0.2.0 additions (the dependency-free MCP stdio server + Marketplace
