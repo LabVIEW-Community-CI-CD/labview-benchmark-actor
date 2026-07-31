@@ -51,6 +51,7 @@ import { buildLaunchCapture } from './mprr-capture-ring/launch-capture.mjs';
 import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
+import { verifyDepManifest } from './labview-authoring/verify-dep-manifest.mjs';
 import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-plane.mjs';
 import { execFileSync } from 'node:child_process';
 
@@ -1442,6 +1443,22 @@ check('capture-ring-resource-cross-plane', () => {
   const committed = fx('resource-cross-plane-receipt.json');
   assert(JSON.stringify(committed) === JSON.stringify(receipt), 'the committed resource cross-plane receipt matches a fresh recompute (no rot)');
   return { launchDeltaMs: receipt.launchDeltaMs, ramWin: receipt.metrics.ram.win.deltaMean, ramLinux: receipt.metrics.ram.linux.deltaMean, ramAgree: receipt.metrics.ram.agreementDelta };
+});
+
+// Authoring dependency manifest (LBA-REQ-017): the pinned external-dependency manifest for the LabVIEW-authoring
+// + lvkit static self-test track (experiments/labview-authoring/) must validate through its dependency-free,
+// OFFLINE, fail-closed verifier, and a malformed pin must fail closed. Subprocess-runs the verifier's own
+// self-test. Authoring-namespaced + kept out of the benchmark/0.3.0 code+fixtures per the scope guard, but run
+// by the one shared per-PR gate runner (so CI actually invokes verify-dep-manifest).
+check('authoring-dep-manifest', () => {
+  const manifest = JSON.parse(readFileSync(join(here, 'labview-authoring', 'dep-manifest.json'), 'utf8'));
+  const r = verifyDepManifest(manifest);
+  assert(r.ok, `the committed dep-manifest must validate: ${r.errors.join('; ')}`);
+  assert(r.summary.gitRepos >= 2 && r.summary.pipTools >= 1 && r.summary.vipmPackages >= 1, 'the manifest carries the three pinned sections');
+  const bad = JSON.parse(JSON.stringify(manifest)); bad.gitRepos[0].pin = 'bad pin!';
+  assert(!verifyDepManifest(bad).ok, 'a malformed pin fails closed');
+  execFileSync(process.execPath, [join(here, 'labview-authoring', 'verify-dep-manifest.selftest.mjs')], { stdio: 'pipe' });
+  return { resolved: r.summary.resolved, tbd: r.summary.tbd, sections: `${r.summary.gitRepos} git / ${r.summary.pipTools} pip / ${r.summary.vipmPackages} vipm` };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
