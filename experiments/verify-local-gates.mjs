@@ -1611,6 +1611,10 @@ check('provider-delegation-registry', () => {
   execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-registry.mjs')], { stdio: 'pipe' });
   return { suite: 'verify-registry 9/9 (capability + liveness routing + load-balance across a multi-worker pool)' };
 });
+check('provider-delegation-vipm-gate', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-vipm-gate.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-vipm-gate 36/36 (credential-from-file activate/login, redaction=no secret leak, Community-only-in-public-repo licensing)' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
