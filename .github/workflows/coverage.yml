@@ -1,0 +1,39 @@
+# PR Coverage Gate — ISO/IEC/IEEE 29119-2/3 test-coverage evidence for labview-benchmark-actor.
+#
+# The status context this publishes is "PR Coverage Gate / coverage" (workflow name / job name). It runs the
+# extension test suite under c8, emits a Cobertura coverage.xml, and FAILS below the configured line-coverage
+# threshold (fail-under, see .c8rc.json). This is the authoritative coverage gate the repo-standards-review CM
+# / TEST lens scores; the committed coverage/cobertura-coverage.xml is the retained coverage artifact.
+name: PR Coverage Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests under coverage (c8 -> Cobertura coverage.xml, fail-under threshold)
+        run: npm run test:coverage
+
+      - name: Upload coverage artifact (coverage.xml)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/cobertura-coverage.xml
+          if-no-files-found: error

@@ -46,6 +46,17 @@
   Node-level logic. `[Assumption]` browser harness stays out of hosted CI (it
   ships as a maintainer harness), consistent with `vi-history-suite`.
 
+## Test coverage (PR Coverage Gate)
+
+Test coverage is measured with **c8** (V8 coverage) and enforced by the **PR Coverage Gate**
+(`.github/workflows/coverage.yml`, status context `PR Coverage Gate / coverage`): `npm run test:coverage`
+runs the suite under c8, emits a **Cobertura** `coverage/cobertura-coverage.xml` (the retained coverage
+artifact), and FAILS below the line-coverage **threshold** (fail-under). The thresholds are parametrized in
+`coverage-thresholds.json` (the single knob) and RATCHET upward gradually -- `npm run coverage:bump` raises
+each floor toward the measured coverage by at most `step`, capped at `target`, and never lowers a floor.
+Adoption floors: lines/statements 70%, functions 58%, branches 45% (measured 73/73/62/49%). Gated locally by
+`coverage-artifact-meets-floor` in `verify-local-gates`.
+
 ## Local CI/CD verification (local gate)
 
 Local CI/CD **is** testing for this package: the retained experiment receipts

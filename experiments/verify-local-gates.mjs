@@ -476,6 +476,22 @@ check('gitflow-branch-governance-documented', () => {
   return { rules: ['feature', 'release', 'hotfix'], adr: 'ADR-0010' };
 });
 
+// 17d. Coverage gate (LBA-REQ-016 CM / ISO-IEC-IEEE 29119): the committed Cobertura coverage artifact meets
+//      the parametrized floor in coverage-thresholds.json (the PR Coverage Gate workflow enforces it live and
+//      `npm run coverage:bump` ratchets the floor up gradually). Dep-free static check.
+check('coverage-artifact-meets-floor', () => {
+  const floor = readJson('coverage-thresholds.json').floor;
+  const xml = readFileSync(join(pkgRoot, 'coverage', 'cobertura-coverage.xml'), 'utf8');
+  const m = xml.match(/line-rate="([0-9.]+)"/);
+  assert(m, 'coverage/cobertura-coverage.xml must carry a line-rate');
+  const linePct = Number(m[1]) * 100;
+  assert(linePct >= floor.lines, `coverage line-rate ${linePct.toFixed(2)}% must meet the parametrized floor ${floor.lines}%`);
+  const wf = join(pkgRoot, '.github', 'workflows', 'coverage.yml');
+  assert(existsSync(wf), 'the PR Coverage Gate workflow (.github/workflows/coverage.yml) must exist');
+  assert(/name:\s*PR Coverage Gate/.test(readFileSync(wf, 'utf8')), 'workflow must publish the "PR Coverage Gate / coverage" context');
+  return { linePct: +linePct.toFixed(2), floor: floor.lines };
+});
+
 // 18. Viewer time-cursor logic receipt is green: pointer + keyboard map to an in-bounds sample and no
 //     operation selects outside the run window (LBA-REQ-004, T-004). The browser/webview render is the
 //     maintainer step.
