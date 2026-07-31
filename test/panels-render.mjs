@@ -22,7 +22,7 @@ function assert(cond, msg) {
   }
 }
 
-const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, buildResourcePanelHtml, buildCrossPlaneResourcePanelHtml } = await import(
+const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, buildResourcePanelHtml, buildCrossPlaneResourcePanelHtml, scrubberModelFromTrend, scrubberModelFromRecord, dhashGridCells } = await import(
   mediaUrl('benchmark-panels.mjs')
 );
 const { buildLaunchCapture } = await import(mediaUrl('launch-capture.mjs'));
@@ -408,6 +408,31 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(doc.querySelector('svg.chart'), 'cross-plane trend renders the chart frame even when both series are empty');
   assert(doc.querySelectorAll('svg.chart polyline').length === 0, 'cross-plane trend with empty series draws no polylines');
   assert(doc.body.textContent.includes('degenerate'), 'cross-plane trend lists the receipt flags when present');
+}
+
+// --- 5. shipped scrubber-model mappers + dhash guard: media/benchmark-panels.mjs also ships the frame-scrubber
+//        model builders (the GATED experiment scrubber's data source, not the extension's current correlator)
+//        + the dhash grid helpers. Prove the shipped API (verify-benchmark-panels.mjs is the exhaustive guard).
+{
+  let badHex = false;
+  try { dhashGridCells('not-16-hex-str'); } catch { badHex = true; }
+  assert(badHex, 'dhashGridCells rejects non-dhash-64 input (the single-source dhash guard)');
+
+  const sm = scrubberModelFromTrend(trend, { pinDhash: record.frames[0].perceptualFingerprint });
+  assert(sm.points.length === trend.values.length && sm.selectedIndex === trend.values.length - 1, 'scrubberModelFromTrend maps one point per run, latest selected');
+  assert(sm.points.every((p) => typeof p.image === 'string' && p.image.startsWith('data:image/svg+xml')), 'each scrubber point carries the UI-READY frame as a data: svg image');
+  assert(sm.points[0].metricValue === Number(trend.values[0]), 'scrubber points carry the run metric value');
+  const smDefault = scrubberModelFromTrend(trend);
+  assert(smDefault.points[0].image.startsWith('data:image/svg+xml'), 'scrubberModelFromTrend uses a neutral pin grid when none is supplied');
+  let noVals = false;
+  try { scrubberModelFromTrend({ values: [] }); } catch { noVals = true; }
+  assert(noVals, 'scrubberModelFromTrend throws on an empty trend');
+
+  const rm = scrubberModelFromRecord(record);
+  assert(rm.points.length >= 1 && rm.points[rm.points.length - 1].image.startsWith('data:image/svg+xml'), 'scrubberModelFromRecord maps fingerprinted frames to scrubber points');
+  let noFrames = false;
+  try { scrubberModelFromRecord({ frames: [] }); } catch { noFrames = true; }
+  assert(noFrames, 'scrubberModelFromRecord throws when the record has no fingerprinted frames');
 }
 
 console.log(
