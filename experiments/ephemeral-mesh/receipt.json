@@ -1,0 +1,72 @@
+{
+  "schema": "labview-benchmark-actor/ephemeral-mesh-receipt-v1",
+  "concept": "ephemeral-mesh@1",
+  "requirement": "LBA-REQ-006",
+  "alsoRequirements": [
+    "LBA-REQ-007"
+  ],
+  "test": "T-EPHEMERAL-MESH-P1",
+  "ranAt": "2026-07-31T09:13:03.603Z",
+  "plane": "LINUX",
+  "hypervisor": "virtualbox",
+  "transport": "lbabus net -- labview-benchmark-actor/bus-msg@1, ADR-0003/0004 (loopback 127.0.0.1 TCP+UDP)",
+  "lifecycle": {
+    "model": "golden snapshot -> linked clone -> boot -> run -> destroy (cattle, no reboot-survival)",
+    "goldenVm": "lba-ubuntu2404-labview2026-scratch",
+    "goldenSnapshot": "mesh-node-ready",
+    "cloneVm": "lba-ephemeral-1785489183603",
+    "cloneType": "linked",
+    "identity": "actor (dev-default, non-secret) via SSH key auth",
+    "memoryMb": 4096,
+    "cpus": 2,
+    "bootSeconds": 13,
+    "survivesReboot": false,
+    "destroyed": true,
+    "removalConfirmed": true
+  },
+  "node": {
+    "hostname": "actor",
+    "user": "actor",
+    "lbabusVersion": "0.11.0",
+    "meshIdentity": "mesh-11"
+  },
+  "loopbackMesh": {
+    "tcpPort": 47420,
+    "udpPort": 47421,
+    "bind": "127.0.0.1",
+    "tcpFramesReceived": 1,
+    "udpDistinctSenders": 1,
+    "meshOk": true
+  },
+  "asserts": {
+    "sshKeyAuthNoPassword": true,
+    "lbabusPresent": true,
+    "tcpLoopback": true,
+    "udpLoopback": true,
+    "meshOk": true,
+    "cloneCreated": true,
+    "cloneDestroyed": true,
+    "commsOnly": true,
+    "noRebootSurvivalNeeded": true
+  },
+  "pass": true,
+  "nodeLog": [
+    "[actor] loopback mesh proof: lbabus=/usr/local/bin/lbabus (0.11.0) tcp=47420 udp=47421",
+    "RESULT actor=actor",
+    "RESULT lbabus_version=0.11.0",
+    "RESULT tcp_port=47420",
+    "RESULT udp_port=47421",
+    "RESULT tcp_frames=1",
+    "RESULT udp_distinct=1",
+    "--- BEGIN tcp_out ---",
+    "TCP 127.0.0.1:42832  [2026-07-31T09:13:18.786Z] ACTOR #1785489198 CLAIM task:mesh-loopback — loopback hello from actor",
+    "--- END tcp_out ---",
+    "--- BEGIN udp_out ---",
+    "UDP 127.0.0.1  [2026-07-31T09:13:18.890Z] ACTOR #1 PROGRESS task:mesh-loopback — ACTOR present",
+    "UDP 127.0.0.1  [2026-07-31T09:13:19.994Z] ACTOR #2 PROGRESS task:mesh-loopback — ACTOR present",
+    "UDP 127.0.0.1  [2026-07-31T09:13:21.043Z] ACTOR #3 PROGRESS task:mesh-loopback — ACTOR present",
+    "--- END udp_out ---",
+    "[actor] MESH OK (loopback TCP+UDP)",
+    "RESULT mesh_ok=true"
+  ]
+}
