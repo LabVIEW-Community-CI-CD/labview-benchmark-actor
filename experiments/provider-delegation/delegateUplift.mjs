@@ -14,6 +14,7 @@ import net from 'node:net';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { selectAdapter } from './providerAdapters.mjs';
+import { buildCoverageLiftPrompt, acceptanceCoverageLift } from './coverageLift.mjs';
 
 export const TASK_SCHEMA = 'labview-benchmark-actor/lba-uplift-task@v1';
 export const RECEIPT_SCHEMA = 'labview-benchmark-actor/lba-uplift-delegation-receipt@v1';
@@ -31,6 +32,7 @@ export function validateTask(task) {
 // Build the provider prompt from the task-spec: the brief + an explicit output contract (required sections +
 // minimum length) so a REAL provider is steered to satisfy the SAME acceptance gate the mock satisfies.
 export function buildPrompt(task) {
+  if (task.domain === 'coverage-lift') return buildCoverageLiftPrompt(task);
   const sections = Array.isArray(task.requiredSections) ? task.requiredSections : [];
   const min = Number.isFinite(task.minChars) ? task.minChars : 200;
   let p = `You are a ${task.domain} agent for the labview-benchmark-actor project. `;
@@ -68,11 +70,13 @@ export async function runDelegation(task, { provider = 'ollama', model, drive, a
   const res = await driveFn(prompt, { model: model || task.model, sections });
   const ms = Math.round(performance.now() - t0);
   if (typeof onText === 'function') onText(res.text || '');
-  const acc = res.ok
-    ? acceptance(task, res.text)
-    : { checks: [{ name: 'provider-ok', ok: false }], verdict: 'fail' };
+  const acc = !res.ok
+    ? { checks: [{ name: 'provider-ok', ok: false }], verdict: 'fail' }
+    : task.domain === 'coverage-lift'
+      ? await acceptanceCoverageLift(task, res.text)
+      : acceptance(task, res.text);
   const verdict = res.ok && acc.verdict === 'pass' ? 'pass' : 'fail';
-  return {
+  const receipt = {
     schema: RECEIPT_SCHEMA,
     generatedAt: new Date().toISOString(),
     task: { domain: task.domain, id: task.id, provider: res.provider ?? provider, model: res.model ?? (model || task.model) ?? null },
@@ -81,6 +85,8 @@ export async function runDelegation(task, { provider = 'ollama', model, drive, a
     acceptance: acc,
     verdict,
   };
+  if (acc.coverage) receipt.coverage = acc.coverage;
+  return receipt;
 }
 
 // Optional: announce the receipt over lbabus as an ADR-0003-framed DONE frame (4-byte BE length + one
