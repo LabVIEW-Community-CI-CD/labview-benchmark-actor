@@ -160,3 +160,29 @@ miss → fail. Strict serialization is thus a **fails-closed, re-runnable gate**
 
 Same `NODE_TYPE` field, same serialization contract on the Windows plane (`mesh-actor.ps1`), same receipt —
 so a `source` on one plane and a `sink` on the other is a valid, gate-able cross-plane mesh (feeds P4).
+
+## 10. Throughput (measured — the design's upper limit)
+
+Stress-tested on the working Ubuntu box (6 vCPU, lbabus 0.11.0), loopback to isolate the pipeline from the
+network. Re-runnable via [throughput-stress.sh](../../experiments/ephemeral-mesh/throughput-stress.sh).
+
+| Path | Throughput | Bound by |
+| --- | --- | --- |
+| One source (sequential seq'd sends) | ~3.5 frames/s | per-frame `net send` process spawn + ack |
+| Fan-in: F concurrent sources → 1 sink | **~87 frames/s** (flat for F ≥ 16) | **CPU-saturated process spawn** — one lbabus process per frame (~14.5 spawns/s/core on 6 cores) |
+| Sink ingest (the §4 serialization algorithm) | **~2.3–3.5 million frames/s** | pure in-memory O(M); ~40,000× headroom — never the limit |
+
+**Findings.** (1) **Strict serialization held at every scale** tested (up to ~2k live frames and 4M synthetic):
+zero loss, dense `ingestSeq`, per-stream order intact — the design is *correct under load*. (2) The upper
+limit is the **emit side**: the one-process-per-`net send` model caps aggregate throughput at the box's
+sustained process-spawn rate (~87 fps here). Source concurrency hides per-send ack latency (3.5 → 87 fps) but
+cannot pass the CPU spawn ceiling. (3) The **sink is ~40,000× faster** than any source can feed it, so
+serialization is never the bottleneck.
+
+**Interpretation.** This is the right shape for a *coordination* bus (CLAIM/PROGRESS/DONE at mesh-event rates,
+LBA-REQ-007) — it is deliberately **not** a run-data pipe (run data stays VM-local, LBA-REQ-009).
+
+**To raise the ceiling (only if ever needed):** replace the per-frame emit with a single streaming
+`lbabus net send` over **one persistent TCP connection** (amortizing spawn + connect), moving the cap from
+~10² toward the wire/sink limit (~10⁶). That is an lbabus (C#) change on the release-gated P2b+ track, and is
+**not** required for coordination.
