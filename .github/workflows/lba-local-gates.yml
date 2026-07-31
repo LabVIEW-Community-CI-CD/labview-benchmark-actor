@@ -39,3 +39,32 @@ jobs:
 
       - name: Run local verification gate
         run: node experiments/verify-local-gates.mjs
+
+  # Extension test suite (tsc compile + activation + viewer-render + panels-render + MCP stdio round-trip +
+  # MCP doc drift). Kept in a SEPARATE job from `verify` so the dependency-free gate above stays pure; this
+  # job installs the devDeps (jsdom/typescript) and runs `npm test`. Runs per-PR on BOTH planes so a broken
+  # extension test can no longer reach main uncaught (the gates-only job never ran npm test -- #200 shipped a
+  # missing test import that only the release-time agent-last-gate caught). Node 24: jsdom's bundled undici
+  # needs webidl.util.markAsUncloneable, absent on Node 20 (the ext-v0.1.0 CI failure fixed in 0.1.1).
+  extension-tests:
+    name: LBA Local Gates / extension tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run extension test suite
+        run: npm test
+
