@@ -30,6 +30,8 @@ bus.
 | [verify-coverage-lift.mjs](verify-coverage-lift.mjs) | Deterministic proof of the measured gate (thorough=pass, weak=fail, failing-test=fail). |
 | [riskyTest.mjs](riskyTest.mjs) | The **risky-test** domain: a provider-proposed test that drives a real tool (ffmpeg/LabVIEW); SKIP when absent, run + gate when present. |
 | [verify-risky-test.mjs](verify-risky-test.mjs) | Deterministic proof of the tool gate (present=pass, absent=skip, failing=fail). |
+| [evidenceGate.mjs](evidenceGate.mjs) | The **evidence** domain: gather + schema-validate delegation receipts, tally by verdict, and gate a provider summary for accuracy. |
+| [verify-evidence.mjs](verify-evidence.mjs) | Deterministic proof (valid+accurate=pass, hallucinated count=fail, invalid receipt=fail). |
 | [sample-task.doc-draft.json](sample-task.doc-draft.json) | An example `doc-draft` task (draft the gate-suite operator note). |
 | [receipt.json](receipt.json) | The committed **deterministic** receipt (mock path). |
 
@@ -91,6 +93,14 @@ tool on `PATH` and:
 The receipt carries `tool { present, name, path }`. So the same gate is a deterministic skip under the
 dependency-free CI suite and a real proof in the cleanroom. Untrusted provider-proposed tests that drive the
 tool run in the **disposable cleanroom VM**, not on a trusted host.
+
+## The `evidence` domain (gather + gate the receipt trail)
+
+`evidence` is the meta-domain that keeps the evidence trail honest. A task lists prior delegation `receipts`;
+acceptance **gathers + schema-validates** each (`lba-uplift-delegation-receipt@v1`), tallies them by verdict
+into an `lba-evidence-bundle@v1`, and gates on: every receipt valid + count ≥ `minReceipts`. The provider is
+delegated the human **summary**, which is then **grounded** — it must state the true total + pass counts, so a
+hallucinated number fails the gate. The receipt carries the `evidence { total, valid, byVerdict, ids }` bundle.
 
 ## Bus-side CLAIM tasking — a host coordinator dispatches, the cleanroom worker claims
 
@@ -190,8 +200,10 @@ receipt are unchanged.
   the gate — it wrote CommonJS `require` in an ESM `.mjs` → threw; the gate has teeth). And a **real LabVIEW**
   risky-test (`tool=LabVIEWCLI`, LabVIEW 2026 Community with the VI Server on port 3363) ran a `LabVIEWCLI
   MassCompile` → *"MassCompile operation succeeded"* → `verdict=pass`.
-- **Gated by the authoritative suite**: all five `verify-*.mjs` run as subprocesses under
-  `experiments/verify-local-gates.mjs` (77/77 checks pass on the dependency-free gate).
+- **evidence, deterministic**: `verify-evidence.mjs` → PASS, 8 assertions — valid receipts + an accurate
+  summary → `pass`; a **hallucinated** pass count → `fail` (grounding); an invalid / non-receipt file → `fail`.
+- **Gated by the authoritative suite**: all six `verify-*.mjs` run as subprocesses under
+  `experiments/verify-local-gates.mjs` (78/78 checks pass on the dependency-free gate).
 
 ## Reuse map (composes, does not reinvent)
 
@@ -205,9 +217,8 @@ receipt are unchanged.
 
 - **Bus-side tasking + worker pool** — ✔ shipped (`coordinator.mjs` + `worker.mjs --concurrency N`, proven
   loopback + cross-machine; see above). Next: multiple coordinators + a claim registry across many cleanrooms.
-- **More domains**: `coverage-lift` — ✔ shipped (objective measured gate); `risky-test` — ✔ shipped
-  (tool-gated, proven deterministic + live ffmpeg/LabVIEW on the cleanroom). Next: `evidence` (gather + gate
-  receipts), or an activated-LabVIEW risky-test.
+- **Domains** — all ✔ shipped + gated: `doc-draft`, `coverage-lift`, `risky-test` (incl. real ffmpeg + real
+  LabVIEW MassCompile), and `evidence`. Next: bus-side dispatch of these domains to a cleanroom worker pool.
 - **Quality eval**: score provider output with the [ollama-comparison](../ollama-comparison) faithfulness
   harness before accepting a draft.
-- **Wire into gates**: add `verify-provider-delegation.mjs` to `experiments/verify-local-gates.mjs`.
+- **Wire into gates** — ✔ shipped: all six `verify-*.mjs` run under `experiments/verify-local-gates.mjs` (78/78).

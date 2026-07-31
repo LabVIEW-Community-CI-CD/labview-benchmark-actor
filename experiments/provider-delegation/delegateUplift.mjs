@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { selectAdapter } from './providerAdapters.mjs';
 import { buildCoverageLiftPrompt, acceptanceCoverageLift } from './coverageLift.mjs';
 import { buildRiskyTestPrompt, acceptanceRiskyTest } from './riskyTest.mjs';
+import { buildEvidencePrompt, acceptanceEvidence } from './evidenceGate.mjs';
 
 export const TASK_SCHEMA = 'labview-benchmark-actor/lba-uplift-task@v1';
 export const RECEIPT_SCHEMA = 'labview-benchmark-actor/lba-uplift-delegation-receipt@v1';
@@ -35,6 +36,7 @@ export function validateTask(task) {
 export function buildPrompt(task) {
   if (task.domain === 'coverage-lift') return buildCoverageLiftPrompt(task);
   if (task.domain === 'risky-test') return buildRiskyTestPrompt(task);
+  if (task.domain === 'evidence') return buildEvidencePrompt(task);
   const sections = Array.isArray(task.requiredSections) ? task.requiredSections : [];
   const min = Number.isFinite(task.minChars) ? task.minChars : 200;
   let p = `You are a ${task.domain} agent for the labview-benchmark-actor project. `;
@@ -78,7 +80,9 @@ export async function runDelegation(task, { provider = 'ollama', model, drive, a
       ? await acceptanceCoverageLift(task, res.text)
       : task.domain === 'risky-test'
         ? await acceptanceRiskyTest(task, res.text)
-        : acceptance(task, res.text);
+        : task.domain === 'evidence'
+          ? acceptanceEvidence(task, res.text)
+          : acceptance(task, res.text);
   const verdict = !res.ok ? 'fail' : acc.verdict === 'pass' ? 'pass' : acc.verdict === 'skip' ? 'skip' : 'fail';
   const receipt = {
     schema: RECEIPT_SCHEMA,
@@ -91,6 +95,7 @@ export async function runDelegation(task, { provider = 'ollama', model, drive, a
   };
   if (acc.coverage) receipt.coverage = acc.coverage;
   if (acc.tool) receipt.tool = acc.tool;
+  if (acc.evidence) receipt.evidence = acc.evidence;
   return receipt;
 }
 

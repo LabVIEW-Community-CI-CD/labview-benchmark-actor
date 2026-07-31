@@ -1599,6 +1599,10 @@ check('provider-delegation-risky-test', () => {
   execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-risky-test.mjs')], { stdio: 'pipe' });
   return { suite: 'verify-risky-test 9/9 (tool-gated: present+pass, absent->skip, present+fail)' };
 });
+check('provider-delegation-evidence', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-evidence.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-evidence 8/8 (gather + validate receipts + grounded-summary gate)' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
