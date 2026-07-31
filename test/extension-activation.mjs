@@ -8,7 +8,7 @@
 // Usage: npm test   (== npm run compile && node test/extension-activation.mjs)
 
 import Module, { createRequire } from 'node:module';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -28,6 +28,7 @@ const registeredTools = [];
 const panels = [];
 const errorMessages = [];
 const infoMessages = [];
+const warnMessages = [];
 const sentCommands = [];
 const inputQueue = [];
 const mockVscode = {
@@ -44,6 +45,11 @@ const mockVscode = {
       infoMessages.push(message);
       return undefined;
     },
+    showWarningMessage: (message) => {
+      warnMessages.push(message);
+      return undefined;
+    },
+    showTextDocument: async () => undefined,
     createTerminal: (options) => ({
       name: options && options.name,
       show() {},
@@ -95,7 +101,7 @@ const mockVscode = {
       stat: async () => {
         throw Object.assign(new Error('ENOENT'), { code: 'FileNotFound' });
       },
-      readFile: async () => Buffer.from(''),
+      readFile: async (uri) => readFileSync((uri && (uri.fsPath || uri.path)) || ''),
       writeFile: async () => undefined,
     },
     openTextDocument: async () => ({}),
@@ -261,6 +267,29 @@ try {
     panels.slice(panelsBefore).every((p) => typeof p.webview.html === 'string' && p.webview.html.length > 0),
     'each benchmark panel sets non-empty HTML (fixtures loaded -- the real render path, not the error path)'
   );
+
+  // pollBus + postNote (CLI-backed): child_process is mocked to ENOENT, so both surface remediation via runCli.
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.pollBus').handler();
+  inputQueue.push('NOTE test coordination note');
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.postNote').handler();
+
+  // Agents commands (extension-embedded AGENTS.md, issue #98): materialize + show + check against the shipped
+  // canonical. fs.readFile is mocked to read the real staged media/AGENTS.md + agents.manifest.json.
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.writeAgents').handler();
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.showAgents').handler();
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.checkAgents').handler();
+  assert(infoMessages.some((m) => /Wrote AGENTS\.md/.test(m)), 'writeAgents materializes AGENTS.md at the workspace root');
+  assert(
+    warnMessages.some((m) => /No AGENTS\.md at the workspace root/.test(m)),
+    'checkAgents warns when the workspace AGENTS.md is absent'
+  );
+
+  // LM open-benchmark-panel tool: opens a panel (reusing a panel command) and returns descriptive text.
+  const openPanelTool = registeredTools.find((t) => t.name === 'lba-open-benchmark-panel');
+  assert(openPanelTool, 'the open-benchmark-panel LM tool is registered');
+  const openResult = await openPanelTool.tool.invoke({ input: { panel: 'run' } }, {});
+  const openText = openResult && openResult.content && openResult.content[0] && openResult.content[0].value;
+  assert(typeof openText === 'string' && /panel/i.test(openText), 'the open-panel LM tool opens a panel + returns text');
 
   ext.deactivate(); // must not throw
 
