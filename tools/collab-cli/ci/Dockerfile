@@ -63,7 +63,10 @@ RUN set -eux; \
     if dotnet /out/cli/lbabus.dll agents --check /tmp/AGENTS.md; then echo "ci-agents: drift NOT detected" >&2; exit 1; fi; \
     echo "ci-agents: embed round-trip + drift detection OK"
 
-# ---- ci-docs: the version-pinned documentation package embeds + round-trips + drift-detects --------
+# ---- ci-docs: the version-pinned documentation bundle embeds + round-trips + drift-detects ---------
+# The guide (DOCS.md) plus the repo's canonical SRS + RTM, embedded by reference, each round-trip
+# (--out then --check exit 0) and drift is caught (--check non-zero), so the requirements this lbabus
+# carries stay aligned with the build it was cut from.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS ci-docs
 COPY --from=build /out /out
 RUN set -eux; \
@@ -71,7 +74,13 @@ RUN set -eux; \
     dotnet /out/cli/lbabus.dll docs --check /tmp/DOCS.md; \
     printf '\ndrift line\n' >> /tmp/DOCS.md; \
     if dotnet /out/cli/lbabus.dll docs --check /tmp/DOCS.md; then echo "ci-docs: drift NOT detected" >&2; exit 1; fi; \
-    echo "ci-docs: embed round-trip + drift detection OK"
+    for id in srs rtm; do \
+      dotnet /out/cli/lbabus.dll docs show "$id" --out "/tmp/$id.out"; \
+      dotnet /out/cli/lbabus.dll docs show "$id" --check "/tmp/$id.out"; \
+      printf '\ndrift line\n' >> "/tmp/$id.out"; \
+      if dotnet /out/cli/lbabus.dll docs show "$id" --check "/tmp/$id.out"; then echo "ci-docs: $id drift NOT detected" >&2; exit 1; fi; \
+    done; \
+    echo "ci-docs: embed round-trip + drift detection OK (guide + srs + rtm)"
 
 # ---- ci-musl: framework-dependent lbabus on musl (Alpine) -> harness runs GREEN (portable IL) ------
 # Proves the SHIPPED nupkg / framework-dependent path (portable lbabus.dll + runner + HttpListener mock)

@@ -21,6 +21,9 @@ version-over-version. Do not hand-edit a materialized copy — iterate the sourc
 - `cleanroom/README.md` — the Vagrant golden-VM manual-verify lane.
 - `tools/collab-cli/ci/README.md` — the Docker-CI harness that gates every release.
 - `lbabus agents` / `lbabus docs` — the version-pinned agent base instructions + this guide.
+- `lbabus docs show srs` / `lbabus docs show rtm` — the version-pinned requirements (SRS) + traceability
+  matrix (RTM), embedded BY REFERENCE from `docs/requirements/` so they stay aligned with the build;
+  `lbabus docs list` enumerates the whole bundle.
 
 ## Evolving the docs (the loop)
 Documentation is hardened the same way `AGENTS.md` is (v0.6.1 → v0.6.2 …). To improve it:
@@ -37,12 +40,16 @@ Documentation is hardened the same way `AGENTS.md` is (v0.6.1 → v0.6.2 …). T
    `ci-docs` harness stage verifies the embed round-trip + drift, then the release publishes.
 
 ## Information-item model (grow toward, as content warrants)
-Start as this single file; split into a bundle when it outgrows one page (the same ship-thin-then-grow
-path `agents` took). Target information items (ISO/IEC/IEEE 26514 / 15289): user guide, quick reference,
-glossary, FAQ, navigation & search, information-item map, style guide, requirements (SRS) + traceability
-(RTM), Architecture Decision Records, test plan.
+This guide began as a single file and has now split into a **bundle** (the same ship-thin-then-grow path
+`agents` took): alongside the guide, `lbabus docs` carries the **requirements (SRS) + traceability (RTM)**,
+embedded by reference from `docs/requirements/` so they iterate with — and stay aligned to — the build.
+Remaining target information items to fold in as content warrants (ISO/IEC/IEEE 26514 / 15289): user
+guide, quick reference, glossary, FAQ, navigation & search, information-item map, style guide,
+Architecture Decision Records, test plan.
 
 ## Gate
-`ci-docs` (mirrors `ci-agents`): a deterministic embed round-trip + drift check on every release —
-`lbabus docs --check tools/collab-cli/docs/DOCS.md` must match the embedded canonical (exit 0), and a
-tampered copy must fail (exit 3).
+`ci-docs` (mirrors `ci-agents`): a deterministic embed round-trip + drift check on every release, across
+the whole bundle — the guide, the SRS, and the RTM each embed, round-trip (`lbabus docs show <id> --out`
+then `--check` exit 0), and a tampered copy must fail (exit 3). `lbabus docs show srs --check
+docs/requirements/srs.md` additionally confirms the embedded canonical matches the repo source, so the
+requirements the binary carries cannot drift from the build.

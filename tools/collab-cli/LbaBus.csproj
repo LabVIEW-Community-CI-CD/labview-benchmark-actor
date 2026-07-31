@@ -69,4 +69,21 @@
     <Copy SourceFiles="docs/DOCS.md" DestinationFiles="$(OutDir)DOCS.md" SkipUnchangedFiles="true" />
   </Target>
 
+  <!--
+    Version-pinned REQUIREMENTS bundle: the repo's CANONICAL software requirements spec (SRS) + traceability
+    matrix (RTM), embedded BY REFERENCE (single source of truth: docs/requirements/*) so THIS lbabus build
+    carries the exact requirements it was cut from. Surfaced by `lbabus docs show srs|rtm` and round-tripped
+    by the ci-docs harness stage, so "same version => same requirements" holds and the docs an agent reads
+    stay aligned with the build. Explicit LogicalName => a stable manifest resource name (default globbing
+    would mangle the ../.. path). The repo-root .dockerignore deliberately keeps docs/ in the build context.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="../../docs/requirements/srs.md">
+      <LogicalName>docs.requirements.srs.md</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="../../docs/requirements/rtm.csv">
+      <LogicalName>docs.requirements.rtm.csv</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
 </Project>

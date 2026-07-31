@@ -3,10 +3,18 @@
   "benchmarkId": "mprr-short-ring-fixture",
   "plane": "WIN",
   "runId": "mprr-short-ring-fixture-win",
-  "capturedAt": "2026-07-28T19:33:51.531Z",
+  "capturedAt": "2026-07-31T13:23:39.415Z",
   "ringBufferRef": "WIN/mprr-short-ring-fixture-win/ring-ingest.json",
   "ringBufferBytes": 4228,
   "framesRef": null,
+  "provenance": {
+    "method": "real WIN Node run of ingestShortPackets -> projectViewerSeries -> seriesHash over the committed fixture experiments/mprr-ring/fixtures/short-packet-run.json",
+    "platform": "win32",
+    "arch": "x64",
+    "nodeVersion": "v22.15.0",
+    "host": "actor-win11-decouple (Windows 11 Home), driven over WinRM",
+    "note": "Deterministic cross-plane anchor computed on a REAL Windows plane (matches the LINUX host byte-for-byte). The prior identical-to-LINUX pngSha256 was a synthetic placeholder and has been removed; a real WIN screenshot visual witness (browser, non-CI maintainer step) is still pending."
+  },
   "metrics": {
     "totalBytes": 1608,
     "packetCount": 12,
@@ -15,7 +23,6 @@
     "capacityBytes": 58000,
     "ringHeadPublished": 1608,
     "authoritative": 1,
-    "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
-    "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8"
+    "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa"
   }
 }

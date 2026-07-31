@@ -5,7 +5,7 @@
 #   - version    : the CLI runs on Linux and reports its pinned SemVer.
 #   - ci-stress  : the cross-process resource-lease mutual-exclusion regression gate (LBABUS #15/#18).
 #   - ci-agents  : `lbabus agents` embed round-trips (--out then --check exit 0) and drift is detected.
-#   - ci-docs    : same embed round-trip + drift detection for `lbabus docs`.
+#   - ci-docs    : embed round-trip + drift detection for the `lbabus docs` bundle (guide + srs + rtm).
 #   - ci-harness : the in-container GitHub mock + declarative case runner (cases/*.json). ripgrep is
 #                  absent here, so requiresRipgrep cases SKIP (the ci-no-rg equivalent) while the
 #                  mock-requiring version-guard / defect cases RUN.
@@ -73,6 +73,15 @@ ci_docs() {
   dotnet "$cli" docs --check "$f" || return 1
   printf '\ndrift line\n' >> "$f"
   if dotnet "$cli" docs --check "$f"; then echo "docs --check did NOT detect drift" >&2; return 1; fi
+  # requirements bundle (srs markdown + rtm csv): each embeds, round-trips, and drift is detected --
+  # so the SRS/RTM this lbabus carries stay aligned with the build, same posture as the guide above.
+  for id in srs rtm; do
+    g="$tmp/docs-$id.out"
+    dotnet "$cli" docs show "$id" --out "$g" || return 1
+    dotnet "$cli" docs show "$id" --check "$g" || return 1
+    printf '\ndrift line\n' >> "$g"
+    if dotnet "$cli" docs show "$id" --check "$g"; then echo "docs show $id --check did NOT detect drift" >&2; return 1; fi
+  done
   return 0
 }
 gate 'ci-docs (embed round-trip + drift detection)' ci_docs

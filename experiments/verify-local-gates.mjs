@@ -438,6 +438,60 @@ check('docs-stamp-and-no-id-renumbering', () => {
   return { ids: ids.length, lanes: ['architecture', 'cm', 'requirements', 'testing'] };
 });
 
+// 17b. The collab-cli CLI embeds the CANONICAL requirements (SRS + RTM) BY REFERENCE, so `lbabus docs
+//      show srs|rtm` surfaces the exact requirements THIS build carries and they stay aligned with the
+//      build. Static wiring guard (dep-free, no dotnet): the embed cannot silently regress; the embed
+//      round-trip itself is the ci-docs / verify-linux gate.
+check('collab-cli-embeds-canonical-requirements', () => {
+  const csproj = readFileSync(join(pkgRoot, 'tools', 'collab-cli', 'LbaBus.csproj'), 'utf8');
+  for (const [inc, logical] of [
+    ['../../docs/requirements/srs.md', 'docs.requirements.srs.md'],
+    ['../../docs/requirements/rtm.csv', 'docs.requirements.rtm.csv'],
+  ]) {
+    assert(csproj.includes(`Include="${inc}"`), `csproj must embed ${inc} by reference`);
+    assert(csproj.includes(`<LogicalName>${logical}</LogicalName>`), `csproj must pin the ${logical} manifest name`);
+  }
+  // The canonical sources the CLI embeds must exist on disk.
+  for (const rel of ['srs.md', 'rtm.csv']) {
+    assert(existsSync(join(pkgRoot, 'docs', 'requirements', rel)), `docs/requirements/${rel} must exist`);
+  }
+  // The docs command registry must key both requirement docs so `docs show srs|rtm` resolves.
+  const docs = readFileSync(join(pkgRoot, 'tools', 'collab-cli', 'Docs.cs'), 'utf8');
+  for (const id of ['"srs"', '"rtm"', '"guide"']) {
+    assert(docs.includes(id), `Docs.cs registry must define the ${id} doc`);
+  }
+  return { embedded: ['srs', 'rtm'], surfacedBy: 'lbabus docs show <id>' };
+});
+
+// 17c. GitFlow branch governance (LBA-REQ-016) is documented so the authoritative repo-standards-review CM
+//      gate stays PASS: the CM plan must state all three branch rules (the 9 GitFlow signals) and ADR-0010
+//      must record the decision. Dep-free static guard against governance regression.
+check('gitflow-branch-governance-documented', () => {
+  const cm = readFileSync(join(pkgRoot, 'docs', 'cm', 'cm-plan.md'), 'utf8');
+  assert(/feature branches.*from\s+`?develop`?/i.test(cm) && /feature branches.*(into|target)\s+`?develop`?/i.test(cm), 'CM plan must state feature branches from + back into develop');
+  assert(/release branches.*from\s+`?develop`?/i.test(cm) && /release branches.*(into|to)\s+`?main`?/i.test(cm) && /release branches.*(into|to)\s+`?develop`?/i.test(cm), 'CM plan must state release branches from develop to main + develop');
+  assert(/delete .*release.*(after|until).*(both|required) merges complete/i.test(cm), 'CM plan must state release-branch deletion after both merges complete');
+  assert(/hotfix branches.*from\s+`?main`?/i.test(cm) && /hotfix branches.*(into|to)\s+`?main`?/i.test(cm), 'CM plan must state hotfix branches from + into main');
+  assert(existsSync(join(pkgRoot, 'docs', 'architecture', 'adr', 'ADR-0010-gitflow-branch-governance.md')), 'ADR-0010 must record the GitFlow decision');
+  return { rules: ['feature', 'release', 'hotfix'], adr: 'ADR-0010' };
+});
+
+// 17d. Coverage gate (LBA-REQ-016 CM / ISO-IEC-IEEE 29119): the committed Cobertura coverage artifact meets
+//      the parametrized floor in coverage-thresholds.json (the PR Coverage Gate workflow enforces it live and
+//      `npm run coverage:bump` ratchets the floor up gradually). Dep-free static check.
+check('coverage-artifact-meets-floor', () => {
+  const floor = readJson('coverage-thresholds.json').floor;
+  const xml = readFileSync(join(pkgRoot, 'coverage', 'cobertura-coverage.xml'), 'utf8');
+  const m = xml.match(/line-rate="([0-9.]+)"/);
+  assert(m, 'coverage/cobertura-coverage.xml must carry a line-rate');
+  const linePct = Number(m[1]) * 100;
+  assert(linePct >= floor.lines, `coverage line-rate ${linePct.toFixed(2)}% must meet the parametrized floor ${floor.lines}%`);
+  const wf = join(pkgRoot, '.github', 'workflows', 'coverage.yml');
+  assert(existsSync(wf), 'the PR Coverage Gate workflow (.github/workflows/coverage.yml) must exist');
+  assert(/name:\s*PR Coverage Gate/.test(readFileSync(wf, 'utf8')), 'workflow must publish the "PR Coverage Gate / coverage" context');
+  return { linePct: +linePct.toFixed(2), floor: floor.lines };
+});
+
 // 18. Viewer time-cursor logic receipt is green: pointer + keyboard map to an in-bounds sample and no
 //     operation selects outside the run window (LBA-REQ-004, T-004). The browser/webview render is the
 //     maintainer step.

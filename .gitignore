@@ -36,3 +36,8 @@ cleanroom/ubuntu-labview/mesh/.vagrant/
 
 # Agent-last-gate per-run verdict receipt (regenerated each run)
 experiments/agent-last-gate/receipt.json
+
+# Coverage: keep the retained artifact coverage/cobertura-coverage.xml; ignore raw V8 tmp + transient summary.
+coverage/tmp/
+coverage/coverage-summary.json
+.nyc_output/
