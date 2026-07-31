@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-// Bus-side WORKER: a cleanroom actor that CLAIMS delegated uplift/doc tasks off the lbabus bus and runs them.
+// Bus-side WORKER POOL: a persistent cleanroom actor that CLAIMS delegated uplift/doc tasks off the lbabus
+// bus and runs them, bounding concurrency to `--concurrency N` (excess claims queue FIFO and drain as slots
+// free). One process, N in-flight delegations -- the provider calls are I/O-bound (HTTP to Ollama), so N
+// async slots is the pool. Stays up across many claims; `server.poolStats()` exposes accepted/done/peak.
 //
 // It listens for a CLAIM frame (bus-msg@1 / ADR-0003), parses the dispatch `{ taskSpec, replyTo }` from the
 // payload, ACKs the claim back to the coordinator's observer, runs the provider delegation LOCALLY (reusing
@@ -13,7 +16,32 @@ import { fileURLToPath } from 'node:url';
 import { createFrameDecoder, makeEnvelope, sendFrame } from './busFrame.mjs';
 import { runDelegation, announceOverBus, RECEIPT_SCHEMA } from './delegateUplift.mjs';
 
-export function startWorker({ port = 7440, host = '0.0.0.0', provider = 'ollama', model, actorId = 'cleanroom-worker', onDone } = {}) {
+export function startWorker({ port = 7440, host = '0.0.0.0', concurrency = 2, provider = 'ollama', model, drive, actorId = 'cleanroom-worker', onDone } = {}) {
+  const queue = [];
+  let running = 0;
+  const stats = { accepted: 0, done: 0, failed: 0, peak: 0 };
+
+  // Bounded scheduler: run up to `concurrency` delegations at once; the rest wait FIFO in `queue`.
+  const pump = () => {
+    while (running < concurrency && queue.length > 0) {
+      const job = queue.shift();
+      running += 1;
+      if (running > stats.peak) stats.peak = running;
+      runJob(job).finally(() => { running -= 1; pump(); });
+    }
+  };
+
+  async function runJob(job) {
+    let receipt;
+    try { receipt = await runDelegation(job.taskSpec, { provider, model, drive }); }
+    catch (e) { receipt = { schema: RECEIPT_SCHEMA, task: { domain: job.taskSpec.domain, id: job.taskSpec.id, provider }, verdict: 'fail', error: e.message }; }
+    stats.done += 1;
+    if (receipt.verdict !== 'pass') stats.failed += 1;
+    const ann = await announceOverBus(receipt, { host: job.replyTo.host, port: job.replyTo.port, senderId: actorId });
+    console.error(`[worker] ${actorId} DONE id=${job.taskSpec.id} verdict=${receipt.verdict} announced=${ann.announced} (running=${running - 1}/${concurrency} queued=${queue.length})`);
+    if (typeof onDone === 'function') onDone(receipt, ann);
+  }
+
   const server = net.createServer((sock) => {
     const decode = createFrameDecoder(async (env) => {
       if (env.type !== 'CLAIM' || !String(env.task || '').startsWith('uplift:')) return;
@@ -23,22 +51,20 @@ export function startWorker({ port = 7440, host = '0.0.0.0', provider = 'ollama'
       const replyTo = dispatch && dispatch.replyTo ? parseHostPort(dispatch.replyTo) : null;
       sock.end();
       if (!taskSpec || !replyTo) { console.error(`[worker] ${actorId} ignoring malformed CLAIM (need payload {taskSpec, replyTo})`); return; }
-      console.error(`[worker] ${actorId} CLAIMED ${env.task} id=${taskSpec.id} -> reply ${replyTo.host}:${replyTo.port}`);
-      // 1) ACK the claim to the coordinator observer (immediate "claimed").
-      await sendFrame({ host: replyTo.host, port: replyTo.port, envelope: makeEnvelope({ senderId: actorId, type: 'ACK', task: env.task, payload: JSON.stringify({ claimed: true, id: taskSpec.id }), ackOf: env.seq ?? null }) });
-      // 2) run the delegation locally, then 3) announce the DONE receipt.
-      let receipt;
-      try { receipt = await runDelegation(taskSpec, { provider, model }); }
-      catch (e) { receipt = { schema: RECEIPT_SCHEMA, task: { domain: taskSpec.domain, id: taskSpec.id, provider }, verdict: 'fail', error: e.message }; }
-      const ann = await announceOverBus(receipt, { host: replyTo.host, port: replyTo.port, senderId: actorId });
-      console.error(`[worker] ${actorId} DONE id=${taskSpec.id} verdict=${receipt.verdict} announced=${ann.announced}`);
-      if (typeof onDone === 'function') onDone(receipt, ann);
+      stats.accepted += 1;
+      queue.push({ taskSpec, replyTo });
+      const full = running >= concurrency;
+      console.error(`[worker] ${actorId} CLAIMED ${env.task} id=${taskSpec.id} (${full ? 'queued' : 'starting'}; running=${running}/${concurrency} queued=${queue.length})`);
+      // ACK the claim to the coordinator observer, reflecting pool state, then schedule it.
+      await sendFrame({ host: replyTo.host, port: replyTo.port, envelope: makeEnvelope({ senderId: actorId, type: 'ACK', task: env.task, payload: JSON.stringify({ claimed: true, id: taskSpec.id, running, queued: queue.length, concurrency }), ackOf: env.seq ?? null }) });
+      pump();
     }, () => sock.destroy());
     sock.on('data', decode);
     sock.on('error', () => {});
   });
   return new Promise((resolve) => server.listen(port, host, () => {
-    console.error(`[worker] ${actorId} listening ${host}:${server.address().port} provider=${provider}`);
+    server.poolStats = () => ({ accepted: stats.accepted, done: stats.done, failed: stats.failed, peak: stats.peak, running, queued: queue.length, concurrency });
+    console.error(`[worker] ${actorId} pool listening ${host}:${server.address().port} concurrency=${concurrency} provider=${provider}`);
     resolve(server);
   }));
 }
@@ -58,6 +84,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(proces
   const a = parseArgs(process.argv.slice(2));
   startWorker({
     port: Number(a.listen || 7440),
+    concurrency: Number(a.concurrency || 2),
     provider: a.provider || 'ollama',
     model: a.model,
     actorId: a.actor || process.env.VIHS_COLLAB_AGENT || 'cleanroom-worker',

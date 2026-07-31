@@ -24,6 +24,7 @@ bus.
 | [coordinator.mjs](coordinator.mjs) | **Host** side of bus-side tasking: dispatch a `CLAIM` (task-spec in `payload`) to a worker, collect the `ACK` + `DONE` receipt. |
 | [worker.mjs](worker.mjs) | **Cleanroom** side: listen for a `CLAIM`, `ACK` it, run the delegation (`runDelegation`), and return the `DONE` receipt. |
 | [verify-claim-tasking.mjs](verify-claim-tasking.mjs) | Deterministic self-test of the dispatch → claim → return loop (loopback, mock, no GPU/network). |
+| [verify-worker-pool.mjs](verify-worker-pool.mjs) | Deterministic self-test of the persistent **pool**: M concurrent claims bounded to N, queued + drained (loopback, mock). |
 | [sample-task.doc-draft.json](sample-task.doc-draft.json) | An example `doc-draft` task (draft the gate-suite operator note). |
 | [receipt.json](receipt.json) | The committed **deterministic** receipt (mock path). |
 
@@ -81,6 +82,16 @@ node verify-claim-tasking.mjs
 #   host: node coordinator.mjs --worker 127.0.0.1:7440 --task sample-task.doc-draft.json --reply 10.0.2.2 --observe 7420
 ```
 
+The worker is a **persistent pool**: `--concurrency N` bounds it to N in-flight delegations; extra concurrent
+claims queue FIFO and drain as slots free (the provider calls are I/O-bound, so N async slots is the pool).
+`server.poolStats()` exposes `accepted/done/peak/running/queued`. Dispatch several claims at once (one
+coordinator each) and the pool runs N, queues the rest:
+
+```sh
+node verify-worker-pool.mjs                                       # deterministic: M concurrent claims bounded to N
+node worker.mjs --listen 7440 --concurrency 2 --provider ollama   # a persistent 2-slot pool
+```
+
 ## Run it
 
 ```sh
@@ -121,6 +132,12 @@ receipt are unchanged.
   the host coordinator dispatched a `CLAIM` to the **VM worker** (`lba-ubuntu-scratch`) over a NAT forward; the
   VM claimed it (`ACK`), ran the delegation against the host Ollama over TCP, and returned `DONE verdict=pass`
   to the host observer — coordinator `claimed=yes verdict=pass`.
+- **Worker pool, deterministic**: `verify-worker-pool.mjs` → PASS, 7 assertions — 5 concurrent claims bounded
+  to a pool of 2 (peak in-flight provider calls = 2), all returned `DONE`, the pool drained, and it stayed up
+  for a further claim (persistent).
+- **Worker pool, cross-machine** ([worker-pool-vm-evidence.json](worker-pool-vm-evidence.json)): 3 concurrent
+  `CLAIM`s from the host to the VM pool (`--concurrency 2`) — the pool ran 2 and queued the 3rd (`queued=1`
+  then `queued=2`, draining to 0); all three returned `verdict=pass`.
 
 ## Reuse map (composes, does not reinvent)
 
@@ -132,8 +149,8 @@ receipt are unchanged.
 
 ## Next slices (operator-steerable)
 
-- **Bus-side tasking** — ✔ shipped (`coordinator.mjs` + `worker.mjs`, proven loopback + cross-machine; see
-  above). Next: a persistent worker pool + multiple concurrent claims.
+- **Bus-side tasking + worker pool** — ✔ shipped (`coordinator.mjs` + `worker.mjs --concurrency N`, proven
+  loopback + cross-machine; see above). Next: multiple coordinators + a claim registry across many cleanrooms.
 - **More domains**: `coverage-lift` (propose tests for a named module — gate on measured coverage delta),
   `risky-test` (author tests needing real LabVIEW/ffmpeg on the VM), `evidence` (gather receipts).
 - **Quality eval**: score provider output with the [ollama-comparison](../ollama-comparison) faithfulness
