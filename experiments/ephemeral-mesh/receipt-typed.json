@@ -1,0 +1,166 @@
+{
+  "schema": "labview-benchmark-actor/ephemeral-mesh-receipt-v1",
+  "concept": "ephemeral-mesh@1",
+  "meshMode": "typed",
+  "serializationMode": "serialized",
+  "requirement": "LBA-REQ-006",
+  "alsoRequirements": [
+    "LBA-REQ-007"
+  ],
+  "test": "T-EPHEMERAL-MESH-P2-TYPED",
+  "ranAt": "2026-07-31T10:10:39.209Z",
+  "plane": "LINUX",
+  "hypervisor": "virtualbox",
+  "transport": "lbabus net -- labview-benchmark-actor/bus-msg@1, ADR-0003/0004 (private intnet lbamesh-eph-1785492639209, TCP 7420; source->sink typed streams, sessionId S-1785492639209)",
+  "lifecycle": {
+    "model": "golden snapshot -> N linked clones (typed) -> boot -> source->sink strict serialization -> destroy",
+    "goldenVm": "lba-ubuntu2404-labview2026-scratch",
+    "goldenSnapshot": "mesh-node-ready",
+    "cloneVms": [
+      "lba-eph-a-1785492639209",
+      "lba-eph-b-1785492639209",
+      "lba-eph-sink-1785492639209"
+    ],
+    "cloneType": "linked",
+    "intnet": "lbamesh-eph-1785492639209",
+    "identity": "actor (dev-default, non-secret) via SSH key auth",
+    "bootSeconds": 16,
+    "survivesReboot": false,
+    "destroyed": true,
+    "removalConfirmed": true
+  },
+  "nodes": [
+    {
+      "id": "eph-a",
+      "nodeType": "source",
+      "ip": "192.168.66.11",
+      "lbabusVersion": "0.11.0",
+      "activity": {
+        "listened": false,
+        "emittedCoordination": true
+      },
+      "sent": true
+    },
+    {
+      "id": "eph-b",
+      "nodeType": "source",
+      "ip": "192.168.66.12",
+      "lbabusVersion": "0.11.0",
+      "activity": {
+        "listened": false,
+        "emittedCoordination": true
+      },
+      "sent": true
+    },
+    {
+      "id": "eph-sink",
+      "nodeType": "sink",
+      "ip": "192.168.66.13",
+      "lbabusVersion": "0.11.0",
+      "activity": {
+        "listened": true,
+        "emittedCoordination": false
+      },
+      "orderedReceipt": {
+        "ingestSeqDense": true,
+        "totalFrames": 7,
+        "strictSerialization": true,
+        "orderKey": "(sessionId,senderId,seq) within a stream; cross-source by sink ingestSeq (arrival)",
+        "frameLog": [
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-B",
+            "seq": 1,
+            "ingestSeq": 1,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-A",
+            "seq": 1,
+            "ingestSeq": 2,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-B",
+            "seq": 2,
+            "ingestSeq": 3,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-A",
+            "seq": 2,
+            "ingestSeq": 4,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-B",
+            "seq": 2,
+            "ingestSeq": 5,
+            "frameType": "DONE"
+          },
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-A",
+            "seq": 3,
+            "ingestSeq": 6,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-A",
+            "seq": 3,
+            "ingestSeq": 7,
+            "frameType": "DONE"
+          }
+        ],
+        "perStream": [
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-B",
+            "firstSeq": 1,
+            "lastSeq": 2,
+            "count": 2,
+            "contiguous": true,
+            "inIngestOrder": true,
+            "terminalDone": true
+          },
+          {
+            "sessionId": "S-1785492639209",
+            "senderId": "EPH-A",
+            "firstSeq": 1,
+            "lastSeq": 3,
+            "count": 3,
+            "contiguous": true,
+            "inIngestOrder": true,
+            "terminalDone": true
+          }
+        ]
+      }
+    }
+  ],
+  "asserts": {
+    "sshKeyAuthNoPassword": true,
+    "lbabusPresent": true,
+    "nodeTypesHonored": true,
+    "strictSerialization": true,
+    "meshOk": true,
+    "cloneCreated": true,
+    "cloneDestroyed": true,
+    "commsOnly": true,
+    "noRebootSurvivalNeeded": true
+  },
+  "pass": true,
+  "sinkStdout": [
+    "TCP 192.168.66.12:44854  [2026-07-31T10:11:01.035Z] EPH-B #1 PROGRESS task:typed — p1",
+    "TCP 192.168.66.11:39752  [2026-07-31T10:11:01.426Z] EPH-A #1 PROGRESS task:typed — p1",
+    "TCP 192.168.66.12:44858  [2026-07-31T10:11:01.160Z] EPH-B #2 PROGRESS task:typed — p2",
+    "TCP 192.168.66.11:39764  [2026-07-31T10:11:01.517Z] EPH-A #2 PROGRESS task:typed — p2",
+    "TCP 192.168.66.12:44866  [2026-07-31T10:11:01.231Z] EPH-B #2 DONE task:typed — final=2",
+    "TCP 192.168.66.11:39768  [2026-07-31T10:11:01.590Z] EPH-A #3 PROGRESS task:typed — p3",
+    "TCP 192.168.66.11:39774  [2026-07-31T10:11:01.949Z] EPH-A #3 DONE task:typed — final=3"
+  ]
+}

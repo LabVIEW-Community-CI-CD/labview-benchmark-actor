@@ -52,6 +52,7 @@ import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.m
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-plane.mjs';
+import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1455,6 +1456,68 @@ check('readme-marketplace-safe-links', () => {
   assert(rel.length === 0,
     `README has ${rel.length} repo-relative link(s) that 404 on the Marketplace listing: ${rel.slice(0, 4).join(', ')}${rel.length > 4 ? ' ...' : ''}`);
   return { links: 'all absolute or anchors' };
+});
+// Canonical ephemeral mesh (experiments/ephemeral-mesh): the committed receipt attests one full "cattle"
+// cycle -- golden snapshot -> linked clone -> boot -> lbabus loopback MESH OK -> DESTROY -- and the shared
+// validator re-proves it here fails-closed (no VM needed at gate time). LBA-REQ-006 (clean teardown) +
+// LBA-REQ-007 (comms-only), ADR-0003/0004.
+check('ephemeral-mesh-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  // Teeth: the validator rejects a receipt that claims reboot-survival, an undestroyed clone, or no MESH OK.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { r.lifecycle.survivesReboot = true; },
+    (r) => { r.lifecycle.destroyed = false; },
+    (r) => { r.loopbackMesh.meshOk = false; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 3, 'validator must reject reboot-survival / undestroyed / mesh-not-ok receipts');
+  return { plane: summary.plane, bootSeconds: summary.bootSeconds, meshOk: summary.meshOk, destroyed: summary.destroyed };
+});
+// Typed source->sink strict serialization (experiments/ephemeral-mesh, P2): the committed typed receipt attests
+// a sink SERIALIZED 2 sources' streams into a dense ingestSeq log, closed by a terminal DONE per stream; the
+// shared validator re-derives it fails-closed here (spec docs/proposals/mesh-node-types.md 4.3). LBA-REQ-006/007.
+check('ephemeral-mesh-typed-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt-typed.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  assert(summary.meshMode === 'typed', 'meshMode must be typed');
+  // Teeth: the validator rejects unordered mode, a source that listened, a missing terminal DONE, non-dense ingestSeq.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { r.serializationMode = 'unordered'; },
+    (r) => { r.nodes.find((n) => n.nodeType === 'source').activity.listened = true; },
+    (r) => { const s = r.nodes.find((n) => n.nodeType === 'sink'); s.orderedReceipt.frameLog = s.orderedReceipt.frameLog.filter((f) => f.frameType !== 'DONE'); },
+    (r) => { const s = r.nodes.find((n) => n.nodeType === 'sink'); s.orderedReceipt.frameLog[1].ingestSeq = 999; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 4, 'validator must reject unordered / source-listened / missing-DONE / non-dense typed receipts');
+  return { meshMode: summary.meshMode, sources: summary.sources, sinks: summary.sinks, serializationMode: summary.serializationMode };
+});
+// Typed both<->both (experiments/ephemeral-mesh): 2 full peers, each SINKS its peer's seq'd stream into its own
+// dense ingestSeq log. The shared validator re-derives BOTH per-node ordered logs fails-closed. LBA-REQ-006/007.
+check('ephemeral-mesh-2node-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt-2node.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  assert(summary.meshMode === 'typed' && summary.boths === 2, 'both<->both typed with 2 both-nodes');
+  // Teeth: a broken peer log (missing terminal DONE) or a type-not-honored both node is rejected.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { const n = r.nodes[0]; n.orderedReceipt.frameLog = n.orderedReceipt.frameLog.filter((f) => f.frameType !== 'DONE'); },
+    (r) => { r.nodes[1].activity.emittedCoordination = false; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 2, 'validator must reject missing-DONE / type-not-honored both<->both receipts');
+  return { meshMode: summary.meshMode, boths: summary.boths };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
