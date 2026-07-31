@@ -76,6 +76,12 @@ receipt are unchanged.
   required sections in ~9.4 s → `verdict=pass`.
 - **Bus announce**: the receipt travelled over `lbabus net` as a `DONE task:uplift:doc-draft` frame and was
   received by a real `lbabus net listen` (`received 1 message(s)`).
+- **On the actual cleanroom VM, over TCP + UDP** ([vm-run-evidence.json](vm-run-evidence.json)): the harness
+  ran on `lba-ubuntu2404-labview2026-scratch` (guest `10.0.2.15`, Node 18) and drove the **host's** Ollama
+  over TCP (`10.0.2.2:11533`) → a 1900-char draft, `verdict=pass` → announced the receipt over TCP to a host
+  `lbabus net listen` (`DONE task:uplift:doc-draft`, received). Separately the VM beaconed presence over UDP
+  (`lbabus net beacon`) → a host `lbabus net listen --udp` (`received 1 message from 1 distinct sender`). The
+  provider ran off the VM's network; only the receipt/beacon crossed the bus (comms-only).
 
 ## Reuse map (composes, does not reinvent)
 
