@@ -39,3 +39,30 @@ jobs:
 
       - name: Run local verification gate
         run: node experiments/verify-local-gates.mjs
+
+  extension-tests:
+    # The extension npm test (tsc compile + activation + viewer/panels render + MCP stdio) is otherwise only run
+    # by agent-last-gate + the extension-release build, NOT the per-PR gates job -- so a broken extension test
+    # (e.g. a missing panel-builder import) could reach main without CI catching it. This sibling job closes that
+    # gap: it runs npm test per-PR on both planes, matching the gates job's linux/windows parity.
+    name: Extension npm test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run extension tests
+        run: npm test
+
