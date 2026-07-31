@@ -56,7 +56,10 @@ const mockVscode = {
   },
   ViewColumn: { Active: -1 },
   Uri: {
-    joinPath: (base, ...parts) => ({ path: [base && base.path ? base.path : '', ...parts].join('/') }),
+    joinPath: (base, ...parts) => {
+      const p = [(base && (base.fsPath || base.path)) || '', ...parts].join('/');
+      return { path: p, fsPath: p };
+    },
     parse: (s) => ({ toString: () => s, path: s, scheme: String(s).split(':')[0] }),
   },
   commands: {
@@ -131,7 +134,8 @@ try {
   assert(typeof ext.deactivate === 'function', 'the extension exports deactivate()');
 
   const subscriptions = [];
-  ext.activate({ subscriptions, extensionUri: { path: '/ext' }, extension: { packageJSON: { version: '0.1.0' } } });
+  const repoRoot = join(here, '..');
+  ext.activate({ subscriptions, extensionUri: { path: repoRoot, fsPath: repoRoot }, extension: { packageJSON: { version: '0.1.0' } } });
 
   const expected = [
     'labviewBenchmarkActor.showCapabilities',
@@ -190,6 +194,31 @@ try {
     /Install the coordination CLI/.test(errorMessages[0]),
     'the remediation tells the operator to install the coordination CLI'
   );
+
+  // Invoke the benchmark PANEL commands -> each loads its staged fixture (media/*.json), builds the panel
+  // HTML via the shipped media/benchmark-panels.mjs builders, and renders into a webview. Exercises the
+  // open*Command handlers + loadPanelBuilders + loadBenchmarkJson + makeBenchmarkPanel on real fixtures
+  // (LBA-REQ-003 run panel, LBA-REQ-011 resource profile, LBA-REQ-014 cross-plane).
+  const panelCommandIds = [
+    'labviewBenchmarkActor.openBenchmarkRun',
+    'labviewBenchmarkActor.openBenchmarkTrend',
+    'labviewBenchmarkActor.openCrossPlaneTrend',
+    'labviewBenchmarkActor.openResourceProfile',
+    'labviewBenchmarkActor.openCrossPlaneResource',
+  ];
+  const panelsBefore = panels.length;
+  const errorsBefore = errorMessages.length;
+  for (const id of panelCommandIds) {
+    const cmd = registered.find((r) => r.id === id);
+    assert(cmd, `${id} is registered`);
+    await cmd.handler();
+  }
+  const newPanels = panels.slice(panelsBefore);
+  assert(newPanels.length === panelCommandIds.length,
+    `each benchmark panel command opens a webview (${newPanels.length}/${panelCommandIds.length})`);
+  assert(newPanels.every((p) => typeof p.webview.html === 'string' && p.webview.html.length > 0),
+    'each benchmark panel renders non-empty HTML from its staged fixture');
+  assert(errorMessages.length === errorsBefore, 'the benchmark panel commands open without surfacing UI errors');
 
   ext.deactivate(); // must not throw
 
