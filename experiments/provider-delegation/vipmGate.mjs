@@ -187,6 +187,18 @@ function defaultRun(bin, argv, extraEnv = {}) {
   }
 }
 
+// Static capability probe for a worker to ADVERTISE over the bus HELLO->READY handshake: is `vipm` present and,
+// if so, which Edition (Free/Community/Professional)? Runs `vipm about` ONCE at worker startup (no creds, no
+// network). Synchronous + cheap; returns { present, edition?, cliVersion?, activated? }.
+export function probeVipmCapability({ vipmPath, run = defaultRun, includeInstalled = true } = {}) {
+  const d = detectVipmCli({ vipmPath, includeInstalled });
+  if (!d.present) return { present: false };
+  try {
+    const about = parseAbout(run(d.path, ['about']).stdout);
+    return { present: true, edition: about.edition, cliVersion: about.cliVersion, activated: about.validActivationCode === true };
+  } catch { return { present: true }; }
+}
+
 // The gate. task = { mode: 'status'|'activate'|'login', credentialFile? }. `run(bin, argv)` is injectable so the
 // deterministic self-test needs no real vipm and no secret. Returns a receipt whose verdict is:
 //   - 'skip' when the vipm CLI is absent (like risky-test: the capability just isn't here);

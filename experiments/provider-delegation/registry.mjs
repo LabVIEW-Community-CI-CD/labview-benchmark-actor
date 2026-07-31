@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// Claim registry / router: discover the LIVE cleanroom workers, learn their CAPABILITIES (provider + tools),
-// and route each domain task to a live worker that can run it -- load-balanced round-robin across the eligible
-// workers. Reuses the bus HELLO->READY handshake (worker.mjs) + the CLAIM dispatch (coordinator.mjs). A router
-// that lets one coordinator drive a POOL of cleanrooms: an ffmpeg/LabVIEW risky-test only goes to a worker that
-// HAS the tool; a dead worker is excluded by liveness. Dependency-free.
+// Claim registry / router: discover the LIVE cleanroom workers, learn their CAPABILITIES (provider + tools +
+// VIPM edition), and route each domain task to a live worker that can run it -- load-balanced round-robin across
+// the eligible workers. Reuses the bus HELLO->READY handshake (worker.mjs) + the CLAIM dispatch (coordinator.mjs).
+// A router that lets one coordinator drive a POOL of cleanrooms: an ffmpeg/LabVIEW risky-test only goes to a
+// worker that HAS the tool; a VIPM build only goes to a worker whose Edition is licensed for the repo (Community
+// needs a public repo, else Professional); a dead worker is excluded by liveness. Dependency-free.
 
 import net from 'node:net';
 import { encodeFrame, createFrameDecoder, makeEnvelope } from './busFrame.mjs';
 import { dispatchClaim } from './coordinator.mjs';
+import { editionGate } from './vipmGate.mjs';
 
 // Probe one worker for liveness + capabilities (synchronous HELLO -> READY on the same socket).
 export function probeWorker(address, { timeoutMs = 4000 } = {}) {
@@ -37,9 +39,17 @@ export async function discover(addresses, opts = {}) {
   return probed.filter((p) => p.alive);
 }
 
-// What a task requires of a worker: a risky-test needs its tool; a task may pin a provider.
+// What a task requires of a worker: a risky-test needs its tool; a VIPM task needs the vipm CLI (and, for a
+// build, an edition licensed for the target repo's visibility); a task may pin a provider.
 export function requiredCapabilities(task) {
   if (task.domain === 'risky-test' && task.tool) return { tool: task.tool };
+  if (task.domain === 'vipm' || task.requireVipm) {
+    const req = { vipm: true };
+    if (task.requireEdition) req.vipmEdition = task.requireEdition;
+    // build/publish is edition-licensed: Community works ONLY in a public repo, else Professional is required.
+    if (task.mode === 'community' || task.mode === 'build' || task.requireBuild) req.vipmBuild = { publicRepo: task.publicRepo === true };
+    return req;
+  }
   if (task.requireProvider) return { provider: task.requireProvider };
   return {};
 }
@@ -49,6 +59,11 @@ export function capable(worker, task) {
   const caps = (worker && worker.caps) || {};
   if (req.tool && !(caps.tools && caps.tools[req.tool])) return false;
   if (req.provider && caps.provider !== req.provider) return false;
+  if (req.vipm && !(caps.vipm && caps.vipm.present)) return false;
+  if (req.vipmEdition && !(caps.vipm && caps.vipm.edition === req.vipmEdition)) return false;
+  // A VIPM build routes only to a worker whose edition is licensed for THIS repo's visibility (Community needs
+  // a public repo; Professional works anywhere; Free/absent cannot build).
+  if (req.vipmBuild && !editionGate({ edition: caps.vipm && caps.vipm.edition, repoPublic: req.vipmBuild.publicRepo }).allowed) return false;
   return true;
 }
 

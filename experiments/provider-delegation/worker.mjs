@@ -16,11 +16,17 @@ import { fileURLToPath } from 'node:url';
 import { encodeFrame, createFrameDecoder, makeEnvelope, sendFrame } from './busFrame.mjs';
 import { runDelegation, announceOverBus, RECEIPT_SCHEMA } from './delegateUplift.mjs';
 import { detectTool } from './riskyTest.mjs';
+import { probeVipmCapability } from './vipmGate.mjs';
 
 export function startWorker({ port = 7440, host = '0.0.0.0', concurrency = 2, provider = 'ollama', model, drive, actorId = 'cleanroom-worker', caps, capsTools = ['node', 'ffmpeg', 'LabVIEWCLI'], onDone } = {}) {
   const queue = [];
   let running = 0;
   const stats = { accepted: 0, done: 0, failed: 0, peak: 0 };
+
+  // VIPM capability, probed ONCE at startup (or injected synthetically via caps.vipm): { present, edition }.
+  // Advertised so the router sends a VIPM task only to a VIPM-capable worker, and a Community-Edition build
+  // only to a worker whose edition can build for the target repo's visibility (see registry.editionGate).
+  const vipmCap = (caps && caps.vipm) || probeVipmCapability();
 
   // Capabilities this worker advertises on a HELLO probe: its provider + which of `capsTools` are present on
   // PATH (so a router sends an ffmpeg/LabVIEW risky-test only to a worker that HAS the tool). A `caps` override
@@ -32,6 +38,7 @@ export function startWorker({ port = 7440, host = '0.0.0.0', concurrency = 2, pr
     running,
     queued: queue.length,
     tools: (caps && caps.tools) || Object.fromEntries(capsTools.map((t) => [t, detectTool(t).present])),
+    vipm: vipmCap,
   });
 
   // Bounded scheduler: run up to `concurrency` delegations at once; the rest wait FIFO in `queue`.
