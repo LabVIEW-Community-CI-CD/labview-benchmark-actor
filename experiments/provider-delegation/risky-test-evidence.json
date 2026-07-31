@@ -19,10 +19,11 @@
       "correctTest": "verdict=pass -- a correct ESM `ffmpeg -version` test ran the real /usr/bin/ffmpeg (tool-present:ffmpeg ok, risky-test-runs ok, exit 0)"
     },
     "labview": {
-      "installed": "/usr/local/natinst/LabVIEW-2026-64 (present on disk, UNACTIVATED, CLI not on PATH)",
-      "result": "tool=labviewcli -> present:false -> verdict=SKIP -- the risky test correctly skips where the CLI is not runnable"
+      "cli": "LabVIEWCLI (capital) at /usr/local/bin/LabVIEWCLI -- IS on PATH (the earlier lowercase 'labviewcli' skipped only due to case)",
+      "hostRun": "tool=LabVIEWCLI on the host (LabVIEW 2026 Community, VI Server enabled port 3363): a LabVIEWCLI MassCompile ran -- 'Connection established with LabVIEW at port number 3363' + 'MassCompile operation succeeded' -> risky-test-runs ok -> verdict=PASS",
+      "cleanroomVM": "on the scratch VM LabVIEW LAUNCHES under Xvfb with -LabVIEWPath (NOT activation-blocked for launch); LabVIEWCLI additionally needs the VI Server enabled in ~/natinst/.config/LabVIEW-2026/labview.conf (server.tcp.enabled=True, port 3363) -- added. A real VM run also needs a virtual display (Xvfb)."
     }
   },
-  "safety": "The risky-test executes a provider-proposed test that invokes a real tool. The DETERMINISTIC gate uses node itself as the always-present tool (safe). UNTRUSTED provider-proposed tests that drive ffmpeg/LabVIEW run in the DISPOSABLE cleanroom VM -- exactly where the Ollama ffmpeg test above executed -- not on a trusted host.",
-  "note": "The same domain gate is a deterministic no-op (skip) under the dependency-free CI suite (no ffmpeg/LabVIEW) and a real proof in the cleanroom. LabVIEW activation is an operator-only step; an activated + PATH-exposed LabVIEWCLI flips the LabVIEW case from skip to a real run."
+  "safety": "The risky-test executes a provider-proposed test that invokes a real tool. The DETERMINISTIC gate uses node itself as the always-present tool (safe). UNTRUSTED provider-proposed tests that drive ffmpeg/LabVIEW run in the DISPOSABLE cleanroom VM -- exactly where the Ollama ffmpeg test above executed -- not on a trusted host. The host LabVIEW pass used a TRUSTED, hand-authored LabVIEWCLI test (not provider-generated code).",
+  "note": "The same domain gate is a deterministic skip under the dependency-free CI suite (no ffmpeg/LabVIEW) and a real proof where the tool exists. Linux LabVIEWCLI needs -LabVIEWPath + a display (Xvfb when headless) + the VI Server enabled in labview.conf; with those the LabVIEW risky-test PASSES against real LabVIEW 2026 Community."
 }

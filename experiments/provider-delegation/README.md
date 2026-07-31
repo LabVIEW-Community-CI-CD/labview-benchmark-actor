@@ -185,10 +185,11 @@ receipt are unchanged.
   function** coverage of the target → `verdict=pass`.
 - **risky-test, deterministic**: `verify-risky-test.mjs` → PASS, 9 assertions — a present tool + passing test
   → `pass`; an **absent** tool → **`skip`** (not fail); a present tool + failing test → `fail`.
-- **risky-test, live cleanroom** ([risky-test-evidence.json](risky-test-evidence.json)): on the restarted VM,
-  a correct `ffmpeg -version` test ran the real `/usr/bin/ffmpeg` → `verdict=pass`; Ollama's own proposed
-  ffmpeg test **failed** the gate (it wrote CommonJS `require` in an ESM `.mjs` → threw — the gate has teeth);
-  and `tool=labviewcli` (LabVIEW installed but its CLI not on PATH, unactivated) → **`skip`**.
+- **risky-test, live** ([risky-test-evidence.json](risky-test-evidence.json)): on the cleanroom VM a correct
+  `ffmpeg -version` test ran the real `/usr/bin/ffmpeg` → `verdict=pass` (Ollama's own ffmpeg test **failed**
+  the gate — it wrote CommonJS `require` in an ESM `.mjs` → threw; the gate has teeth). And a **real LabVIEW**
+  risky-test (`tool=LabVIEWCLI`, LabVIEW 2026 Community with the VI Server on port 3363) ran a `LabVIEWCLI
+  MassCompile` → *"MassCompile operation succeeded"* → `verdict=pass`.
 - **Gated by the authoritative suite**: all five `verify-*.mjs` run as subprocesses under
   `experiments/verify-local-gates.mjs` (77/77 checks pass on the dependency-free gate).
 
