@@ -22,10 +22,11 @@ function assert(cond, msg) {
   }
 }
 
-const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, buildResourcePanelHtml, buildCrossPlaneResourcePanelHtml, scrubberModelFromTrend } = await import(
+const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, buildResourcePanelHtml, buildCrossPlaneResourcePanelHtml } = await import(
   mediaUrl('benchmark-panels.mjs')
 );
-const { buildBenchmarkFrameScrubberHtml } = await import(mediaUrl('buildBenchmarkFrameScrubberHtml.mjs'));
+const { buildLaunchCapture } = await import(mediaUrl('launch-capture.mjs'));
+const { buildFrameCorrelatorHtml } = await import(mediaUrl('frame-correlator.mjs'));
 
 const record = mediaJson('labview-launch-record.json');
 const trend = mediaJson('labview-launch-trend.json');
@@ -103,38 +104,64 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(!doc.querySelector('script'), 'cross-plane resource panel is fully static');
 }
 
-// --- 3. frame correlator (interactive) renders + scrubs; the selection tracks the vertical slider -----------
+// --- 3. frame correlator (interactive): CPU/RAM/disk curves + the real screenshot track the red scrub line --
 {
-  const settled = record.frames.find((f) => f && f.settled) || record.frames[0];
-  const model = scrubberModelFromTrend(trend, { pinDhash: settled.perceptualFingerprint });
-  const html = buildBenchmarkFrameScrubberHtml(model, NONCE);
+  const startMs = 1_700_000_000_000;
+  const N = 6;
+  const frames = Array.from({ length: N }, (_, i) => ({
+    index: i,
+    imageFile: `frame-${String(i).padStart(5, '0')}.png`,
+    imageBytes: 1000 + i,
+    ms: startMs + Math.round((i * 1000) / 12),
+  }));
+  const resourceSamples = Array.from({ length: N }, (_, i) => ({
+    ms: startMs + Math.round((i * 1000) / 12),
+    cpuPct: 10 + i * 5,
+    ramMb: 2000 + i * 10,
+    diskPct: i * 3,
+  }));
+  const cap = buildLaunchCapture({ frames, resourceSamples, startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'WIN' } });
+  assert(cap.frameCount === N, `capture assembles ${N} frames, got ${cap.frameCount}`);
+  assert(cap.dualPacket && cap.dualPacket.authoritative === true, 'capture dual-packet is authoritative (all long payloads admitted)');
+  // a 1x1 transparent PNG data URI stands in for the VM-local webview screenshot URI.
+  const px = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  const model = {
+    title: 'LabVIEW launch — frame correlator',
+    fps: cap.fps,
+    selectedIndex: 0,
+    frames: cap.frames.map((f) => ({ index: f.index, tMs: f.tMs, cpuPct: f.cpuPct, ramMb: f.ramMb, diskPct: f.diskPct, imageSrc: px })),
+  };
+  const html = buildFrameCorrelatorHtml(model, NONCE, 'vscode-webview://render');
+  assert(/Content-Security-Policy/.test(html) && html.includes(`nonce-${NONCE}`), 'correlator sets a nonce CSP');
   const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
   const { window } = dom;
   const doc = window.document;
-  const root = doc.getElementById('bfs-root');
-  assert(root, 'scrubber mounts #bfs-root');
-  const slider = doc.querySelector('input.bfs-slider');
-  assert(slider && slider.type === 'range', 'scrubber renders the vertical range slider');
-  const graph = doc.querySelector('svg.bfs-graph');
-  assert(graph && graph.querySelector('polyline') && graph.querySelectorAll('circle').length === trend.values.length, `scrubber graph plots ${trend.values.length} run points`);
-  const frameImg = doc.querySelector('.bfs-frames img.bfs-img');
-  assert(frameImg && /^data:image\/svg\+xml;base64,/.test(frameImg.getAttribute('src')), 'scrubber lower pane shows the captured dhash-grid frame');
-  // selection starts at the latest run (selectedIndex = n-1)
-  assert(root.getAttribute('data-selected-index') === String(trend.values.length - 1), `scrubber selects the latest run initially, got ${root.getAttribute('data-selected-index')}`);
-  const readout = doc.querySelector('.bfs-readout');
-  assert(readout && /run 5\b/.test(readout.textContent) && /launchMs/.test(readout.textContent), `readout correlates the run + metric, got: ${readout && readout.textContent}`);
+  const root = doc.getElementById('fc-root');
+  assert(root, 'correlator mounts #fc-root');
+  const svg = doc.getElementById('fc-graph');
+  assert(svg && svg.tagName.toLowerCase() === 'svg', 'correlator renders the metric graph svg');
+  assert(svg.querySelectorAll('polyline').length === 3, `correlator plots CPU + RAM + disk polylines, got ${svg.querySelectorAll('polyline').length}`);
+  const redline = svg.querySelector('line[stroke="#ff3b30"]');
+  assert(redline, 'correlator renders the draggable red cursor line');
+  const img = doc.getElementById('fc-img');
+  assert(img && img.getAttribute('src') === px, 'correlator lower pane shows the captured screenshot of the selected frame');
+  assert(root.getAttribute('data-selected-index') === '0', `correlator selects frame 0 initially, got ${root.getAttribute('data-selected-index')}`);
+  const readout = doc.getElementById('fc-readout');
+  assert(readout && /frame 1\/6\b/.test(readout.textContent), `readout shows the frame index, got: ${readout && readout.textContent}`);
 
-  // scrub earlier with ArrowDown (earlier in time) -> selection moves to run 4, then back with ArrowUp.
+  // scrub with the keyboard: ArrowRight -> frame 2, End -> last frame, Home -> frame 1; the red line stays vertical.
   const key = (k) => doc.dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
-  key('ArrowDown');
-  assert(root.getAttribute('data-selected-index') === String(trend.values.length - 2), `ArrowDown scrubs to run 4, got ${root.getAttribute('data-selected-index')}`);
-  assert(/run 4\b/.test(doc.querySelector('.bfs-readout').textContent), 'readout updates to run 4 after scrubbing');
-  key('ArrowUp');
-  assert(root.getAttribute('data-selected-index') === String(trend.values.length - 1), 'ArrowUp scrubs back to run 5');
+  key('ArrowRight');
+  assert(root.getAttribute('data-selected-index') === '1', `ArrowRight scrubs to frame 2, got ${root.getAttribute('data-selected-index')}`);
+  assert(redline.getAttribute('x1') === redline.getAttribute('x2'), 'red line stays vertical while scrubbing');
+  key('End');
+  assert(root.getAttribute('data-selected-index') === String(N - 1), `End scrubs to the last frame, got ${root.getAttribute('data-selected-index')}`);
+  key('Home');
+  assert(root.getAttribute('data-selected-index') === '0', 'Home scrubs back to frame 0');
 }
 
 console.log(
   'panels-render: PASS -- the single-run + trend panels render their real launchMs/verdict/stats, and the ' +
-    'frame-correlator scrubber mounts its graph + slider + dhash-grid frame and tracks the scrub selection (jsdom).'
+    'frame correlator renders its CPU/RAM/disk curves + captured screenshot and tracks the red scrub line (jsdom).'
 );
 process.exit(0);

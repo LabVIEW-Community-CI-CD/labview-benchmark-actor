@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
-import { execFile } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { execFile, spawn, ChildProcess } from 'node:child_process';
+import { readFileSync, mkdirSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
+import * as path from 'node:path';
 
 import { registerBenchmarkActorMcpServerProvider } from './mcp/benchmarkActorMcpServerProvider';
 
@@ -120,10 +121,10 @@ function viewerHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
 
 // --- Real benchmark UI surfaces (single run / trend / frame correlator) -------------------------------------
 // The extension ships the REAL committed LabVIEW launch record + 5-run trend (staged into media/ by
-// scripts/stage-media.mjs) and renders them with the PURE, gated builders (media/benchmark-panels.mjs +
-// media/buildBenchmarkFrameScrubberHtml.mjs). The builders are ESM; tsc emits CommonJS, which downlevels a
-// literal `import()` to `require()` (cannot load ESM). This indirection keeps a GENUINE dynamic import so the
-// host loads the staged, self-contained ESM builder modules natively -- single-source with the local gates.
+// scripts/stage-media.mjs) and renders them with the PURE, gated builders (media/benchmark-panels.mjs). The
+// builders are ESM; tsc emits CommonJS, which downlevels a literal `import()` to `require()` (cannot load
+// ESM). This indirection keeps a GENUINE dynamic import so the host loads the staged, self-contained ESM
+// builder modules natively -- single-source with the local gates.
 const importEsm: (specifier: string) => Promise<Record<string, unknown>> = new Function(
   's',
   'return import(s);'
@@ -135,14 +136,9 @@ interface PanelBuilders {
   buildCrossPlaneTrendPanelHtml(receipt: unknown, winTrend: unknown, linuxTrend: unknown, nonce: string): string;
   buildResourcePanelHtml(rc: unknown, nonce: string): string;
   buildCrossPlaneResourcePanelHtml(receipt: unknown, nonce: string): string;
-  scrubberModelFromTrend(trend: unknown, opts: { pinDhash?: string; title?: string }): unknown;
-}
-interface ScrubberBuilder {
-  buildBenchmarkFrameScrubberHtml(model: unknown, nonce: string): string;
 }
 
 let panelBuildersPromise: Promise<PanelBuilders> | undefined;
-let scrubberBuilderPromise: Promise<ScrubberBuilder> | undefined;
 
 function mediaEsmUrl(extensionUri: vscode.Uri, file: string): string {
   return pathToFileURL(vscode.Uri.joinPath(extensionUri, 'media', file).fsPath).href;
@@ -153,15 +149,6 @@ function loadPanelBuilders(extensionUri: vscode.Uri): Promise<PanelBuilders> {
   }
   return panelBuildersPromise;
 }
-function loadScrubberBuilder(extensionUri: vscode.Uri): Promise<ScrubberBuilder> {
-  if (!scrubberBuilderPromise) {
-    scrubberBuilderPromise = importEsm(
-      mediaEsmUrl(extensionUri, 'buildBenchmarkFrameScrubberHtml.mjs')
-    ) as unknown as Promise<ScrubberBuilder>;
-  }
-  return scrubberBuilderPromise;
-}
-
 function loadBenchmarkJson(extensionUri: vscode.Uri, file: string): Record<string, unknown> {
   const path = vscode.Uri.joinPath(extensionUri, 'media', file).fsPath;
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
@@ -186,14 +173,6 @@ function reportUiError(output: vscode.OutputChannel, label: string, err: unknown
   void vscode.window.showErrorMessage(`${label} failed: ${message}`);
 }
 
-// The settled (UI-READY) frame's perceptual fingerprint = the dhash the capture proved the launch reached.
-function settledPinDhash(record: Record<string, unknown>): string | undefined {
-  const frames = Array.isArray(record.frames) ? (record.frames as Array<Record<string, unknown>>) : [];
-  const settled = frames.find((f) => f && f.settled) || frames[0];
-  const pin = settled && settled.perceptualFingerprint;
-  return typeof pin === 'string' ? pin : undefined;
-}
-
 async function openBenchmarkRunCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
   try {
     const panels = await loadPanelBuilders(context.extensionUri);
@@ -213,22 +192,6 @@ async function openBenchmarkTrendCommand(context: vscode.ExtensionContext, outpu
     panel.webview.html = panels.buildTrendPanelHtml(trend, getNonce());
   } catch (err) {
     reportUiError(output, 'Open Benchmark Trend', err);
-  }
-}
-
-async function openFrameCorrelatorCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
-  try {
-    const [panels, scrubber] = await Promise.all([
-      loadPanelBuilders(context.extensionUri),
-      loadScrubberBuilder(context.extensionUri),
-    ]);
-    const trend = loadBenchmarkJson(context.extensionUri, 'labview-launch-trend.json');
-    const record = loadBenchmarkJson(context.extensionUri, 'labview-launch-record.json');
-    const model = panels.scrubberModelFromTrend(trend, { pinDhash: settledPinDhash(record) });
-    const panel = makeBenchmarkPanel(context, 'lbaFrameCorrelator', 'Benchmark Frame Correlator', true);
-    panel.webview.html = scrubber.buildBenchmarkFrameScrubberHtml(model, getNonce());
-  } catch (err) {
-    reportUiError(output, 'Open Frame Correlator', err);
   }
 }
 
@@ -387,6 +350,311 @@ function registerBenchmarkLanguageModelTools(context: vscode.ExtensionContext, o
     output.appendLine('registered language-model tools: lba-open-benchmark-panel, lba-benchmark-summary');
   } catch (err) {
     output.appendLine(`language-model tools not registered: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// --- LabVIEW-launch capture (VM-local, mprr dual-packet) + frame correlator ---------------------------------
+// One-click "Capture LabVIEW Launch": records the screen at 12 fps (ffmpeg gdigrab -> VM-local PNG frames =
+// the mprr LONG-packet payloads) + samples CPU/RAM/disk (the SHORT-packet metrics) while LabVIEW launches; the
+// user clicks Stop; the frames + metrics are assembled into a launch-capture@1 record (mprr dual-packet) and
+// the frame correlator opens: CPU/RAM/disk curves on top, a grab-and-drag red line, the real screenshot below.
+// Everything is VM-local (LBA-REQ-009); nothing is embedded in the .vsix.
+
+interface CaptureBuilder {
+  buildLaunchCapture(input: unknown): LaunchCaptureRecord;
+}
+interface CorrelatorBuilder {
+  buildFrameCorrelatorHtml(model: unknown, nonce: string, cspSource: string): string;
+}
+interface LaunchCaptureRecord {
+  frameCount: number;
+  frames: Array<Record<string, unknown>>;
+  [k: string]: unknown;
+}
+
+let captureBuilderPromise: Promise<CaptureBuilder> | undefined;
+let correlatorBuilderPromise: Promise<CorrelatorBuilder> | undefined;
+function loadCaptureBuilder(extensionUri: vscode.Uri): Promise<CaptureBuilder> {
+  if (!captureBuilderPromise) {
+    captureBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'launch-capture.mjs')) as unknown as Promise<CaptureBuilder>;
+  }
+  return captureBuilderPromise;
+}
+function loadCorrelatorBuilder(extensionUri: vscode.Uri): Promise<CorrelatorBuilder> {
+  if (!correlatorBuilderPromise) {
+    correlatorBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'frame-correlator.mjs')) as unknown as Promise<CorrelatorBuilder>;
+  }
+  return correlatorBuilderPromise;
+}
+
+interface ActiveCapture {
+  dir: string;
+  ffmpeg: ChildProcess;
+  sampler: ChildProcess;
+  status: vscode.StatusBarItem;
+}
+let activeCapture: ActiveCapture | undefined;
+
+function captureCfg<T>(key: string, dflt: T): T {
+  return vscode.workspace.getConfiguration('labviewBenchmarkActor').get<T>(key, dflt);
+}
+function capturesRoot(context: vscode.ExtensionContext): string {
+  return path.join(context.globalStorageUri.fsPath, 'captures');
+}
+function resolveLabview(): string | null {
+  const configured = captureCfg<string>('labviewPath', '').trim();
+  if (configured) return configured;
+  const candidates = [
+    'C:\\Program Files (x86)\\National Instruments\\LabVIEW 2026\\LabVIEW.exe',
+    'C:\\Program Files\\National Instruments\\LabVIEW 2026\\LabVIEW.exe',
+  ];
+  return candidates.find((c) => existsSync(c)) || null;
+}
+
+// ffmpeg resolution: explicit setting -> the VM-local copy install-lba.cmd stages under %LOCALAPPDATA%\lba ->
+// `ffmpeg` on PATH. So a capture is one-click after install even when ffmpeg is not otherwise on the system.
+function resolveFfmpeg(): string {
+  const configured = captureCfg<string>('ffmpegPath', '').trim();
+  if (configured) return configured;
+  const localAppData = process.env.LOCALAPPDATA;
+  const staged = localAppData ? path.join(localAppData, 'lba', 'ffmpeg.exe') : '';
+  if (staged && existsSync(staged)) return staged;
+  return 'ffmpeg';
+}
+
+// PowerShell CIM sampler: instant formatted counters (CPU/disk %) + OS memory -> JSONL every ~200 ms.
+function samplerScript(outFile: string): string {
+  const out = outFile.replace(/'/g, "''");
+  return [
+    "$ErrorActionPreference='SilentlyContinue'",
+    `$out='${out}'`,
+    'while ($true) {',
+    "  $c=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter \"Name='_Total'\").PercentProcessorTime",
+    '  $o=Get-CimInstance Win32_OperatingSystem',
+    '  $r=[math]::Round((($o.TotalVisibleMemorySize-$o.FreePhysicalMemory)/1024),1)',
+    "  $d=(Get-CimInstance Win32_PerfFormattedData_PerfDisk_PhysicalDisk -Filter \"Name='_Total'\").PercentDiskTime",
+    '  $ms=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()',
+    '  Add-Content -Path $out -Value ("{""ms"":"+$ms+",""cpuPct"":"+[double]$c+",""ramMb"":"+$r+",""diskPct"":"+[double]$d+"}")',
+    '  Start-Sleep -Milliseconds 200',
+    '}',
+  ].join('\n');
+}
+
+async function captureLaunchCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  if (activeCapture) {
+    void vscode.window.showWarningMessage('A LabVIEW capture is already running. Stop it first.');
+    return;
+  }
+  const ffmpeg = resolveFfmpeg();
+  const labview = resolveLabview();
+  if (!labview) {
+    void vscode.window.showErrorMessage(
+      'LabVIEW.exe not found. Set "labviewBenchmarkActor.labviewPath" to your LabVIEW 2026 LabVIEW.exe.'
+    );
+    return;
+  }
+  const dir = path.join(capturesRoot(context), `run-${Date.now()}`);
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    reportUiError(output, 'Capture LabVIEW Launch', err);
+    return;
+  }
+  const framePattern = path.join(dir, 'frame-%05d.png');
+  const resourcesFile = path.join(dir, 'resources.jsonl');
+
+  // 1) ffmpeg screen capture at 12 fps (stdin kept open so we can 'q' it for a clean finalize on stop).
+  let ffmpegProc: ChildProcess;
+  try {
+    ffmpegProc = spawn(
+      ffmpeg,
+      ['-y', '-f', 'gdigrab', '-framerate', '12', '-i', 'desktop', framePattern],
+      { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] }
+    );
+  } catch (err) {
+    reportUiError(output, 'Capture LabVIEW Launch (ffmpeg)', err);
+    return;
+  }
+  ffmpegProc.on('error', (e) => {
+    output.appendLine(`ffmpeg error: ${e.message}. Set "labviewBenchmarkActor.ffmpegPath" to ffmpeg.exe.`);
+    void vscode.window.showErrorMessage(
+      `ffmpeg failed to start (${e.message}). Install ffmpeg or set labviewBenchmarkActor.ffmpegPath.`
+    );
+  });
+
+  // 2) CPU/RAM/disk sampler.
+  const sampler = spawn(
+    'powershell',
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', samplerScript(resourcesFile)],
+    { windowsHide: true, stdio: 'ignore' }
+  );
+
+  // 3) launch LabVIEW itself.
+  try {
+    spawn(labview, [], { detached: true, stdio: 'ignore' }).unref();
+  } catch (err) {
+    output.appendLine(`LabVIEW launch error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1000);
+  status.text = '$(debug-stop) Stop LabVIEW Capture';
+  status.tooltip = 'Stop the LabVIEW-launch capture and open the frame correlator';
+  status.command = 'labviewBenchmarkActor.stopCapture';
+  status.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+  status.show();
+
+  activeCapture = { dir, ffmpeg: ffmpegProc, sampler, status };
+  output.appendLine(`capture started: ${dir} (ffmpeg 12fps + CPU/RAM/disk; LabVIEW launching)`);
+  void vscode.window
+    .showInformationMessage(
+      'Capturing the LabVIEW launch at 12 fps. Click "Stop LabVIEW Capture" in the status bar when the IDE is up.',
+      'Stop now'
+    )
+    .then((a) => {
+      if (a === 'Stop now') void vscode.commands.executeCommand('labviewBenchmarkActor.stopCapture');
+    });
+}
+
+async function stopCaptureCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const cap = activeCapture;
+  if (!cap) {
+    void vscode.window.showInformationMessage('No LabVIEW capture is running.');
+    return;
+  }
+  activeCapture = undefined;
+  cap.status.dispose();
+  // Stop ffmpeg cleanly (q on stdin -> finalize the last frame), then hard-stop the sampler.
+  try {
+    cap.ffmpeg.stdin?.write('q\n');
+  } catch {
+    /* fall through to kill */
+  }
+  await new Promise<void>((resolve) => {
+    let done = false;
+    const finish = (): void => {
+      if (!done) {
+        done = true;
+        resolve();
+      }
+    };
+    cap.ffmpeg.on('close', finish);
+    setTimeout(() => {
+      try {
+        cap.ffmpeg.kill();
+      } catch {
+        /* ignore */
+      }
+      finish();
+    }, 4000);
+  });
+  try {
+    cap.sampler.kill();
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    const record = await assembleCapture(context, cap.dir);
+    await openCorrelatorForCapture(context, output, cap.dir, record);
+    output.appendLine(`capture stopped: ${record.frameCount} frames -> correlator`);
+  } catch (err) {
+    reportUiError(output, 'Assemble LabVIEW capture', err);
+  }
+}
+
+async function assembleCapture(context: vscode.ExtensionContext, dir: string): Promise<LaunchCaptureRecord> {
+  const builder = await loadCaptureBuilder(context.extensionUri);
+  const frameFiles = readdirSync(dir)
+    .filter((f) => /^frame-\d+\.png$/.test(f))
+    .sort();
+  if (frameFiles.length === 0) {
+    throw new Error('no frames were captured (is ffmpeg installed + did the capture run long enough?)');
+  }
+  // Align each frame to REAL wall-clock via its PNG mtime (when ffmpeg wrote it), NOT startMs + i/fps -- that
+  // removes ffmpeg's startup lag so every frame takes its true nearest CPU/RAM/disk sample. The mtime and the
+  // PowerShell sampler's UnixTimeMilliseconds share the one Windows clock, so they compare directly.
+  const frames = frameFiles.map((image, i) => {
+    const st = statSync(path.join(dir, image));
+    return { index: i, imageFile: image, imageBytes: st.size, ms: st.mtimeMs };
+  });
+  const firstFrameMs = frames[0].ms;
+  const resourceSamples: Array<Record<string, unknown>> = [];
+  const resFile = path.join(dir, 'resources.jsonl');
+  if (existsSync(resFile)) {
+    for (const line of readFileSync(resFile, 'utf8').split('\n')) {
+      const t = line.trim();
+      if (!t) continue;
+      try {
+        resourceSamples.push(JSON.parse(t) as Record<string, unknown>);
+      } catch {
+        /* skip a partial trailing line */
+      }
+    }
+  }
+  const record = builder.buildLaunchCapture({
+    frames,
+    resourceSamples,
+    startMs: firstFrameMs,
+    fps: 12,
+    meta: { workload: 'labview-launch', plane: 'WIN', source: 'ffmpeg-gdigrab' },
+  });
+  writeFileSync(path.join(dir, 'capture.json'), `${JSON.stringify(record, null, 2)}\n`);
+  return record;
+}
+
+async function openCorrelatorForCapture(
+  context: vscode.ExtensionContext,
+  output: vscode.OutputChannel,
+  dir: string,
+  record: LaunchCaptureRecord
+): Promise<void> {
+  const correlator = await loadCorrelatorBuilder(context.extensionUri);
+  const panel = vscode.window.createWebviewPanel(
+    'lbaFrameCorrelator',
+    'LabVIEW Launch Frame Correlator',
+    vscode.ViewColumn.Active,
+    { enableScripts: true, localResourceRoots: [vscode.Uri.file(dir)] }
+  );
+  const framesModel = record.frames.map((f) => ({
+    index: f.index,
+    tMs: f.tMs,
+    cpuPct: f.cpuPct,
+    ramMb: f.ramMb,
+    diskPct: f.diskPct,
+    imageSrc: panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString(),
+  }));
+  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel };
+  panel.webview.html = correlator.buildFrameCorrelatorHtml(model, getNonce(), panel.webview.cspSource);
+  output.appendLine(`correlator opened for ${dir} (${framesModel.length} frames)`);
+}
+
+// Open the frame correlator for the most recent VM-local capture (or guide the user to record one).
+async function openFrameCorrelatorCommand(
+  context: vscode.ExtensionContext,
+  output: vscode.OutputChannel
+): Promise<void> {
+  try {
+    const root = capturesRoot(context);
+    const runs = existsSync(root)
+      ? readdirSync(root)
+          .filter((d) => existsSync(path.join(root, d, 'capture.json')))
+          .sort()
+      : [];
+    if (runs.length === 0) {
+      const pick = await vscode.window.showInformationMessage(
+        'No LabVIEW capture yet. Run "Capture LabVIEW Launch" to record one.',
+        'Capture LabVIEW Launch'
+      );
+      if (pick === 'Capture LabVIEW Launch') {
+        void vscode.commands.executeCommand('labviewBenchmarkActor.captureLaunch');
+      }
+      return;
+    }
+    const dir = path.join(root, runs[runs.length - 1]);
+    const record = JSON.parse(readFileSync(path.join(dir, 'capture.json'), 'utf8')) as LaunchCaptureRecord;
+    await openCorrelatorForCapture(context, output, dir, record);
+  } catch (err) {
+    reportUiError(output, 'Open Frame Correlator', err);
   }
 }
 
@@ -609,6 +877,12 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.openCrossPlaneResource', () =>
       openCrossPlaneResourceCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.captureLaunch', () =>
+      captureLaunchCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.stopCapture', () =>
+      stopCaptureCommand(context, output)
     )
   );
 
