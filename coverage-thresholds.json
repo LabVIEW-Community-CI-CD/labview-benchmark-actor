@@ -2,6 +2,16 @@
   "_comment": "Parametrized coverage floors for the PR Coverage Gate (LBA-REQ-016 CM / ISO-IEC-IEEE 29119). These are the fail-under thresholds c8 enforces. Ratchet them UP CONSERVATIVELY with `npm run coverage:bump`: each floor rises by at most `step` toward `measured - buffer` (headroom below the measured coverage so normal variance never trips the required gate), capped at `target`; never lower them by hand. Measured at adoption: lines/statements 73%, functions 62%, branches 49%.",
   "step": 1,
   "buffer": 2,
-  "target": { "lines": 90, "statements": 90, "functions": 85, "branches": 75 },
-  "floor": { "lines": 70, "statements": 70, "functions": 58, "branches": 45 }
+  "target": {
+    "lines": 90,
+    "statements": 90,
+    "functions": 85,
+    "branches": 75
+  },
+  "floor": {
+    "lines": 71,
+    "statements": 71,
+    "functions": 59,
+    "branches": 46
+  }
 }
