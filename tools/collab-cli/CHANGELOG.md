@@ -10,6 +10,8 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-07-31
+
 ### Added
 
 - **`lbabus net send --stream` — persistent-connection, multi-frame streaming.** One TCP connection carries
