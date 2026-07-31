@@ -160,6 +160,54 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(root.getAttribute('data-selected-index') === '0', 'Home scrubs back to frame 0');
 }
 
+// --- 3b. frame correlator, EMPTY record -> the no-frames empty state (early return, no graph built) ---------
+{
+  const html = buildFrameCorrelatorHtml({ title: 'empty', fps: 12, selectedIndex: 0, frames: [] }, NONCE, 'vscode-webview://render');
+  const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+  const doc = dom.window.document;
+  assert(doc.getElementById('fc-empty'), 'correlator shows the empty state when the record has no frames');
+  assert(/No captured frames/.test(doc.getElementById('fc-root').textContent), 'empty correlator names the no-frames condition');
+  assert(!doc.getElementById('fc-graph'), 'empty correlator builds no graph svg (early return)');
+}
+
+// --- 3c. frame correlator, POINTER drag + ArrowLeft + out-of-range selectedIndex + missing-field fallbacks --
+{
+  const px = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  const frames = [
+    { index: 0, tMs: 0, cpuPct: 10, ramMb: 2000, diskPct: 0, imageSrc: px },
+    { index: 1, cpuPct: null, ramMb: 2010, diskPct: 2 }, // no tMs, no imageSrc, cpu null -> null-continue + fallbacks
+    { index: 2, tMs: 200, cpuPct: 20, ramMb: 2020, diskPct: 4, imageSrc: px },
+    { index: 3, tMs: 300, cpuPct: 25, ramMb: 2030, diskPct: 6, imageSrc: px },
+  ];
+  const html = buildFrameCorrelatorHtml({ title: 'drag', fps: 12, selectedIndex: 99, frames }, NONCE, '');
+  const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+  const { window } = dom;
+  const doc = window.document;
+  const root = doc.getElementById('fc-root');
+  assert(root.getAttribute('data-selected-index') === '0', `out-of-range selectedIndex clamps to 0, got ${root.getAttribute('data-selected-index')}`);
+  const svg = doc.getElementById('fc-graph');
+  svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 500, height: 150, right: 500, bottom: 150, x: 0, y: 0 });
+  svg.setPointerCapture = () => {};
+  const pointer = (type, clientX) => svg.dispatchEvent(new window.MouseEvent(type, { clientX, bubbles: true }));
+  pointer('pointerdown', 500);
+  assert(root.getAttribute('data-selected-index') === String(frames.length - 1), `pointer drag to the right edge selects the last frame, got ${root.getAttribute('data-selected-index')}`);
+  pointer('pointermove', 0);
+  assert(root.getAttribute('data-selected-index') === '0', 'pointer drag to the left edge selects frame 0');
+  pointer('pointerup', 0);
+  pointer('pointermove', 500);
+  assert(root.getAttribute('data-selected-index') === '0', 'pointermove after pointerup does not scrub (drag ended)');
+  const key = (k) => doc.dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+  key('ArrowRight');
+  assert(root.getAttribute('data-selected-index') === '1', 'ArrowRight from 0 -> 1');
+  assert(doc.getElementById('fc-legend').innerHTML.includes('--'), 'legend shows -- for the frame with a missing metric value');
+  assert(doc.getElementById('fc-img').getAttribute('src') === '', 'frame image falls back to empty src when the frame has no imageSrc');
+  assert(/frame 2\/4/.test(doc.getElementById('fc-readout').textContent), 'readout tracks to frame 2 (t derived from fps when tMs is absent)');
+  key('ArrowLeft');
+  assert(root.getAttribute('data-selected-index') === '0', 'ArrowLeft from 1 -> 0');
+  key('ArrowLeft');
+  assert(root.getAttribute('data-selected-index') === '0', 'ArrowLeft clamps at frame 0');
+}
+
 // --- 4. DEGENERATE / ALTERNATIVE branch fixtures: prove the builders render their FALLBACK markup for the
 //        paths the happy-path fixtures never reach (absent fields, non-PASS verdicts, drift/breach, negative
 //        deltas, missing planes/metrics). This is the branch-coverage floor for the shipped UI builders. ------
