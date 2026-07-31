@@ -49,6 +49,7 @@ import { buildBenchmarkPanelHtml, buildTrendPanelHtml, scrubberModelFromTrend, d
 import { buildBenchmarkFrameScrubberHtml } from './dashboard-slider/buildBenchmarkFrameScrubberHtml.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
+import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-plane.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1384,6 +1385,39 @@ check('capture-ring-resource-correlation-live', () => {
   assert(re.preSampleCount === fx.preSampleCount && re.postSampleCount === fx.postSampleCount, 'the pre/post split re-derives');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-resource-correlated-record.mjs')], { stdio: 'pipe' });
   return { launchMs: fx.launchMs, ramDeltaMean: fx.headline.ramDeltaMean, cpuDeltaMean: fx.headline.cpuDeltaMean, pre: fx.preSampleCount, post: fx.postSampleCount };
+});
+
+// WIN LIVE resource correlation (LBA-REQ-011, VMware mirror): a REAL LabVIEW launch benchmarked through the
+// visual ring on the VMware clean-room WHILE the guest CPU/RAM/disk were sampled in-guest, against a LEAN
+// baseline (gdm stopped) so the pre->post delta is LabVIEW's resident load. Re-derives the committed pre/post
+// windows from the committed host-epoch samples (deterministic no-rot).
+check('capture-ring-resource-correlation-win', () => {
+  const fx = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-resource-correlation-win.json'), 'utf8'));
+  assert(fx.schema === 'labview-benchmark-actor/resource-correlated-launch@1' && fx.plane === 'WIN' && fx.hypervisor === 'vmware-vnc', 'a real WIN/vmware resource-correlated launch');
+  assert(fx.launchMs > 0 && fx.trigger === 'UI-READY' && fx.preSampleCount > 0 && fx.postSampleCount > 0, 'a real launchMs + UI-READY trigger with pre + post samples');
+  assert(Array.isArray(fx.samples) && fx.samples.length === fx.sampleCount, 'the host-epoch sample series is present');
+  const re = buildResourceUsageCorrelation({ frameRateHz: fx.frameRateHz, epochMsAtFrameZero: fx.epochMsAtFrameZero, triggerEpochMs: fx.triggerEpochMs, samples: fx.samples });
+  assert(JSON.stringify(re.windows) === JSON.stringify(fx.windows), 'the committed WIN pre/post windows re-derive from the committed samples (no rot)');
+  assert(fx.headline.ramDeltaMean > 50, 'the lean-baseline launch shows LabVIEW loading resident RAM (> 50 MB)');
+  return { launchMs: fx.launchMs, ramDeltaMean: fx.headline.ramDeltaMean, pre: fx.preSampleCount, post: fx.postSampleCount };
+});
+
+// CROSS-PLANE resource compare (mprr-capture-ring/resource-cross-plane.mjs): put the WIN(VMware) + LINUX(VBox)
+// LabVIEW-launch resource costs side by side (pre/post means + pre->post deltas per metric) and check cross-
+// plane agreement. All metrics are WITNESSED (cross-hypervisor resource cost carries substrate bias, reported
+// not gated), like workloadCrossPlaneReceipt witnesses a single-run launchMs. Asserts both planes' real records
+// compare to a witnessed PASS, RAM load AGREES cross-hypervisor, and the committed receipt doesn't rot.
+check('capture-ring-resource-cross-plane', () => {
+  const fx = (n) => JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', n), 'utf8'));
+  const winRc = fx('labview-launch-resource-correlation-win.json');
+  const linuxRc = fx('labview-launch-resource-correlation.json');
+  const receipt = crossPlaneResourceCompare(winRc, linuxRc);
+  assert(receipt.verdict === 'PASS' && receipt.win.hypervisor === 'vmware-vnc' && receipt.linux.hypervisor === 'vbox-vnc', 'a witnessed WIN(VMware) vs LINUX(VBox) resource compare');
+  for (const m of ['cpu', 'ram', 'disk']) assert(receipt.metrics[m].witness === true, `${m} is a witness (reported, never gated)`);
+  assert(receipt.metrics.ram.status === 'agree', 'both hypervisors load ~the same resident RAM for a LabVIEW launch (cross-plane agreement)');
+  const committed = fx('resource-cross-plane-receipt.json');
+  assert(JSON.stringify(committed) === JSON.stringify(receipt), 'the committed resource cross-plane receipt matches a fresh recompute (no rot)');
+  return { launchDeltaMs: receipt.launchDeltaMs, ramWin: receipt.metrics.ram.win.deltaMean, ramLinux: receipt.metrics.ram.linux.deltaMean, ramAgree: receipt.metrics.ram.agreementDelta };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.

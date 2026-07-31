@@ -1,0 +1,69 @@
+{
+  "schema": "labview-benchmark-actor/resource-cross-plane-receipt@1",
+  "workload": "labview-ide-launch",
+  "win": {
+    "plane": "WIN",
+    "hypervisor": "vmware-vnc",
+    "launchMs": 2448,
+    "trigger": "UI-READY"
+  },
+  "linux": {
+    "plane": "LINUX",
+    "hypervisor": "vbox-vnc",
+    "launchMs": 3241,
+    "trigger": "UI-READY"
+  },
+  "launchDeltaMs": -793,
+  "metrics": {
+    "cpu": {
+      "win": {
+        "preMean": 2.88,
+        "postMean": 1.5,
+        "deltaMean": -1.38
+      },
+      "linux": {
+        "preMean": 2.03,
+        "postMean": 1.08,
+        "deltaMean": -0.94
+      },
+      "agreementDelta": 0.44,
+      "toleranceDelta": 8,
+      "status": "agree",
+      "witness": true
+    },
+    "ram": {
+      "win": {
+        "preMean": 607.72,
+        "postMean": 723.5,
+        "deltaMean": 115.78
+      },
+      "linux": {
+        "preMean": 650.15,
+        "postMean": 767.04,
+        "deltaMean": 116.88
+      },
+      "agreementDelta": 1.1,
+      "toleranceDelta": 50,
+      "status": "agree",
+      "witness": true
+    },
+    "disk": {
+      "win": {
+        "preMean": 0.04,
+        "postMean": 0.03,
+        "deltaMean": -0.01
+      },
+      "linux": {
+        "preMean": 0.81,
+        "postMean": 0.97,
+        "deltaMean": 0.16
+      },
+      "agreementDelta": 0.17,
+      "toleranceDelta": 8,
+      "status": "agree",
+      "witness": true
+    }
+  },
+  "verdict": "PASS",
+  "rerun": "node experiments/mprr-capture-ring/resource-cross-plane.mjs"
+}
