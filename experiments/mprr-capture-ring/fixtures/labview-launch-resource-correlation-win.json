@@ -1,0 +1,1273 @@
+{
+  "schema": "labview-benchmark-actor/resource-correlated-launch@1",
+  "workload": "labview-ide-launch",
+  "plane": "WIN",
+  "hypervisor": "vmware-vnc",
+  "trigger": "UI-READY",
+  "launchMs": 2448,
+  "frameRateHz": 12,
+  "epochMsAtFrameZero": 1785467259523,
+  "triggerEpochMs": 1785467262389,
+  "triggerFrameIndex": 34,
+  "hostGuestOffsetMs": 35,
+  "sampleCount": 199,
+  "preSampleCount": 28,
+  "postSampleCount": 171,
+  "samples": [
+    {
+      "epochMs": 1785467259635.5,
+      "cpuPct": 1.6,
+      "ramMb": 593,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467259736.5,
+      "cpuPct": 0,
+      "ramMb": 593,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467259836.5,
+      "cpuPct": 0,
+      "ramMb": 593,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467259937.5,
+      "cpuPct": 1.7,
+      "ramMb": 593,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260037.5,
+      "cpuPct": 10,
+      "ramMb": 593.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260138.5,
+      "cpuPct": 3.3,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260238.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260339.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260439.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260540.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260640.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260741.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260841.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467260942.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261043.5,
+      "cpuPct": 0,
+      "ramMb": 595.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261143.5,
+      "cpuPct": 6.8,
+      "ramMb": 603.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261244.5,
+      "cpuPct": 0,
+      "ramMb": 603.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261344.5,
+      "cpuPct": 1.7,
+      "ramMb": 603.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261445.5,
+      "cpuPct": 0,
+      "ramMb": 603.4,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261545.5,
+      "cpuPct": 8.3,
+      "ramMb": 613.9,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261646.5,
+      "cpuPct": 13.6,
+      "ramMb": 620.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261746.5,
+      "cpuPct": 5,
+      "ramMb": 627.8,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261847.5,
+      "cpuPct": 0,
+      "ramMb": 627.8,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467261947.5,
+      "cpuPct": 0,
+      "ramMb": 627.8,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262048.5,
+      "cpuPct": 0,
+      "ramMb": 627.8,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262148.5,
+      "cpuPct": 5.1,
+      "ramMb": 635.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262249.5,
+      "cpuPct": 9.8,
+      "ramMb": 649.3,
+      "diskPct": 1
+    },
+    {
+      "epochMs": 1785467262349.5,
+      "cpuPct": 13.6,
+      "ramMb": 656,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262450.5,
+      "cpuPct": 16.7,
+      "ramMb": 658,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262550.5,
+      "cpuPct": 16.7,
+      "ramMb": 661.6,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262651.5,
+      "cpuPct": 16.7,
+      "ramMb": 665.6,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262751.5,
+      "cpuPct": 23,
+      "ramMb": 688.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262851.5,
+      "cpuPct": 20,
+      "ramMb": 721.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467262952.5,
+      "cpuPct": 3.4,
+      "ramMb": 721.4,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263052.5,
+      "cpuPct": 1.6,
+      "ramMb": 721.7,
+      "diskPct": 1
+    },
+    {
+      "epochMs": 1785467263153.5,
+      "cpuPct": 3.3,
+      "ramMb": 721.7,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263253.5,
+      "cpuPct": 1.7,
+      "ramMb": 721.7,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263354.5,
+      "cpuPct": 0,
+      "ramMb": 721.7,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263454.5,
+      "cpuPct": 6.7,
+      "ramMb": 721.7,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263555.5,
+      "cpuPct": 6.7,
+      "ramMb": 723.4,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263655.5,
+      "cpuPct": 10,
+      "ramMb": 723.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263756.5,
+      "cpuPct": 4.9,
+      "ramMb": 723.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263856.5,
+      "cpuPct": 0,
+      "ramMb": 723.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467263956.5,
+      "cpuPct": 3.3,
+      "ramMb": 723.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264057.5,
+      "cpuPct": 1.7,
+      "ramMb": 723.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264157.5,
+      "cpuPct": 0,
+      "ramMb": 723.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264258.5,
+      "cpuPct": 3.3,
+      "ramMb": 723.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264358.5,
+      "cpuPct": 3.3,
+      "ramMb": 723.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264459.5,
+      "cpuPct": 3.3,
+      "ramMb": 723.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264559.5,
+      "cpuPct": 0,
+      "ramMb": 723.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264660.5,
+      "cpuPct": 1.6,
+      "ramMb": 723.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264760.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264861.5,
+      "cpuPct": 3.4,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467264961.5,
+      "cpuPct": 3.3,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265062.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265162.5,
+      "cpuPct": 3.3,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265263.5,
+      "cpuPct": 3.3,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265363.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265464.5,
+      "cpuPct": 3.3,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265564.5,
+      "cpuPct": 3.3,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265664.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265765.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265866.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467265966.5,
+      "cpuPct": 1.6,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266067.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266167.5,
+      "cpuPct": 1.6,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266267.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266368.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266468.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266569.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266669.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266770.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266870.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467266970.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267071.5,
+      "cpuPct": 1.6,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267171.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267272.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267372.5,
+      "cpuPct": 1.6,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267473.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267573.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267674.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267774.5,
+      "cpuPct": 1.6,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267875.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467267975.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268076.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268176.5,
+      "cpuPct": 0,
+      "ramMb": 722.5,
+      "diskPct": 1
+    },
+    {
+      "epochMs": 1785467268277.5,
+      "cpuPct": 3.3,
+      "ramMb": 722.5,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268377.5,
+      "cpuPct": 3.3,
+      "ramMb": 722.7,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268478.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.7,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268579.5,
+      "cpuPct": 1.7,
+      "ramMb": 722.7,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268679.5,
+      "cpuPct": 1.6,
+      "ramMb": 722.7,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268780.5,
+      "cpuPct": 3.3,
+      "ramMb": 722.8,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268880.5,
+      "cpuPct": 0,
+      "ramMb": 723.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467268981.5,
+      "cpuPct": 1.7,
+      "ramMb": 723.3,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269081.5,
+      "cpuPct": 4.9,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269182.5,
+      "cpuPct": 1.7,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269282.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269383.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269483.5,
+      "cpuPct": 1.7,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269584.5,
+      "cpuPct": 1.7,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269684.5,
+      "cpuPct": 1.7,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269785.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269885.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467269986.5,
+      "cpuPct": 1.7,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270086.5,
+      "cpuPct": 1.7,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270187.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270287.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270388.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270488.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270589.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270689.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270789.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270890.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467270991.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271091.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271192.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271292.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271392.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271493.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271593.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271694.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271794.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271895.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467271995.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272096.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272196.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272297.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272398.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272498.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272598.5,
+      "cpuPct": 0,
+      "ramMb": 726.2,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272699.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272800.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467272900.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273001.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273101.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273202.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273302.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 1
+    },
+    {
+      "epochMs": 1785467273403.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273503.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273604.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273704.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273805.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467273905.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274006.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274106.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274207.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274307.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274408.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274508.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274609.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274710.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274810.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467274911.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275011.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275112.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275212.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275313.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275413.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275514.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275615.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275715.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275816.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467275916.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276017.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276117.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276218.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276318.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276419.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276519.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276620.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276720.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276821.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467276922.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277022.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277123.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277223.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277324.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277425.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277525.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277626.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277727.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277827.5,
+      "cpuPct": 1.6,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467277928.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278029.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278130.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278230.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278331.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278431.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 2
+    },
+    {
+      "epochMs": 1785467278532.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278633.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278734.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278834.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467278934.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467279035.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467279135.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467279236.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467279336.5,
+      "cpuPct": 0,
+      "ramMb": 726.1,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467279437.5,
+      "cpuPct": 3.3,
+      "ramMb": 726.6,
+      "diskPct": 0
+    },
+    {
+      "epochMs": 1785467279537.5,
+      "cpuPct": 8.5,
+      "ramMb": 727.2,
+      "diskPct": 0
+    }
+  ],
+  "windows": {
+    "cpu": {
+      "field": "cpuPct",
+      "pre": {
+        "count": 28,
+        "mean": 2.875,
+        "min": 0,
+        "max": 13.6
+      },
+      "post": {
+        "count": 171,
+        "mean": 1.495906432748537,
+        "min": 0,
+        "max": 23
+      },
+      "deltaMean": -1.379093567251463
+    },
+    "ram": {
+      "field": "ramMb",
+      "pre": {
+        "count": 28,
+        "mean": 607.7214285714283,
+        "min": 593,
+        "max": 656
+      },
+      "post": {
+        "count": 171,
+        "mean": 723.5035087719315,
+        "min": 658,
+        "max": 727.2
+      },
+      "deltaMean": 115.78208020050317
+    },
+    "disk": {
+      "field": "diskPct",
+      "pre": {
+        "count": 28,
+        "mean": 0.03571428571428571,
+        "min": 0,
+        "max": 1
+      },
+      "post": {
+        "count": 171,
+        "mean": 0.029239766081871343,
+        "min": 0,
+        "max": 2
+      },
+      "deltaMean": -0.006474519632414369
+    }
+  },
+  "headline": {
+    "cpuPreMean": 2.88,
+    "cpuPostMean": 1.5,
+    "cpuDeltaMean": -1.38,
+    "ramPreMean": 607.72,
+    "ramPostMean": 723.5,
+    "ramDeltaMean": 115.78,
+    "diskPreMean": 0.04,
+    "diskPostMean": 0.03,
+    "diskDeltaMean": -0.01
+  }
+}
