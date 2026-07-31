@@ -32,6 +32,8 @@ bus.
 | [verify-risky-test.mjs](verify-risky-test.mjs) | Deterministic proof of the tool gate (present=pass, absent=skip, failing=fail). |
 | [evidenceGate.mjs](evidenceGate.mjs) | The **evidence** domain: gather + schema-validate delegation receipts, tally by verdict, and gate a provider summary for accuracy. |
 | [verify-evidence.mjs](verify-evidence.mjs) | Deterministic proof (valid+accurate=pass, hallucinated count=fail, invalid receipt=fail). |
+| [qualityGate.mjs](qualityGate.mjs) | The **quality pre-gate**: score a draft's faithfulness (reusing the ollama-comparison scorer) and short-circuit a weak draft before the domain gate. |
+| [verify-quality-gate.mjs](verify-quality-gate.mjs) | Deterministic proof (faithful=proceed, off-topic/refusal=reject, short-circuits the domain gate). |
 | [sample-task.doc-draft.json](sample-task.doc-draft.json) | An example `doc-draft` task (draft the gate-suite operator note). |
 | [receipt.json](receipt.json) | The committed **deterministic** receipt (mock path). |
 
@@ -101,6 +103,16 @@ acceptance **gathers + schema-validates** each (`lba-uplift-delegation-receipt@v
 into an `lba-evidence-bundle@v1`, and gates on: every receipt valid + count ≥ `minReceipts`. The provider is
 delegated the human **summary**, which is then **grounded** — it must state the true total + pass counts, so a
 hallucinated number fails the gate. The receipt carries the `evidence { total, valid, byVerdict, ids }` bundle.
+
+## Quality pre-gate (faithfulness, before the domain gate)
+
+Every delegation runs a **quality pre-gate** ([qualityGate.mjs](qualityGate.mjs)) on the provider's draft
+*before* the domain gate: non-empty, not a refusal, and a **faithfulness** score (the fraction of the task's
+`quality.expectTerms` present, plus an optional `expectDirection` check that **reuses the
+[ollama-comparison](../ollama-comparison) `scoreDirection` scorer**). A draft that fails is **rejected here**
+and the expensive domain gate (coverage measurement, tool run, ...) is **short-circuited**. Light by default
+(so existing domains are unaffected); tightened per task via `quality { expectTerms, expectDirection,
+minFaithfulness }`. The receipt carries `quality { ok, score, refusal }`.
 
 ## Bus-side CLAIM tasking — a host coordinator dispatches, the cleanroom worker claims
 
@@ -207,8 +219,11 @@ receipt are unchanged.
   (`--concurrency 2 --provider ollama`) over `lbabus`; the VM claimed each, ran the full domain **on the VM**
   (Ollama-proposed test → V8 coverage; real `/usr/bin/ffmpeg`), and returned `DONE` — coverage-lift `pass`,
   risky-test `fail` (Ollama's ffmpeg test was flawed — the gate's teeth).
-- **Gated by the authoritative suite**: all six `verify-*.mjs` run as subprocesses under
-  `experiments/verify-local-gates.mjs` (78/78 checks pass on the dependency-free gate).
+- **quality pre-gate, deterministic**: `verify-quality-gate.mjs` → PASS, 14 assertions — a faithful draft
+  proceeds; an off-topic/refusal draft is rejected **before** the domain gate (an off-topic `coverage-lift`
+  draft fails with no coverage measured); reuses the `ollama-comparison` direction scorer.
+- **Gated by the authoritative suite**: all seven `verify-*.mjs` run as subprocesses under
+  `experiments/verify-local-gates.mjs` (79/79 checks pass on the dependency-free gate).
 
 ## Reuse map (composes, does not reinvent)
 
@@ -226,6 +241,6 @@ receipt are unchanged.
   LabVIEW MassCompile), and `evidence`. **Bus-side dispatch of these domains to the cleanroom worker pool is
   ✔ proven** (coverage-lift + risky-test handed to the VM worker — see Proven). Next: a claim registry /
   provider routing across many cleanrooms.
-- **Quality eval**: score provider output with the [ollama-comparison](../ollama-comparison) faithfulness
-  harness before accepting a draft.
+- **Quality eval** — ✔ shipped: a faithfulness pre-gate short-circuits weak drafts before the domain gate
+  (`qualityGate.mjs`, reuses the `ollama-comparison` scorer).
 - **Wire into gates** — ✔ shipped: all six `verify-*.mjs` run under `experiments/verify-local-gates.mjs` (78/78).

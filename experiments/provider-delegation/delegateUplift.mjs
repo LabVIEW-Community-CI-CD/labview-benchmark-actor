@@ -17,6 +17,7 @@ import { selectAdapter } from './providerAdapters.mjs';
 import { buildCoverageLiftPrompt, acceptanceCoverageLift } from './coverageLift.mjs';
 import { buildRiskyTestPrompt, acceptanceRiskyTest } from './riskyTest.mjs';
 import { buildEvidencePrompt, acceptanceEvidence } from './evidenceGate.mjs';
+import { qualityPreGate } from './qualityGate.mjs';
 
 export const TASK_SCHEMA = 'labview-benchmark-actor/lba-uplift-task@v1';
 export const RECEIPT_SCHEMA = 'labview-benchmark-actor/lba-uplift-delegation-receipt@v1';
@@ -74,15 +75,20 @@ export async function runDelegation(task, { provider = 'ollama', model, drive, a
   const res = await driveFn(prompt, { model: model || task.model, sections });
   const ms = Math.round(performance.now() - t0);
   if (typeof onText === 'function') onText(res.text || '');
+  // Quality PRE-gate: score the draft's faithfulness before the (expensive) domain gate; a weak / off-topic /
+  // refusal draft is rejected here and the domain gate is SHORT-CIRCUITED (no coverage measure / tool run).
+  const pre = res.ok ? qualityPreGate(task, res.text) : null;
   const acc = !res.ok
     ? { checks: [{ name: 'provider-ok', ok: false }], verdict: 'fail' }
-    : task.domain === 'coverage-lift'
-      ? await acceptanceCoverageLift(task, res.text)
-      : task.domain === 'risky-test'
-        ? await acceptanceRiskyTest(task, res.text)
-        : task.domain === 'evidence'
-          ? acceptanceEvidence(task, res.text)
-          : acceptance(task, res.text);
+    : !pre.ok
+      ? { checks: [{ name: 'quality-pregate', ok: false }, ...pre.checks], verdict: 'fail' }
+      : task.domain === 'coverage-lift'
+        ? await acceptanceCoverageLift(task, res.text)
+        : task.domain === 'risky-test'
+          ? await acceptanceRiskyTest(task, res.text)
+          : task.domain === 'evidence'
+            ? acceptanceEvidence(task, res.text)
+            : acceptance(task, res.text);
   const verdict = !res.ok ? 'fail' : acc.verdict === 'pass' ? 'pass' : acc.verdict === 'skip' ? 'skip' : 'fail';
   const receipt = {
     schema: RECEIPT_SCHEMA,
@@ -93,6 +99,7 @@ export async function runDelegation(task, { provider = 'ollama', model, drive, a
     acceptance: acc,
     verdict,
   };
+  if (pre) receipt.quality = { ok: pre.ok, score: pre.score, termsHit: pre.termsHit, termsTotal: pre.termsTotal, refusal: pre.refusal };
   if (acc.coverage) receipt.coverage = acc.coverage;
   if (acc.tool) receipt.tool = acc.tool;
   if (acc.evidence) receipt.evidence = acc.evidence;

@@ -1603,6 +1603,10 @@ check('provider-delegation-evidence', () => {
   execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-evidence.mjs')], { stdio: 'pipe' });
   return { suite: 'verify-evidence 8/8 (gather + validate receipts + grounded-summary gate)' };
 });
+check('provider-delegation-quality-gate', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-quality-gate.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-quality-gate 14/14 (faithfulness pre-gate short-circuits weak drafts; reuses ollama-comparison scorer)' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
