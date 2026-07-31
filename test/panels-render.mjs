@@ -208,6 +208,54 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(root.getAttribute('data-selected-index') === '0', 'ArrowLeft clamps at frame 0');
 }
 
+// --- 3d. launch-capture ASSEMBLER (buildLaunchCapture, a c8 module) through its non-happy branches: capacity-
+//         degraded + missing-long + no samples + synthesized timing + fps default + dhashHex + screen/source,
+//         short-protection-blocked, and startMs-from-frame + invalid-sample filtering + nearest-sample search. -
+{
+  // A. tiny ring capacity -> some long payloads deferred (degraded), a 0-byte long fails, no samples -> null
+  //    metrics, frames without ms -> synthesized timing, fps 0 -> default 12, dhashHex kept, screen + source.
+  const degraded = buildLaunchCapture({
+    frames: [
+      { imageFile: 'f0.png', imageBytes: 500, dhashHex: '0011223344556677' },
+      { imageFile: 'f1.png', imageBytes: 0 },
+      { imageFile: 'f2.png', imageBytes: 100000 },
+    ],
+    fps: 0,
+    capacityBytes: 1000,
+    meta: { workload: 'lv-launch', plane: 'LINUX', source: 'x11grab', screenW: 1920, screenH: 1080 },
+  });
+  assert(degraded.fps === 12, `invalid fps falls back to 12, got ${degraded.fps}`);
+  assert(degraded.startMs === 0, 'startMs defaults to 0 when neither startMs nor frame ms is present');
+  assert(degraded.frames[0].dhashHex === '0011223344556677', 'frame keeps its dhashHex when present');
+  assert(degraded.frames[0].cpuPct === null && degraded.frames[0].ramMb === null, 'no resource samples -> null metrics');
+  assert(degraded.frames[2].tMs === 167, `timing is synthesized from fps when a frame lacks ms, got ${degraded.frames[2].tMs}`);
+  assert(degraded.source === 'x11grab' && degraded.screen.width === 1920 && degraded.screen.height === 1080, 'meta source + screen size flow through');
+  assert(degraded.dualPacket.authoritative === false && degraded.dualPacket.outcome === 'degraded-long-deferred', `over-capacity long payloads degrade the packet, got ${degraded.dualPacket.outcome}`);
+  assert(degraded.dualPacket.authoritativeFrames === 1, `only the fitting long payload is authoritative, got ${degraded.dualPacket.authoritativeFrames}`);
+  assert(degraded.dualPacket.frames[1].outcome === 'failed' && degraded.dualPacket.frames[1].driftClass === 'missing-long-payload', 'a 0-byte long payload fails as missing-long-payload');
+
+  // B. shorts alone exceed the ring capacity -> fail closed (short-protection-blocked), metadata defaults.
+  const blocked = buildLaunchCapture({
+    frames: [{ imageFile: 'a.png', imageBytes: 10 }, { imageFile: 'b.png', imageBytes: 10 }],
+    capacityBytes: 30,
+    meta: {},
+  });
+  assert(blocked.dualPacket.outcome === 'short-protection-blocked' && blocked.dualPacket.authoritative === false, `shorts over capacity fail closed, got ${blocked.dualPacket.outcome}`);
+  assert(blocked.dualPacket.authoritativeFrames === 0 && blocked.dualPacket.frames.length === 0, 'short-protection-blocked admits no frames');
+  assert(blocked.workload === 'labview-launch' && blocked.plane === null && blocked.source === 'ffmpeg-gdigrab' && blocked.screen === null, 'empty meta falls back to the default workload/source and null plane/screen');
+
+  // C. no startMs but frames carry ms -> t0 from frames[0].ms; a NaN-ms sample is filtered; nearest-in-time wins.
+  const withMs = buildLaunchCapture({
+    frames: [{ imageFile: 'x.png', imageBytes: 50, ms: 1000 }, { imageFile: 'y.png', imageBytes: 50, ms: 1100 }],
+    resourceSamples: [{ ms: NaN, cpuPct: 99 }, { ms: 1050, cpuPct: 30, ramMb: 2000, diskPct: 5 }, { ms: 1090, cpuPct: 40, ramMb: 2100, diskPct: 6 }],
+    fps: 24,
+  });
+  assert(withMs.startMs === 1000, `t0 comes from frames[0].ms when startMs is absent, got ${withMs.startMs}`);
+  assert(withMs.fps === 24, 'a valid fps is kept');
+  assert(withMs.frames[0].cpuPct === 30 && withMs.frames[1].cpuPct === 40, `each frame takes its nearest-in-time sample (NaN-ms sample filtered), got ${withMs.frames[0].cpuPct}/${withMs.frames[1].cpuPct}`);
+  assert(withMs.frames[0].tMs === 0 && withMs.frames[1].tMs === 100, 'tMs is measured from t0');
+}
+
 // --- 4. DEGENERATE / ALTERNATIVE branch fixtures: prove the builders render their FALLBACK markup for the
 //        paths the happy-path fixtures never reach (absent fields, non-PASS verdicts, drift/breach, negative
 //        deltas, missing planes/metrics). This is the branch-coverage floor for the shipped UI builders. ------
