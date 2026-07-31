@@ -23,6 +23,7 @@ if (!existsSync(compiled)) {
 
 // Mock the `vscode` module (host-provided at runtime; unavailable in plain node).
 const registered = [];
+const registeredTools = [];
 const panels = [];
 const errorMessages = [];
 const mockVscode = {
@@ -78,6 +79,22 @@ const mockVscode = {
     openTextDocument: async () => ({}),
   },
   languages: { setTextDocumentLanguage: async (doc) => doc },
+  lm: {
+    registerTool: (name, tool) => {
+      registeredTools.push({ name, tool });
+      return { dispose() {} };
+    },
+  },
+  LanguageModelToolResult: class {
+    constructor(parts) {
+      this.content = parts;
+    }
+  },
+  LanguageModelTextPart: class {
+    constructor(value) {
+      this.value = value;
+    }
+  },
 };
 
 // Mock `node:child_process` so the CLI-backed commands exercise the prerequisite-absent branch
@@ -175,12 +192,22 @@ try {
   );
 
   ext.deactivate(); // must not throw
+
+  // Language-model tools (Copilot agent mode): activate() registers the two agent-facing tools, and the
+  // summary tool returns text (invoked here to exercise the path).
+  const toolNames = registeredTools.map((t) => t.name);
+  assert(toolNames.includes('lba-open-benchmark-panel'), 'activate() registers the open-benchmark-panel LM tool');
+  assert(toolNames.includes('lba-benchmark-summary'), 'activate() registers the benchmark-summary LM tool');
+  const summaryTool = registeredTools.find((t) => t.name === 'lba-benchmark-summary');
+  const summaryResult = await summaryTool.tool.invoke({ input: {} }, {});
+  const summaryText = summaryResult && summaryResult.content && summaryResult.content[0] && summaryResult.content[0].value;
+  assert(typeof summaryText === 'string' && /LabVIEW Benchmark Actor/.test(summaryText), 'the summary LM tool returns text');
 } finally {
   Module._load = originalLoad;
 }
 
 console.log(
-  `extension-activation: PASS -- activate() registered ${registered.length} commands ` +
+  `extension-activation: PASS -- activate() registered ${registered.length} commands + ${registeredTools.length} LM tools ` +
     `(${registered.map((r) => r.id).join(', ')}); prerequisite-remediation surfaced; deactivate() clean.`
 );
 process.exit(0);

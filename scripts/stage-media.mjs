@@ -36,17 +36,24 @@ writeFileSync(
 );
 
 // 1c. Benchmark UI builders + the real committed benchmark fixtures for the shipped webview commands
-//     (Open Benchmark Run / Open Benchmark Trend / Open Frame Correlator). The extension host imports the two
-//     PURE builders (both self-contained ESM, gated by verify-benchmark-panels.mjs + verify-scrubber.mjs) and
-//     feeds them the staged REAL LabVIEW launch record + 5-run trend, so the deployed extension renders the
-//     same real benchmark evidence the local gates re-validate.
+//     (Open Benchmark Run / Open Benchmark Trend). The extension host imports the PURE panel builders
+//     (self-contained ESM, gated by verify-benchmark-panels.mjs) and feeds them the staged REAL LabVIEW launch
+//     record + 5-run trend, so the deployed extension renders the same real benchmark evidence the local gates
+//     re-validate.
 writeFileSync(
   join(repo, 'media', 'benchmark-panels.mjs'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'benchmark-panels.mjs'))
 );
+// 1c-ii. The rebuilt LabVIEW-launch FRAME CORRELATOR: the extension records a launch VM-locally (ffmpeg 12fps +
+//     CPU/RAM/disk), assembles it with launch-capture.mjs (mprr dual-packet), and renders the scrubber with
+//     frame-correlator.mjs. Both are self-contained ESM, gated by verify-launch-capture.mjs.
 writeFileSync(
-  join(repo, 'media', 'buildBenchmarkFrameScrubberHtml.mjs'),
-  readFileSync(join(repo, 'experiments', 'dashboard-slider', 'buildBenchmarkFrameScrubberHtml.mjs'))
+  join(repo, 'media', 'launch-capture.mjs'),
+  readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'launch-capture.mjs'))
+);
+writeFileSync(
+  join(repo, 'media', 'frame-correlator.mjs'),
+  readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'frame-correlator.mjs'))
 );
 writeFileSync(
   join(repo, 'media', 'labview-launch-record.json'),
@@ -99,4 +106,4 @@ if (!agents.ok) {
 writeFileSync(join(repo, 'media', 'AGENTS.md'), readFileSync(join(repo, 'extension-agents', 'AGENTS.md')));
 writeFileSync(join(repo, 'media', 'agents.manifest.json'), readFileSync(join(repo, 'extension-agents', 'agents.manifest.json')));
 
-console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/benchmark-panels.mjs + media/buildBenchmarkFrameScrubberHtml.mjs + media/mprr-series.json (${series.length} points) + benchmark fixtures + media/AGENTS.md`);
+console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/benchmark-panels.mjs + media/launch-capture.mjs + media/frame-correlator.mjs + media/mprr-series.json (${series.length} points) + benchmark fixtures + media/AGENTS.md`);

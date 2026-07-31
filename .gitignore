@@ -7,7 +7,8 @@ media/mprr-series.json
 media/AGENTS.md
 media/agents.manifest.json
 media/benchmark-panels.mjs
-media/buildBenchmarkFrameScrubberHtml.mjs
+media/launch-capture.mjs
+media/frame-correlator.mjs
 media/labview-launch-record.json
 media/labview-launch-trend.json
 media/labview-launch-trend-win.json
