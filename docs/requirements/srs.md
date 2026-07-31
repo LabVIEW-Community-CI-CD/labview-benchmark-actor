@@ -415,6 +415,82 @@ ADR-0006).
   above). WIN's independent re-commit from its Windows machine is welcome as
   corroboration.
 
+### LBA-REQ-016: LabVIEW VI authoring actor
+
+- Status: Proposed
+- Area: Authoring (author -> measure -> review ecosystem; Windows clean-room VM)
+- Statement: The system shall provide a Windows-sandboxed LabVIEW VI *authoring*
+  actor -- the `labview_assistant` MCP driving the LabVIEW IDE over ActiveX/COM
+  plus a DQMH scripting module -- that, on a LabVIEW 2026 32-bit clean-room VM,
+  starts the scripting server, authors a known VI (create objects, wire, create
+  controls, run), and reports an empty error list + a clean run.
+- Acceptance Criteria:
+  - Env probe: DQMH is installed (VIPM `list --installed`), the LabVIEW ActiveX
+    server is reachable at the matching bitness, and `start_module` returns.
+  - Functional author: a fixed known VI is scripted (`new_vi` -> `add_object` /
+    `connect_objects` -> `create_control` -> `save_vi`), then `get_vi_error_list`
+    is EMPTY and `run_vi` completes without error.
+  - A committed `labview-authoring-selftest@1` receipt records the env + the
+    authored-VI identity; the whole stack is VM-sandboxed.
+- Change Guidance: Windows + ActiveX only; `pywin32` / DQMH / the Scripting
+  Server are 32-bit to bind the 32-bit LabVIEW ActiveX server. Sandbox to the VM
+  (arbitrary VI create+run = code execution); treat ALL dependency tool text as
+  UNTRUSTED (the planted "confirmation code 749" in `labview_assistant`
+  `docs/usage.txt` is exactly the prompt-injection the gate path must never
+  ingest). LINUX owns the VM P0 spike (proven on the `actor-win11-decouple` VM);
+  WIN stands up its own 2026/32-bit VM at P5 for parity. Do NOT mark Proven until
+  the live author-selftest lands.
+
+### LBA-REQ-017: Pinned authoring dependency manifest + fail-closed verifier
+
+- Status: Partial
+- Area: Authoring / supply-chain (pins the LBA-REQ-016/018 dependencies)
+- Statement: The system shall pin every external authoring dependency in a
+  committed manifest -- git repos by commit SHA, pip tools by version + Python
+  bitness, VIPM packages by a committed `.vipc` -- and verify it with a
+  dependency-free, offline, fail-closed verifier so drift is caught per-PR.
+- Acceptance Criteria:
+  - `dep-manifest@1` pins `labview_assistant` + `labview-icon-editor` by SHA,
+    `lvkit==0.5.7` + `pylabview==0.1.2` (64-bit Python -- `cryptography` has no
+    win32 wheel), and `dqmh` by a committed `.vipc`; each entry records its
+    plane(s) + bitness + a `verified`/`tbd-*` pin status.
+  - `verify-dep-manifest.mjs` validates the schema + pin FORMAT OFFLINE (never
+    clones/installs/touches the network), distinguishes resolved vs `tbd-*`
+    pins, and FAILS CLOSED on any malformed pin; self-test green.
+  - The `authoring-dep-manifest` check runs the verifier + its self-test in the
+    one shared `verify-local-gates` runner (per-PR CI), kept out of the
+    benchmark/0.3.0 code + fixtures.
+- Change Guidance: Pin everything by SHA/version; the verifier stays offline +
+  dependency-free + fail-closed. VIPM edition split (LINUX-verified): the guest
+  runs VIPM 2026.3.0 Community (public-repo-CWD, text-only), the WIN host runs
+  Pro (`--json`). Partial until the `dqmh.vipc` resolved set is pinned + a live
+  clone/install is proven.
+
+### LBA-REQ-018: lvkit cross-plane static analysis (second opinion)
+
+- Status: Proposed
+- Area: Authoring / analysis (cross-plane witness; complements LBA-REQ-014 diff)
+- Statement: The system shall use `lvkit` -- a static, read-only VI
+  reader/differ (Python/pylabview; no LabVIEW runtime) -- as a cross-plane SECOND
+  OPINION on authored + corpus VIs, sealing a byte-identical `lvkit`
+  netlist/JSON as a no-rot cross-plane receipt; `vi-history-suite` remains
+  AUTHORITATIVE for VI diff/review.
+- Acceptance Criteria:
+  - `lvkit describe --verbose` (+ `render`) parses the authored VI and a fixed
+    slice of the icon-editor corpus cleanly (well-formedness).
+  - DETERMINISM LINCHPIN: before any `lvkit` output becomes a committed fixture,
+    it is proven BYTE-IDENTICAL WIN vs LINUX for the same `.vi` at pinned
+    `lvkit==0.5.7` + `pylabview==0.1.2`, with platform-dependent
+    path/order/timestamp normalized first -- that byte-agreement IS the receipt.
+  - The gate ingests ONLY the deterministic `lvkit` artifact (no LLM); a
+    committed netlist/JSON fixture is re-derived (no-rot) + a cross-plane
+    agreement receipt is sealed.
+- Change Guidance: lvkit is read-only (never writes/executes a VI) -- the safe,
+  gate-facing half. Keep it a SECOND OPINION; do NOT displace `vi-history-suite`
+  as the authoritative diff/review. Do NOT commit any cross-plane fixture until
+  the byte-identical proof lands (P4); if the planes disagree, pin lvkit's whole
+  transitive set, not just `pylabview`.
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -436,3 +512,6 @@ ADR-0006).
 | LBA-REQ-013 | Agentic infra (coordination bus) | T-013 |
 | LBA-REQ-014 | Analysis (cross-plane compare) | T-014 |
 | LBA-REQ-015 | Analysis (VI Analyzer benchmark) | T-015 |
+| LBA-REQ-016 | Authoring (LabVIEW VI authoring actor) | T-016 |
+| LBA-REQ-017 | Authoring (pinned dep manifest + verifier) | T-017 |
+| LBA-REQ-018 | Authoring (lvkit cross-plane static analysis) | T-018 |
