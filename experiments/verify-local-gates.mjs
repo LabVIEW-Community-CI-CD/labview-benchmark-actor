@@ -52,6 +52,7 @@ import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.m
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-plane.mjs';
+import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1455,6 +1456,27 @@ check('readme-marketplace-safe-links', () => {
   assert(rel.length === 0,
     `README has ${rel.length} repo-relative link(s) that 404 on the Marketplace listing: ${rel.slice(0, 4).join(', ')}${rel.length > 4 ? ' ...' : ''}`);
   return { links: 'all absolute or anchors' };
+});
+// Canonical ephemeral mesh (experiments/ephemeral-mesh): the committed receipt attests one full "cattle"
+// cycle -- golden snapshot -> linked clone -> boot -> lbabus loopback MESH OK -> DESTROY -- and the shared
+// validator re-proves it here fails-closed (no VM needed at gate time). LBA-REQ-006 (clean teardown) +
+// LBA-REQ-007 (comms-only), ADR-0003/0004.
+check('ephemeral-mesh-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  // Teeth: the validator rejects a receipt that claims reboot-survival, an undestroyed clone, or no MESH OK.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { r.lifecycle.survivesReboot = true; },
+    (r) => { r.lifecycle.destroyed = false; },
+    (r) => { r.loopbackMesh.meshOk = false; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 3, 'validator must reject reboot-survival / undestroyed / mesh-not-ok receipts');
+  return { plane: summary.plane, bootSeconds: summary.bootSeconds, meshOk: summary.meshOk, destroyed: summary.destroyed };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
