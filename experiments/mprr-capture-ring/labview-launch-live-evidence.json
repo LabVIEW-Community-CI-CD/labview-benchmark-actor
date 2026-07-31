@@ -58,9 +58,11 @@
       "artifactsVmLocalNotCommitted": [
         "/tmp/lba-shot-labview.png (single, carousel 4/7)",
         "/tmp/lba-shot-trend-run5.png (trend run5, carousel 2/7)",
-        "/tmp/lba-shot-resource.png (resource run, carousel 3/7)"
+        "/tmp/lba-shot-resource.png (resource run, carousel 3/7)",
+        "/tmp/lba-shot-cold3.png (cold run3, carousel 6/7)"
       ],
-      "resourceRunObserved": "LabVIEW 2026 Q1 Community Edition GS window, carousel 3/7 (distinct fresh launch); PASS"
+      "resourceRunObserved": "LabVIEW 2026 Q1 Community Edition GS window, carousel 3/7 (distinct fresh launch); PASS",
+      "coldRunObserved": "LabVIEW 2026 Q1 Community Edition GS window, carousel 6/7 (4th distinct fresh-launch position); PASS"
     },
     "humanVisualGate": {
       "by": "operator",
@@ -94,5 +96,33 @@
       ]
     },
     "note": "guest CPU/RAM/disk sampled in-guest at 100ms while LabVIEW launched, folded onto the host epoch (offset via min-RTT) and split at the UI-READY settle trigger (pre=launching / post=settled)"
+  },
+  "coldTrend": {
+    "runner": "live-vbox-labview-launch.mjs per run; VBoxManage controlvm <vm> reset between runs (cold page cache)",
+    "method": "hard-reset the VM, wait for fresh gdm boot, re-set runtime VNC pw, capture the FIRST launch (cold)",
+    "iterations": 3,
+    "values": [
+      3836,
+      2335,
+      2592
+    ],
+    "verdict": "PASS",
+    "stats": {
+      "min": 2335,
+      "max": 3836,
+      "mean": 2921,
+      "median": 2592,
+      "stddev": 655.5,
+      "spread": 1501
+    },
+    "baselineMs": 2592,
+    "slopeMsPerRun": -622
+  },
+  "warmVsCold": {
+    "warmMedianMs": 1584,
+    "coldMedianMs": 2592,
+    "deltaMedianMs": 1008,
+    "deltaPct": 63.6,
+    "note": "cold (page-cache-cleared, first launch after reboot) is markedly slower AND noisier than warm; the delta is the OS-page-cache cost of reading LabVIEW off disk"
   }
 }
