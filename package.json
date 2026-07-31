@@ -84,6 +84,10 @@
         "title": "LabVIEW Benchmark Actor: Open Benchmark Resource Profile"
       },
       {
+        "command": "labviewBenchmarkActor.openCrossPlaneResource",
+        "title": "LabVIEW Benchmark Actor: Open Cross-Plane Resource Agreement"
+      },
+      {
         "command": "labviewBenchmarkActor.writeAgents",
         "title": "LabVIEW Benchmark Actor: Write Agent Instructions"
       },

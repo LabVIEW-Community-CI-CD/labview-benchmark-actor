@@ -32,6 +32,7 @@ const trend = mediaJson('labview-launch-trend.json');
 const winTrend = mediaJson('labview-launch-trend-win.json');
 const crossReceipt = mediaJson('cross-plane-trend-receipt.json');
 const resourceRc = mediaJson('labview-launch-resource-correlation.json');
+const crossResourceReceipt = mediaJson('resource-cross-plane-receipt.json');
 const NONCE = 'render-nonce-000000000000000000ab';
 
 // --- 1. single-run panel (static) renders the launchMs headline, the dhash-grid frame, and stats ------------
@@ -88,6 +89,18 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(doc.body.textContent.includes(`${resourceRc.launchMs} ms launch`), 'resource panel shows the launchMs badge');
   assert(/CPU %/.test(doc.body.textContent) && /RAM MB/.test(doc.body.textContent) && /Disk %/.test(doc.body.textContent), 'resource panel labels all three metrics');
   assert(!doc.querySelector('script'), 'resource panel is fully static');
+}
+
+// --- 2e. cross-plane resource-agreement panel (static): WIN vs LINUX deltas + RAM agreement headline ---------
+{
+  const dom = new JSDOM(buildCrossPlaneResourcePanelHtml(crossResourceReceipt, NONCE));
+  const doc = dom.window.document;
+  assert(doc.querySelectorAll('svg').length === 6, 'cross-plane resource panel draws a WIN + LINUX delta bar per metric');
+  const badge = doc.querySelector('h2 .badge');
+  assert(badge && badge.textContent.trim() === crossResourceReceipt.verdict, `cross-plane resource verdict badge (${crossResourceReceipt.verdict})`);
+  assert(doc.body.textContent.includes(String(crossResourceReceipt.launchDeltaMs)), 'shows the cross-plane launch delta');
+  assert(/substrate-independent/.test(doc.body.textContent), 'shows the RAM-agreement headline');
+  assert(!doc.querySelector('script'), 'cross-plane resource panel is fully static');
 }
 
 // --- 3. frame correlator (interactive) renders + scrubs; the selection tracks the vertical slider -----------

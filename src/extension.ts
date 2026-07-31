@@ -134,6 +134,7 @@ interface PanelBuilders {
   buildTrendPanelHtml(trend: unknown, nonce: string): string;
   buildCrossPlaneTrendPanelHtml(receipt: unknown, winTrend: unknown, linuxTrend: unknown, nonce: string): string;
   buildResourcePanelHtml(rc: unknown, nonce: string): string;
+  buildCrossPlaneResourcePanelHtml(receipt: unknown, nonce: string): string;
   scrubberModelFromTrend(trend: unknown, opts: { pinDhash?: string; title?: string }): unknown;
 }
 interface ScrubberBuilder {
@@ -252,6 +253,17 @@ async function openResourceProfileCommand(context: vscode.ExtensionContext, outp
     panel.webview.html = panels.buildResourcePanelHtml(rc, getNonce());
   } catch (err) {
     reportUiError(output, 'Open Resource Profile', err);
+  }
+}
+
+async function openCrossPlaneResourceCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const panels = await loadPanelBuilders(context.extensionUri);
+    const receipt = loadBenchmarkJson(context.extensionUri, 'resource-cross-plane-receipt.json');
+    const panel = makeBenchmarkPanel(context, 'lbaCrossPlaneResource', 'Cross-Plane Resource Agreement', false);
+    panel.webview.html = panels.buildCrossPlaneResourcePanelHtml(receipt, getNonce());
+  } catch (err) {
+    reportUiError(output, 'Open Cross-Plane Resource Profile', err);
   }
 }
 
@@ -471,6 +483,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.openResourceProfile', () =>
       openResourceProfileCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.openCrossPlaneResource', () =>
+      openCrossPlaneResourceCommand(context, output)
     )
   );
 

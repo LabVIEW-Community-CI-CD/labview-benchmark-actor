@@ -68,6 +68,10 @@ writeFileSync(
   join(repo, 'media', 'labview-launch-resource-correlation.json'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-resource-correlation.json'))
 );
+writeFileSync(
+  join(repo, 'media', 'resource-cross-plane-receipt.json'),
+  readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'resource-cross-plane-receipt.json'))
+);
 
 // 2. Real mprr ring-buffer series for the deployed viewer.
 const fixture = JSON.parse(

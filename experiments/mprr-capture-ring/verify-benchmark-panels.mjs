@@ -20,6 +20,7 @@ import {
   buildTrendPanelHtml,
   buildCrossPlaneTrendPanelHtml,
   buildResourcePanelHtml,
+  buildCrossPlaneResourcePanelHtml,
   scrubberModelFromTrend,
   scrubberModelFromRecord,
   escapeHtml,
@@ -183,6 +184,25 @@ if (existsSync(rcPath)) {
   check('resource panel deterministic', buildResourcePanelHtml(rc, nonce) === rchtml);
 } else {
   console.log('  ..   live resource fixture not present yet');
+}
+
+// ---------------------------------------------------------------------------
+// 4d. cross-plane resource-agreement panel off the REAL committed receipt
+// ---------------------------------------------------------------------------
+console.log('cross-plane resource panel');
+const xrcPath = join(HERE, 'fixtures', 'resource-cross-plane-receipt.json');
+if (existsSync(xrcPath)) {
+  const xrc = JSON.parse(readFileSync(xrcPath, 'utf8'));
+  const xrchtml = buildCrossPlaneResourcePanelHtml(xrc, nonce);
+  check('xplane-resource DOCTYPE + strict CSP + no script', /^<!DOCTYPE html>/.test(xrchtml) && xrchtml.includes("default-src 'none'") && !/<script/i.test(xrchtml));
+  check('xplane-resource verdict badge', xrchtml.includes(`badge ${xrc.verdict === 'PASS' ? 'pass' : 'fail'}`) && xrchtml.includes(xrc.verdict));
+  check('xplane-resource has WIN + LINUX delta bars per metric (6 svgs)', (xrchtml.match(/<svg/g) || []).length === 6);
+  check('xplane-resource shows the launch delta', xrchtml.includes(String(xrc.launchDeltaMs)));
+  check('xplane-resource RAM agreement headline', xrchtml.includes('substrate-independent') && xrchtml.includes(String(xrc.metrics.ram.agreementDelta)));
+  check('xplane-resource per-metric status badges', ['cpu', 'ram', 'disk'].every((k) => xrchtml.includes(xrc.metrics[k].status.toUpperCase())));
+  check('xplane-resource deterministic', buildCrossPlaneResourcePanelHtml(xrc, nonce) === xrchtml);
+} else {
+  console.log('  ..   cross-plane resource receipt not present yet');
 }
 
 // ---------------------------------------------------------------------------
