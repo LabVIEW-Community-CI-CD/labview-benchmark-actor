@@ -1,0 +1,63 @@
+{
+  "schema": "labview-benchmark-actor/dep-manifest@1",
+  "description": "Pinned external dependencies for the LabVIEW authoring + lvkit static self-test track (LBA-REQ-016/017/018; proposal docs/proposals/labview-authoring-and-lvkit-selftest.md). Three pinned sections: gitRepos (by commit SHA), pipTools (by pip version + Python bitness), vipmPackages (by a committed .vipc). Windows-first; the Windows LabVIEW VM is LabVIEW 2026 32-bit. Everything is pinned + the verifier fails closed on drift; the authoring stack is VM-sandboxed and all dependency tool text is treated as untrusted (see the proposal security section).",
+  "target": {
+    "os": "windows",
+    "labview": { "version": "2026", "bitness": 32 }
+  },
+  "gitRepos": [
+    {
+      "name": "labview_assistant",
+      "role": "author",
+      "url": "https://github.com/CalmyJane/labview_assistant.git",
+      "pin": "a9d28a503775dbb1c4513491613ea734496dc586",
+      "pinStatus": "verified",
+      "dest": "C:/lba/deps/labview_assistant",
+      "planes": ["win"],
+      "runtime": { "python": { "bitness": 32 } },
+      "notes": "MCP server that scripts the LabVIEW IDE via win32com ActiveX + a DQMH module. Runs under 32-bit Python (pywin32 32-bit binds the 32-bit LabVIEW 2026 ActiveX server); requires DQMH (see vipmPackages). VM-sandboxed only; its create+RUN of arbitrary VIs is code-exec and its tool docs are untrusted input."
+    },
+    {
+      "name": "labview-icon-editor",
+      "role": "corpus",
+      "url": "https://github.com/ni/labview-icon-editor.git",
+      "pin": "9545c483f2b947c71de68c7f70aedefaedadabf7",
+      "pinStatus": "verified",
+      "dest": "C:/lba/deps/labview-icon-editor",
+      "planes": ["win", "linux"],
+      "notes": "32-bit VI corpus authored-against / analyzed. Already mirrored for the VI Analyzer .viancfg pattern (experiments/vi-analyzer/icon-editor-report.json)."
+    }
+  ],
+  "pipTools": [
+    {
+      "name": "lvkit",
+      "role": "analyzer",
+      "version": "==0.5.7",
+      "pythonBitness": 64,
+      "pinStatus": "verified",
+      "planes": ["win", "linux"],
+      "notes": "Static VI reader/differ (read-only; never executes a VI; no LabVIEW). Cross-plane SECOND OPINION only (vi-history-suite stays authoritative). MUST run on 64-bit Python: its cryptography dependency has no win32 wheel, so a 32-bit build fails. Proven on the LINUX plane: Python 3.12.8 x64 + lvkit 0.5.7 -> deterministic `lvkit describe --verbose`, rc=0."
+    },
+    {
+      "name": "pylabview",
+      "role": "vi-parser",
+      "version": "",
+      "pythonBitness": 64,
+      "pinStatus": "tbd-linux-verify",
+      "planes": ["win", "linux"],
+      "notes": "lvkit's transitive VI-binary parser. Its EXACT version must be pinned for cross-plane determinism (the linchpin: lvkit netlist/JSON must be byte-identical WIN vs LINUX before any fixture is committed). LINUX to report the version lvkit 0.5.7 resolves on the VM."
+    }
+  ],
+  "vipmPackages": [
+    {
+      "name": "dqmh",
+      "role": "author-runtime",
+      "vipc": "experiments/labview-authoring/deps/dqmh.vipc",
+      "version": "",
+      "labviewBitness": 32,
+      "pinStatus": "tbd-linux-owns-vipc",
+      "planes": ["win"],
+      "notes": "DQMH (Delacor Queued Message Handler) + ALL transitive deps (JKI State Machine at minimum), pinned via a committed .vipc applied by the VIPM Pro CLI (resolves + pins transitively). LINUX authors + verifies the resolved .vipc set on the VM and reports the VM-verified VIPM CLI (apply + query) for the AGENTS.md section. VIPM is operator-gated (Pro license)."
+    }
+  ]
+}
