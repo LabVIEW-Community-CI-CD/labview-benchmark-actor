@@ -1,0 +1,69 @@
+{
+  "schema": "labview-benchmark-actor/labview-launch-live-evidence@1",
+  "capturedAt": "2026-07-31T20:52:29Z",
+  "operatorPrompt": "spin it up, use it as a visual gate yourself too",
+  "cleanroom": {
+    "vm": "lba-ubuntu2404-labview2026-scratch",
+    "hypervisor": "virtualbox",
+    "plane": "LINUX",
+    "snapshot": "mesh-node-ready",
+    "captureSource": "vbox-vnc (RFB VNC-auth, 127.0.0.1:5900)",
+    "launchMethod": "gdm stopped -> xinit /usr/local/bin/labview64 -- :0 vt1 (guest console)",
+    "labview": "LabVIEW 2026 Q1 Community Edition (activated)"
+  },
+  "singleLaunch": {
+    "orchestrator": "experiments/mprr-capture-ring/live-vbox-labview-launch.mjs",
+    "launchMs": 1835,
+    "framesCaptured": 265,
+    "stableTailFrames": 244,
+    "uiReadyPin": "0000010101010100",
+    "integrityHash": "d45eaf6eaf0647249cc12dac202caafd6892250d493500e9e7ccd16a2168b132"
+  },
+  "trend": {
+    "runner": "experiments/mprr-capture-ring/live-vbox-labview-trend.mjs",
+    "iterations": 5,
+    "values": [
+      1673,
+      1584,
+      1582,
+      1587,
+      1510
+    ],
+    "verdict": "PASS",
+    "stats": {
+      "min": 1510,
+      "max": 1673,
+      "mean": 1587.2,
+      "median": 1584,
+      "stddev": 51.7,
+      "spread": 163
+    },
+    "baselineMs": 1584,
+    "toleranceMs": 2000,
+    "slopeMsPerRun": -32.3,
+    "drifting": false
+  },
+  "corroboration": {
+    "canonicalFixture": "experiments/mprr-capture-ring/fixtures/labview-launch-record.json (proof #192/#193)",
+    "uiReadyPinMatchesCanonical": true,
+    "integrityHashMatchesCanonical": true,
+    "note": "same LabVIEW GS UI-READY perceptual fingerprint + integrity as the canonical cross-plane proof (deterministic visual witness)"
+  },
+  "gates": {
+    "automatedVisualGate": {
+      "by": "agent",
+      "method": "VBoxManage controlvm <vm> screenshotpng -> image inspection",
+      "verdict": "PASS",
+      "observed": "LabVIEW 2026 Q1 Community Edition Getting Started window (File/Operate/Tools/Help, Create Project, Open Existing, New-Features carousel) fully rendered; activated (no activation dialog)",
+      "artifactsVmLocalNotCommitted": [
+        "/tmp/lba-shot-labview.png (single, carousel 4/7)",
+        "/tmp/lba-shot-trend-run5.png (trend run5, carousel 2/7)"
+      ]
+    },
+    "humanVisualGate": {
+      "by": "operator",
+      "status": "invited",
+      "note": "same screenshots presented in chat for the operator's human gate"
+    }
+  }
+}
