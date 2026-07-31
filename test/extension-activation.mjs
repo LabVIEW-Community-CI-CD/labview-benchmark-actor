@@ -75,7 +75,10 @@ const mockVscode = {
   },
   ViewColumn: { Active: -1 },
   Uri: {
-    joinPath: (base, ...parts) => ({ path: [base && base.path ? base.path : '', ...parts].join('/') }),
+    joinPath: (base, ...parts) => {
+      const joined = [base && (base.fsPath || base.path) ? (base.fsPath || base.path) : '', ...parts].join('/');
+      return { path: joined, fsPath: joined, toString: () => joined };
+    },
     parse: (s) => ({ toString: () => s, path: s, scheme: String(s).split(':')[0] }),
   },
   commands: {
@@ -150,7 +153,7 @@ try {
   assert(typeof ext.deactivate === 'function', 'the extension exports deactivate()');
 
   const subscriptions = [];
-  ext.activate({ subscriptions, extensionUri: { path: '/ext', fsPath: '/ext' }, extension: { packageJSON: { version: '0.1.0' } } });
+  ext.activate({ subscriptions, extensionUri: { path: repoRoot, fsPath: repoRoot }, extension: { packageJSON: { version: '0.1.0' } } });
 
   const expected = [
     'labviewBenchmarkActor.showCapabilities',
@@ -233,6 +236,31 @@ try {
     'bootstrapAuthoringLane runs the ps1 via pwsh'
   );
   assert(infoMessages.some((m) => /Windows-only/.test(m)), 'bootstrapAuthoringLane surfaces the Windows-only note');
+
+  // Benchmark panel commands (LBA-REQ-004/005): each renders a webview from the STAGED fixtures. Invoking them
+  // covers the extension.ts panel wiring (loadPanelBuilders + loadBenchmarkJson + makeBenchmarkPanel) on the
+  // real render path -- the panel builders themselves are proven separately by panels-render.mjs.
+  const panelCommands = [
+    'labviewBenchmarkActor.openBenchmarkRun',
+    'labviewBenchmarkActor.openBenchmarkTrend',
+    'labviewBenchmarkActor.openCrossPlaneTrend',
+    'labviewBenchmarkActor.openResourceProfile',
+    'labviewBenchmarkActor.openCrossPlaneResource',
+  ];
+  const panelsBefore = panels.length;
+  for (const id of panelCommands) {
+    const cmd = registered.find((r) => r.id === id);
+    assert(cmd, `${id} command is registered`);
+    await cmd.handler();
+  }
+  assert(
+    panels.length === panelsBefore + panelCommands.length,
+    'each benchmark panel command renders a webview from the staged fixtures'
+  );
+  assert(
+    panels.slice(panelsBefore).every((p) => typeof p.webview.html === 'string' && p.webview.html.length > 0),
+    'each benchmark panel sets non-empty HTML (fixtures loaded -- the real render path, not the error path)'
+  );
 
   ext.deactivate(); // must not throw
 
