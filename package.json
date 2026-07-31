@@ -88,6 +88,14 @@
         "title": "LabVIEW Benchmark Actor: Open Cross-Plane Resource Agreement"
       },
       {
+        "command": "labviewBenchmarkActor.captureLaunch",
+        "title": "LabVIEW Benchmark Actor: Capture LabVIEW Launch"
+      },
+      {
+        "command": "labviewBenchmarkActor.stopCapture",
+        "title": "LabVIEW Benchmark Actor: Stop LabVIEW Capture"
+      },
+      {
         "command": "labviewBenchmarkActor.writeAgents",
         "title": "LabVIEW Benchmark Actor: Write Agent Instructions"
       },
@@ -104,7 +112,7 @@
       {
         "name": "lba-open-benchmark-panel",
         "displayName": "Open LabVIEW Benchmark Panel",
-        "modelDescription": "Open one of the LabVIEW Benchmark Actor webview panels in the editor so the user can SEE the captured LabVIEW IDE-launch benchmark evidence. Choose the panel via the 'panel' input: 'run' (a single launch: launchMs + the UI-READY settle frame), 'trend' (launchMs across N runs + baseline + PASS/REGRESSION verdict), 'frameCorrelator' (a vertical-line scrubber correlating each run's launchMs with its captured frame), 'crossPlaneTrend' (Windows vs Linux launchMs trends overlaid), 'resourceProfile' (CPU/RAM/disk sampled during the launch, split at the UI-READY trigger), or 'crossPlaneResource' (Windows vs Linux resource deltas + agreement). Use lba-benchmark-summary first if you want the numbers to explain.",
+        "modelDescription": "Open one of the LabVIEW Benchmark Actor webview panels in the editor so the user can SEE the captured LabVIEW IDE-launch benchmark evidence. Choose the panel via the 'panel' input: 'run' (a single launch: launchMs + the UI-READY settle frame), 'trend' (launchMs across N runs + baseline + PASS/REGRESSION verdict), 'frameCorrelator' (scrub the frames of one LabVIEW launch over time with a grab-and-drag red line -- CPU/RAM/disk curves on top, the real captured screenshot at that frame below), 'crossPlaneTrend' (Windows vs Linux launchMs trends overlaid), 'resourceProfile' (CPU/RAM/disk sampled during the launch, split at the UI-READY trigger), or 'crossPlaneResource' (Windows vs Linux resource deltas + agreement). Use lba-benchmark-summary first if you want the numbers to explain.",
         "userDescription": "Open a LabVIEW Benchmark Actor panel",
         "toolReferenceName": "lbaBenchmarkPanel",
         "canBeReferencedInPrompt": true,
@@ -151,8 +159,8 @@
           },
           {
             "id": "run",
-            "title": "A single run + its captured frame",
-            "description": "Open one run, then scrub the runs against their captured frames.\n[Open Benchmark Run](command:labviewBenchmarkActor.openBenchmarkRun)\n[Open Frame Correlator](command:labviewBenchmarkActor.openFrameCorrelator)",
+            "title": "Capture a LabVIEW launch + scrub its frames",
+            "description": "Record a real LabVIEW launch at 12 fps, then grab the red line to scrub CPU/RAM/disk against the captured screenshot at each frame.\n[Capture LabVIEW Launch](command:labviewBenchmarkActor.captureLaunch)\n[Open Benchmark Run](command:labviewBenchmarkActor.openBenchmarkRun)\n[Open Frame Correlator](command:labviewBenchmarkActor.openFrameCorrelator)",
             "media": { "markdown": "media/walkthrough/run.md" }
           },
           {
@@ -169,7 +177,22 @@
           }
         ]
       }
-    ]
+    ],
+    "configuration": {
+      "title": "LabVIEW Benchmark Actor",
+      "properties": {
+        "labviewBenchmarkActor.ffmpegPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to `ffmpeg.exe` used to capture the LabVIEW launch at 12 fps (Windows `gdigrab`). Leave empty to auto-resolve the copy the installer stages at `%LOCALAPPDATA%\\lba\\ffmpeg.exe`, else `ffmpeg` from `PATH`."
+        },
+        "labviewBenchmarkActor.labviewPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the `LabVIEW.exe` to launch for a capture. Leave empty to auto-detect LabVIEW 2026 (32-bit then 64-bit) under `National Instruments`."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -1,0 +1,74 @@
+// verify-launch-capture.mjs — deterministic self-test for the VM-local LabVIEW-launch capture assembler
+// (mprr dual-packet) + the frame-correlator document builder. No VM: synthetic frames + resource samples.
+//
+// Run: node experiments/mprr-capture-ring/verify-launch-capture.mjs
+
+import { buildLaunchCapture, LAUNCH_CAPTURE_SCHEMA } from './launch-capture.mjs';
+import { buildFrameCorrelatorHtml } from './frame-correlator.mjs';
+import { correlateDualStream as canonicalDual } from '../mprr-ring/mprrDualPacket.mjs';
+
+let failures = 0;
+function check(label, cond, detail) {
+  if (cond) { console.log('  ok   ' + label); }
+  else { failures += 1; console.log('  FAIL ' + label + (detail ? '  -- ' + detail : '')); }
+}
+
+// 6 frames at 12 fps (~83.3 ms apart), from epoch 100000. CPU/RAM/disk sampled at a coarser cadence.
+const startMs = 100000;
+const frames = [];
+for (let i = 0; i < 6; i += 1) {
+  frames.push({ imageFile: 'frame-' + String(i).padStart(5, '0') + '.png', imageBytes: 1000 + i * 10, ms: startMs + Math.round((i * 1000) / 12) });
+}
+const resourceSamples = [
+  { ms: 100000, cpuPct: 5, ramMb: 600, diskPct: 1 },
+  { ms: 100200, cpuPct: 60, ramMb: 700, diskPct: 40 },
+  { ms: 100400, cpuPct: 15, ramMb: 760, diskPct: 3 },
+];
+
+console.log('buildLaunchCapture (mprr dual-packet)');
+const cap = buildLaunchCapture({ frames, resourceSamples, startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'WIN', screenW: 1280, screenH: 800 } });
+check('schema', cap.schema === LAUNCH_CAPTURE_SCHEMA);
+check('frame count', cap.frameCount === 6 && cap.frames.length === 6);
+check('frame 0 t=0', cap.frames[0].tMs === 0);
+check('timing ticks are 100ns (frame0=0)', cap.frames[0].timingTicks64 === '0');
+check('resource arrays per metric', cap.resources.cpu.length === 6 && cap.resources.ram.length === 6 && cap.resources.disk.length === 6);
+check('frame 0 nearest sample (cpu 5 @100000)', cap.frames[0].cpuPct === 5);
+check('frame ~t250ms nearest sample (cpu 60 @100200)', cap.frames[3].cpuPct === 60, 'got ' + cap.frames[3].cpuPct);
+check('dual-packet authoritative (all longs admitted)', cap.dualPacket.authoritative === true && cap.dualPacket.authoritativeFrames === 6);
+// drift guard: the inlined dual-packet correlation must match the canonical mprr-ring/mprrDualPacket.mjs.
+const canon = canonicalDual(cap.frames.map((f) => ({ frameIndex: f.index, shortBytes: 24, longBytes: f.imageBytes })), {});
+check('inlined dual-packet matches canonical mprrDualPacket (no drift)', JSON.stringify(canon) === JSON.stringify(cap.dualPacket));
+check('image (long-packet) ref carried', cap.frames[2].image === 'frame-00002.png' && cap.frames[2].imageBytes === 1020);
+check('screen dims', cap.screen && cap.screen.width === 1280 && cap.screen.height === 800);
+check('deterministic', JSON.stringify(buildLaunchCapture({ frames, resourceSamples, startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'WIN', screenW: 1280, screenH: 800 } })) === JSON.stringify(cap));
+// dual-packet degradation: a tiny capacity defers longs (short continuity protected).
+const tight = buildLaunchCapture({ frames, resourceSamples, startMs, fps: 12, capacityBytes: 24 * 6 + 1500 });
+check('tight capacity defers some long payloads (short-protected)', tight.dualPacket.authoritative === false && tight.dualPacket.authoritativeFrames < 6);
+let threw = false;
+try { buildLaunchCapture({ frames: [] }); } catch { threw = true; }
+check('empty frames throws', threw);
+
+console.log('buildFrameCorrelatorHtml');
+const model = {
+  title: 'Launch </script> correlator',
+  fps: 12,
+  selectedIndex: 2,
+  frames: cap.frames.map((f) => ({ index: f.index, tMs: f.tMs, cpuPct: f.cpuPct, ramMb: f.ramMb, diskPct: f.diskPct, imageSrc: 'https://file+.vscode-resource/' + f.image })),
+};
+const nonce = 'nonce-abc123';
+const html = buildFrameCorrelatorHtml(model, nonce, 'https://file+.vscode-resource');
+check('DOCTYPE', /^<!DOCTYPE html>/.test(html));
+check('CSP carries the nonce', html.includes("script-src 'nonce-" + nonce + "'"));
+check('CSP img-src includes the webview cspSource (for VM-local frames)', html.includes('img-src https://file+.vscode-resource data:;'));
+check('title < escaped', html.includes('Launch &lt;/script&gt; correlator'));
+check('JSON island present + closed', /<script id="fc-model"[^>]*>[\s\S]*?<\/script>/.test(html));
+const isl = html.match(/<script id="fc-model"[^>]*>([\s\S]*?)<\/script>/)[1];
+check('island has no raw </script', !isl.toLowerCase().includes('</script'));
+check('runtime references the draggable red line + pointer drag', html.includes('pointerdown') && html.includes('#ff3b30'));
+check('runtime plots cpu/ram/disk curves', html.includes("'cpuPct'") && html.includes("'ramMb'") && html.includes("'diskPct'"));
+check('lower frame img element present', html.includes('id="fc-img"'));
+check('deterministic', buildFrameCorrelatorHtml(model, nonce, 'https://file+.vscode-resource') === html);
+
+console.log('');
+if (failures > 0) { console.error('verify-launch-capture: ' + failures + ' check(s) FAILED'); process.exit(1); }
+console.log('verify-launch-capture: all checks passed');

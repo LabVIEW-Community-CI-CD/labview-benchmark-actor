@@ -47,6 +47,8 @@ import { buildWorkloadRecord } from './mprr-capture-ring/workload-benchmark.mjs'
 import { buildTrend } from './mprr-capture-ring/trend.mjs';
 import { buildBenchmarkPanelHtml, buildTrendPanelHtml, scrubberModelFromTrend, dhashGridCells } from './mprr-capture-ring/benchmark-panels.mjs';
 import { buildBenchmarkFrameScrubberHtml } from './dashboard-slider/buildBenchmarkFrameScrubberHtml.mjs';
+import { buildLaunchCapture } from './mprr-capture-ring/launch-capture.mjs';
+import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-plane.mjs';
@@ -1324,10 +1326,11 @@ check('capture-ring-labview-trend-receipt-win', () => {
   return { plane: t.plane, verdict: t.verdict, runs: t.n, meanMs: t.stats.mean, spreadMs: t.stats.spread, slopeMsPerRun: t.slopeMsPerRun };
 });
 
-// Benchmark UI surfaces wired into the shipping extension: the single-run panel, the trend panel, and the
-// vertical-line FRAME CORRELATOR scrubber all build from the REAL committed record + trend via the PURE, staged
-// builders. Gates the rot-prone surfaces in-proc (strict CSP, real launchMs/verdict, one scrubber point per run,
-// dhash-grid frames) + runs the full deterministic panel self-test (dhash-decode drift guard, XSS escaping).
+// Benchmark UI surfaces: the single-run panel + the trend panel (both shipped in the extension) build from the
+// REAL committed record + trend via the PURE, staged builders. The vertical-line scrubber is exercised here as
+// the corroboration-lab predecessor of the shipped frame correlator (gated below). Gates the rot-prone surfaces
+// in-proc (strict CSP, real launchMs/verdict, one scrubber point per run, dhash-grid frames) + runs the full
+// deterministic panel self-test (dhash-decode drift guard, XSS escaping).
 check('capture-ring-benchmark-panels', () => {
   const rec = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-record.json'), 'utf8'));
   const trend = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-trend.json'), 'utf8'));
@@ -1349,6 +1352,27 @@ check('capture-ring-benchmark-panels', () => {
   assert(dhashGridCells(pin).flat().filter(Boolean).length === 5, 'the UI-READY dhash grid renders the real fingerprint bits');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-benchmark-panels.mjs')], { stdio: 'pipe' });
   return { surfaces: 'single-run + trend + frame-correlator', launchMs: rec.spans[0].ms, verdict: trend.verdict, suite: 'verify-benchmark-panels subprocess' };
+});
+
+// The rebuilt LabVIEW-launch FRAME CORRELATOR shipped in the extension: assemble a launch-capture@1 record
+// (mprr dual-packet) from synthetic frames + CPU/RAM/disk samples, build the correlator webview, and gate its
+// invariants (nonce CSP with img-src cspSource, three metric curves, the draggable red line), then run the full
+// deterministic self-test (drift-guarded against the canonical mprrDualPacket) as a subprocess.
+check('capture-ring-frame-correlator', () => {
+  const startMs = 1_700_000_000_000;
+  const N = 6;
+  const frames = Array.from({ length: N }, (_, i) => ({ index: i, imageFile: `frame-${String(i).padStart(5, '0')}.png`, imageBytes: 1000 + i, ms: startMs + Math.round((i * 1000) / 12) }));
+  const resourceSamples = Array.from({ length: N }, (_, i) => ({ ms: startMs + Math.round((i * 1000) / 12), cpuPct: 10 + i * 5, ramMb: 2000 + i * 10, diskPct: i * 3 }));
+  const cap = buildLaunchCapture({ frames, resourceSamples, startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'WIN' } });
+  assert(cap.frameCount === N && cap.fps === 12, 'launch-capture assembles the frames at 12 fps');
+  assert(cap.dualPacket.authoritative === true && cap.dualPacket.authoritativeFrames === N, 'the mprr dual-packet is authoritative (every long payload admitted)');
+  assert(cap.frames.every((f) => typeof f.cpuPct === 'number' && typeof f.ramMb === 'number' && typeof f.diskPct === 'number'), 'each frame carries its nearest CPU/RAM/disk sample');
+  const model = { title: 'gate', fps: cap.fps, selectedIndex: 0, frames: cap.frames.map((f) => ({ index: f.index, tMs: f.tMs, cpuPct: f.cpuPct, ramMb: f.ramMb, diskPct: f.diskPct, imageSrc: 'vscode-webview://x/frame' })) };
+  const html = buildFrameCorrelatorHtml(model, 'g', 'vscode-webview://x');
+  assert(html.includes("script-src 'nonce-g'") && html.includes('img-src vscode-webview://x data:'), 'correlator is a nonce-scoped doc that only loads VM-local webview images');
+  assert(html.includes('#ff3b30') && html.includes("key: 'cpuPct'") && html.includes("key: 'ramMb'") && html.includes("key: 'diskPct'"), 'correlator draws the red line + the CPU/RAM/disk curves');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-launch-capture.mjs')], { stdio: 'pipe' });
+  return { record: 'launch-capture@1', frames: N, dualPacket: cap.dualPacket.outcome, suite: 'verify-launch-capture subprocess' };
 });
 
 // CROSS-PLANE TREND-OF-TRENDS receipt: the WIN launchMs trend vs the LINUX launchMs trend (both REAL, both on

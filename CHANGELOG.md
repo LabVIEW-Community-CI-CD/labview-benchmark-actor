@@ -15,8 +15,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
     rendered as an 8×8 dhash (perceptual-fingerprint) grid, and the capture stats.
   - **Open Benchmark Trend** — `launchMs` across N runs with a median baseline, a least-squares drift
     slope, and a PASS / REGRESSION verdict.
-  - **Open Benchmark Frame Correlator** — a vertical-line scrubber that correlates each run's `launchMs`
-    (upper graph) with the captured UI-READY frame at that point (lower pane).
+  - **Open Benchmark Frame Correlator** — a grab-and-drag red vertical line scrubs one launch's frames over
+    time: the CPU / RAM / disk curves (upper graph) and the REAL captured screenshot at that exact frame
+    (lower pane) track the cursor.
   - **Open Cross-Plane Benchmark Trend** — the two hypervisor planes' `launchMs` trends overlaid, with the
     witnessed cross-plane delta.
   - **Open Benchmark Resource Profile** — CPU / RAM / disk sampled live during the launch and correlated
@@ -27,6 +28,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 - **Copilot agent tools** — two language-model tools let a Copilot **agent** drive the extension from a
   prompt: `lba-open-benchmark-panel` (open any panel) and `lba-benchmark-summary` (summarize the captured
   numbers). Reference them in a prompt as `#lbaBenchmarkPanel` / `#lbaBenchmarkSummary`.
+- **Capture LabVIEW Launch** — a one-click command records a real LabVIEW launch inside the Windows VM at
+  12 fps (ffmpeg `gdigrab`) while sampling CPU / RAM / disk, then opens the frame correlator on it. Frames
+  and metrics are captured and stored VM-locally (nothing is embedded in the `.vsix`); a status-bar
+  **Stop LabVIEW Capture** ends it. Configurable via `labviewBenchmarkActor.ffmpegPath` /
+  `labviewBenchmarkActor.labviewPath`.
 
 ### Notes
 - First release to also carry the 0.2.0 additions (the dependency-free MCP stdio server + Marketplace
