@@ -267,6 +267,129 @@ async function openCrossPlaneResourceCommand(context: vscode.ExtensionContext, o
   }
 }
 
+// --- Language Model Tools (Copilot agent mode) --------------------------------------------------------------
+// So a Copilot AGENT can DRIVE the extension from a prompt (open a benchmark panel; summarize the captured
+// numbers). The tools reuse the SAME panel command handlers + staged fixtures the human UI uses. Guarded: a
+// no-op on hosts predating the stable LanguageModelTool API (VS Code 1.101+), exactly like the MCP provider.
+type LmToolInvoke = (options: { input?: Record<string, unknown> }, token: unknown) => Promise<unknown>;
+interface LmApi {
+  registerTool?(name: string, tool: { invoke: LmToolInvoke }): vscode.Disposable;
+}
+
+// Build a LanguageModelToolResult when the API classes exist; fall back to a plain shape otherwise.
+function lmTextResult(text: string): unknown {
+  const g = vscode as unknown as {
+    LanguageModelToolResult?: new (parts: unknown[]) => unknown;
+    LanguageModelTextPart?: new (t: string) => unknown;
+  };
+  if (g.LanguageModelToolResult && g.LanguageModelTextPart) {
+    return new g.LanguageModelToolResult([new g.LanguageModelTextPart(text)]);
+  }
+  return { content: [{ type: 'text', value: text }] };
+}
+
+type PanelOpener = (context: vscode.ExtensionContext, output: vscode.OutputChannel) => Promise<void>;
+const BENCHMARK_PANEL_OPENERS: Record<string, { title: string; open: PanelOpener }> = {
+  run: { title: 'Benchmark Run', open: openBenchmarkRunCommand },
+  trend: { title: 'Benchmark Trend', open: openBenchmarkTrendCommand },
+  frameCorrelator: { title: 'Benchmark Frame Correlator', open: openFrameCorrelatorCommand },
+  crossPlaneTrend: { title: 'Cross-Plane Benchmark Trend', open: openCrossPlaneTrendCommand },
+  resourceProfile: { title: 'Benchmark Resource Profile', open: openResourceProfileCommand },
+  crossPlaneResource: { title: 'Cross-Plane Resource Agreement', open: openCrossPlaneResourceCommand },
+};
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+}
+function numOrQ(v: unknown): string {
+  return typeof v === 'number' ? String(v) : '?';
+}
+
+// A plain-text summary of the extension's captured benchmark evidence, read from the staged fixtures so it is
+// always the real numbers the panels render. The agent uses this to EXPLAIN the panels.
+function benchmarkSummaryText(context: vscode.ExtensionContext): string {
+  const lines: string[] = [
+    'LabVIEW Benchmark Actor — real captured LabVIEW IDE-launch benchmark evidence (shipped in the extension):',
+  ];
+  const read = (f: string): Record<string, unknown> | null => {
+    try {
+      return loadBenchmarkJson(context.extensionUri, f);
+    } catch {
+      return null;
+    }
+  };
+  const rec = read('labview-launch-record.json');
+  if (rec) {
+    const span = (Array.isArray(rec.spans) ? rec.spans : []).map(asRecord).find((s) => s.id === 'launchMs') ?? {};
+    const frame = (Array.isArray(rec.frames) ? rec.frames : []).map(asRecord).find((f) => f.settled) ?? {};
+    const detail = asRecord(rec.sourceDetail);
+    lines.push(
+      `• Single run: launchMs ${numOrQ(span.ms)} ms to UI-READY (settle fingerprint ${String(frame.perceptualFingerprint ?? '?')}, ${numOrQ(detail.framesCaptured)} frames captured).`
+    );
+  }
+  const trend = read('labview-launch-trend.json');
+  if (trend) {
+    const stats = asRecord(trend.stats);
+    lines.push(
+      `• Trend (${numOrQ(trend.n)} runs): mean ${numOrQ(stats.mean)} ms, verdict ${String(trend.verdict ?? '?')} (baseline ${numOrQ(trend.baselineMs)} ms, slope ${numOrQ(trend.slopeMsPerRun)} ms/run).`
+    );
+  }
+  const xtrend = read('cross-plane-trend-receipt.json');
+  if (xtrend) {
+    const w = asRecord(xtrend.witness);
+    const lin = asRecord(xtrend.linux);
+    const win = asRecord(xtrend.win);
+    lines.push(
+      `• Cross-plane launchMs: LINUX mean ${numOrQ(lin.mean)} vs WIN mean ${numOrQ(win.mean)} ms, witness Δ ${numOrQ(w.meanDeltaMs)} ms (${String(w.status ?? '?')}, faster ${String(w.faster ?? '?')}).`
+    );
+  }
+  const rescorr = read('labview-launch-resource-correlation.json');
+  if (rescorr) {
+    const h = asRecord(rescorr.headline);
+    lines.push(
+      `• Resource correlation (live, pre=launching → post=settled): RAM Δ ${numOrQ(h.ramDeltaMean)} MB, CPU Δ ${numOrQ(h.cpuDeltaMean)} %, disk Δ ${numOrQ(h.diskDeltaMean)} %.`
+    );
+  }
+  const xres = read('resource-cross-plane-receipt.json');
+  if (xres) {
+    const ram = asRecord(asRecord(xres.metrics).ram);
+    lines.push(
+      `• Cross-plane resource: RAM Δ WIN ${numOrQ(asRecord(ram.win).deltaMean)} vs LINUX ${numOrQ(asRecord(ram.linux).deltaMean)} MB, |Δ| ${numOrQ(ram.agreementDelta)} (${String(ram.status ?? '?')} — a substrate-independent signal).`
+    );
+  }
+  lines.push(
+    'Open a panel to see these visually — call lba-open-benchmark-panel with panel = run | trend | frameCorrelator | crossPlaneTrend | resourceProfile | crossPlaneResource, or run the "LabVIEW Benchmark Actor: Open ..." commands.'
+  );
+  return lines.join('\n');
+}
+
+function registerBenchmarkLanguageModelTools(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
+  const lm = (vscode as unknown as { lm?: LmApi }).lm;
+  if (!lm?.registerTool) {
+    return; // host predates the stable LanguageModelTool API
+  }
+  try {
+    context.subscriptions.push(
+      lm.registerTool('lba-open-benchmark-panel', {
+        invoke: async (options) => {
+          const panel = String(asRecord(options?.input).panel ?? 'trend');
+          const entry = BENCHMARK_PANEL_OPENERS[panel] ?? BENCHMARK_PANEL_OPENERS.trend;
+          await entry.open(context, output);
+          return lmTextResult(
+            `Opened the "${entry.title}" panel in the editor — it renders real captured LabVIEW IDE-launch benchmark evidence.`
+          );
+        },
+      }),
+      lm.registerTool('lba-benchmark-summary', {
+        invoke: async () => lmTextResult(benchmarkSummaryText(context)),
+      })
+    );
+    output.appendLine('registered language-model tools: lba-open-benchmark-panel, lba-benchmark-summary');
+  } catch (err) {
+    output.appendLine(`language-model tools not registered: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 // --- Extension-embedded AGENTS.md (issue #98) --------------------------------------------------------------
 // The .vsix bundles media/AGENTS.md + media/agents.manifest.json (staged from extension-agents/ by
 // scripts/stage-media.mjs). These commands let a user's coding agent pick up the version-pinned instructions,
@@ -503,6 +626,10 @@ export function activate(context: vscode.ExtensionContext): void {
   // the deterministic benchmark series, the coordination bus) to Copilot agent mode via a bundled stdio
   // JSON-RPC server. No-op on hosts predating the stable MCP API.
   registerBenchmarkActorMcpServerProvider(context);
+
+  // Language-model tools (VS Code 1.101+): let a Copilot AGENT open the benchmark panels + summarize the
+  // captured numbers directly from a prompt. No-op on older hosts.
+  registerBenchmarkLanguageModelTools(context, output);
 }
 
 export function deactivate(): void {

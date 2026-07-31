@@ -99,6 +99,76 @@
         "command": "labviewBenchmarkActor.checkAgents",
         "title": "LabVIEW Benchmark Actor: Check Agent Instructions"
       }
+    ],
+    "languageModelTools": [
+      {
+        "name": "lba-open-benchmark-panel",
+        "displayName": "Open LabVIEW Benchmark Panel",
+        "modelDescription": "Open one of the LabVIEW Benchmark Actor webview panels in the editor so the user can SEE the captured LabVIEW IDE-launch benchmark evidence. Choose the panel via the 'panel' input: 'run' (a single launch: launchMs + the UI-READY settle frame), 'trend' (launchMs across N runs + baseline + PASS/REGRESSION verdict), 'frameCorrelator' (a vertical-line scrubber correlating each run's launchMs with its captured frame), 'crossPlaneTrend' (Windows vs Linux launchMs trends overlaid), 'resourceProfile' (CPU/RAM/disk sampled during the launch, split at the UI-READY trigger), or 'crossPlaneResource' (Windows vs Linux resource deltas + agreement). Use lba-benchmark-summary first if you want the numbers to explain.",
+        "userDescription": "Open a LabVIEW Benchmark Actor panel",
+        "toolReferenceName": "lbaBenchmarkPanel",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(graph)",
+        "tags": ["labview", "benchmark"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "panel": {
+              "type": "string",
+              "enum": ["run", "trend", "frameCorrelator", "crossPlaneTrend", "resourceProfile", "crossPlaneResource"],
+              "description": "Which benchmark panel to open."
+            }
+          },
+          "required": ["panel"]
+        }
+      },
+      {
+        "name": "lba-benchmark-summary",
+        "displayName": "LabVIEW Benchmark Summary",
+        "modelDescription": "Return a plain-text summary of the LabVIEW Benchmark Actor's captured LabVIEW IDE-launch evidence: the single-run launchMs, the launchMs trend (mean + PASS/REGRESSION verdict), the cross-plane launchMs delta (Windows vs Linux), and the live resource correlation (RAM/CPU/disk pre->post deltas) plus the cross-plane resource agreement. Use this to EXPLAIN the numbers behind the panels. Read-only; takes no input.",
+        "userDescription": "Summarize the captured LabVIEW benchmark numbers",
+        "toolReferenceName": "lbaBenchmarkSummary",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(list-flat)",
+        "tags": ["labview", "benchmark"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "lbaGettingStarted",
+        "title": "Get started with LabVIEW Benchmark Actor",
+        "description": "See the real captured LabVIEW IDE-launch benchmark evidence, and drive it from Copilot agent mode.",
+        "steps": [
+          {
+            "id": "overview",
+            "title": "See a real LabVIEW launch benchmark",
+            "description": "The extension ships real captured LabVIEW launch evidence.\n[Open Benchmark Trend](command:labviewBenchmarkActor.openBenchmarkTrend)",
+            "media": { "markdown": "media/walkthrough/overview.md" }
+          },
+          {
+            "id": "run",
+            "title": "A single run + its captured frame",
+            "description": "Open one run, then scrub the runs against their captured frames.\n[Open Benchmark Run](command:labviewBenchmarkActor.openBenchmarkRun)\n[Open Frame Correlator](command:labviewBenchmarkActor.openFrameCorrelator)",
+            "media": { "markdown": "media/walkthrough/run.md" }
+          },
+          {
+            "id": "resources",
+            "title": "The resource cost of a launch",
+            "description": "CPU / RAM / disk during the launch, and how the two hypervisor planes agree.\n[Open Resource Profile](command:labviewBenchmarkActor.openResourceProfile)\n[Open Cross-Plane Resource Agreement](command:labviewBenchmarkActor.openCrossPlaneResource)",
+            "media": { "markdown": "media/walkthrough/resources.md" }
+          },
+          {
+            "id": "agent",
+            "title": "Drive it from Copilot agent mode",
+            "description": "A Copilot agent can open these panels and summarize the numbers from a prompt.\n[Open Benchmark Viewer](command:labviewBenchmarkActor.openViewer)",
+            "media": { "markdown": "media/walkthrough/agent.md" }
+          }
+        ]
+      }
     ]
   },
   "scripts": {
