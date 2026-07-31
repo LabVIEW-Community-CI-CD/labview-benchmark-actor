@@ -8,7 +8,7 @@
 // Usage: npm test   (== npm run compile && node test/extension-activation.mjs)
 
 import Module, { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -88,6 +88,7 @@ const mockVscode = {
       return { path: joined, fsPath: joined, toString: () => joined };
     },
     parse: (s) => ({ toString: () => s, path: s, scheme: String(s).split(':')[0] }),
+    file: (p) => ({ path: p, fsPath: p, scheme: 'file', toString: () => p }),
   },
   commands: {
     registerCommand: (id, handler) => {
@@ -308,9 +309,10 @@ try {
     'stopCapture reports no active capture'
   );
 
-  // Open Frame Correlator with NO captures on disk (globalStorageUri points at a nonexistent dir): it guides
-  // the user to run Capture LabVIEW Launch (the empty-captures branch). The correlator render itself needs a
-  // real capture -> that path is a cleanroom capture, not unit-reachable.
+  // Open Frame Correlator, three ways. First with NO captures on disk (a clean nonexistent dir): it guides
+  // the user to run Capture LabVIEW Launch (the empty-captures branch).
+  const gsRoot = '/tmp/lba-test-globalstorage-nonexistent-xyz';
+  rmSync(gsRoot, { recursive: true, force: true });
   await registered.find((r) => r.id === 'labviewBenchmarkActor.openFrameCorrelator').handler();
   assert(
     infoMessages.some((m) => /No LabVIEW capture yet/.test(m)),
@@ -323,6 +325,23 @@ try {
     executedCommands.includes('labviewBenchmarkActor.captureLaunch'),
     'picking the guidance button dispatches labviewBenchmarkActor.captureLaunch'
   );
+  // ...and with a real VM-local capture on disk, it loads the latest capture.json and RENDERS the frame
+  // correlator webview (openCorrelatorForCapture: the staged frame-correlator.mjs builder + per-frame webview
+  // URIs). A minimal launch-capture@1 fixture under the (real) globalStorage captures dir drives it.
+  const captureRunDir = join(gsRoot, 'captures', 'run-20260731');
+  mkdirSync(captureRunDir, { recursive: true });
+  writeFileSync(join(captureRunDir, 'capture.json'), JSON.stringify({
+    frameCount: 2,
+    frames: [
+      { index: 0, tMs: 0, cpuPct: 10, ramMb: 2000, diskPct: 1, image: 'frame-00000.png' },
+      { index: 1, tMs: 83, cpuPct: 12, ramMb: 2010, diskPct: 2, image: 'frame-00001.png' },
+    ],
+  }));
+  const panelsBeforeCorrelator = panels.length;
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.openFrameCorrelator').handler();
+  assert(panels.length === panelsBeforeCorrelator + 1, 'openFrameCorrelator renders a webview panel from the latest capture on disk');
+  assert(/fc-root|Content-Security-Policy/.test(panels[panels.length - 1].webview.html), 'the frame-correlator webview HTML is built from the capture record');
+  rmSync(gsRoot, { recursive: true, force: true });
 
   ext.deactivate(); // must not throw
 
