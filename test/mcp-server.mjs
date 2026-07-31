@@ -202,6 +202,22 @@ assert(
   /out[\\/]+mcp[\\/]+runBenchmarkActorMcpServer\.js$/.test(defs[0].args[0]),
   'the server arg is the bundled stdio entrypoint (out/mcp/runBenchmarkActorMcpServer.js)'
 );
+
+// provider field-builder + registration fallback branches (module is cached with the mock vscode binding).
+const providerMod = require(join(root, 'out', 'mcp', 'benchmarkActorMcpServerProvider.js'));
+const fExplicit = providerMod.buildBenchmarkActorMcpServerDefinitionFields({ extensionPath: '/x', execPath: '/node', scriptPath: '/explicit/server.js' });
+assert(fExplicit.args[0] === '/explicit/server.js' && fExplicit.version === undefined, 'buildFields honors an explicit scriptPath and an absent version');
+const fDefault = providerMod.buildBenchmarkActorMcpServerDefinitionFields({ extensionPath: '/x', execPath: '/node', version: '1.2.3' });
+assert(fDefault.args[0] === providerMod.resolveBenchmarkActorMcpServerScriptPath('/x') && fDefault.version === '1.2.3', 'buildFields resolves the default script path + carries the version');
+const capturedDirect = [];
+mockVscode.lm.registerMcpServerDefinitionProvider = (id, provider) => { capturedDirect.push({ id, provider }); return { dispose() {} }; };
+const dispFallback = providerMod.registerBenchmarkActorMcpServerProvider({ subscriptions: [], extensionUri: { fsPath: '/via-uri' } });
+assert(dispFallback && capturedDirect.length === 1, 'registerProvider without extensionPath falls back to extensionUri.fsPath and registers');
+assert(/via-uri[\\/]+out[\\/]+mcp/.test(capturedDirect[0].provider.provideMcpServerDefinitions()[0].args[0]), 'the fallback definition resolves the script under the extensionUri fsPath');
+mockVscode.lm.registerMcpServerDefinitionProvider = undefined; // simulate a host predating the MCP API
+const noop = providerMod.registerBenchmarkActorMcpServerProvider({ subscriptions: [] });
+assert(noop === undefined, 'registerProvider is a no-op (undefined) when the host lacks the MCP definition-provider API');
+
 console.log('mcp-activation: PASS -- provider registered, manifest id == runtime id, bundled stdio launch');
 
 // ---- 3. STDIO: real newline-delimited JSON-RPC round-trip against the spawned server ----

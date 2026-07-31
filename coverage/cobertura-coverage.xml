@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">
-<coverage lines-valid="2792" lines-covered="2375" line-rate="0.8506" branches-valid="590" branches-covered="450" branch-rate="0.7626999999999999" timestamp="1785535166702" complexity="0" version="0.1">
+<coverage lines-valid="2792" lines-covered="2375" line-rate="0.8506" branches-valid="593" branches-covered="454" branch-rate="0.7655" timestamp="1785535419773" complexity="0" version="0.1">
   <sources>
     <source>/home/sergio/repos/gh/labview-benchmark-actor</source>
   </sources>
@@ -2982,7 +2982,7 @@
         </class>
       </classes>
     </package>
-    <package name="src.mcp" line-rate="0.9591" branch-rate="0.8">
+    <package name="src.mcp" line-rate="0.9591" branch-rate="0.8192">
       <classes>
         <class name="benchmarkActorMcpServer.ts" filename="src/mcp/benchmarkActorMcpServer.ts" line-rate="0.9826" branch-rate="0.9347">
           <methods>
@@ -3250,26 +3250,26 @@
             <line number="230" hits="28" branch="false"/>
           </lines>
         </class>
-        <class name="benchmarkActorMcpServerProvider.ts" filename="src/mcp/benchmarkActorMcpServerProvider.ts" line-rate="1" branch-rate="0.75">
+        <class name="benchmarkActorMcpServerProvider.ts" filename="src/mcp/benchmarkActorMcpServerProvider.ts" line-rate="1" branch-rate="0.909">
           <methods>
-            <method name="resolveBenchmarkActorMcpServerScriptPath" hits="1" signature="()V">
+            <method name="resolveBenchmarkActorMcpServerScriptPath" hits="4" signature="()V">
               <lines>
-                <line number="32" hits="1"/>
+                <line number="32" hits="4"/>
               </lines>
             </method>
-            <method name="buildBenchmarkActorMcpServerDefinitionFields" hits="1" signature="()V">
+            <method name="buildBenchmarkActorMcpServerDefinitionFields" hits="4" signature="()V">
               <lines>
-                <line number="45" hits="1"/>
+                <line number="45" hits="4"/>
               </lines>
             </method>
-            <method name="registerBenchmarkActorMcpServerProvider" hits="2" signature="()V">
+            <method name="registerBenchmarkActorMcpServerProvider" hits="4" signature="()V">
               <lines>
-                <line number="67" hits="2"/>
+                <line number="67" hits="4"/>
               </lines>
             </method>
-            <method name="provideMcpServerDefinitions" hits="1" signature="()V">
+            <method name="provideMcpServerDefinitions" hits="2" signature="()V">
               <lines>
-                <line number="84" hits="1"/>
+                <line number="84" hits="2"/>
               </lines>
             </method>
           </methods>
@@ -3305,9 +3305,9 @@
             <line number="29" hits="1" branch="false"/>
             <line number="30" hits="1" branch="false"/>
             <line number="31" hits="1" branch="false"/>
-            <line number="32" hits="1" branch="true" condition-coverage="100% (1/1)"/>
-            <line number="33" hits="1" branch="false"/>
-            <line number="34" hits="1" branch="false"/>
+            <line number="32" hits="4" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="33" hits="4" branch="false"/>
+            <line number="34" hits="4" branch="false"/>
             <line number="35" hits="1" branch="false"/>
             <line number="36" hits="1" branch="false"/>
             <line number="37" hits="1" branch="false"/>
@@ -3318,19 +3318,19 @@
             <line number="42" hits="1" branch="false"/>
             <line number="43" hits="1" branch="false"/>
             <line number="44" hits="1" branch="false"/>
-            <line number="45" hits="1" branch="true" condition-coverage="100% (1/1)"/>
-            <line number="46" hits="1" branch="false"/>
-            <line number="47" hits="1" branch="false"/>
-            <line number="48" hits="1" branch="false"/>
-            <line number="49" hits="1" branch="false"/>
-            <line number="50" hits="1" branch="false"/>
-            <line number="51" hits="1" branch="false"/>
-            <line number="52" hits="1" branch="false"/>
-            <line number="53" hits="1" branch="false"/>
-            <line number="54" hits="1" branch="false"/>
-            <line number="55" hits="1" branch="false"/>
-            <line number="56" hits="1" branch="false"/>
-            <line number="57" hits="1" branch="false"/>
+            <line number="45" hits="4" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="46" hits="4" branch="false"/>
+            <line number="47" hits="4" branch="false"/>
+            <line number="48" hits="4" branch="false"/>
+            <line number="49" hits="4" branch="false"/>
+            <line number="50" hits="4" branch="false"/>
+            <line number="51" hits="4" branch="false"/>
+            <line number="52" hits="4" branch="false"/>
+            <line number="53" hits="4" branch="false"/>
+            <line number="54" hits="4" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="55" hits="4" branch="false"/>
+            <line number="56" hits="4" branch="false"/>
+            <line number="57" hits="4" branch="false"/>
             <line number="58" hits="1" branch="false"/>
             <line number="59" hits="1" branch="false"/>
             <line number="60" hits="1" branch="false"/>
@@ -3340,32 +3340,32 @@
             <line number="64" hits="1" branch="false"/>
             <line number="65" hits="1" branch="false"/>
             <line number="66" hits="1" branch="false"/>
-            <line number="67" hits="2" branch="true" condition-coverage="100% (1/1)"/>
-            <line number="68" hits="2" branch="false"/>
-            <line number="69" hits="2" branch="false"/>
-            <line number="70" hits="2" branch="false"/>
-            <line number="71" hits="2" branch="true" condition-coverage="100% (1/1)"/>
-            <line number="72" hits="1" branch="false"/>
-            <line number="73" hits="1" branch="false"/>
-            <line number="74" hits="1" branch="false"/>
-            <line number="75" hits="1" branch="false"/>
-            <line number="76" hits="2" branch="true" condition-coverage="0% (0/2)"/>
-            <line number="77" hits="2" branch="false"/>
-            <line number="78" hits="2" branch="false"/>
-            <line number="79" hits="2" branch="false"/>
-            <line number="80" hits="2" branch="true" condition-coverage="100% (1/1)"/>
-            <line number="81" hits="2" branch="false"/>
-            <line number="82" hits="2" branch="false"/>
-            <line number="83" hits="2" branch="false"/>
-            <line number="84" hits="2" branch="true" condition-coverage="100% (1/1)"/>
-            <line number="85" hits="1" branch="false"/>
-            <line number="86" hits="1" branch="false"/>
-            <line number="87" hits="2" branch="false"/>
-            <line number="88" hits="2" branch="false"/>
-            <line number="89" hits="2" branch="false"/>
-            <line number="90" hits="2" branch="false"/>
-            <line number="91" hits="2" branch="false"/>
-            <line number="92" hits="2" branch="false"/>
+            <line number="67" hits="4" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="68" hits="4" branch="false"/>
+            <line number="69" hits="4" branch="false"/>
+            <line number="70" hits="4" branch="false"/>
+            <line number="71" hits="4" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="72" hits="2" branch="false"/>
+            <line number="73" hits="2" branch="false"/>
+            <line number="74" hits="2" branch="true" condition-coverage="100% (2/2)"/>
+            <line number="75" hits="2" branch="false"/>
+            <line number="76" hits="4" branch="true" condition-coverage="50% (1/2)"/>
+            <line number="77" hits="4" branch="false"/>
+            <line number="78" hits="4" branch="false"/>
+            <line number="79" hits="4" branch="false"/>
+            <line number="80" hits="4" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="81" hits="4" branch="false"/>
+            <line number="82" hits="4" branch="false"/>
+            <line number="83" hits="4" branch="false"/>
+            <line number="84" hits="4" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="85" hits="2" branch="false"/>
+            <line number="86" hits="2" branch="false"/>
+            <line number="87" hits="4" branch="false"/>
+            <line number="88" hits="4" branch="false"/>
+            <line number="89" hits="4" branch="false"/>
+            <line number="90" hits="4" branch="false"/>
+            <line number="91" hits="4" branch="false"/>
+            <line number="92" hits="4" branch="false"/>
           </lines>
         </class>
         <class name="runBenchmarkActorMcpServer.ts" filename="src/mcp/runBenchmarkActorMcpServer.ts" line-rate="0.8951" branch-rate="0.5769">
