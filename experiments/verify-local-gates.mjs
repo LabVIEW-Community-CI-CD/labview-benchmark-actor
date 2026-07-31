@@ -1573,6 +1573,28 @@ check('ephemeral-mesh-2node-receipt-green', () => {
   assert(rejected === 2, 'validator must reject missing-DONE / type-not-honored both<->both receipts');
   return { meshMode: summary.meshMode, boths: summary.boths };
 });
+
+// Provider-delegation harness (experiments/provider-delegation): AI providers on cleanrooms delegated uplift/
+// doc tasks over the lbabus bus. Each verify is a dependency-free deterministic self-test (mock provider, no
+// GPU / no network / no npm install); running them as subprocesses gates the whole harness under this
+// authoritative suite -- the provider seam + the CLAIM/ACK/DONE dispatch + the worker pool + the objective
+// coverage-lift gate (measured from raw V8 coverage, so it needs no c8).
+check('provider-delegation-harness', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-provider-delegation.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-provider-delegation 13/13 (task-spec + provider seam + acceptance gate + receipt)' };
+});
+check('provider-delegation-claim-tasking', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-claim-tasking.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-claim-tasking 7/7 (CLAIM dispatch -> worker ACK -> DONE over bus-msg@1)' };
+});
+check('provider-delegation-worker-pool', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-worker-pool.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-worker-pool 7/7 (M concurrent claims bounded to N, queued + drained, persistent)' };
+});
+check('provider-delegation-coverage-lift', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-coverage-lift.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-coverage-lift 8/8 (provider-proposed test gated on measured V8 function coverage)' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

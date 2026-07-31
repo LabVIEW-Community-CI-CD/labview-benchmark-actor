@@ -48,16 +48,16 @@ const ok = (c, m) => { assert(c, m); pass += 1; };
 
 const r1 = await runDelegation(task, { drive: driveOf(THOROUGH) });
 ok(r1.verdict === 'pass', 'a thorough proposed test lifts coverage and PASSES');
-ok(r1.coverage && r1.coverage.linesPct >= 90, `coverage is measured and high (lines=${r1.coverage && r1.coverage.linesPct}%)`);
-ok(r1.coverage.target === target && Number.isFinite(r1.coverage.funcsPct), 'the receipt carries the measured coverage (target + funcsPct)');
+ok(r1.coverage && r1.coverage.funcsPct >= 90, `coverage is measured and high (funcs=${r1.coverage && r1.coverage.funcsPct}%)`);
+ok(r1.coverage.target === target && r1.coverage.totalFns > 0, 'the receipt carries the measured coverage (target + covered/total functions)');
 
 const r2 = await runDelegation(task, { drive: driveOf(WEAK) });
 ok(r2.verdict === 'fail', 'a weak proposed test does NOT reach the floor -> FAIL');
-ok(r2.coverage.linesPct < 80, `weak coverage is below the floor (lines=${r2.coverage.linesPct}%)`);
+ok(r2.coverage.funcsPct < 80, `weak coverage is below the floor (funcs=${r2.coverage.funcsPct}%)`);
 ok(r2.acceptance.checks.some((c) => c.name === 'proposed-test-runs' && c.ok), 'the weak test still runs (exit 0) -- it just under-covers');
 
 const r3 = await runDelegation(task, { drive: driveOf(FAILING) });
 ok(r3.verdict === 'fail', 'a failing proposed test -> FAIL');
 ok(r3.acceptance.checks.some((c) => c.name === 'proposed-test-runs' && !c.ok), 'the failing test is detected (proposed-test-runs=false)');
 
-console.log(`verify-coverage-lift: PASS (${pass} assertions) -- provider-proposed test gated on MEASURED coverage (thorough ${r1.coverage.linesPct}% pass, weak ${r2.coverage.linesPct}% fail, failing-test fail)`);
+console.log(`verify-coverage-lift: PASS (${pass} assertions) -- provider-proposed test gated on MEASURED function coverage (thorough ${r1.coverage.funcsPct}% pass, weak ${r2.coverage.funcsPct}% fail, failing-test fail)`);

@@ -25,7 +25,7 @@ bus.
 | [worker.mjs](worker.mjs) | **Cleanroom** side: listen for a `CLAIM`, `ACK` it, run the delegation (`runDelegation`), and return the `DONE` receipt. |
 | [verify-claim-tasking.mjs](verify-claim-tasking.mjs) | Deterministic self-test of the dispatch → claim → return loop (loopback, mock, no GPU/network). |
 | [verify-worker-pool.mjs](verify-worker-pool.mjs) | Deterministic self-test of the persistent **pool**: M concurrent claims bounded to N, queued + drained (loopback, mock). |
-| [coverageLift.mjs](coverageLift.mjs) | The **coverage-lift** domain: prompt a test for a `target` module, run it under `NODE_V8_COVERAGE`, gate on the measured line coverage (`c8`). |
+| [coverageLift.mjs](coverageLift.mjs) | The **coverage-lift** domain: prompt a test for a `target` module, run it under `NODE_V8_COVERAGE`, gate on the measured **function** coverage (dependency-free V8 parse, no c8). |
 | [fixtures/sample-module.mjs](fixtures/sample-module.mjs) | The deterministic coverage-lift **target** (pure functions with branches). |
 | [verify-coverage-lift.mjs](verify-coverage-lift.mjs) | Deterministic proof of the measured gate (thorough=pass, weak=fail, failing-test=fail). |
 | [sample-task.doc-draft.json](sample-task.doc-draft.json) | An example `doc-draft` task (draft the gate-suite operator note). |
@@ -59,9 +59,10 @@ acceptance{checks[{name,ok}],verdict}, verdict, announce? }` — `verdict` is `p
 ## The `coverage-lift` domain (an objective, measured gate)
 
 `doc-draft` gates on structure; **`coverage-lift` gates on a real measurement**. The provider proposes a
-Node.js ESM test for a named `target` module; acceptance runs it under `NODE_V8_COVERAGE` and reports with the
-repo's `c8`, then gates on the target's **line coverage ≥ `minCoverage`** (an un-exercised module is 0%, so
-reaching the floor is the lift). The receipt carries `coverage { target, linesPct, funcsPct, minCoverage }`.
+Node.js ESM test for a named `target` module; acceptance runs it under `NODE_V8_COVERAGE` and parses V8's own
+coverage JSON (**dependency-free -- no c8**), then gates on the target's **function coverage ≥ `minCoverage`**
+(an un-exercised module is ~0%, so reaching the floor is the lift). The receipt carries
+`coverage { target, funcsPct, coveredFns, totalFns, minCoverage }`.
 
 ```jsonc
 { "schema": "labview-benchmark-actor/lba-uplift-task@v1", "domain": "coverage-lift",
@@ -161,11 +162,13 @@ receipt are unchanged.
   `CLAIM`s from the host to the VM pool (`--concurrency 2`) — the pool ran 2 and queued the 3rd (`queued=1`
   then `queued=2`, draining to 0); all three returned `verdict=pass`.
 - **coverage-lift, deterministic**: `verify-coverage-lift.mjs` → PASS, 8 assertions — a thorough proposed test
-  reaches 100% line coverage of the target → `verdict=pass`; a weak test runs but only 39.39% → `fail`; a
+  reaches 100% function coverage of the target → `verdict=pass`; a weak test runs but only 40% → `fail`; a
   failing test is rejected (`proposed-test-runs=false`).
 - **coverage-lift, live Ollama** ([coverage-lift-evidence.json](coverage-lift-evidence.json)): `llama3.1:8b`
-  proposed a test (inspected safe: imports `./target.mjs`, asserts, `exit 0`); the gate measured **100% line /
-  100% function** coverage of the target → `verdict=pass`.
+  proposed a test (inspected safe: imports `./target.mjs`, asserts, `exit 0`); the gate measured **100%
+  function** coverage of the target → `verdict=pass`.
+- **Gated by the authoritative suite**: all four `verify-*.mjs` run as subprocesses under
+  `experiments/verify-local-gates.mjs` (76/76 checks pass on the dependency-free gate).
 
 ## Reuse map (composes, does not reinvent)
 
