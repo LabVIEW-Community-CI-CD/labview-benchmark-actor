@@ -50,7 +50,7 @@ internal static class BusWire
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public static void WriteFrame(Stream stream, BusEnvelope env)
+    public static void WriteFrame(Stream stream, BusEnvelope env, bool flush = true)
     {
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(env, JsonOpts);
         if (json.Length > MaxFrameBytes)
@@ -62,7 +62,7 @@ internal static class BusWire
         BinaryPrimitivesWriteUInt32BigEndian(len, (uint)json.Length);
         stream.Write(len);
         stream.Write(json);
-        stream.Flush();
+        if (flush) { stream.Flush(); }
     }
 
     /// <summary>Reads one frame; returns null on a clean EOF before any bytes.</summary>
@@ -357,6 +357,12 @@ internal static class NetCommands
         string type = (a.Get("type") ?? "NOTE").ToUpperInvariant();
         if (!BusWire.Types.Contains(type)) { return Fail($"invalid --type '{type}'. Valid: {string.Join(", ", BusWire.Types)}"); }
 
+        // --stream: persistent connection, MULTI-FRAME. ONE TCP connection carries --count N seq'd frames
+        // (seq S..S+N-1) + an optional terminal DONE(S+N-1), with a single bulk flush -- amortizing the
+        // process spawn + connect + per-frame flush of the one-frame model so a source can drive the bus at
+        // transport/disk speed instead of ~O(100) frames/s. Preserves the bus-msg@1 framing + strict seq order.
+        if (a.Get("stream") is not null) { return SendStream(a, hosts, port, type); }
+
         string? message = a.Get("message");
         if (message is null && a.Get("message-file") is { } mf) { message = File.ReadAllText(mf); }
 
@@ -422,6 +428,83 @@ internal static class NetCommands
             }
         }
 
+        return false;
+    }
+
+    /// <summary>
+    /// Persistent-connection, multi-frame streaming send: opens ONE TCP connection per host and streams
+    /// <c>--count N</c> frames (seq <c>--seq</c> S .. S+N-1), each a real bus-msg@1 envelope, then an optional
+    /// terminal DONE(S+N-1) with <c>--done</c>. A single bulk flush (no per-frame flush/connect) lets a source
+    /// drive the bus at transport/disk speed. Payload is <c>--message</c> or <c>--frame-bytes B</c> filler.
+    /// </summary>
+    private static int SendStream(ArgMap a, IReadOnlyList<string> hosts, int port, string type)
+    {
+        int count = a.GetInt("count", 0);
+        if (count <= 0) { return Fail("--stream requires --count N (frames to stream)"); }
+        int seqStart = a.GetInt("seq", 1);
+        int frameBytes = a.GetInt("frame-bytes", 0);
+        bool done = a.Get("done") is not null;
+        int retries = a.GetInt("retries", 1);
+        int retryMs = a.GetInt("retry-ms", 1000);
+        string session = a.Get("session") ?? "default";
+        string sender = SenderId();
+        string? task = a.Get("task");
+        string? message = a.Get("message");
+        if (message is null && a.Get("message-file") is { } mf) { message = File.ReadAllText(mf); }
+        string? payload = frameBytes > 0 ? new string('x', frameBytes) : message;
+
+        int failures = 0;
+        foreach (string host in hosts)
+        {
+            if (!StreamOne(host, port, session, sender, type, task, payload, seqStart, count, done, retries, retryMs)) { failures++; }
+        }
+        if (failures > 0) { return Fail($"stream failed to {failures}/{hosts.Count} host(s)"); }
+        return 0;
+    }
+
+    /// <summary>Streams N frames (+ optional terminal DONE) over ONE persistent connection to a single host.</summary>
+    private static bool StreamOne(string host, int port, string session, string sender, string type, string? task,
+        string? payload, int seqStart, int count, bool done, int retries, int retryMs)
+    {
+        for (int attempt = 1; attempt <= retries; attempt++)
+        {
+            try
+            {
+                using var client = new TcpClient();
+                client.Connect(host, port);
+                client.NoDelay = true;
+                client.SendBufferSize = 1 << 22;
+                using NetworkStream ns = client.GetStream();
+                using var buffered = new BufferedStream(ns, 1 << 20);
+                var t0 = DateTime.UtcNow;
+                for (int i = 0; i < count; i++)
+                {
+                    var env = new BusEnvelope { SessionId = session, SenderId = sender, Seq = seqStart + i, Type = type, Task = task, Payload = payload };
+                    BusWire.WriteFrame(buffered, env, flush: false);
+                }
+                if (done)
+                {
+                    var doneEnv = new BusEnvelope { SessionId = session, SenderId = sender, Seq = seqStart + count - 1, Type = "DONE", Task = task, Payload = $"final={count}" };
+                    BusWire.WriteFrame(buffered, doneEnv, flush: false);
+                }
+                buffered.Flush();
+                double secs = Math.Max((DateTime.UtcNow - t0).TotalSeconds, 1e-9);
+                long payloadBytes = (long)(payload?.Length ?? 0) * count;
+                Console.WriteLine($"stream -> {host}:{port}  frames={count}{(done ? "+DONE" : "")} seq={seqStart}..{seqStart + count - 1} " +
+                    $"payloadBytes={payloadBytes} secs={secs:F3} kfps={count / secs / 1000:F1} payloadMBps={payloadBytes / secs / (1 << 20):F1}");
+                return true;
+            }
+            catch (SocketException ex)
+            {
+                if (attempt >= retries) { Console.Error.WriteLine($"[net] TCP connect {host}:{port} failed after {attempt} attempt(s): {ex.Message}"); return false; }
+                Thread.Sleep(retryMs);
+            }
+            catch (IOException ex)
+            {
+                Console.Error.WriteLine($"[net] TCP stream to {host}:{port} failed: {ex.Message}");
+                return false;
+            }
+        }
         return false;
     }
 
