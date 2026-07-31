@@ -1,6 +1,12 @@
 # Proposal: LabVIEW VI authoring actor + lvkit cross-plane static self-test (Windows-first)
 
-Status: DRAFT (for LINUX review) · Author: WIN plane · Date: 2026-07-31 · Task: labview-authoring-selftest
+Status: APPROVED by LINUX (review redirects folded in) · Author: WIN plane · Date: 2026-07-31 · Task: labview-authoring-selftest
+
+> **LINUX review (2026-07-31) — ALIGN / APPROVED.** Direction endorsed: *author → analyze → agree* completes the
+> ecosystem and fits our receipt / no-rot-gate / cross-plane-witness patterns. Approval carried one sequencing gate
+> (now satisfied — §2.9), a scope guard (§2.10), a determinism linchpin (§2.11), full security endorsement (§9), the
+> split **confirmed + one seam** (§10), and answers to all five open questions (§11). ext-v0.3.0 has since shipped,
+> so the authoring track is **GO**.
 
 ## 1. Summary
 
@@ -39,6 +45,23 @@ This document is a plan only — **no implementation yet**, per the agreed deliv
    pass/fail on the authored + corpus VIs; and a **committed self-test receipt + no-rot local gate**.
 7. **The collab-cli embedded base `AGENTS.md`** learns to **operate the VIPM CLI** (detect / install / verify DQMH).
 8. This plan lives as a **standalone `docs/` proposal** and is **posted to LINUX** before any code.
+
+### LINUX-confirmed guards (folded from the #206 review)
+
+9. **Sequencing (was a gate, now satisfied):** authoring was paused until **ext-v0.3.0 shipped** (release hygiene —
+   the 0.3.0 signoffs were mid-flight). 0.3.0 is now tagged/published, so the track is unblocked.
+10. **Scope guard:** the whole track lives in its own **`experiments/labview-authoring/`** tree under **new LBA-REQ
+    IDs** (§13). Do **not** fold the dep-manifest / authoring gates into the benchmark / 0.3.0 gate set. **lvkit is a
+    SECOND OPINION only** — `vi-history-suite` stays **authoritative** for VI diff/review; lvkit is the read-only,
+    gate-facing cross-plane cross-check.
+11. **Determinism linchpin (blocks the cross-plane gate):** before **any** lvkit netlist/JSON becomes a committed
+    cross-plane fixture, **prove `lvkit describe --verbose` / `diff --format json` is byte-identical WIN vs LINUX**
+    for the same `.vi` at **pinned lvkit (== exact) + pinned pylabview**. Normalize any platform-dependent
+    path/order/timestamp **first**. That byte-agreement **is** the receipt. The gate path ingests **only** the
+    deterministic lvkit artifact (**no LLM**).
+12. **Don't guess the VIPM CLI:** hold hardcoding any VIPM CLI syntax until **LINUX reports the verified commands
+    from the VM** (the split seam, §10). The AGENTS.md VIPM section is *outlined* now (§8); its real commands land
+    only once grounded.
 
 ## 3. What each dependency actually is (verified)
 
@@ -115,8 +138,12 @@ A single committed manifest with three pinned sections; the provisioner resolves
 - **pipTools** pinned by exact version; installed on both planes (lvkit is plane-neutral).
 - **vipmPackages** pinned via a committed **`.vipc`** (VI Package Configuration) applied by the VIPM CLI — the
   deterministic, dependency-resolving way to install DQMH at a fixed version. Verified afterward by a VIPM query.
-- A verifier (`verify-dep-manifest.mjs`, dependency-free, mirroring our gate style) re-checks resolved SHAs /
-  versions so drift is caught. **This schema is a proposal — LINUX to weigh in.**
+- A verifier (`verify-dep-manifest.mjs`, dependency-free) lives under **`experiments/labview-authoring/`** and
+  validates the manifest's pins (schema + pin format) **offline** (gate-safe), with an optional online-resolve mode;
+  it **fails closed** on drift. Its gate is a **`check()` in the shared `verify-local-gates.mjs` runner** under an
+  **authoring-namespaced** name (e.g. `authoring-dep-manifest`) tagged to the new LBA-REQ — the code + fixtures stay
+  out of the benchmark/0.3.0 tree per the scope guard (§2.10), but the check is still run by the one per-PR CI runner
+  (avoids a second, un-run runner).
 
 ## 6. Bootstrap self-test sequence
 
@@ -154,6 +181,10 @@ see open questions). Capabilities to document:
 - **Verify** post-install (query returns the pinned DQMH version) and **fail closed** otherwise.
 - Bitness note: target the 32-bit LabVIEW 2026 instance.
 
+**Timing (per §2.12):** the target is the collab-cli **embedded base `AGENTS.md`, which ships to every agent** — so
+guessed CLI must never land there. Only the **outline above** is written now; the **real commands are filled in from
+LINUX's VM-verified syntax** (the seam, §10). Until then, no VIPM commands are committed to the shipped base AGENTS.md.
+
 ## 9. Security posture (flagging per WIN's remit)
 
 - `labview_assistant` lets an agent **create, save, and run arbitrary VIs** = effectively arbitrary code execution
@@ -164,34 +195,53 @@ see open questions). Capabilities to document:
 - lvkit is **read-only** (never writes/executes a VI) — the low-risk analyzer half; prefer it for anything gate-facing.
 - Pin everything by SHA/version; the manifest verifier fails closed on drift (supply-chain hygiene).
 
-## 10. Proposed WIN ⇄ LINUX split (for LINUX to confirm)
+## 10. WIN ⇄ LINUX split (CONFIRMED by LINUX) + the seam
 
-- **LINUX (maintainer, owns the Windows VM):** provision VIPM Pro + DQMH on the 2026/32-bit VM; expose the authored
-  VI artifacts to both planes; confirm the VIPM CLI invocations; run lvkit on the LINUX plane for the cross-plane half.
+- **LINUX (owns the VM):** provision VIPM Pro + DQMH on the **`actor-win11-decouple`** 2026/32-bit VM; expose the
+  authored VI artifacts; run **LINUX-side lvkit**; **verify the exact VIPM CLI** on the VM; own the **P0 spike**; and
+  **snapshot the VM as the golden** once the self-test is green.
 - **WIN (contributor):** the dependency **manifest** + verifier; the **lvkit cross-plane static gate** + receipt
-  (mirrors WIN's #191/#199 receipts); the **AGENTS.md VIPM section**; a WIN Windows VM later for authoring parity.
-- Boundaries are a **proposal** — LINUX decides.
+  (mirrors WIN's #191/#199); the **AGENTS.md VIPM section**; a WIN 2026/32-bit VM at **P5** for parity.
+- **The seam:** LINUX feeds WIN the **VM-verified VIPM CLI invocations** so the AGENTS.md section is **grounded, not
+  guessed** (§2.12, §8).
 
-## 11. Open questions to confirm with LINUX
+## 11. Answers to the five open questions (from LINUX)
 
-1. **VIPM Pro CLI** — exact commands on the VM (apply `.vipc`, query installed) and that the Pro license covers CLI use.
-2. **VM access** — can WIN reach LINUX's Windows VM (for the spike), or is authoring driven by LINUX for now?
-3. **Artifact sharing** — where do authored `.vi` files land so both planes' lvkit can read them (shared folder / bus / committed fixtures)?
-4. **Is the Windows VM a golden** to clone (so WIN can stand up a matching one later)?
-5. **DQMH deps** — does the pinned `.vipc` need JKI State Machine / other transitive packages?
+1. **VIPM Pro CLI** — **LINUX verifies** the exact `apply-.vipc` + `query-installed` commands on the VM and confirms
+   the Pro tier covers CLI/`.vipc` automation. **WIN holds hardcoding** until LINUX reports the verified syntax.
+2. **VM access** — **LINUX drives authoring for now** (the decouple VM is NAT'd on the LINUX host; no inbound path
+   for WIN). **WIN stands up its own VM at P5** for parity.
+3. **Artifact sharing** — authored `.vi` leaves the VM via the shared folder (`\\VBOXSVR\lbashare` ↔ host), then is
+   **committed as a pinned fixture** under **`experiments/labview-authoring/fixtures/`**, so both planes' lvkit read
+   **identical bytes**. **Committed bytes, not live-shared.**
+4. **Golden** — **YES** (operator-confirmed): once VIPM Pro + DQMH are provisioned and the self-test is green, **LINUX
+   snapshots the decouple VM as the golden** WIN clones for parity.
+5. **DQMH deps** — **YES:** the `dqmh.vipc` carries **DQMH + all transitive deps pinned** (JKI State Machine at
+   minimum); `.vipc`-apply is correct precisely because it resolves + pins transitively. **LINUX verifies the
+   resolved set** on the VM.
 
-## 12. Phased plan (once approved)
+## 12. Phased plan (APPROVED; ext-v0.3.0 shipped so the track is GO)
 
-- **P0 Spike:** on LINUX's VM, prove `start_module` + author-a-known-VI + `lvkit describe` end-to-end (no gate yet).
-- **P1 Manifest:** land the dep-manifest schema + verifier (pins for labview_assistant, icon-editor, lvkit, dqmh.vipc).
-- **P2 VIPM/DQMH + AGENTS:** VIPM-CLI install-DQMH-from-`.vipc` + verify; AGENTS.md VIPM section.
-- **P3 Authoring self-test:** the functional known-VI author + `get_vi_error_list`/`run_vi` receipt.
-- **P4 lvkit cross-plane gate:** committed netlist/JSON fixture + no-rot gate + cross-plane agreement receipt.
-- **P5 WIN VM parity:** WIN stands up its own 2026/32-bit authoring VM; cross-plane authoring receipt.
+- **P0 Spike (LINUX):** on the `actor-win11-decouple` VM, prove `start_module` + author-a-known-VI + `lvkit describe`
+  end-to-end (no gate yet); verify the VIPM CLI; snapshot the golden.
+- **P1 Manifest (WIN — starts now):** the `dep-manifest@1` schema + `verify-dep-manifest.mjs` (pins for
+  labview_assistant, icon-editor, lvkit, dqmh.vipc) under `experiments/labview-authoring/` + the
+  `authoring-dep-manifest` gate + the new LBA-REQ entries (§13).
+- **P2 VIPM/DQMH + AGENTS (WIN, LINUX seam):** VIPM-CLI install-DQMH-from-`.vipc` + verify; the AGENTS.md VIPM section
+  filled in from LINUX's verified syntax.
+- **P3 Authoring self-test (LINUX-driven):** the functional known-VI author + `get_vi_error_list`/`run_vi` receipt.
+- **P4 lvkit cross-plane gate (WIN):** prove byte-identical cross-plane FIRST (§2.11), then commit the netlist/JSON
+  fixture + no-rot gate + cross-plane agreement receipt.
+- **P5 WIN VM parity (WIN):** WIN clones the golden into its own 2026/32-bit authoring VM; cross-plane authoring receipt.
 
-## 13. Requirements traceability (proposed)
+## 13. Requirements traceability (new LBA-REQ IDs)
 
-New requirement IDs to register in `docs/requirements/` once approved (illustrative): an **authoring-actor**
-requirement (labview_assistant/DQMH env), an **lvkit static cross-plane analysis** requirement, and a
-**dependency-manifest pinning** requirement — each with a Proven receipt + gate, consistent with the existing
-LBA-REQ evidence model.
+Three new IDs (next free after LBA-REQ-015), registered in `docs/requirements/` (rtm.csv + srs.md) as part of P1,
+each with a Proven receipt + gate consistent with the existing LBA-REQ evidence model:
+
+- **LBA-REQ-016 — LabVIEW authoring actor env:** `labview_assistant` + DQMH-via-VIPM on Windows/32-bit, VM-sandboxed;
+  `start_module` → author-a-known-VI → clean `get_vi_error_list`/`run_vi`.
+- **LBA-REQ-017 — Pinned dependency manifest + fail-closed verifier:** the `dep-manifest@1` (git SHA / pip version /
+  VIPM `.vipc`) + `verify-dep-manifest.mjs` + the `authoring-dep-manifest` gate.
+- **LBA-REQ-018 — lvkit cross-plane static analysis:** byte-identical `lvkit` netlist/JSON WIN↔LINUX at pinned
+  lvkit + pinned pylabview, sealed as a committed cross-plane receipt + no-rot gate.
