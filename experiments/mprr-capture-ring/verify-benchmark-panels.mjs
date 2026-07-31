@@ -9,7 +9,7 @@
  * Run: node experiments/mprr-capture-ring/verify-benchmark-panels.mjs
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -19,6 +19,7 @@ import {
   buildBenchmarkPanelHtml,
   buildTrendPanelHtml,
   buildCrossPlaneTrendPanelHtml,
+  buildResourcePanelHtml,
   scrubberModelFromTrend,
   scrubberModelFromRecord,
   escapeHtml,
@@ -164,6 +165,25 @@ check('cross-plane markers = win + linux runs (10)', (xhtml.match(/<circle/g) ||
 check('cross-plane shows the witnessed mean delta', xhtml.includes(String(xreceipt.witness.meanDeltaMs)) && /mean .* \(WIN/.test(xhtml));
 check('cross-plane names both planes/hypervisors', xhtml.includes('vmware-vnc') && xhtml.includes('vbox-vnc'));
 check('cross-plane deterministic', buildCrossPlaneTrendPanelHtml(xreceipt, winTrend, trend, nonce) === xhtml);
+
+// ---------------------------------------------------------------------------
+// 4c. resource-correlation panel (LBA-REQ-011) off the REAL live fixture
+// ---------------------------------------------------------------------------
+console.log('resource-correlation panel');
+const rcPath = join(HERE, 'fixtures', 'labview-launch-resource-correlation.json');
+if (existsSync(rcPath)) {
+  const rc = JSON.parse(readFileSync(rcPath, 'utf8'));
+  const rchtml = buildResourcePanelHtml(rc, nonce);
+  check('resource DOCTYPE + strict CSP + no script', /^<!DOCTYPE html>/.test(rchtml) && rchtml.includes("default-src 'none'") && !/<script/i.test(rchtml));
+  check('resource panel has a CPU/RAM/disk sparkline each (3 svgs)', (rchtml.match(/<svg/g) || []).length === 3);
+  check('each sparkline draws the trigger line + a polyline', (rchtml.match(/<polyline/g) || []).length === 3 && rchtml.includes('#ff7b72'));
+  check('resource panel shows the launchMs badge', rchtml.includes(String(rc.launchMs) + ' ms launch'));
+  check('resource panel labels CPU/RAM/disk', rchtml.includes('CPU %') && rchtml.includes('RAM MB') && rchtml.includes('Disk %'));
+  check('resource panel shows the RAM delta headline', rchtml.includes(String(Math.round(rc.windows.ram.deltaMean * 100) / 100)));
+  check('resource panel deterministic', buildResourcePanelHtml(rc, nonce) === rchtml);
+} else {
+  console.log('  ..   live resource fixture not present yet');
+}
 
 // ---------------------------------------------------------------------------
 // 5. scrubber model mappers -> feed the proven scrubber builder

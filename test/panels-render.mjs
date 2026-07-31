@@ -22,7 +22,7 @@ function assert(cond, msg) {
   }
 }
 
-const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, scrubberModelFromTrend } = await import(
+const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, buildResourcePanelHtml, scrubberModelFromTrend } = await import(
   mediaUrl('benchmark-panels.mjs')
 );
 const { buildBenchmarkFrameScrubberHtml } = await import(mediaUrl('buildBenchmarkFrameScrubberHtml.mjs'));
@@ -31,6 +31,7 @@ const record = mediaJson('labview-launch-record.json');
 const trend = mediaJson('labview-launch-trend.json');
 const winTrend = mediaJson('labview-launch-trend-win.json');
 const crossReceipt = mediaJson('cross-plane-trend-receipt.json');
+const resourceRc = mediaJson('labview-launch-resource-correlation.json');
 const NONCE = 'render-nonce-000000000000000000ab';
 
 // --- 1. single-run panel (static) renders the launchMs headline, the dhash-grid frame, and stats ------------
@@ -76,6 +77,17 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(doc.body.textContent.includes(String(crossReceipt.witness.meanDeltaMs)), 'cross-plane panel shows the witnessed mean delta');
   assert(doc.body.textContent.includes('vmware-vnc') && doc.body.textContent.includes('vbox-vnc'), 'cross-plane panel names both hypervisors');
   assert(!doc.querySelector('script'), 'cross-plane panel is fully static');
+}
+
+// --- 2d. resource-correlation panel (static) renders CPU/RAM/disk sparklines split at the settle trigger -----
+{
+  const dom = new JSDOM(buildResourcePanelHtml(resourceRc, NONCE));
+  const doc = dom.window.document;
+  assert(doc.querySelectorAll('svg').length === 3, 'resource panel renders a CPU/RAM/disk sparkline each');
+  assert(doc.querySelectorAll('svg polyline').length === 3, 'each metric sparkline draws its series polyline');
+  assert(doc.body.textContent.includes(`${resourceRc.launchMs} ms launch`), 'resource panel shows the launchMs badge');
+  assert(/CPU %/.test(doc.body.textContent) && /RAM MB/.test(doc.body.textContent) && /Disk %/.test(doc.body.textContent), 'resource panel labels all three metrics');
+  assert(!doc.querySelector('script'), 'resource panel is fully static');
 }
 
 // --- 3. frame correlator (interactive) renders + scrubs; the selection tracks the vertical slider -----------

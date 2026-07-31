@@ -48,6 +48,7 @@ import { buildTrend } from './mprr-capture-ring/trend.mjs';
 import { buildBenchmarkPanelHtml, buildTrendPanelHtml, scrubberModelFromTrend, dhashGridCells } from './mprr-capture-ring/benchmark-panels.mjs';
 import { buildBenchmarkFrameScrubberHtml } from './dashboard-slider/buildBenchmarkFrameScrubberHtml.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
+import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1364,6 +1365,25 @@ check('capture-ring-cross-plane-trend', () => {
   assert(JSON.stringify(committed) === JSON.stringify(re), 'the committed cross-plane trend receipt matches a fresh recompute (no rot)');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-cross-plane-trend.mjs')], { stdio: 'pipe' });
   return { linuxMean: re.linux.mean, winMean: re.win.mean, meanDeltaMs: re.witness.meanDeltaMs, faster: re.witness.faster, verdict: re.verdict };
+});
+
+// LIVE resource correlation (LBA-REQ-011): a REAL LabVIEW launch benchmarked through the visual ring WHILE
+// the guest's CPU/RAM/disk were sampled in-guest, correlated to the frame timeline and anchored on the UI-READY
+// settle (pre = launching / post = settled). Re-derives the committed pre/post windows from the committed
+// host-epoch samples (deterministic no-rot) + runs the full resource-correlated-record self-test.
+check('capture-ring-resource-correlation-live', () => {
+  const fx = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'labview-launch-resource-correlation.json'), 'utf8'));
+  assert(fx.schema === 'labview-benchmark-actor/resource-correlated-launch@1' && fx.plane === 'LINUX' && fx.hypervisor === 'vbox-vnc', 'a real LINUX/vbox resource-correlated launch');
+  assert(fx.launchMs > 0 && fx.trigger === 'UI-READY' && fx.preSampleCount > 0 && fx.postSampleCount > 0, 'a real launchMs + UI-READY trigger with pre + post samples');
+  assert(Array.isArray(fx.samples) && fx.samples.length === fx.sampleCount, 'the host-epoch sample series is present');
+  for (const m of ['cpu', 'ram', 'disk']) {
+    assert(fx.windows[m] && fx.windows[m].pre && fx.windows[m].post, `${m} has pre + post windows`);
+  }
+  const re = buildResourceUsageCorrelation({ frameRateHz: fx.frameRateHz, epochMsAtFrameZero: fx.epochMsAtFrameZero, triggerEpochMs: fx.triggerEpochMs, samples: fx.samples });
+  assert(JSON.stringify(re.windows) === JSON.stringify(fx.windows), 'the committed pre/post windows re-derive from the committed samples (no rot)');
+  assert(re.preSampleCount === fx.preSampleCount && re.postSampleCount === fx.postSampleCount, 'the pre/post split re-derives');
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-resource-correlated-record.mjs')], { stdio: 'pipe' });
+  return { launchMs: fx.launchMs, ramDeltaMean: fx.headline.ramDeltaMean, cpuDeltaMean: fx.headline.cpuDeltaMean, pre: fx.preSampleCount, post: fx.postSampleCount };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
