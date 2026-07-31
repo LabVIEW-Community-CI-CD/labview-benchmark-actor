@@ -887,6 +887,38 @@ async function createCleanroomCommand(context: vscode.ExtensionContext, output: 
   terminal.sendText(`bash ${cleanroomShellQuote(script)} ${args}`);
 }
 
+// Bootstrap the LabVIEW AUTHORING LANE (labview_assistant + its DQMH dependency + the .vipb VI-Package build).
+// WINDOWS ONLY: labview_assistant drives the LabVIEW IDE via ActiveX, so the lane runs on a Windows cleanroom,
+// not the Linux host. This surfaces the committed PowerShell bootstrap (experiments/authoring-lane/
+// bootstrap-authoring-lane.ps1) so it can be run against a Windows cleanroom that has LabVIEW + VIPM Community.
+function resolveAuthoringLaneScript(context: vscode.ExtensionContext): string | undefined {
+  const rel = path.join('experiments', 'authoring-lane', 'bootstrap-authoring-lane.ps1');
+  const candidates: string[] = [];
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    candidates.push(path.join(folder.uri.fsPath, rel));
+  }
+  candidates.push(path.join(context.extensionUri.fsPath, rel));
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+async function bootstrapAuthoringLaneCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const script = resolveAuthoringLaneScript(context);
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Authoring-lane bootstrap not found (experiments/authoring-lane/bootstrap-authoring-lane.ps1). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  void vscode.window.showInformationMessage(
+    'The LabVIEW authoring lane is Windows-only (labview_assistant drives LabVIEW via ActiveX). Run this on a Windows cleanroom with LabVIEW + VIPM Community activated.'
+  );
+  output.appendLine(`[bootstrapAuthoringLane] ${script} (Windows/pwsh: clones labview_assistant, installs DQMH, builds the .vipb)`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: 'LBA Authoring Lane Bootstrap' });
+  terminal.show(true);
+  terminal.sendText(`pwsh -NoProfile -File "${script}"`);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const output = getOutput(context);
 
@@ -973,6 +1005,12 @@ export function activate(context: vscode.ExtensionContext): void {
   // golden snapshot and launch its bus worker, so the host router can route across REAL VMs.
   context.subscriptions.push(
     vscode.commands.registerCommand('labviewBenchmarkActor.createCleanroom', () => createCleanroomCommand(context, output))
+  );
+
+  // LabVIEW authoring lane (Windows/ActiveX): bootstrap labview_assistant + its DQMH dependency + the .vipb
+  // VI-Package build so it can be tested on a Windows cleanroom.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.bootstrapAuthoringLane', () => bootstrapAuthoringLaneCommand(context, output))
   );
 
   // Model Context Protocol surface (VS Code 1.101+): expose this extension's own tools (host capabilities,

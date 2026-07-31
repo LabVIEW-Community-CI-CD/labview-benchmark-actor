@@ -110,6 +110,10 @@
       {
         "command": "labviewBenchmarkActor.createCleanroom",
         "title": "LabVIEW Benchmark Actor: Create Cleanroom Worker VM"
+      },
+      {
+        "command": "labviewBenchmarkActor.bootstrapAuthoringLane",
+        "title": "LabVIEW Benchmark Actor: Bootstrap LabVIEW Authoring Lane (Windows)"
       }
     ],
     "languageModelTools": [
