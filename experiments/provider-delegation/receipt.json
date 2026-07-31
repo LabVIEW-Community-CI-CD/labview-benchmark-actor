@@ -1,0 +1,45 @@
+{
+  "schema": "labview-benchmark-actor/lba-uplift-delegation-receipt@v1",
+  "generatedAt": "2026-07-31T15:04:05.888Z",
+  "task": {
+    "domain": "doc-draft",
+    "id": "T-GATE-SUITE-NOTE",
+    "provider": "mock",
+    "model": "llama3.1:8b"
+  },
+  "provider": {
+    "ok": true,
+    "error": null,
+    "ms": 0
+  },
+  "output": {
+    "chars": 462,
+    "artifact": "draft.sample.md"
+  },
+  "acceptance": {
+    "checks": [
+      {
+        "name": "min-chars>=400",
+        "ok": true
+      },
+      {
+        "name": "section:Overview",
+        "ok": true
+      },
+      {
+        "name": "section:How it runs",
+        "ok": true
+      },
+      {
+        "name": "section:Evidence",
+        "ok": true
+      },
+      {
+        "name": "section:Distributed CI",
+        "ok": true
+      }
+    ],
+    "verdict": "pass"
+  },
+  "verdict": "pass"
+}
