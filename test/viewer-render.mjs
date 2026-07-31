@@ -28,6 +28,7 @@ const dom = new JSDOM(
   `<!DOCTYPE html><body>
    <svg id="chart" viewBox="0 0 800 240"></svg>
    <div id="readout"></div>
+   <div id="lba-mpr-counter" data-case="TC-03"></div>
    <script type="application/json" id="lba-series">${JSON.stringify(series)}</script>
    </body>`,
   { pretendToBeVisual: true }
@@ -35,11 +36,15 @@ const dom = new JSDOM(
 const { window } = dom;
 
 // Expose the DOM as globals so the shipped browser module runs against it, then stub what a headless DOM lacks:
-// a plotted width for the pointer math, pointer capture, and the vscode webview api (absent -> viewer.js no-ops
-// the postMessage). viewer.js already guards capture in try/catch; the no-ops just exercise the happy path.
+// a plotted width for the pointer math, pointer capture, and the vscode webview api. Here the api is PRESENT
+// (capturing) so BOTH the cursor's selection posts AND the MPR counter's ground-truth posts are exercised, and
+// setInterval is shimmed to CAPTURE the counter tick so we drive it deterministically (never wait on a timer).
 globalThis.window = window;
 globalThis.document = window.document;
-globalThis.acquireVsCodeApi = undefined;
+let mprTickCb = null;
+globalThis.setInterval = (cb) => { mprTickCb = cb; return 0; };
+const posted = [];
+globalThis.acquireVsCodeApi = () => ({ postMessage: (m) => posted.push(m), setState() {}, getState() {} });
 const svg = window.document.getElementById('chart');
 svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 240, right: 800, bottom: 240, x: 0, y: 0 });
 svg.setPointerCapture = () => {};
@@ -88,8 +93,39 @@ assert(cursorLine.getAttribute('x1') !== xBefore, 'the cursor line moved on drag
 pointerDown(32 + 0.42 * (800 - 64));
 assert(/sample 4\/8\b/.test(readout()) && /t=300\b/.test(readout()), `drag to ~42% -> sample 4 t=300, got: ${readout()}`);
 
+// 5: MPR counter feature (opt-in) -- with a #lba-mpr-counter present, the viewer ticks a monotonic plain-digit
+//    counter (the exact known-digit-reader glyphs) into it and posts each {counter,caseId} to the host as the
+//    deterministic-record correlation ground truth. Invoke the captured interval callback to tick it.
+assert(mprTickCb, 'viewer scheduled the MPR counter tick when #lba-mpr-counter is present');
+mprTickCb();
+const mprHost = window.document.getElementById('lba-mpr-counter');
+const counterEl = mprHost.querySelector('svg');
+assert(counterEl && counterEl.getAttribute('shape-rendering') === 'crispEdges', 'MPR counter renders a crisp-edges plain-digit svg');
+assert(counterEl.querySelectorAll('rect').length > 1, 'MPR counter svg paints the digit pixels');
+let mprPosts = posted.filter((p) => p && p.type === 'mpr-counter');
+assert(mprPosts.length === 1 && mprPosts[0].counter === 1 && mprPosts[0].caseId === 'TC-03', `MPR counter posts the {counter,caseId} ground truth, got: ${JSON.stringify(mprPosts)}`);
+mprTickCb();
+mprPosts = posted.filter((p) => p && p.type === 'mpr-counter');
+assert(mprPosts.length === 2 && mprPosts[1].counter === 2, 'MPR counter is monotonic across ticks');
+
+// 6: shipped counter-render READ-side contract -- the staged media/ module also ships the reader-consumable
+//    bitmap + structural helpers (the deterministic-record read side viewer.js does not import). Prove the
+//    shipped API is intact (verify-counter.mjs is the exhaustive drift/round-trip guard on the source).
+const cr = await import(pathToFileURL(join(here, '..', 'media', 'counter-render.mjs')).href);
+const bmp = cr.counterBitmap(123, 6);
+assert(bmp.height === 5 && bmp.rows.length === 5, 'counterBitmap is a 5-row plain-digit bitmap');
+assert(bmp.width === bmp.rows[0].length, 'counterBitmap width matches its row length');
+assert(cr.litPixelCount(123, 6) === bmp.rows.join('').split('1').length - 1, 'litPixelCount equals the lit cells in the bitmap');
+const anchor = cr.createCounter(0);
+cr.setCase(anchor, 'TC-09');
+cr.tick(anchor);
+cr.tick(anchor);
+const emittedSeries = cr.emitted(anchor);
+assert(emittedSeries.length === 2 && emittedSeries[1].counter === 2 && emittedSeries[1].caseId === 'TC-09', `emitted returns the ticked {counter,caseId} series, got: ${JSON.stringify(emittedSeries)}`);
+
 console.log(
   'viewer-render: PASS -- media/viewer.js renders the metric svg + draggable time cursor and tracks pointer + ' +
-    'keyboard input in a real DOM (jsdom); cursor math is the proven viewerCursor core.'
+    'keyboard input in a real DOM (jsdom); the opt-in MPR counter ticks the plain-digit anchor + posts its ' +
+    'ground truth; cursor math is the proven viewerCursor core.'
 );
 process.exit(0);
