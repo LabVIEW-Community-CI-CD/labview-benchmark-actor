@@ -124,5 +124,20 @@
     "deltaMedianMs": 1008,
     "deltaPct": 63.6,
     "note": "cold (page-cache-cleared, first launch after reboot) is markedly slower AND noisier than warm; the delta is the OS-page-cache cost of reading LabVIEW off disk"
+  },
+  "presentationProof": {
+    "what": "the SHIPPED benchmark panels (media/benchmark-panels.mjs) rendered with THIS session's live-captured records, screenshotted in a REAL browser (the same engine as the VS Code webview)",
+    "engine": "chromium (ms-playwright chromium-1234, headless --screenshot)",
+    "panels": {
+      "singleRun": "buildBenchmarkPanelHtml(live 1835ms record) -> headline 1835 ms launchMs, UI-READY dhash-64 grid (pin 0000010101010100), 265 frames / 244 stable tail, integrity d45eaf6e",
+      "warmTrend": "buildTrendPanelHtml(live warm trend) -> 5 markers 1673/1584/1582/1587/1510, PASS, median baseline 1584, slope -32.3 ms/run",
+      "coldTrend": "buildTrendPanelHtml(live cold trend) -> 3 markers 3836/2335/2592, PASS, median 2592, mean 2921, stddev 655.5"
+    },
+    "selfVisualGate": "PASS -- every panel presents the live-captured numbers correctly; closes the capture->presentation loop (the VM-captured records render in the extension's actual UI)",
+    "artifactsVmLocalNotCommitted": [
+      "/tmp/panel-single.png",
+      "/tmp/panel-warm.png",
+      "/tmp/panel-cold.png"
+    ]
   }
 }
