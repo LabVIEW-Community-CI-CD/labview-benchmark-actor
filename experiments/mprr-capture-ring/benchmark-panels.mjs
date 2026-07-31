@@ -494,6 +494,73 @@ export function buildResourcePanelHtml(rc, nonce) {
   return panelDoc(`${rc?.workload || 'benchmark'} \u2014 resource correlation`, nonce, body);
 }
 
+// --- 2d. cross-plane resource agreement ------------------------------------
+
+/** A signed horizontal bar (from a centre zero line) for a metric delta, scaled to the metric's max magnitude. */
+function deltaBar(delta, maxAbs, color, W = 120, H = 12) {
+  const mid = W / 2;
+  const v = typeof delta === 'number' && Number.isFinite(delta) ? delta : 0;
+  const w = maxAbs > 0 ? (Math.abs(v) / maxAbs) * (mid - 2) : 0;
+  const x = v >= 0 ? mid : mid - w;
+  return (
+    `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="delta ${escapeHtml(v)}">` +
+    `<line x1="${mid}" y1="0" x2="${mid}" y2="${H}" stroke="#666" stroke-width="1"/>` +
+    `<rect x="${x.toFixed(1)}" y="2" width="${Math.max(0, w).toFixed(1)}" height="${H - 4}" fill="${color}"/></svg>`
+  );
+}
+
+/**
+ * Build the CROSS-PLANE resource-agreement panel from a resource-cross-plane-receipt@1: per-metric (CPU/RAM/
+ * disk) WIN vs LINUX pre->post deltas (each a WITNESS), the agreement delta + status, and the RAM-agreement
+ * headline (both hypervisors load the same resident memory within a small band = substrate-independent). STATIC.
+ * @param {object} receipt resource-cross-plane-receipt@1
+ * @param {string} nonce per-load CSP nonce
+ * @returns {string} self-contained HTML
+ */
+export function buildCrossPlaneResourcePanelHtml(receipt, nonce) {
+  const metrics = (receipt && receipt.metrics) || {};
+  const WIN_COLOR = '#ffa657', LINUX_COLOR = '#4fc1ff';
+  const pass = receipt?.verdict === 'PASS';
+  const labels = { cpu: 'CPU %', ram: 'RAM MB', disk: 'Disk %' };
+
+  const cards = ['cpu', 'ram', 'disk'].map((key) => {
+    const m = metrics[key];
+    if (!m) return '';
+    const wd = m.win && typeof m.win.deltaMean === 'number' ? m.win.deltaMean : 0;
+    const ld = m.linux && typeof m.linux.deltaMean === 'number' ? m.linux.deltaMean : 0;
+    const maxAbs = Math.max(Math.abs(wd), Math.abs(ld), 1e-6);
+    const agree = m.status === 'agree';
+    const sign = (v) => (v > 0 ? '+' : '');
+    return `<div class="card" style="min-width:220px">
+      <div style="font-weight:600;margin-bottom:6px">${escapeHtml(labels[key] || key)}
+        <span class="badge ${agree ? 'pass' : 'fail'}" style="float:right">${escapeHtml((m.status || '?').toUpperCase())}</span></div>
+      <table>
+        <tr><td class="k" style="color:${WIN_COLOR}">WIN \u0394</td><td>${deltaBar(wd, maxAbs, WIN_COLOR)}</td><td class="v">${escapeHtml(sign(wd) + wd)}</td></tr>
+        <tr><td class="k" style="color:${LINUX_COLOR}">LINUX \u0394</td><td>${deltaBar(ld, maxAbs, LINUX_COLOR)}</td><td class="v">${escapeHtml(sign(ld) + ld)}</td></tr>
+      </table>
+      <div class="legend">|\u0394| ${escapeHtml(m.agreementDelta)} (tol ${escapeHtml(m.toleranceDelta)})${m.witness ? ' \u00b7 witness' : ''}</div>
+    </div>`;
+  }).join('');
+
+  const ram = metrics.ram || {};
+  const ramHeadline = ram.win && ram.linux
+    ? `Both hypervisors load LabVIEW's resident memory \u2014 WIN ${sign2(ram.win.deltaMean)} vs LINUX ${sign2(ram.linux.deltaMean)} MB \u2014 within ${escapeHtml(ram.agreementDelta)} MB: a substrate-independent signal.`
+    : '';
+
+  const body = `
+    <h2>${escapeHtml(receipt?.workload || 'benchmark')} \u2014 cross-plane resource agreement
+      <span class="badge ${pass ? 'pass' : 'fail'}">${escapeHtml(receipt?.verdict || '?')}</span></h2>
+    <div class="sub">WIN (${escapeHtml(receipt?.win?.hypervisor || '?')}) vs LINUX (${escapeHtml(receipt?.linux?.hypervisor || '?')}) \u00b7 launch \u0394 ${escapeHtml(receipt?.launchDeltaMs)} ms \u00b7 each metric's pre\u2192post delta is a WITNESS (substrate bias), reported not gated</div>
+    <div class="row" style="margin-top:12px;">${cards}</div>
+    ${ramHeadline ? `<div class="card" style="margin-top:12px"><strong style="color:#a5d6a7">RAM agreement:</strong> ${ramHeadline}</div>` : ''}`;
+  return panelDoc(`cross-plane resource agreement`, nonce, body);
+}
+
+function sign2(v) {
+  return (typeof v === 'number' && v > 0 ? '+' : '') + escapeHtml(v);
+}
+
+
 // --- 3. frame-correlator scrubber models -----------------------------------
 
 /**

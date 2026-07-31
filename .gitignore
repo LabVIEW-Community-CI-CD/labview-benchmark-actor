@@ -13,6 +13,7 @@ media/labview-launch-trend.json
 media/labview-launch-trend-win.json
 media/cross-plane-trend-receipt.json
 media/labview-launch-resource-correlation.json
+media/resource-cross-plane-receipt.json
 # deterministic-screenshot PNG artifacts (evidence; the small JSON receipt is committed, the PNG is not)
 playwright/.artifacts/
 # host-extracted NI LabVIEW offline feeds (licensed/community artifacts staged for the docker-windows mirror)
