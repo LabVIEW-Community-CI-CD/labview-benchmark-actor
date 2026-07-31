@@ -202,6 +202,11 @@ receipt are unchanged.
   MassCompile` → *"MassCompile operation succeeded"* → `verdict=pass`.
 - **evidence, deterministic**: `verify-evidence.mjs` → PASS, 8 assertions — valid receipts + an accurate
   summary → `pass`; a **hallucinated** pass count → `fail` (grounding); an invalid / non-receipt file → `fail`.
+- **Bus-side domain dispatch, cross-machine** ([bus-domain-dispatch-evidence.json](bus-domain-dispatch-evidence.json)):
+  the host coordinator handed a **`coverage-lift`** and a **`risky-test`** task to the VM worker pool
+  (`--concurrency 2 --provider ollama`) over `lbabus`; the VM claimed each, ran the full domain **on the VM**
+  (Ollama-proposed test → V8 coverage; real `/usr/bin/ffmpeg`), and returned `DONE` — coverage-lift `pass`,
+  risky-test `fail` (Ollama's ffmpeg test was flawed — the gate's teeth).
 - **Gated by the authoritative suite**: all six `verify-*.mjs` run as subprocesses under
   `experiments/verify-local-gates.mjs` (78/78 checks pass on the dependency-free gate).
 
@@ -218,7 +223,9 @@ receipt are unchanged.
 - **Bus-side tasking + worker pool** — ✔ shipped (`coordinator.mjs` + `worker.mjs --concurrency N`, proven
   loopback + cross-machine; see above). Next: multiple coordinators + a claim registry across many cleanrooms.
 - **Domains** — all ✔ shipped + gated: `doc-draft`, `coverage-lift`, `risky-test` (incl. real ffmpeg + real
-  LabVIEW MassCompile), and `evidence`. Next: bus-side dispatch of these domains to a cleanroom worker pool.
+  LabVIEW MassCompile), and `evidence`. **Bus-side dispatch of these domains to the cleanroom worker pool is
+  ✔ proven** (coverage-lift + risky-test handed to the VM worker — see Proven). Next: a claim registry /
+  provider routing across many cleanrooms.
 - **Quality eval**: score provider output with the [ollama-comparison](../ollama-comparison) faithfulness
   harness before accepting a draft.
 - **Wire into gates** — ✔ shipped: all six `verify-*.mjs` run under `experiments/verify-local-gates.mjs` (78/78).
