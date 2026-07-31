@@ -28,6 +28,8 @@ bus.
 | [coverageLift.mjs](coverageLift.mjs) | The **coverage-lift** domain: prompt a test for a `target` module, run it under `NODE_V8_COVERAGE`, gate on the measured **function** coverage (dependency-free V8 parse, no c8). |
 | [fixtures/sample-module.mjs](fixtures/sample-module.mjs) | The deterministic coverage-lift **target** (pure functions with branches). |
 | [verify-coverage-lift.mjs](verify-coverage-lift.mjs) | Deterministic proof of the measured gate (thorough=pass, weak=fail, failing-test=fail). |
+| [riskyTest.mjs](riskyTest.mjs) | The **risky-test** domain: a provider-proposed test that drives a real tool (ffmpeg/LabVIEW); SKIP when absent, run + gate when present. |
+| [verify-risky-test.mjs](verify-risky-test.mjs) | Deterministic proof of the tool gate (present=pass, absent=skip, failing=fail). |
 | [sample-task.doc-draft.json](sample-task.doc-draft.json) | An example `doc-draft` task (draft the gate-suite operator note). |
 | [receipt.json](receipt.json) | The committed **deterministic** receipt (mock path). |
 
@@ -75,6 +77,20 @@ coverage JSON (**dependency-free -- no c8**), then gates on the target's **funct
 tests; **untrusted provider-proposed tests should be measured inside the disposable cleanroom VM** (the
 harness runs identically there), not on a trusted host (`--permission` can't be combined with V8 coverage, so
 isolation is by disposable environment).
+
+## The `risky-test` domain (tool-gated: real LabVIEW/ffmpeg in the cleanroom)
+
+`risky-test` covers tests that need a REAL external tool hosted CI can't provide. The provider proposes a
+Node.js ESM test that invokes the named `tool` (e.g. `ffmpeg -version`, `labviewcli`); acceptance detects the
+tool on `PATH` and:
+
+- **absent** (the pure CI runner) → **`skip`** — a non-failing no-op; the risky path simply can't run here;
+- **present** (the cleanroom VM) → run the proposed test; it must exit 0 (the tool was genuinely invoked) →
+  `pass`, else `fail`.
+
+The receipt carries `tool { present, name, path }`. So the same gate is a deterministic skip under the
+dependency-free CI suite and a real proof in the cleanroom. Untrusted provider-proposed tests that drive the
+tool run in the **disposable cleanroom VM**, not on a trusted host.
 
 ## Bus-side CLAIM tasking — a host coordinator dispatches, the cleanroom worker claims
 
@@ -167,8 +183,14 @@ receipt are unchanged.
 - **coverage-lift, live Ollama** ([coverage-lift-evidence.json](coverage-lift-evidence.json)): `llama3.1:8b`
   proposed a test (inspected safe: imports `./target.mjs`, asserts, `exit 0`); the gate measured **100%
   function** coverage of the target → `verdict=pass`.
-- **Gated by the authoritative suite**: all four `verify-*.mjs` run as subprocesses under
-  `experiments/verify-local-gates.mjs` (76/76 checks pass on the dependency-free gate).
+- **risky-test, deterministic**: `verify-risky-test.mjs` → PASS, 9 assertions — a present tool + passing test
+  → `pass`; an **absent** tool → **`skip`** (not fail); a present tool + failing test → `fail`.
+- **risky-test, live cleanroom** ([risky-test-evidence.json](risky-test-evidence.json)): on the restarted VM,
+  a correct `ffmpeg -version` test ran the real `/usr/bin/ffmpeg` → `verdict=pass`; Ollama's own proposed
+  ffmpeg test **failed** the gate (it wrote CommonJS `require` in an ESM `.mjs` → threw — the gate has teeth);
+  and `tool=labviewcli` (LabVIEW installed but its CLI not on PATH, unactivated) → **`skip`**.
+- **Gated by the authoritative suite**: all five `verify-*.mjs` run as subprocesses under
+  `experiments/verify-local-gates.mjs` (77/77 checks pass on the dependency-free gate).
 
 ## Reuse map (composes, does not reinvent)
 
@@ -182,9 +204,9 @@ receipt are unchanged.
 
 - **Bus-side tasking + worker pool** — ✔ shipped (`coordinator.mjs` + `worker.mjs --concurrency N`, proven
   loopback + cross-machine; see above). Next: multiple coordinators + a claim registry across many cleanrooms.
-- **More domains**: `coverage-lift` — ✔ shipped (an objective **measured** gate; `coverageLift.mjs`, proven
-  deterministic + live Ollama). Next: `risky-test` (author tests needing real LabVIEW/ffmpeg on the VM),
-  `evidence` (gather receipts).
+- **More domains**: `coverage-lift` — ✔ shipped (objective measured gate); `risky-test` — ✔ shipped
+  (tool-gated, proven deterministic + live ffmpeg/LabVIEW on the cleanroom). Next: `evidence` (gather + gate
+  receipts), or an activated-LabVIEW risky-test.
 - **Quality eval**: score provider output with the [ollama-comparison](../ollama-comparison) faithfulness
   harness before accepting a draft.
 - **Wire into gates**: add `verify-provider-delegation.mjs` to `experiments/verify-local-gates.mjs`.

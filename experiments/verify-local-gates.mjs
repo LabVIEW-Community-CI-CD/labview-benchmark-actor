@@ -1595,6 +1595,10 @@ check('provider-delegation-coverage-lift', () => {
   execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-coverage-lift.mjs')], { stdio: 'pipe' });
   return { suite: 'verify-coverage-lift 8/8 (provider-proposed test gated on measured V8 function coverage)' };
 });
+check('provider-delegation-risky-test', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-risky-test.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-risky-test 9/9 (tool-gated: present+pass, absent->skip, present+fail)' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

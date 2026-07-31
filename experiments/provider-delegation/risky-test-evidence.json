@@ -1,0 +1,28 @@
+{
+  "schema": "labview-benchmark-actor/risky-test-evidence@v1",
+  "what": "The risky-test uplift domain: a provider-proposed test that exercises a REAL external tool (ffmpeg, LabVIEW's CLI) that hosted CI cannot provide. Tool-gated acceptance: SKIP when the tool is absent, run + gate when present.",
+  "provenAt": "2026-07-31T16:15:00Z",
+  "deterministic": {
+    "test": "verify-risky-test.mjs",
+    "result": "PASS, 9 assertions",
+    "cases": {
+      "present-pass": "tool=node (always present) + a passing test -> verdict=pass (risky-test-runs ok)",
+      "absent-skip": "an absent required tool -> verdict=SKIP (not fail); a skipped check is recorded",
+      "present-fail": "tool present + a failing test -> verdict=fail"
+    }
+  },
+  "liveCleanroom": {
+    "vm": "lba-ubuntu2404-labview2026-scratch (restarted; guest 10.0.2.15, Node 18)",
+    "ffmpeg": {
+      "installed": "ffmpeg 6.1.1 at /usr/bin/ffmpeg (apt)",
+      "ollamaProposed": "verdict=fail -- llama3.1:8b wrote CommonJS require('child_process') in an ESM .mjs (require is not defined) -> the test threw -> the gate correctly FAILED it (teeth)",
+      "correctTest": "verdict=pass -- a correct ESM `ffmpeg -version` test ran the real /usr/bin/ffmpeg (tool-present:ffmpeg ok, risky-test-runs ok, exit 0)"
+    },
+    "labview": {
+      "installed": "/usr/local/natinst/LabVIEW-2026-64 (present on disk, UNACTIVATED, CLI not on PATH)",
+      "result": "tool=labviewcli -> present:false -> verdict=SKIP -- the risky test correctly skips where the CLI is not runnable"
+    }
+  },
+  "safety": "The risky-test executes a provider-proposed test that invokes a real tool. The DETERMINISTIC gate uses node itself as the always-present tool (safe). UNTRUSTED provider-proposed tests that drive ffmpeg/LabVIEW run in the DISPOSABLE cleanroom VM -- exactly where the Ollama ffmpeg test above executed -- not on a trusted host.",
+  "note": "The same domain gate is a deterministic no-op (skip) under the dependency-free CI suite (no ffmpeg/LabVIEW) and a real proof in the cleanroom. LabVIEW activation is an operator-only step; an activated + PATH-exposed LabVIEWCLI flips the LabVIEW case from skip to a real run."
+}

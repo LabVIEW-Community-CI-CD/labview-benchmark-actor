@@ -15,6 +15,7 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { selectAdapter } from './providerAdapters.mjs';
 import { buildCoverageLiftPrompt, acceptanceCoverageLift } from './coverageLift.mjs';
+import { buildRiskyTestPrompt, acceptanceRiskyTest } from './riskyTest.mjs';
 
 export const TASK_SCHEMA = 'labview-benchmark-actor/lba-uplift-task@v1';
 export const RECEIPT_SCHEMA = 'labview-benchmark-actor/lba-uplift-delegation-receipt@v1';
@@ -33,6 +34,7 @@ export function validateTask(task) {
 // minimum length) so a REAL provider is steered to satisfy the SAME acceptance gate the mock satisfies.
 export function buildPrompt(task) {
   if (task.domain === 'coverage-lift') return buildCoverageLiftPrompt(task);
+  if (task.domain === 'risky-test') return buildRiskyTestPrompt(task);
   const sections = Array.isArray(task.requiredSections) ? task.requiredSections : [];
   const min = Number.isFinite(task.minChars) ? task.minChars : 200;
   let p = `You are a ${task.domain} agent for the labview-benchmark-actor project. `;
@@ -74,8 +76,10 @@ export async function runDelegation(task, { provider = 'ollama', model, drive, a
     ? { checks: [{ name: 'provider-ok', ok: false }], verdict: 'fail' }
     : task.domain === 'coverage-lift'
       ? await acceptanceCoverageLift(task, res.text)
-      : acceptance(task, res.text);
-  const verdict = res.ok && acc.verdict === 'pass' ? 'pass' : 'fail';
+      : task.domain === 'risky-test'
+        ? await acceptanceRiskyTest(task, res.text)
+        : acceptance(task, res.text);
+  const verdict = !res.ok ? 'fail' : acc.verdict === 'pass' ? 'pass' : acc.verdict === 'skip' ? 'skip' : 'fail';
   const receipt = {
     schema: RECEIPT_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -86,6 +90,7 @@ export async function runDelegation(task, { provider = 'ollama', model, drive, a
     verdict,
   };
   if (acc.coverage) receipt.coverage = acc.coverage;
+  if (acc.tool) receipt.tool = acc.tool;
   return receipt;
 }
 
@@ -132,7 +137,7 @@ async function main(argv) {
   const receiptPath = args.receipt || `uplift-${task.domain}-${task.id}.receipt.json`;
   fs.writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + '\n');
   console.log(`[delegate] domain=${task.domain} id=${task.id} provider=${receipt.task.provider} verdict=${receipt.verdict} chars=${receipt.output.chars} -> ${receiptPath}`);
-  process.exit(receipt.verdict === 'pass' ? 0 : 1);
+  process.exit(receipt.verdict === 'pass' || receipt.verdict === 'skip' ? 0 : 1);
 }
 
 function parseArgs(argv) {
