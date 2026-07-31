@@ -20,6 +20,10 @@ bus.
 | [providerAdapters.mjs](providerAdapters.mjs) | The provider-**agnostic** seam: `async drive(prompt, opts) -> { provider, model, text, ms, ok, error }`. Adapters: `ollama` (POST `/api/generate`, the proven `ollama-drive` contract), `copilot-cli` + `codex` (shell the CLI, behind the seam), `mock` (deterministic, offline — the gate driver). |
 | [delegateUplift.mjs](delegateUplift.mjs) | The delegation unit: validate a `lba-uplift-task@v1` spec → build a prompt → drive the provider → apply the **deterministic acceptance gate** → write a `lba-uplift-delegation-receipt@v1` receipt → optionally **announce** it as an ADR-0003 `DONE` frame over `lbabus net`. |
 | [verify-provider-delegation.mjs](verify-provider-delegation.mjs) | Deterministic self-test (mock adapter, no GPU/network): task-spec validation, the provider seam, the acceptance gate (pass **and** fail), and the receipt schema. |
+| [busFrame.mjs](busFrame.mjs) | Shared ADR-0003 framing (encode/decode/`sendFrame`) so the coordinator + worker speak the same `bus-msg@1` wire as `lbabus net`. |
+| [coordinator.mjs](coordinator.mjs) | **Host** side of bus-side tasking: dispatch a `CLAIM` (task-spec in `payload`) to a worker, collect the `ACK` + `DONE` receipt. |
+| [worker.mjs](worker.mjs) | **Cleanroom** side: listen for a `CLAIM`, `ACK` it, run the delegation (`runDelegation`), and return the `DONE` receipt. |
+| [verify-claim-tasking.mjs](verify-claim-tasking.mjs) | Deterministic self-test of the dispatch → claim → return loop (loopback, mock, no GPU/network). |
 | [sample-task.doc-draft.json](sample-task.doc-draft.json) | An example `doc-draft` task (draft the gate-suite operator note). |
 | [receipt.json](receipt.json) | The committed **deterministic** receipt (mock path). |
 
@@ -47,6 +51,35 @@ receipt are — so the harness is fully proven with the mock provider.
 `{ schema, generatedAt, task{domain,id,provider,model}, provider{ok,error,ms}, output{chars,artifact?},
 acceptance{checks[{name,ok}],verdict}, verdict, announce? }` — `verdict` is `pass` iff the provider succeeded
 **and** every acceptance check passed. Exit code mirrors the verdict.
+
+## Bus-side CLAIM tasking — a host coordinator dispatches, the cleanroom worker claims
+
+The return leg above is fire-and-forget; this closes the loop with a **host coordinator** that dispatches a
+task and a **cleanroom worker** that claims and runs it — all over `bus-msg@1` (wire-compatible with
+`lbabus net`):
+
+```
+host coordinator                          cleanroom worker (VM)
+  observer :7420  <────── ACK ───────────  CLAIM received, claimed
+        │                                        │ runDelegation (local provider)
+        └───── CLAIM uplift:<domain> ────►        │
+               payload { taskSpec, replyTo }      ▼
+  observer :7420  <────── DONE receipt ────  announce (verdict)
+```
+
+The `CLAIM` payload is a dispatch envelope `{ taskSpec, replyTo }` — `replyTo` is the address the worker
+uses to reach the coordinator's observer (e.g. the NAT gateway `10.0.2.2` for a VirtualBox guest). The worker
+`ACK`s the claim, runs the delegation locally, then announces the `DONE` receipt; the provider never touches
+the bus (comms-only).
+
+```sh
+# deterministic (loopback, mock): dispatch -> claim -> DONE
+node verify-claim-tasking.mjs
+
+# worker on the cleanroom (drives the host Ollama over TCP), coordinator on the host:
+#   VM:   OLLAMA_HOST_ADDR=10.0.2.2 OLLAMA_PORT=11533 node worker.mjs --listen 7440 --provider ollama
+#   host: node coordinator.mjs --worker 127.0.0.1:7440 --task sample-task.doc-draft.json --reply 10.0.2.2 --observe 7420
+```
 
 ## Run it
 
@@ -82,6 +115,12 @@ receipt are unchanged.
   `lbabus net listen` (`DONE task:uplift:doc-draft`, received). Separately the VM beaconed presence over UDP
   (`lbabus net beacon`) → a host `lbabus net listen --udp` (`received 1 message from 1 distinct sender`). The
   provider ran off the VM's network; only the receipt/beacon crossed the bus (comms-only).
+- **Bus-side CLAIM tasking, deterministic**: `verify-claim-tasking.mjs` → PASS, 7 assertions (dispatch →
+  worker `ACK` → `DONE` receipt over `bus-msg@1`; verdict `pass` for a good task, `fail` for an unmeetable one).
+- **Bus-side CLAIM tasking, cross-machine** ([claim-tasking-vm-evidence.json](claim-tasking-vm-evidence.json)):
+  the host coordinator dispatched a `CLAIM` to the **VM worker** (`lba-ubuntu-scratch`) over a NAT forward; the
+  VM claimed it (`ACK`), ran the delegation against the host Ollama over TCP, and returned `DONE verdict=pass`
+  to the host observer — coordinator `claimed=yes verdict=pass`.
 
 ## Reuse map (composes, does not reinvent)
 
@@ -93,8 +132,8 @@ receipt are unchanged.
 
 ## Next slices (operator-steerable)
 
-- **Bus-side tasking**: a coordinator emits `CLAIM task=<domain>` with the task-spec in `payload`; the
-  clean-room actor claims it, runs this harness, and returns `DONE` (this slice already ships the return leg).
+- **Bus-side tasking** — ✔ shipped (`coordinator.mjs` + `worker.mjs`, proven loopback + cross-machine; see
+  above). Next: a persistent worker pool + multiple concurrent claims.
 - **More domains**: `coverage-lift` (propose tests for a named module — gate on measured coverage delta),
   `risky-test` (author tests needing real LabVIEW/ffmpeg on the VM), `evidence` (gather receipts).
 - **Quality eval**: score provider output with the [ollama-comparison](../ollama-comparison) faithfulness
