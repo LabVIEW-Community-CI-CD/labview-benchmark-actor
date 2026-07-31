@@ -1500,6 +1500,25 @@ check('ephemeral-mesh-typed-receipt-green', () => {
   assert(rejected === 4, 'validator must reject unordered / source-listened / missing-DONE / non-dense typed receipts');
   return { meshMode: summary.meshMode, sources: summary.sources, sinks: summary.sinks, serializationMode: summary.serializationMode };
 });
+// Typed both<->both (experiments/ephemeral-mesh): 2 full peers, each SINKS its peer's seq'd stream into its own
+// dense ingestSeq log. The shared validator re-derives BOTH per-node ordered logs fails-closed. LBA-REQ-006/007.
+check('ephemeral-mesh-2node-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt-2node.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  assert(summary.meshMode === 'typed' && summary.boths === 2, 'both<->both typed with 2 both-nodes');
+  // Teeth: a broken peer log (missing terminal DONE) or a type-not-honored both node is rejected.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { const n = r.nodes[0]; n.orderedReceipt.frameLog = n.orderedReceipt.frameLog.filter((f) => f.frameType !== 'DONE'); },
+    (r) => { r.nodes[1].activity.emittedCoordination = false; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 2, 'validator must reject missing-DONE / type-not-honored both<->both receipts');
+  return { meshMode: summary.meshMode, boths: summary.boths };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

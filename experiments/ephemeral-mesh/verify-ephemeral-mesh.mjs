@@ -143,6 +143,15 @@ check('committed-typed-receipt-valid', () => {
   return summary;
 });
 
+// 4b. The committed both<->both typed receipt (each node sinks its peer's stream) is green.
+check('committed-2node-typed-receipt-valid', () => {
+  const receipt = JSON.parse(readFileSync(join(here, 'receipt-2node.json'), 'utf8'));
+  const summary = validateEphemeralMeshReceipt(receipt);
+  assert(summary.meshMode === 'typed', 'summary.meshMode must be typed');
+  assert(summary.boths === 2, 'both<->both must have 2 both-nodes, each with its own orderedReceipt');
+  return summary;
+});
+
 // 5. The typed base fixture validates (isolates the teeth below).
 check('typed-base-fixture-valid', () => { validateEphemeralMeshReceipt(goodTypedReceipt()); return { ok: true }; });
 
