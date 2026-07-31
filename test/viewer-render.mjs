@@ -93,6 +93,29 @@ assert(cursorLine.getAttribute('x1') !== xBefore, 'the cursor line moved on drag
 pointerDown(32 + 0.42 * (800 - 64));
 assert(/sample 4\/8\b/.test(readout()) && /t=300\b/.test(readout()), `drag to ~42% -> sample 4 t=300, got: ${readout()}`);
 
+// 4b: ArrowLeft steps back; a non-arrow key is a no-op; and a full pointer drag (down -> move -> up -> move)
+//     exercises the drag-move + release + drag-ended branches.
+key('ArrowLeft'); // from sample 4 -> sample 3 (t=200)
+assert(/sample 3\/8\b/.test(readout()) && /t=200\b/.test(readout()), `ArrowLeft -> sample 3 t=200, got: ${readout()}`);
+const beforeNoop = readout();
+key('a'); // a non-navigation key: the handler returns without moving the cursor
+assert(readout() === beforeNoop, 'a non-arrow key does not move the cursor');
+svg.dispatchEvent(new window.MouseEvent('pointerdown', { clientX: 32, bubbles: true })); // left edge -> sample 1
+assert(/sample 1\/8\b/.test(readout()), `pointerdown at the left edge -> sample 1, got: ${readout()}`);
+svg.dispatchEvent(new window.MouseEvent('pointermove', { clientX: 780, bubbles: true })); // dragging -> tracks to the last sample
+assert(/sample 8\/8\b/.test(readout()), `pointermove while dragging tracks to the last sample, got: ${readout()}`);
+svg.dispatchEvent(new window.MouseEvent('pointerup', { clientX: 780, bubbles: true })); // release -> dragging=false
+svg.dispatchEvent(new window.MouseEvent('pointermove', { clientX: 32, bubbles: true })); // NOT dragging -> no change
+assert(/sample 8\/8\b/.test(readout()), 'pointermove after pointerup does not move the cursor (drag released)');
+
+// 4c: pointerup release is BEST-EFFORT -- if releasePointerCapture throws, the handler swallows it and the
+//     viewer stays responsive (the try/catch guard around the capture release).
+svg.dispatchEvent(new window.MouseEvent('pointerdown', { clientX: 400, bubbles: true }));
+svg.releasePointerCapture = () => { throw new Error('capture already released'); };
+svg.dispatchEvent(new window.MouseEvent('pointerup', { clientX: 400, bubbles: true })); // the catch swallows the throw
+key('Home');
+assert(/sample 1\/8\b/.test(readout()), 'the viewer survives a releasePointerCapture failure on pointerup and still responds to keys');
+
 // 5: MPR counter feature (opt-in) -- with a #lba-mpr-counter present, the viewer ticks a monotonic plain-digit
 //    counter (the exact known-digit-reader glyphs) into it and posts each {counter,caseId} to the host as the
 //    deterministic-record correlation ground truth. Invoke the captured interval callback to tick it.
