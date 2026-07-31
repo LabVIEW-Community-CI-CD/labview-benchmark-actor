@@ -87,6 +87,39 @@ assert(badArg.error && badArg.error.code === -32602, 'missing required arg -> -3
 
 const unknownMethod = await core.handleBenchmarkActorMcpMessage({ id: 6, method: 'foo/bar' }, deps);
 assert(unknownMethod.error && unknownMethod.error.code === -32601, 'unknown method -> -32601 method not found');
+
+// Remaining handler branches, all via the INJECTED fake deps (deterministic, no real CLI, no side effects):
+const ping = await core.handleBenchmarkActorMcpMessage({ id: 7, method: 'ping' }, deps);
+assert(ping.result && typeof ping.result === 'object', 'ping -> empty success result');
+const cancelled = await core.handleBenchmarkActorMcpMessage({ method: 'notifications/cancelled' }, deps);
+assert(cancelled === null, 'notifications/cancelled gets no response');
+const noName = await core.handleBenchmarkActorMcpMessage({ id: 8, method: 'tools/call', params: { name: 123 } }, deps);
+assert(noName.error && noName.error.code === -32602, 'tools/call with a non-string name -> -32602');
+const pollDefault = await core.handleBenchmarkActorMcpMessage(
+  { id: 9, method: 'tools/call', params: { name: 'poll_coordination_bus' } },
+  deps
+);
+assert(pollDefault.result.content[0].text === 'poll tail=10', 'poll_coordination_bus without args defaults tail to 10');
+const badTail = await core.handleBenchmarkActorMcpMessage(
+  { id: 10, method: 'tools/call', params: { name: 'poll_coordination_bus', arguments: { tail: 999 } } },
+  deps
+);
+assert(badTail.error && badTail.error.code === -32602, 'poll_coordination_bus with an out-of-range tail -> -32602');
+const caps = await core.handleBenchmarkActorMcpMessage(
+  { id: 11, method: 'tools/call', params: { name: 'get_host_capabilities' } },
+  deps
+);
+assert(caps.result.content[0].text === 'caps', 'get_host_capabilities routes to the injected dep');
+const series = await core.handleBenchmarkActorMcpMessage(
+  { id: 12, method: 'tools/call', params: { name: 'get_benchmark_series' } },
+  deps
+);
+assert(series.result.content[0].text === '{"points":3}', 'get_benchmark_series routes to the injected dep');
+const posted = await core.handleBenchmarkActorMcpMessage(
+  { id: 13, method: 'tools/call', params: { name: 'post_coordination_note', arguments: { message: 'hi' } } },
+  deps
+);
+assert(posted.result.content[0].text === 'posted hi', 'post_coordination_note routes a validated message to the injected dep');
 console.log('mcp-core: PASS -- protocol dispatch + 4 tools + -32601/-32602 error codes');
 
 // ---- 2. ACTIVATION: the extension registers the MCP provider (manifest id == runtime id) ----
