@@ -1,0 +1,59 @@
+{
+  "schema": "labview-benchmark-actor/lba-cross-machine-2vm-routing@v1",
+  "ranAt": "2026-07-31T18:39:11.122Z",
+  "transport": "lbabus-msg@1 over VirtualBox NAT (host<->2 guest VMs)",
+  "vms": [
+    {
+      "role": "base",
+      "worker": "127.0.0.1:7440",
+      "ssh": "127.0.0.1:2222",
+      "vm": "lba-ubuntu2404-labview2026-scratch",
+      "caps": {
+        "node": true,
+        "ffmpeg": true,
+        "LabVIEWCLI": true
+      }
+    },
+    {
+      "role": "clone",
+      "worker": "127.0.0.1:7441",
+      "ssh": "127.0.0.1:2223",
+      "vm": "lba-cleanroom-clone-01 (linked clone of mesh-node-ready)",
+      "caps": {
+        "node": true,
+        "ffmpeg": false,
+        "LabVIEWCLI": true
+      }
+    }
+  ],
+  "capabilityDifference": {
+    "base_ffmpeg": true,
+    "clone_ffmpeg": false
+  },
+  "routing": {
+    "ffmpeg_risky_test_routed_to": "cleanroom-base",
+    "load_balance_picks": [
+      "cleanroom-base",
+      "cleanroom-clone"
+    ]
+  },
+  "dispatched": [
+    {
+      "vm": "base",
+      "worker": "127.0.0.1:7440",
+      "id": "T-2VM-BASE",
+      "claimed": true,
+      "verdict": "pass",
+      "agent": "mock"
+    },
+    {
+      "vm": "clone",
+      "worker": "127.0.0.1:7441",
+      "id": "T-2VM-CLONE",
+      "claimed": true,
+      "verdict": "pass",
+      "agent": "mock"
+    }
+  ],
+  "assertions": 12
+}
