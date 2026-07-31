@@ -1619,6 +1619,30 @@ check('provider-delegation-vipm-routing', () => {
   execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-vipm-routing.mjs')], { stdio: 'pipe' });
   return { suite: 'verify-vipm-routing 15/15 (VIPM-capability routing: edition-aware, Community-only-in-public-repo)' };
 });
+
+// DoD Gate (ISO/IEC/IEEE 29119-2 exit/completion criteria; 12207 process outcomes): the release-readiness
+// Definition of Done is DEFINED, standards-grounded, and WIRED to an enforcing status context. This keeps the
+// "DoD Gate / dod" contract from silently drifting or disappearing. Standards are referenced by identifier only
+// (the licensed PDFs stay local, never committed). Dep-free static check.
+check('dod-definition-present', () => {
+  const doc = join(pkgRoot, 'docs', 'dod', 'definition-of-done.md');
+  assert(existsSync(doc), 'the Definition of Done (docs/dod/definition-of-done.md) must exist');
+  const text = readFileSync(doc, 'utf8');
+  assert(/DoD Gate\s*\/\s*dod/.test(text), 'the DoD doc must carry the "DoD Gate / dod" context marker');
+  for (const section of [/##\s*Standards basis/i, /##\s*Entry criteria/i, /##\s*Exit criteria/i]) {
+    assert(section.test(text), `the DoD doc must define ${section}`);
+  }
+  // The exit criteria must trace to REAL, enforceable gates (objective, not aspirational).
+  for (const gate of ['verify-local-gates', 'PR Coverage Gate / coverage', 'reqs-coverage']) {
+    assert(text.includes(gate), `the DoD exit criteria must reference the enforcing gate "${gate}"`);
+  }
+  const wf = join(pkgRoot, '.github', 'workflows', 'dod.yml');
+  assert(existsSync(wf), 'the DoD Gate workflow (.github/workflows/dod.yml) must exist');
+  const wfText = readFileSync(wf, 'utf8');
+  assert(/name:\s*DoD Gate/.test(wfText), 'workflow must publish the "DoD Gate / dod" context (name: DoD Gate + job dod)');
+  assert(/job|dod:/.test(wfText) && /verify-local-gates\.mjs/.test(wfText), 'the DoD Gate job must enforce the DoD by running the local gate suite');
+  return { doc: 'docs/dod/definition-of-done.md', context: 'DoD Gate / dod', exitCriteria: 7 };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
