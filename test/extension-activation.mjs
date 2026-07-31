@@ -343,6 +343,26 @@ try {
   assert(/fc-root|Content-Security-Policy/.test(panels[panels.length - 1].webview.html), 'the frame-correlator webview HTML is built from the capture record');
   rmSync(gsRoot, { recursive: true, force: true });
 
+  // Error-path coverage: re-activate against an extensionUri that lacks media/ so the panel fixture loads throw
+  // -> each command's catch -> reportUiError (graceful degradation on a corrupt/missing install, not a crash).
+  // Route the second activation's registrations to a separate list so the primary command surface stays clean.
+  const second = [];
+  const savedRegisterCommand = mockVscode.commands.registerCommand;
+  const savedRegisterTool = mockVscode.lm.registerTool;
+  mockVscode.commands.registerCommand = (id, handler) => { second.push({ id, handler }); return { dispose() {} }; };
+  mockVscode.lm.registerTool = () => ({ dispose() {} });
+  ext.activate({ subscriptions: [], extensionUri: { path: '/tmp/lba-nonexistent-ext', fsPath: '/tmp/lba-nonexistent-ext' }, globalStorageUri: { fsPath: '/tmp/lba-nonexistent-gs2' }, extension: { packageJSON: { version: '0.1.0' } } });
+  mockVscode.commands.registerCommand = savedRegisterCommand;
+  mockVscode.lm.registerTool = savedRegisterTool;
+  const errBefore = errorMessages.length;
+  for (const id of ['openBenchmarkRun', 'openBenchmarkTrend', 'openCrossPlaneTrend', 'openResourceProfile', 'openCrossPlaneResource']) {
+    await second.find((r) => r.id === `labviewBenchmarkActor.${id}`).handler();
+  }
+  assert(
+    errorMessages.length >= errBefore + 5,
+    'each panel command reports a UI error (reportUiError) when the staged fixtures are unreadable (graceful degradation, not a crash)'
+  );
+
   ext.deactivate(); // must not throw
 
   // Language-model tools (Copilot agent mode): activate() registers the two agent-facing tools, and the
