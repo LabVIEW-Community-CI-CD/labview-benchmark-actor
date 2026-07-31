@@ -397,6 +397,19 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(!doc.body.textContent.includes('RAM agreement:'), 'cross-plane resource omits the RAM headline when the ram metric is absent');
 }
 
+// 4j. cross-plane TREND, both series EMPTY -> the degenerate chart (nMax<=1, empty domain, no polylines) still
+//     renders its frame, and receipt flags (when present) are listed rather than 'none'.
+{
+  const dom = new JSDOM(buildCrossPlaneTrendPanelHtml(
+    { workload: 'lv', metric: 'launchMs', verdict: 'PASS', witness: { meanDeltaMs: 0, status: 'within', toleranceMs: 10, faster: 'none' }, flags: ['degenerate'] },
+    { values: [] }, { values: [] }, NONCE,
+  ));
+  const doc = dom.window.document;
+  assert(doc.querySelector('svg.chart'), 'cross-plane trend renders the chart frame even when both series are empty');
+  assert(doc.querySelectorAll('svg.chart polyline').length === 0, 'cross-plane trend with empty series draws no polylines');
+  assert(doc.body.textContent.includes('degenerate'), 'cross-plane trend lists the receipt flags when present');
+}
+
 console.log(
   'panels-render: PASS -- the single-run + trend panels render their real launchMs/verdict/stats, and the ' +
     'frame correlator renders its CPU/RAM/disk curves + captured screenshot and tracks the red scrub line (jsdom).'
