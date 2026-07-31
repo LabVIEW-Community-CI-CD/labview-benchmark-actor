@@ -131,13 +131,19 @@
     "panels": {
       "singleRun": "buildBenchmarkPanelHtml(live 1835ms record) -> headline 1835 ms launchMs, UI-READY dhash-64 grid (pin 0000010101010100), 265 frames / 244 stable tail, integrity d45eaf6e",
       "warmTrend": "buildTrendPanelHtml(live warm trend) -> 5 markers 1673/1584/1582/1587/1510, PASS, median baseline 1584, slope -32.3 ms/run",
-      "coldTrend": "buildTrendPanelHtml(live cold trend) -> 3 markers 3836/2335/2592, PASS, median 2592, mean 2921, stddev 655.5"
+      "coldTrend": "buildTrendPanelHtml(live cold trend) -> 3 markers 3836/2335/2592, PASS, median 2592, mean 2921, stddev 655.5",
+      "resourceProfile": "buildResourcePanelHtml(live resource run) -> 1745 ms launch badge, CPU/RAM/disk sparklines with the red UI-READY trigger line (RAM steps up +43.81 MB at the trigger), 21 pre / 174 post samples, offset -325 ms",
+      "crossPlaneTrend": "buildCrossPlaneTrendPanelHtml(live LINUX trend vs committed real WIN trend) -> overlay chart LINUX(blue) below WIN(orange), witness mean delta 823.4 ms, faster LINUX, match (tol 8000), both verdicts PASS",
+      "crossPlaneResource": "buildCrossPlaneResourcePanelHtml(live LINUX resource vs committed WIN resource) -> CPU AGREE, Disk AGREE, RAM DIVERGE (WIN +115.78 vs live-LINUX +43.81, |d| 71.97 > tol 50). HONEST: the live LINUX RAM delta is understated because its pre-window caught gdm teardown (lean-baseline gotcha); the historical lean LINUX run (+116.88) agreed with WIN. The panel faithfully renders the real measurement, not a faked agreement."
     },
-    "selfVisualGate": "PASS -- every panel presents the live-captured numbers correctly; closes the capture->presentation loop (the VM-captured records render in the extension's actual UI)",
+    "selfVisualGate": "PASS on rendering all 6 panels (single-run, warm trend, cold trend, resource profile, cross-plane trend, cross-plane resource) from live-captured data; the frame correlator needs per-frame PNGs (Windows gdigrab path) so is not renderable on the Linux VNC path. The cross-plane resource RAM DIVERGE is an honest reflection of a lean-baseline artifact in the live LINUX run, not a UI fault.",
     "artifactsVmLocalNotCommitted": [
       "/tmp/panel-single.png",
       "/tmp/panel-warm.png",
-      "/tmp/panel-cold.png"
+      "/tmp/panel-cold.png",
+      "/tmp/panel-resource.png",
+      "/tmp/panel-crossplane.png",
+      "/tmp/panel-xresource.png"
     ]
   }
 }
