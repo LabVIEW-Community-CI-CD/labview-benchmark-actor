@@ -162,7 +162,8 @@ await new Promise((resolve, reject) => {
   const child = spawn(process.execPath, [serverPath], { stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = '';
   const got = new Map();
-  const want = [1, 2, 3, 4];
+  let parseErr = null;
+  const want = [1, 2, 3, 4, 5];
   const timer = setTimeout(() => {
     child.kill();
     reject(new Error('stdio round-trip timed out'));
@@ -178,6 +179,7 @@ await new Promise((resolve, reject) => {
       if (line) {
         const msg = JSON.parse(line);
         if (msg.id !== undefined && msg.id !== null) got.set(msg.id, msg);
+        else if (msg.error && msg.error.code === -32700) parseErr = msg;
       }
       i = buf.indexOf('\n');
     }
@@ -195,6 +197,11 @@ await new Promise((resolve, reject) => {
         '[stdio] get_benchmark_series returns the deterministic hashed series envelope'
       );
       assert(got.get(4).error && got.get(4).error.code === -32602, '[stdio] unknown tool -> -32602');
+      assert(
+        got.get(5).result && got.get(5).result.content && typeof got.get(5).result.content[0].text === 'string',
+        '[stdio] get_host_capabilities returns a content result (runLbabus success or a soft ENOENT isError)'
+      );
+      assert(parseErr && parseErr.error.code === -32700, '[stdio] a malformed line yields a -32700 parse error (id null)');
     } catch (e) {
       child.kill();
       reject(e);
@@ -211,6 +218,8 @@ await new Promise((resolve, reject) => {
   send({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
   send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get_benchmark_series' } });
   send({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'nope' } });
+  child.stdin.write('this is not valid json\n');
+  send({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_host_capabilities' } });
 });
 console.log('mcp-stdio: PASS -- spawned server round-trips initialize + tools/list + tools/call over stdio');
 console.log('mcp-server: PASS');
