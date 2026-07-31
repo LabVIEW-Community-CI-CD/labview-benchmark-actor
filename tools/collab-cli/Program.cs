@@ -710,7 +710,8 @@ internal static class CommandRouter
               lbabus resource <list|status|acquire|release|renew> [name] [--agent <id>] [--ttl <sec>] [--wait [--timeout <sec>]]
               lbabus agents [--out <path> | --check <path>] [--role <name> | --role-from-commit [<ref>] [--repo <dir>]] [--list-roles]
                                                      # emit/verify the version-pinned agent base instructions (+ optional commit-derived role overlay)
-              lbabus docs [--out <path> | --check <path>]     # emit/verify the version-pinned documentation package
+              lbabus docs [list | [show] <id>] [--out <path> | --check <path>]
+                                                     # emit/verify the version-pinned docs bundle: guide + requirements (srs, rtm)
 
             AGENT GUARDRAILS (fail-closed)
               * pinned toolchain: `selfcheck`/`doctor`/`preflight` require rg>=13, git>=2.30, gh>=2.20,

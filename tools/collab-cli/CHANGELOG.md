@@ -12,6 +12,22 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ### Added
 
+- **`lbabus docs` is now a version-pinned documentation BUNDLE.** Alongside the guide (`DOCS.md`), the
+  CLI now embeds the repo's canonical requirements — the software requirements spec
+  (`docs/requirements/srs.md`) and the traceability matrix (`docs/requirements/rtm.csv`) — **by
+  reference**, so `lbabus` carries the exact requirements it was cut from and an agent reads them on
+  demand rather than from a drifting on-disk copy.
+  - `lbabus docs list` enumerates the embedded docs (id, kind, sha256, bytes, source).
+  - `lbabus docs show <id>` prints an embedded doc — `guide`, `srs`, or `rtm`; `--out <path>`
+    materializes and `--check <path>` drift-checks a specific doc (exit 3 on drift). Markdown docs carry
+    the provenance stamp; the RTM csv is emitted raw so it stays valid for its own tooling.
+  - Bare `lbabus docs` (and `docs --out`/`--check`) still operate on the guide — byte-for-byte
+    back-compat with prior versions.
+  - The `ci-docs` release gate now round-trips the guide **and** the SRS + RTM (embed → `--check` exit 0,
+    tamper → exit 3), and `lbabus docs show srs --check docs/requirements/srs.md` confirms a checkout
+    matches the embedded canonical — so "same `lbabus` version => same requirements" holds and the
+    documentation stays aligned with the build.
+
 - **`lbabus net send --stream` — persistent-connection, multi-frame streaming.** One TCP connection carries
   `--count N` seq'd `bus-msg@1` frames (`seq S..S+N-1`; `--seq` sets S) plus an optional terminal `DONE(S+N-1)`
   via `--done`, with a **single bulk flush** (`BusWire.WriteFrame(..., flush: false)`) instead of the

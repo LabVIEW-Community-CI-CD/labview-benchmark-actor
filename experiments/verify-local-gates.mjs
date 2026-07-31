@@ -438,6 +438,31 @@ check('docs-stamp-and-no-id-renumbering', () => {
   return { ids: ids.length, lanes: ['architecture', 'cm', 'requirements', 'testing'] };
 });
 
+// 17b. The collab-cli CLI embeds the CANONICAL requirements (SRS + RTM) BY REFERENCE, so `lbabus docs
+//      show srs|rtm` surfaces the exact requirements THIS build carries and they stay aligned with the
+//      build. Static wiring guard (dep-free, no dotnet): the embed cannot silently regress; the embed
+//      round-trip itself is the ci-docs / verify-linux gate.
+check('collab-cli-embeds-canonical-requirements', () => {
+  const csproj = readFileSync(join(pkgRoot, 'tools', 'collab-cli', 'LbaBus.csproj'), 'utf8');
+  for (const [inc, logical] of [
+    ['../../docs/requirements/srs.md', 'docs.requirements.srs.md'],
+    ['../../docs/requirements/rtm.csv', 'docs.requirements.rtm.csv'],
+  ]) {
+    assert(csproj.includes(`Include="${inc}"`), `csproj must embed ${inc} by reference`);
+    assert(csproj.includes(`<LogicalName>${logical}</LogicalName>`), `csproj must pin the ${logical} manifest name`);
+  }
+  // The canonical sources the CLI embeds must exist on disk.
+  for (const rel of ['srs.md', 'rtm.csv']) {
+    assert(existsSync(join(pkgRoot, 'docs', 'requirements', rel)), `docs/requirements/${rel} must exist`);
+  }
+  // The docs command registry must key both requirement docs so `docs show srs|rtm` resolves.
+  const docs = readFileSync(join(pkgRoot, 'tools', 'collab-cli', 'Docs.cs'), 'utf8');
+  for (const id of ['"srs"', '"rtm"', '"guide"']) {
+    assert(docs.includes(id), `Docs.cs registry must define the ${id} doc`);
+  }
+  return { embedded: ['srs', 'rtm'], surfacedBy: 'lbabus docs show <id>' };
+});
+
 // 18. Viewer time-cursor logic receipt is green: pointer + keyboard map to an in-bounds sample and no
 //     operation selects outside the run window (LBA-REQ-004, T-004). The browser/webview render is the
 //     maintainer step.

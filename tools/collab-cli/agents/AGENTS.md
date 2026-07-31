@@ -130,6 +130,12 @@ the built implementation is the code. The RTM `Status` column is the gap ledger 
   `srs.md` + `rtm.csv` together; run `experiments/reqs-coverage/verify-reqs-coverage.mjs` (quoted-CSV
   aware; ring 1 = SRS↔RTM orphan/coverage, ring 2 = every `Proven` row's evidence resolves) — it fails
   closed. The RTM is the single spec↔impl source of truth.
+- **The requirements travel WITH the binary.** The SRS + RTM are embedded in (and pinned to) this
+  `lbabus` version — read them on demand with `lbabus docs list`, `lbabus docs show srs`, and
+  `lbabus docs show rtm`, so you iterate the exact requirements THIS build was cut from, not a drifting
+  on-disk copy. `lbabus docs show srs --check docs/requirements/srs.md` (exit 3 on drift) confirms a
+  checkout matches the embedded canonical; the `ci-docs` release gate round-trips both, so "same
+  `lbabus` version => same requirements" holds and the docs stay aligned with the build.
 
 ## Priority & addressing
 Two optional envelope fields let a busy peer triage without reading everything. They are additive and
