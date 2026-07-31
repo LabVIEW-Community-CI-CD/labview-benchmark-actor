@@ -143,7 +143,21 @@
       "/tmp/panel-cold.png",
       "/tmp/panel-resource.png",
       "/tmp/panel-crossplane.png",
-      "/tmp/panel-xresource.png"
+      "/tmp/panel-xresource.png",
+      "/tmp/panel-xresource-lean.png (lean, RAM AGREE)"
     ]
+  },
+  "leanBaselineRerun": {
+    "why": "the first resource run's RAM DIVERGE was a lean-baseline artifact (pre-window caught gdm teardown); re-ran with gdm stopped + RAM settled BEFORE the pre-window",
+    "method": "ssh sudo systemctl stop gdm; confirm MemAvailable settled (freed ~267MB); THEN run live-vbox-resource-correlation.mjs (pre-window now lean idle -> LabVIEW load)",
+    "launchMs": 2743,
+    "ramMbPreToPost": [
+      604.64,
+      717.41,
+      112.77
+    ],
+    "crossPlaneResource": "ALL THREE AGREE now -- CPU |d|0.5(tol8), RAM |d|3.01(tol50) [WIN +115.78 vs lean-LINUX +112.77], Disk |d|0.44(tol8); verdict PASS",
+    "conclusion": "both hypervisors load LabVIEW's ~+114MB resident memory within ~3MB = substrate-independent, CONFIRMED on freshly captured live LINUX data (turns the earlier honest DIVERGE into a clean AGREE)",
+    "selfVisualGate": "PASS -- RAM card is green AGREE, footer 'within 3.01 MB: a substrate-independent signal'"
   }
 }
