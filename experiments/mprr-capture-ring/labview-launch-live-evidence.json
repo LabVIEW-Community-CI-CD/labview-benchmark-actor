@@ -57,13 +57,42 @@
       "observed": "LabVIEW 2026 Q1 Community Edition Getting Started window (File/Operate/Tools/Help, Create Project, Open Existing, New-Features carousel) fully rendered; activated (no activation dialog)",
       "artifactsVmLocalNotCommitted": [
         "/tmp/lba-shot-labview.png (single, carousel 4/7)",
-        "/tmp/lba-shot-trend-run5.png (trend run5, carousel 2/7)"
-      ]
+        "/tmp/lba-shot-trend-run5.png (trend run5, carousel 2/7)",
+        "/tmp/lba-shot-resource.png (resource run, carousel 3/7)"
+      ],
+      "resourceRunObserved": "LabVIEW 2026 Q1 Community Edition GS window, carousel 3/7 (distinct fresh launch); PASS"
     },
     "humanVisualGate": {
       "by": "operator",
       "status": "invited",
       "note": "same screenshots presented in chat for the operator's human gate"
     }
+  },
+  "resourceCorrelation": {
+    "orchestrator": "experiments/mprr-capture-ring/live-vbox-resource-correlation.mjs",
+    "requirement": "LBA-REQ-011",
+    "schema": "labview-benchmark-actor/resource-correlated-launch@1",
+    "launchMs": 1745,
+    "hostGuestOffsetMs": -325,
+    "preSampleCount": 21,
+    "postSampleCount": 174,
+    "headline": {
+      "cpuPctPreToPost": [
+        4.89,
+        1.31,
+        -3.58
+      ],
+      "ramMbPreToPost": [
+        778.37,
+        822.17,
+        43.81
+      ],
+      "diskPctPreToPost": [
+        1.08,
+        0.3,
+        -0.78
+      ]
+    },
+    "note": "guest CPU/RAM/disk sampled in-guest at 100ms while LabVIEW launched, folded onto the host epoch (offset via min-RTT) and split at the UI-READY settle trigger (pre=launching / post=settled)"
   }
 }
