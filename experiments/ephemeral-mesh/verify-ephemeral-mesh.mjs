@@ -90,6 +90,86 @@ check('fails-closed-on-tampering', () => {
   const commsBad = goodReceipt(); commsBad.asserts = { ...commsBad.asserts, commsOnly: false };
   throws(() => validateEphemeralMeshReceipt(commsBad), 'commsOnly false');
   return { tamperCasesRejected: 12 };
+});
+
+// A minimal PASSING typed (source->sink) receipt for the typed teeth (independent of receipt-typed.json).
+function goodTypedReceipt() {
+  return {
+    schema: EPHEMERAL_MESH_SCHEMA,
+    concept: EPHEMERAL_MESH_CONCEPT,
+    meshMode: 'typed',
+    serializationMode: 'serialized',
+    test: 'T-EPHEMERAL-MESH-P2-TYPED',
+    ranAt: '2026-07-31T00:00:00.000Z',
+    plane: 'LINUX',
+    hypervisor: 'virtualbox',
+    transport: 'lbabus net -- typed source->sink (private intnet)',
+    lifecycle: {
+      goldenVm: 'golden', goldenSnapshot: 'snap', cloneVms: ['c-src', 'c-snk'], cloneType: 'linked',
+      bootSeconds: 15, survivesReboot: false, destroyed: true,
+    },
+    nodes: [
+      { id: 'src', nodeType: 'source', activity: { listened: false, emittedCoordination: true } },
+      {
+        id: 'snk', nodeType: 'sink', activity: { listened: true, emittedCoordination: false },
+        orderedReceipt: {
+          ingestSeqDense: true, totalFrames: 3, strictSerialization: true, orderKey: '(sessionId,senderId,seq)',
+          frameLog: [
+            { sessionId: 'S', senderId: 'SRC', seq: 1, ingestSeq: 1, frameType: 'PAYLOAD' },
+            { sessionId: 'S', senderId: 'SRC', seq: 2, ingestSeq: 2, frameType: 'PAYLOAD' },
+            { sessionId: 'S', senderId: 'SRC', seq: 2, ingestSeq: 3, frameType: 'DONE' },
+          ],
+          perStream: [
+            { sessionId: 'S', senderId: 'SRC', firstSeq: 1, lastSeq: 2, count: 2, contiguous: true, inIngestOrder: true, terminalDone: true },
+          ],
+        },
+      },
+    ],
+    asserts: {
+      sshKeyAuthNoPassword: true, lbabusPresent: true, nodeTypesHonored: true, strictSerialization: true,
+      meshOk: true, cloneCreated: true, cloneDestroyed: true, commsOnly: true, noRebootSurvivalNeeded: true,
+    },
+    pass: true,
+  };
+}
+
+// 4. The committed typed receipt (the live P2 source->sink proof) is a green, faithful attestation.
+check('committed-typed-receipt-valid', () => {
+  const receipt = JSON.parse(readFileSync(join(here, 'receipt-typed.json'), 'utf8'));
+  const summary = validateEphemeralMeshReceipt(receipt);
+  assert(summary.meshMode === 'typed', 'summary.meshMode must be typed');
+  assert(summary.sinks >= 1, 'must have >= 1 sink');
+  assert(summary.destroyed === true, 'summary.destroyed must be true');
+  return summary;
+});
+
+// 5. The typed base fixture validates (isolates the teeth below).
+check('typed-base-fixture-valid', () => { validateEphemeralMeshReceipt(goodTypedReceipt()); return { ok: true }; });
+
+// 6. Typed fail-closed teeth: each tampered typed receipt MUST be rejected.
+check('typed-fails-closed-on-tampering', () => {
+  const mutSink = (fn) => { const c = goodTypedReceipt(); fn(c.nodes.find((n) => n.nodeType === 'sink')); return c; };
+  throws(() => validateEphemeralMeshReceipt({ ...goodTypedReceipt(), serializationMode: 'unordered' }), 'bad serializationMode');
+  const unknownType = goodTypedReceipt(); unknownType.nodes[0].nodeType = 'relay';
+  throws(() => validateEphemeralMeshReceipt(unknownType), 'unknown nodeType');
+  const srcListened = goodTypedReceipt(); srcListened.nodes[0].activity = { listened: true, emittedCoordination: true };
+  throws(() => validateEphemeralMeshReceipt(srcListened), 'source that listened (type not honored)');
+  throws(() => validateEphemeralMeshReceipt(mutSink((s) => { delete s.orderedReceipt; })), 'sink missing orderedReceipt');
+  throws(() => validateEphemeralMeshReceipt(mutSink((s) => { s.orderedReceipt.frameLog = s.orderedReceipt.frameLog.filter((f) => f.frameType !== 'DONE'); s.orderedReceipt.totalFrames = 2; })), 'missing terminal DONE');
+  throws(() => validateEphemeralMeshReceipt(mutSink((s) => { s.orderedReceipt.frameLog[1].ingestSeq = 5; })), 'ingestSeq hole (not dense)');
+  throws(() => validateEphemeralMeshReceipt(mutSink((s) => { s.orderedReceipt.frameLog[1].ingestSeq = 1; })), 'ingestSeq duplicate');
+  throws(() => validateEphemeralMeshReceipt(mutSink((s) => { const f = s.orderedReceipt.frameLog; const t = f[0].ingestSeq; f[0].ingestSeq = f[1].ingestSeq; f[1].ingestSeq = t; })), 'payloads out of ingest order');
+  throws(() => validateEphemeralMeshReceipt(mutSink((s) => {
+    s.orderedReceipt.frameLog = [
+      { sessionId: 'S', senderId: 'SRC', seq: 2, ingestSeq: 1, frameType: 'PAYLOAD' },
+      { sessionId: 'S', senderId: 'SRC', seq: 2, ingestSeq: 2, frameType: 'DONE' },
+    ];
+    s.orderedReceipt.totalFrames = 2;
+  })), 'seq gap (payloads not contiguous from 1)');
+  throws(() => validateEphemeralMeshReceipt(mutSink((s) => { s.orderedReceipt.strictSerialization = false; })), 'orderedReceipt.strictSerialization false');
+  const strictBad = goodTypedReceipt(); strictBad.asserts.strictSerialization = false;
+  throws(() => validateEphemeralMeshReceipt(strictBad), 'asserts.strictSerialization false');
+  return { typedTamperCasesRejected: 11 };
 }); 
 
 const passed = checks.filter((c) => c.pass).length;

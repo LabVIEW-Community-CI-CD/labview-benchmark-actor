@@ -55,6 +55,10 @@ and destroy. The credential model already exists in the repo (`cleanroom/ubuntu-
 5. **Everything is a receipt.** Each lifecycle run seals an `ephemeral-mesh@1` receipt (nodes, identities,
    mesh outcome, timings, teardown proof) — re-runnable, gate-able, no-rot, consistent with the repo's other
    receipts.
+6. **Typed nodes + strict serialization.** Every actor boots as a `source` (emit-only), a `sink`
+   (collect-only), or `both` (full peer) — declared in `/etc/lba-mesh-actor` (`NODE_TYPE`), orthogonal to the
+   `golden|mesh` lifecycle role. A sink ingests each source's frames in strict, gap-checked `seq` order
+   (deterministic, comms-only). Full contract: [mesh-node-types.md](mesh-node-types.md).
 
 ## 4. What already exists (I build on this)
 
@@ -114,8 +118,11 @@ identities, clean teardown, no cross-VM run-data), **LBA-REQ-007** (TCP/UDP comm
   `ephemeral-mesh@1` receipt and gated offline (`ephemeral-mesh-receipt-green`). Boot→SSH-ready ≈13 s; clean
   teardown confirmed (no leftover VM/disk). **Infra only** — no authoring self-test. *Chosen variant: loopback
   `MESH OK` inside a throwaway clone that is then **destroyed** (true cattle), rather than snapshot-rollback.*
-- **P2 — canonical orchestrator:** `experiments/ephemeral-mesh/` = one lifecycle CLI (`build|clone|run|destroy`)
-  + a `verify-ephemeral-mesh.mjs` self-test + an authoring-namespaced gate in the shared `verify-local-gates`.
+- **P2 — canonical orchestrator + typed nodes:** `experiments/ephemeral-mesh/` = one lifecycle CLI
+  (`build|clone|run|destroy`) + a `verify-ephemeral-mesh.mjs` self-test + a gate in the shared
+  `verify-local-gates`. Adds boot-time node types (`source|sink|both`) and the strict-serialization sink
+  contract ([mesh-node-types.md](mesh-node-types.md)): P2a type wiring in `mesh-actor.sh/.ps1`, P2b the sink's
+  ordered ingest + `orderedReceipt`, P2c a `source→sink` ephemeral run.
 - **P3 — Windows golden builder:** from-stock-ISO Windows image with a **local `actor` account** + Guest
   Additions + first-boot lbabus, mirroring `build-virtualbox.sh`. Kills the `actor-win11-decouple` friction class.
 - **P4 — cross-plane mesh proof:** N Ubuntu + N Windows nodes, `MESH OK` on both planes, one receipt; then the

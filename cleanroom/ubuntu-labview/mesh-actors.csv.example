@@ -14,11 +14,13 @@
 #   ip       = host-only IP         (192.168.56.0/24: golden .10, actor1 .11, actor2 .12, ...)
 #   tcp_port = lbabus net TCP       (bus-msg@1 length-prefixed coordination; lbabus `net listen` binds 7420)
 #   udp_port = lbabus net UDP       (presence beacon; lbabus `net beacon` uses 7421)
+#   node_type = source | sink | both  (bus behavior: source EMITS only, sink COLLECTS only, both is the
+#              symmetric peer; DEFAULT both. Orthogonal to `role`. docs/proposals/mesh-node-types.md)
 #   password = dev-only plaintext   (AGENT-generated; hashed locally at build/inject time)
 #
 # The mesh Vagrantfile (mesh/Vagrantfile) reads the role=mesh rows: one VM per row, host-only IP, and a
 # per-actor chpasswd + /etc/lba-mesh-actor endpoint record. Extend the mesh by appending mesh rows.
-role,actor_id,hostname,username,ip,tcp_port,udp_port,password
-golden,golden,actor,actor,192.168.56.10,7420,7421,AGENT_GENERATED
-mesh,1,actor1,actor,192.168.56.11,7420,7421,AGENT_GENERATED
-mesh,2,actor2,actor,192.168.56.12,7420,7421,AGENT_GENERATED
+role,actor_id,hostname,username,ip,tcp_port,udp_port,node_type,password
+golden,golden,actor,actor,192.168.56.10,7420,7421,both,AGENT_GENERATED
+mesh,1,actor1,actor,192.168.56.11,7420,7421,both,AGENT_GENERATED
+mesh,2,actor2,actor,192.168.56.12,7420,7421,both,AGENT_GENERATED

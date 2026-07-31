@@ -1478,6 +1478,28 @@ check('ephemeral-mesh-receipt-green', () => {
   assert(rejected === 3, 'validator must reject reboot-survival / undestroyed / mesh-not-ok receipts');
   return { plane: summary.plane, bootSeconds: summary.bootSeconds, meshOk: summary.meshOk, destroyed: summary.destroyed };
 });
+// Typed source->sink strict serialization (experiments/ephemeral-mesh, P2): the committed typed receipt attests
+// a sink SERIALIZED 2 sources' streams into a dense ingestSeq log, closed by a terminal DONE per stream; the
+// shared validator re-derives it fails-closed here (spec docs/proposals/mesh-node-types.md 4.3). LBA-REQ-006/007.
+check('ephemeral-mesh-typed-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt-typed.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  assert(summary.meshMode === 'typed', 'meshMode must be typed');
+  // Teeth: the validator rejects unordered mode, a source that listened, a missing terminal DONE, non-dense ingestSeq.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { r.serializationMode = 'unordered'; },
+    (r) => { r.nodes.find((n) => n.nodeType === 'source').activity.listened = true; },
+    (r) => { const s = r.nodes.find((n) => n.nodeType === 'sink'); s.orderedReceipt.frameLog = s.orderedReceipt.frameLog.filter((f) => f.frameType !== 'DONE'); },
+    (r) => { const s = r.nodes.find((n) => n.nodeType === 'sink'); s.orderedReceipt.frameLog[1].ingestSeq = 999; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 4, 'validator must reject unordered / source-listened / missing-DONE / non-dense typed receipts');
+  return { meshMode: summary.meshMode, sources: summary.sources, sinks: summary.sinks, serializationMode: summary.serializationMode };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
