@@ -120,6 +120,20 @@ const posted = await core.handleBenchmarkActorMcpMessage(
   deps
 );
 assert(posted.result.content[0].text === 'posted hi', 'post_coordination_note routes a validated message to the injected dep');
+
+// parseTail / parseMessage boundary branches (all via the fake deps; -32602 short-circuits before any dep runs).
+const tailNonObj = await core.handleBenchmarkActorMcpMessage({ id: 14, method: 'tools/call', params: { name: 'poll_coordination_bus', arguments: 'nope' } }, deps);
+assert(tailNonObj.error && tailNonObj.error.code === -32602, 'poll with non-object arguments -> -32602');
+const tailAbsentKey = await core.handleBenchmarkActorMcpMessage({ id: 15, method: 'tools/call', params: { name: 'poll_coordination_bus', arguments: { other: 1 } } }, deps);
+assert(tailAbsentKey.result.content[0].text === 'poll tail=10', 'poll with an object lacking a tail key defaults tail to 10');
+const tailFloat = await core.handleBenchmarkActorMcpMessage({ id: 16, method: 'tools/call', params: { name: 'poll_coordination_bus', arguments: { tail: 2.5 } } }, deps);
+assert(tailFloat.error && tailFloat.error.code === -32602, 'poll with a non-integer tail -> -32602');
+const tailLow = await core.handleBenchmarkActorMcpMessage({ id: 17, method: 'tools/call', params: { name: 'poll_coordination_bus', arguments: { tail: 0 } } }, deps);
+assert(tailLow.error && tailLow.error.code === -32602, 'poll with tail below 1 -> -32602');
+const msgNonObj = await core.handleBenchmarkActorMcpMessage({ id: 18, method: 'tools/call', params: { name: 'post_coordination_note', arguments: 'hi' } }, deps);
+assert(msgNonObj.error && msgNonObj.error.code === -32602, 'post with non-object arguments -> -32602');
+const msgBlank = await core.handleBenchmarkActorMcpMessage({ id: 19, method: 'tools/call', params: { name: 'post_coordination_note', arguments: { message: '   ' } } }, deps);
+assert(msgBlank.error && msgBlank.error.code === -32602, 'post with a blank (whitespace-only) message -> -32602');
 console.log('mcp-core: PASS -- protocol dispatch + 4 tools + -32601/-32602 error codes');
 
 // ---- 2. ACTIVATION: the extension registers the MCP provider (manifest id == runtime id) ----
