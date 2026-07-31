@@ -13,13 +13,26 @@
 import net from 'node:net';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createFrameDecoder, makeEnvelope, sendFrame } from './busFrame.mjs';
+import { encodeFrame, createFrameDecoder, makeEnvelope, sendFrame } from './busFrame.mjs';
 import { runDelegation, announceOverBus, RECEIPT_SCHEMA } from './delegateUplift.mjs';
+import { detectTool } from './riskyTest.mjs';
 
-export function startWorker({ port = 7440, host = '0.0.0.0', concurrency = 2, provider = 'ollama', model, drive, actorId = 'cleanroom-worker', onDone } = {}) {
+export function startWorker({ port = 7440, host = '0.0.0.0', concurrency = 2, provider = 'ollama', model, drive, actorId = 'cleanroom-worker', caps, capsTools = ['node', 'ffmpeg', 'LabVIEWCLI'], onDone } = {}) {
   const queue = [];
   let running = 0;
   const stats = { accepted: 0, done: 0, failed: 0, peak: 0 };
+
+  // Capabilities this worker advertises on a HELLO probe: its provider + which of `capsTools` are present on
+  // PATH (so a router sends an ffmpeg/LabVIEW risky-test only to a worker that HAS the tool). A `caps` override
+  // lets a test inject synthetic capabilities. Live running/queued are attached fresh on each probe.
+  const helloCaps = () => ({
+    agent: actorId,
+    provider,
+    concurrency,
+    running,
+    queued: queue.length,
+    tools: (caps && caps.tools) || Object.fromEntries(capsTools.map((t) => [t, detectTool(t).present])),
+  });
 
   // Bounded scheduler: run up to `concurrency` delegations at once; the rest wait FIFO in `queue`.
   const pump = () => {
@@ -44,6 +57,11 @@ export function startWorker({ port = 7440, host = '0.0.0.0', concurrency = 2, pr
 
   const server = net.createServer((sock) => {
     const decode = createFrameDecoder(async (env) => {
+      // Liveness + capability probe: a router sends HELLO, the worker replies READY with its caps.
+      if (env.type === 'HELLO') {
+        try { sock.write(encodeFrame(makeEnvelope({ senderId: actorId, type: 'READY', task: 'caps', payload: JSON.stringify(helloCaps()), ackOf: env.seq ?? null }))); } catch { /* best-effort */ }
+        return;
+      }
       if (env.type !== 'CLAIM' || !String(env.task || '').startsWith('uplift:')) return;
       let dispatch = null;
       try { dispatch = env.payload ? JSON.parse(env.payload) : null; } catch { dispatch = null; }

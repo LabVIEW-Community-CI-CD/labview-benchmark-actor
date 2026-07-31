@@ -1607,6 +1607,10 @@ check('provider-delegation-quality-gate', () => {
   execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-quality-gate.mjs')], { stdio: 'pipe' });
   return { suite: 'verify-quality-gate 14/14 (faithfulness pre-gate short-circuits weak drafts; reuses ollama-comparison scorer)' };
 });
+check('provider-delegation-registry', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-registry.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-registry 9/9 (capability + liveness routing + load-balance across a multi-worker pool)' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

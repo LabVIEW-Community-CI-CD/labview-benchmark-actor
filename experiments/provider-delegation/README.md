@@ -34,6 +34,8 @@ bus.
 | [verify-evidence.mjs](verify-evidence.mjs) | Deterministic proof (valid+accurate=pass, hallucinated count=fail, invalid receipt=fail). |
 | [qualityGate.mjs](qualityGate.mjs) | The **quality pre-gate**: score a draft's faithfulness (reusing the ollama-comparison scorer) and short-circuit a weak draft before the domain gate. |
 | [verify-quality-gate.mjs](verify-quality-gate.mjs) | Deterministic proof (faithful=proceed, off-topic/refusal=reject, short-circuits the domain gate). |
+| [registry.mjs](registry.mjs) | The **claim registry / router**: discover live workers (HELLO->READY), match capability (tool/provider), load-balance a batch across the pool. |
+| [verify-registry.mjs](verify-registry.mjs) | Deterministic proof (liveness discovery, capability routing, round-robin, unroutable). |
 | [sample-task.doc-draft.json](sample-task.doc-draft.json) | An example `doc-draft` task (draft the gate-suite operator note). |
 | [receipt.json](receipt.json) | The committed **deterministic** receipt (mock path). |
 
@@ -153,6 +155,15 @@ node verify-worker-pool.mjs                                       # deterministi
 node worker.mjs --listen 7440 --concurrency 2 --provider ollama   # a persistent 2-slot pool
 ```
 
+### Claim registry / router (many cleanrooms)
+
+A **router** ([registry.mjs](registry.mjs)) lets one coordinator drive a POOL of cleanroom workers. It
+**discovers** live workers over the bus (a `HELLO` probe → each worker replies `READY` with its capabilities:
+provider + which tools are present), then **routes** each task to a live worker that can run it — an `ffmpeg` /
+`LabVIEW` `risky-test` only goes to a worker that HAS the tool, a dead worker is excluded by liveness, and
+capability-free tasks **load-balance** round-robin across the eligible workers. `dispatchAcrossPool(addresses,
+tasks)` discovers → routes → dispatches a whole batch.
+
 ## Run it
 
 ```sh
@@ -222,8 +233,11 @@ receipt are unchanged.
 - **quality pre-gate, deterministic**: `verify-quality-gate.mjs` → PASS, 14 assertions — a faithful draft
   proceeds; an off-topic/refusal draft is rejected **before** the domain gate (an off-topic `coverage-lift`
   draft fails with no coverage measured); reuses the `ollama-comparison` direction scorer.
-- **Gated by the authoritative suite**: all seven `verify-*.mjs` run as subprocesses under
-  `experiments/verify-local-gates.mjs` (79/79 checks pass on the dependency-free gate).
+- **claim registry / router, deterministic**: `verify-registry.mjs` → PASS, 9 assertions — liveness discovery
+  excludes a dead worker; an `ffmpeg` `risky-test` routes only to the ffmpeg-capable worker; a capability-free
+  batch round-robins across all workers; a task with no capable worker is unroutable.
+- **Gated by the authoritative suite**: all eight `verify-*.mjs` run as subprocesses under
+  `experiments/verify-local-gates.mjs` (80/80 checks pass on the dependency-free gate).
 
 ## Reuse map (composes, does not reinvent)
 
@@ -235,8 +249,9 @@ receipt are unchanged.
 
 ## Next slices (operator-steerable)
 
-- **Bus-side tasking + worker pool** — ✔ shipped (`coordinator.mjs` + `worker.mjs --concurrency N`, proven
-  loopback + cross-machine; see above). Next: multiple coordinators + a claim registry across many cleanrooms.
+- **Bus-side tasking + worker pool + claim registry** — ✔ shipped (`coordinator.mjs` + `worker.mjs
+  --concurrency N` + `registry.mjs` routing by capability/liveness across a multi-worker pool). Next:
+  cross-machine routing to several real cleanroom VMs.
 - **Domains** — all ✔ shipped + gated: `doc-draft`, `coverage-lift`, `risky-test` (incl. real ffmpeg + real
   LabVIEW MassCompile), and `evidence`. **Bus-side dispatch of these domains to the cleanroom worker pool is
   ✔ proven** (coverage-lift + risky-test handed to the VM worker — see Proven). Next: a claim registry /
