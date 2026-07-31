@@ -6,6 +6,27 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-31
+
+### Added
+- **Benchmark evidence panels** — six new webview commands render the extension's REAL captured LabVIEW
+  IDE-launch benchmark evidence in strict-CSP, nonce-scoped webviews (no network, no eval):
+  - **Open Benchmark Run** — a single launch record: the `launchMs` headline, the UI-READY settle frame
+    rendered as an 8×8 dhash (perceptual-fingerprint) grid, and the capture stats.
+  - **Open Benchmark Trend** — `launchMs` across N runs with a median baseline, a least-squares drift
+    slope, and a PASS / REGRESSION verdict.
+  - **Open Benchmark Frame Correlator** — a vertical-line scrubber that correlates each run's `launchMs`
+    (upper graph) with the captured UI-READY frame at that point (lower pane).
+  - **Open Cross-Plane Benchmark Trend** — the two hypervisor planes' `launchMs` trends overlaid, with the
+    witnessed cross-plane delta.
+  - **Open Benchmark Resource Profile** — CPU / RAM / disk sampled live during the launch and correlated
+    to the frame timeline, split at the UI-READY trigger (pre = launching → post = settled).
+  - **Open Cross-Plane Resource Agreement** — the two planes' resource deltas with per-metric agreement.
+
+### Notes
+- First release to also carry the 0.2.0 additions (the dependency-free MCP stdio server + Marketplace
+  listing polish); ext-v0.2.0 was agreement-cleared but never tagged, so 0.3.0 supersedes it.
+
 ## [0.2.0] - 2026-07-30
 
 ### Added

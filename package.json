@@ -2,7 +2,7 @@
   "name": "labview-benchmark-actor",
   "displayName": "LabVIEW Benchmark Actor",
   "description": "Standalone agentic benchmark-actor infrastructure with cross-plane coordination (lbabus) for LabVIEW benchmarking.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "labview-community-ci-cd",
   "license": "0BSD",
   "repository": {

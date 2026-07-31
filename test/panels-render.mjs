@@ -22,7 +22,7 @@ function assert(cond, msg) {
   }
 }
 
-const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, buildResourcePanelHtml, scrubberModelFromTrend } = await import(
+const { buildBenchmarkPanelHtml, buildTrendPanelHtml, buildCrossPlaneTrendPanelHtml, buildResourcePanelHtml, buildCrossPlaneResourcePanelHtml, scrubberModelFromTrend } = await import(
   mediaUrl('benchmark-panels.mjs')
 );
 const { buildBenchmarkFrameScrubberHtml } = await import(mediaUrl('buildBenchmarkFrameScrubberHtml.mjs'));
