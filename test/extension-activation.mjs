@@ -96,6 +96,7 @@ const mockVscode = {
   },
   workspace: {
     registerTextDocumentContentProvider: () => ({ dispose() {} }),
+    getConfiguration: () => ({ get: (_key, dflt) => dflt }),
     workspaceFolders: [{ uri: { path: repoRoot, fsPath: repoRoot } }],
     fs: {
       stat: async () => {
@@ -290,6 +291,20 @@ try {
   const openResult = await openPanelTool.tool.invoke({ input: { panel: 'run' } }, {});
   const openText = openResult && openResult.content && openResult.content[0] && openResult.content[0].value;
   assert(typeof openText === 'string' && /panel/i.test(openText), 'the open-panel LM tool opens a panel + returns text');
+
+  // Capture commands (LBA-REQ-009): on a host without LabVIEW the capture short-circuits at resolveLabview,
+  // covering resolveFfmpeg + resolveLabview + captureCfg + the early guards. The ffmpeg/sampler spawn + the
+  // frame correlator run on a Windows cleanroom (LabVIEW + ffmpeg), not in this unit test.
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+  assert(
+    errorMessages.some((m) => /LabVIEW\.exe not found/.test(m)),
+    'captureLaunch reports missing LabVIEW (resolveLabview -> null) and returns before spawning ffmpeg'
+  );
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.stopCapture').handler();
+  assert(
+    infoMessages.some((m) => /No LabVIEW capture is running/.test(m)),
+    'stopCapture reports no active capture'
+  );
 
   ext.deactivate(); // must not throw
 
