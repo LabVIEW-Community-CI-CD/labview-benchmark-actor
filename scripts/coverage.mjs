@@ -49,12 +49,14 @@ if (!bump) {
   process.exit(0);
 }
 
-// Ratchet each floor UP toward measured, by at most `step`, capped at `target`; never lower.
+// Ratchet each floor UP toward measured, by at most `step`, capped at `target` AND a `buffer` below the
+// measured coverage (conservative headroom so normal variance never trips the required gate); never lower.
 const step = cfg.step ?? 1;
+const buffer = cfg.buffer ?? 0;
 let changed = false;
 for (const m of METRICS) {
   const cur = cfg.floor[m];
-  const cap = Math.min(Math.floor(measured[m]), cfg.target?.[m] ?? 100);
+  const cap = Math.min(Math.floor(measured[m]) - buffer, cfg.target?.[m] ?? 100);
   const next = Math.min(cur + step, cap);
   if (next > cur) {
     cfg.floor[m] = next;
