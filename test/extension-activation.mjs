@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(here, '..');
 const require = createRequire(import.meta.url);
 
 const compiled = join(here, '..', 'out', 'extension.js');
@@ -26,10 +27,28 @@ const registered = [];
 const registeredTools = [];
 const panels = [];
 const errorMessages = [];
+const infoMessages = [];
+const sentCommands = [];
+const inputQueue = [];
 const mockVscode = {
   window: {
     createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
-    showInputBox: async () => undefined,
+    showInputBox: async (options) => {
+      const value = inputQueue.shift();
+      if (options && typeof options.validateInput === 'function' && value !== undefined) {
+        options.validateInput(value);
+      }
+      return value;
+    },
+    showInformationMessage: (message) => {
+      infoMessages.push(message);
+      return undefined;
+    },
+    createTerminal: (options) => ({
+      name: options && options.name,
+      show() {},
+      sendText: (command) => { sentCommands.push(command); },
+    }),
     showErrorMessage: (message) => {
       errorMessages.push(message);
       return undefined;
@@ -68,7 +87,7 @@ const mockVscode = {
   },
   workspace: {
     registerTextDocumentContentProvider: () => ({ dispose() {} }),
-    workspaceFolders: [{ uri: { path: '/ws' } }],
+    workspaceFolders: [{ uri: { path: repoRoot, fsPath: repoRoot } }],
     fs: {
       stat: async () => {
         throw Object.assign(new Error('ENOENT'), { code: 'FileNotFound' });
@@ -131,7 +150,7 @@ try {
   assert(typeof ext.deactivate === 'function', 'the extension exports deactivate()');
 
   const subscriptions = [];
-  ext.activate({ subscriptions, extensionUri: { path: '/ext' }, extension: { packageJSON: { version: '0.1.0' } } });
+  ext.activate({ subscriptions, extensionUri: { path: '/ext', fsPath: '/ext' }, extension: { packageJSON: { version: '0.1.0' } } });
 
   const expected = [
     'labviewBenchmarkActor.showCapabilities',
@@ -190,6 +209,30 @@ try {
     /Install the coordination CLI/.test(errorMessages[0]),
     'the remediation tells the operator to install the coordination CLI'
   );
+
+  // Create Cleanroom Worker VM (LBA distributed CI): invoking it with valid inputs resolves the cloner
+  // script, exercises the input validators + the safe shell-quoting, and drives an integrated terminal.
+  const createCleanroom = registered.find((r) => r.id === 'labviewBenchmarkActor.createCleanroom');
+  assert(createCleanroom, 'createCleanroom command is registered');
+  inputQueue.push('lba-cleanroom-clone-01', '2223', '7441', 'cleanroom-clone');
+  await createCleanroom.handler();
+  const cloneCmd = sentCommands.find((c) => /clone-cleanroom-worker\.sh/.test(c));
+  assert(cloneCmd, 'createCleanroom drives the cloner script in an integrated terminal');
+  assert(
+    /'lba-cleanroom-clone-01' '2223' '7441' 'cleanroom-clone'/.test(cloneCmd),
+    'createCleanroom passes the validated, shell-quoted args (no injection)'
+  );
+
+  // Bootstrap LabVIEW Authoring Lane (Windows/ActiveX): resolves the .ps1, surfaces the Windows-only note,
+  // and runs it via pwsh in a terminal.
+  const bootstrapLane = registered.find((r) => r.id === 'labviewBenchmarkActor.bootstrapAuthoringLane');
+  assert(bootstrapLane, 'bootstrapAuthoringLane command is registered');
+  await bootstrapLane.handler();
+  assert(
+    sentCommands.some((c) => /pwsh -NoProfile -File .*bootstrap-authoring-lane\.ps1/.test(c)),
+    'bootstrapAuthoringLane runs the ps1 via pwsh'
+  );
+  assert(infoMessages.some((m) => /Windows-only/.test(m)), 'bootstrapAuthoringLane surfaces the Windows-only note');
 
   ext.deactivate(); // must not throw
 
