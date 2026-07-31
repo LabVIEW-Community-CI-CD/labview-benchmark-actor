@@ -326,7 +326,7 @@ ADR-0006).
 
 ### LBA-REQ-014: Cross-plane benchmark comparison
 
-- Status: Proposed
+- Status: Proven
 - Area: Analysis / storage (extends LBA-REQ-009 storage, LBA-REQ-004 viewer,
   LBA-REQ-010 analysis)
 - Statement: The system shall let each plane (LINUX, WIN) produce a
@@ -353,8 +353,13 @@ ADR-0006).
 - Change Guidance: Keep the mprr core + projection deterministic and
   dependency-free -- the cross-plane anchor rests on a byte-identical
   `seriesHash`. Treat a cross-OS screenshot pixel difference as an expected
-  witness, not a failure. Do NOT mark Proven until a REAL second-plane (WIN) run
-  is registered and compared against the LINUX run.
+  witness, not a failure. Proven 2026-07-31: a REAL second-plane (WIN) Node run
+  (win32/x64, Node v22.15.0, on `actor-win11-decouple` over WinRM) independently
+  produced the identical `seriesHash` `7ad1c75d...`, and `crossPlaneCompare`
+  confirms the match with all metric deltas 0 (`cross-plane-comparison-receipt.json`,
+  gate `cross-plane-comparison-proven-green`). The prior identical-to-LINUX WIN
+  `pngSha256` was a synthetic placeholder and has been removed; the per-plane WIN
+  screenshot visual witness remains a maintainer step (browser, non-CI).
 
 ### LBA-REQ-015: VI Analyzer as a cross-plane benchmark
 
@@ -415,6 +420,35 @@ ADR-0006).
   above). WIN's independent re-commit from its Windows machine is welcome as
   corroboration.
 
+### LBA-REQ-016: GitFlow branch governance
+
+- Status: Proven
+- Area: Configuration Management (extends LBA-REQ-008; ADR-0010)
+- Statement: The repository shall adopt **GitFlow** as its branch-governance
+  doctrine — `main` as the protected production branch and `develop` as the
+  integration branch, with feature/release/hotfix branch rules — so its
+  configuration management passes the authoritative `repo-standards-review` CM
+  gate (ISO 10007 §5, ISO/IEC/IEEE 12207) without weakening the CI-owned,
+  protected-`main` release-tag publish authority.
+- Acceptance Criteria:
+  - The CM plan (`docs/cm/cm-plan.md`) states the GitFlow rules: feature
+    branches from and back into `develop`; release branches from `develop`,
+    merged to `main` and `develop`, then deleted; hotfix branches from `main`,
+    merged to `main` and `develop`; SemVer tags on `main`; coverage retained on
+    the tagged release path.
+  - The decision is recorded in
+    `docs/architecture/adr/ADR-0010-gitflow-branch-governance.md`.
+  - A `develop` integration branch exists off `main`; features target `develop`
+    and `main` advances only through a release (or hotfix) merge, so the
+    protected-`main` + CI-owned-tag publish model is unchanged.
+  - `repo-standards-review --profile release-gate` reports the `cm` gate PASS
+    with no `release-workflow-no-gitflow` contradiction.
+- Change Guidance: The CM plan is the canonical governance record; keep the
+  GitFlow rules and the SemVer / coverage-on-release lines intact so the CM gate
+  stays green. Proven 2026-07-31: the `cm` gate flipped FAIL→PASS under
+  `repo-standards-review` v0.2.19 once the governance was recorded (the
+  `release-workflow-no-gitflow` contradiction cleared).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -436,3 +470,4 @@ ADR-0006).
 | LBA-REQ-013 | Agentic infra (coordination bus) | T-013 |
 | LBA-REQ-014 | Analysis (cross-plane compare) | T-014 |
 | LBA-REQ-015 | Analysis (VI Analyzer benchmark) | T-015 |
+| LBA-REQ-016 | CM (GitFlow branch governance) | T-016 |
