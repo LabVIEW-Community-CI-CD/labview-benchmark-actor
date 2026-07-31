@@ -283,7 +283,18 @@ function parseArgs(argv) {
   return o;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(process.argv[1])) {
+// Crash-safe main-module check: fs.realpathSync throws if process.argv[1] is not a resolvable path (e.g. when
+// this module is imported from a `node -e` script that passes extra args), so guard it -- an imported library
+// must never crash at load time.
+function isMainModule() {
+  try {
+    return !!process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   const a = parseArgs(process.argv.slice(2));
   runVipmGate({ mode: a.mode || 'status', credentialFile: a.credential || a['credential-file'] }, { vipmPath: a.vipm })
     .then((r) => { console.log(JSON.stringify(r, null, 2)); process.exit(r.verdict === 'fail' ? 1 : 0); })
