@@ -28,6 +28,8 @@ const registeredTools = [];
 const panels = [];
 const errorMessages = [];
 const infoMessages = [];
+const infoResponseQueue = [];
+const executedCommands = [];
 const warnMessages = [];
 const sentCommands = [];
 const inputQueue = [];
@@ -43,7 +45,7 @@ const mockVscode = {
     },
     showInformationMessage: (message) => {
       infoMessages.push(message);
-      return undefined;
+      return infoResponseQueue.length ? infoResponseQueue.shift() : undefined;
     },
     showWarningMessage: (message) => {
       warnMessages.push(message);
@@ -92,7 +94,7 @@ const mockVscode = {
       registered.push({ id, handler });
       return { dispose() {} };
     },
-    executeCommand: async () => undefined,
+    executeCommand: async (id) => { executedCommands.push(id); return undefined; },
   },
   workspace: {
     registerTextDocumentContentProvider: () => ({ dispose() {} }),
@@ -160,7 +162,7 @@ try {
   assert(typeof ext.deactivate === 'function', 'the extension exports deactivate()');
 
   const subscriptions = [];
-  ext.activate({ subscriptions, extensionUri: { path: repoRoot, fsPath: repoRoot }, extension: { packageJSON: { version: '0.1.0' } } });
+  ext.activate({ subscriptions, extensionUri: { path: repoRoot, fsPath: repoRoot }, globalStorageUri: { fsPath: '/tmp/lba-test-globalstorage-nonexistent-xyz' }, extension: { packageJSON: { version: '0.1.0' } } });
 
   const expected = [
     'labviewBenchmarkActor.showCapabilities',
@@ -304,6 +306,22 @@ try {
   assert(
     infoMessages.some((m) => /No LabVIEW capture is running/.test(m)),
     'stopCapture reports no active capture'
+  );
+
+  // Open Frame Correlator with NO captures on disk (globalStorageUri points at a nonexistent dir): it guides
+  // the user to run Capture LabVIEW Launch (the empty-captures branch). The correlator render itself needs a
+  // real capture -> that path is a cleanroom capture, not unit-reachable.
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.openFrameCorrelator').handler();
+  assert(
+    infoMessages.some((m) => /No LabVIEW capture yet/.test(m)),
+    'openFrameCorrelator with no captures guides the user to Capture LabVIEW Launch'
+  );
+  // ...and when the user clicks the guidance button, it dispatches the capture command.
+  infoResponseQueue.push('Capture LabVIEW Launch');
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.openFrameCorrelator').handler();
+  assert(
+    executedCommands.includes('labviewBenchmarkActor.captureLaunch'),
+    'picking the guidance button dispatches labviewBenchmarkActor.captureLaunch'
   );
 
   ext.deactivate(); // must not throw
