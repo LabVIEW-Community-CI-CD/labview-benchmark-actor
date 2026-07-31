@@ -125,6 +125,7 @@ try {
     'labviewBenchmarkActor.openBenchmarkTrend',
     'labviewBenchmarkActor.openFrameCorrelator',
     'labviewBenchmarkActor.openCrossPlaneTrend',
+    'labviewBenchmarkActor.openResourceProfile',
     'labviewBenchmarkActor.writeAgents',
     'labviewBenchmarkActor.showAgents',
     'labviewBenchmarkActor.checkAgents',

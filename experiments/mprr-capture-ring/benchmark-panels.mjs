@@ -421,7 +421,81 @@ export function buildCrossPlaneTrendPanelHtml(receipt, winTrend, linuxTrend, non
   return panelDoc(`cross-plane ${receipt?.metric || 'metric'} trend`, nonce, body);
 }
 
+// --- 2c. resource correlation (LBA-REQ-011) --------------------------------
+
+/** A sparkline of one metric's samples over the launch window, with a vertical trigger line + pre/post guides. */
+function metricSparkline(samples, field, triggerEpochMs, preMean, postMean, color, W, H) {
+  const pts = samples
+    .map((s) => ({ x: s.epochMs, y: s[field] }))
+    .filter((p) => typeof p.y === 'number' && Number.isFinite(p.y) && Number.isFinite(p.x));
+  if (pts.length < 2) return `<svg width="${W}" height="${H}"></svg>`;
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const xLo = Math.min(...xs), xHi = Math.max(...xs);
+  const yLo = Math.min(...ys, preMean ?? Infinity, postMean ?? Infinity);
+  const yHi = Math.max(...ys, preMean ?? -Infinity, postMean ?? -Infinity);
+  const padY = Math.max(0.5, (yHi - yLo) * 0.12);
+  const y0 = yLo - padY, y1 = yHi + padY;
+  const PADL = 4, PADR = 4, PADT = 6, PADB = 6;
+  const xOf = (x) => PADL + ((x - xLo) / (xHi - xLo || 1)) * (W - PADL - PADR);
+  const yOf = (y) => PADT + (1 - (y - y0) / (y1 - y0 || 1)) * (H - PADT - PADB);
+  const parts = [];
+  const guide = (v, c) => {
+    if (!Number.isFinite(v)) return;
+    parts.push(`<line x1="${PADL}" y1="${yOf(v).toFixed(1)}" x2="${(W - PADR).toFixed(1)}" y2="${yOf(v).toFixed(1)}" stroke="${c}" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>`);
+  };
+  guide(preMean, '#888');
+  guide(postMean, color);
+  const tx = xOf(triggerEpochMs);
+  parts.push(`<line x1="${tx.toFixed(1)}" y1="${PADT}" x2="${tx.toFixed(1)}" y2="${H - PADB}" stroke="#ff7b72" stroke-width="1.5"/>`);
+  parts.push(`<polyline fill="none" stroke="${color}" stroke-width="1.5" points="${pts.map((p) => `${xOf(p.x).toFixed(1)},${yOf(p.y).toFixed(1)}`).join(' ')}"/>`);
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${escapeHtml(field)} over the launch">${parts.join('')}</svg>`;
+}
+
+/**
+ * Build the resource-correlation panel for a resource-correlated-launch@1 record: per-metric (CPU/RAM/disk)
+ * sparklines over the launch window with the UI-READY trigger line, and the pre (launching) -> post (settled)
+ * means + deltas. STATIC (no client script).
+ * @param {object} rc resource-correlated-launch@1
+ * @param {string} nonce per-load CSP nonce
+ * @returns {string} self-contained HTML
+ */
+export function buildResourcePanelHtml(rc, nonce) {
+  const samples = Array.isArray(rc?.samples) ? rc.samples : [];
+  const windows = (rc && rc.windows) || {};
+  const W = 560, H = 74;
+  const metricDefs = [
+    { key: 'cpu', field: 'cpuPct', label: 'CPU %', color: '#4fc1ff' },
+    { key: 'ram', field: 'ramMb', label: 'RAM MB', color: '#a5d6a7' },
+    { key: 'disk', field: 'diskPct', label: 'Disk %', color: '#ffd166' },
+  ];
+  const rows = metricDefs.map((m) => {
+    const w = windows[m.key] || { pre: {}, post: {} };
+    const preMean = w.pre && typeof w.pre.mean === 'number' ? w.pre.mean : null;
+    const postMean = w.post && typeof w.post.mean === 'number' ? w.post.mean : null;
+    const delta = typeof w.deltaMean === 'number' ? w.deltaMean : null;
+    const spark = metricSparkline(samples, m.field, rc.triggerEpochMs, preMean, postMean, m.color, W, H);
+    const fmt = (v) => (v === null ? '\u2014' : Math.round(v * 100) / 100);
+    const sign = delta !== null && delta > 0 ? '+' : '';
+    return `<tr>
+      <td class="k" style="color:${m.color};white-space:nowrap">${escapeHtml(m.label)}</td>
+      <td>${spark}</td>
+      <td class="v" style="white-space:nowrap">${escapeHtml(fmt(preMean))} \u2192 ${escapeHtml(fmt(postMean))}<br/><span style="opacity:0.75">\u0394 ${escapeHtml(sign + fmt(delta))}</span></td>
+    </tr>`;
+  }).join('');
+
+  const body = `
+    <h2>${escapeHtml(rc?.workload || 'benchmark')} \u2014 resource correlation
+      <span class="badge pass">${escapeHtml(rc?.launchMs)} ms launch</span></h2>
+    <div class="sub">${escapeHtml(rc?.plane || '?')} \u00b7 ${escapeHtml(rc?.hypervisor || '?')} \u00b7 CPU / RAM / disk sampled in-guest, correlated to the frame timeline \u00b7 <span style="color:#ff7b72">red = UI-READY trigger</span> (pre = launching \u2192 post = settled)</div>
+    <div class="card" style="margin-top:12px;">
+      <table style="width:100%">${rows}</table>
+      <div class="legend">${escapeHtml(rc?.preSampleCount)} pre + ${escapeHtml(rc?.postSampleCount)} post samples \u00b7 trigger @ frame ${escapeHtml(rc?.triggerFrameIndex)} \u00b7 host\u2194guest offset ${escapeHtml(rc?.hostGuestOffsetMs)} ms</div>
+    </div>`;
+  return panelDoc(`${rc?.workload || 'benchmark'} \u2014 resource correlation`, nonce, body);
+}
+
 // --- 3. frame-correlator scrubber models -----------------------------------
+
 /**
  * Map a workload-trend@1 record into a BenchmarkFrameScrubberModel: one scrubber
  * point per run (evenly spaced), the run's metric on the graph, and the captured
