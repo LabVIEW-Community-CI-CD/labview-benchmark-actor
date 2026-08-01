@@ -1882,6 +1882,23 @@ check('capture-ring-frame-correlator', () => {
   return { record: 'launch-capture@1', frames: N, dualPacket: cap.dualPacket.outcome, suite: 'verify-launch-capture subprocess' };
 });
 
+// LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
+// embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
+// runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops
+// exactly one marker, grabs the nearest frame image within tolerance, and posts it to the host, while a real DRAG
+// scrubs the selected frame and drops NO marker.
+check('frame-correlator-click-marker', () => {
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'frameCorrelatorMarkers.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'frame-correlator-markers-playwright-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/frame-correlator-markers-receipt@v1' && r.requirement === 'LBA-REQ-011', 'committed marker receipt shape');
+  assert(r.pass === true, 'the committed real-pointer marker proof must pass');
+  const byName = Object.fromEntries((r.checks || []).map((c) => [c.name, c.pass]));
+  for (const name of ['click drops exactly one marker', 'click marker image admitted within tolerance', 'click posts a frame-marker to the host', 'drag scrubs the selected frame', 'drag drops no new marker', 'no page errors']) {
+    assert(byName[name] === true, `real-pointer proof: ${name}`);
+  }
+  return { selftest: 'frameCorrelatorMarkers 4/4', playwright: `${(r.checks || []).filter((c) => c.pass).length}/${(r.checks || []).length} real-pointer checks` };
+});
+
 // CROSS-PLANE TREND-OF-TRENDS receipt: the WIN launchMs trend vs the LINUX launchMs trend (both REAL, both on
 // main). Re-computes the receipt from the two committed trends + asserts it matches the committed receipt
 // (no-rot). The cross-hypervisor mean delta is a WITNESS (substrate bias) -- reported, never gated; the gate is

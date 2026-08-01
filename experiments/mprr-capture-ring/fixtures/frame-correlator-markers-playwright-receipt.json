@@ -1,0 +1,56 @@
+{
+  "schema": "labview-benchmark-actor/frame-correlator-markers-receipt@v1",
+  "requirement": "LBA-REQ-011",
+  "testItem": "T-011",
+  "producedBy": "LINUX",
+  "engine": "headless chromium (playwright)",
+  "producedAt": "2026-08-01T19:27:11.727Z",
+  "pass": true,
+  "frames": 13,
+  "markerToleranceMs": 200,
+  "checks": [
+    {
+      "name": "render: no markers initially",
+      "pass": true
+    },
+    {
+      "name": "click drops exactly one marker",
+      "pass": true,
+      "detail": "count=1"
+    },
+    {
+      "name": "click marker image admitted within tolerance",
+      "pass": true
+    },
+    {
+      "name": "click posts a frame-marker to the host",
+      "pass": true,
+      "detail": "{\"type\":\"frame-marker\",\"marker\":{\"id\":\"m-297-1\",\"instantMs\":296.5609756097561,\"frameIndex\":4,\"kind\":\"user-click\",\"imageGrab\":{\"nearestFrameIndex\":4,\"deltaMs\":36.4390243902439,\"admitted\":true,\"imageSrc\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA0eEd6QAAAABJRU5ErkJggg==\"}}}"
+    },
+    {
+      "name": "drag scrubs the selected frame",
+      "pass": true,
+      "detail": "4 -> 9"
+    },
+    {
+      "name": "drag drops no new marker",
+      "pass": true
+    },
+    {
+      "name": "drag posts no marker to the host",
+      "pass": true
+    },
+    {
+      "name": "second click drops a second marker",
+      "pass": true
+    },
+    {
+      "name": "two markers posted to host",
+      "pass": true
+    },
+    {
+      "name": "no page errors",
+      "pass": true
+    }
+  ]
+}
