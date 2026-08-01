@@ -12,6 +12,7 @@
 //   II-1  [FAIL-CLOSED]  every ISO/IEC/IEEE 15289 information item in docs/information-item-map.md resolves on disk.
 //   II-2  [FAIL-CLOSED]  every core governed information item (SRS/RTM/test-plan/CM/architecture/matrix) is in that map.
 //   PR-1  [FAIL-CLOSED]  every ISO/IEC/IEEE 12207 process outcome in the DoD is backed by a resolvable gate/artifact.
+//   CM-1  [FAIL-CLOSED]  every ADR (ISO 10007 configuration item) has a Status that matches the ADR index register.
 //
 // Rules are fail-closed after their register is reconciled (ADR-0013 stage-2 for AD-1/VW-1; stage-4 15289 for II-1/II-2).
 // A new rule may start advisory (enforced:false) so it reports a census without blocking, then be promoted by flipping
@@ -113,6 +114,21 @@ const CORE_INFO_ITEMS = [
   'docs/cm/cm-plan.md', 'docs/architecture/overview.md', 'docs/requirements/traceability-matrix.md',
 ];
 const unregisteredItems = CORE_INFO_ITEMS.filter((p) => !registeredItems.includes(p));
+// ISO 10007 configuration management (status accounting): every ADR is a configuration item whose Status is
+// accounted consistently -- the Status line in the ADR file matches the Status column in the ADR index register.
+const adrIndexText = existsSync(join(ADR_DIR, 'README.md')) ? readFileSync(join(ADR_DIR, 'README.md'), 'utf8') : '';
+const adrIndexStatus = new Map();
+for (const line of adrIndexText.split(/\r?\n/)) {
+  const m = line.match(/^\|\s*\[(ADR-\d{4})\]/);
+  if (!m) continue;
+  const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+  adrIndexStatus.set(m[1], (cells[3] || '').trim().split(/\s+/)[0].toLowerCase()); // the Status column (keyword)
+}
+const statusMismatches = adrFiles.filter((f) => {
+  const fileStatus = ((readFileSync(join(ADR_DIR, f), 'utf8').match(/^-?\s*Status:\s*(\w+)/m) || [])[1] || '').toLowerCase();
+  return fileStatus !== (adrIndexStatus.get(f.slice(0, 8)) || '');
+}).map((f) => f.slice(0, 8));
+
 
 // ISO/IEC/IEEE 12207 life-cycle process outcomes <-> enforcement: the DoD exit-criteria table declares each
 // per-change process outcome and the gate/artifact that enforces it (the DoD states "our exit criteria are the
@@ -150,6 +166,8 @@ const rules = [
     total: CORE_INFO_ITEMS.length, orphans: unregisteredItems },
   { id: 'PR-1', enforced: true, label: 'process-outcome<->enforcement (every DoD 12207 outcome has a resolvable gate/artifact)',
     total: dodRows.length, orphans: unenforcedOutcomes },
+  { id: 'CM-1', enforced: true, label: 'CM status-accounting (every ADR file Status matches the ADR index register)',
+    total: adrFiles.length, orphans: statusMismatches },
 ].map((r) => ({ ...r, ok: r.orphans.length === 0, satisfied: r.total - r.orphans.length }));
 
 const enforcedFailures = rules.filter((r) => r.enforced && !r.ok);

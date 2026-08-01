@@ -113,7 +113,9 @@ const rendered = lines.join('\n') + '\n';
 
 // ---- write or check -----------------------------------------------------------------------------
 if (checkOnly) {
-  const committed = existsSync(OUT) ? readFileSync(OUT, 'utf8') : '';
+  // Compare line-ending-agnostic: git may check the committed matrix out with CRLF on Windows while the
+  // generator always renders LF, so a raw byte compare would false-fail the gate on windows-latest.
+  const committed = (existsSync(OUT) ? readFileSync(OUT, 'utf8') : '').replace(/\r\n/g, '\n');
   if (committed !== rendered) {
     console.error(`traceability-matrix: STALE — ${OUT_REL} is out of date with the sources.`);
     console.error('  Run: node experiments/reqs-coverage/generate-traceability.mjs');
