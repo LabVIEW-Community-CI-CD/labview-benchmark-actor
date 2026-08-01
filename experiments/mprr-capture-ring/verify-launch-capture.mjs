@@ -48,6 +48,22 @@ let threw = false;
 try { buildLaunchCapture({ frames: [] }); } catch { threw = true; }
 check('empty frames throws', threw);
 
+// v2: a sampler that emits a counters{} object -> each frame carries its nearest sample's counters, and the
+// record exposes the counterKeys union; a legacy flat capture stays byte-compatible (no counters / counterKeys).
+const v2 = buildLaunchCapture({
+  frames,
+  resourceSamples: [
+    { ms: 100000, cpuPct: 5, ramMb: 600, diskPct: 1, counters: { cpuTotalPct: 5, memAvailableMb: 4000, diskWriteBytesPerSec: 0 } },
+    { ms: 100300, cpuPct: 55, ramMb: 720, diskPct: 30, counters: { cpuTotalPct: 55, memAvailableMb: 3800, diskWriteBytesPerSec: 5e6 } },
+  ],
+  startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'LINUX' },
+});
+check('v2: frames carry the nearest sample counters{}', v2.frames[0].counters && v2.frames[0].counters.cpuTotalPct === 5, JSON.stringify(v2.frames[0].counters));
+check('v2: record exposes the counterKeys union', Array.isArray(v2.counterKeys) && v2.counterKeys.includes('cpuTotalPct') && v2.counterKeys.includes('diskWriteBytesPerSec'));
+check('back-compat: a flat capture has no counters / counterKeys', cap.counterKeys === undefined && cap.frames[0].counters === undefined);
+const v2html = buildFrameCorrelatorHtml({ title: 'v2', fps: 12, selectedIndex: 0, frames: v2.frames.map((f) => ({ index: f.index, tMs: f.tMs, counters: f.counters, imageSrc: 'x' })) }, 'nv2', '');
+check('v2: counters flow through buildLaunchCapture -> the correlator webview island', v2html.includes('cpuTotalPct'));
+
 console.log('buildFrameCorrelatorHtml');
 const model = {
   title: 'Launch </script> correlator',
