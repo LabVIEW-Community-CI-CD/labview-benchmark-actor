@@ -4,13 +4,13 @@
   "target": {
     "lines": 95,
     "statements": 95,
-    "functions": 93,
-    "branches": 77
+    "functions": 96,
+    "branches": 80
   },
   "floor": {
     "lines": 95,
     "statements": 95,
-    "functions": 93,
-    "branches": 77
+    "functions": 96,
+    "branches": 80
   }
 }
