@@ -70,7 +70,7 @@ multi-VM / Codespace topology.
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
 
-### 3.3 Actor / run-result view — addresses LBA-REQ-003
+### 3.3 Actor / run-result view — addresses LBA-REQ-003, LBA-REQ-009
 - The agentic actor drives a run and emits a **schema-versioned run result**:
   an ordered metric time-series and an ordered set of captured pictures, all on
   one run clock. This schema is the contract between actor and viewer.
@@ -100,7 +100,7 @@ multi-VM / Codespace topology.
   note); it never carries run data, run/frame metadata, or images — the entire
   mprr ring buffer stays VM-local (ADR-0005, LBA-REQ-009).
 
-### 3.6 Analysis view — addresses LBA-REQ-011, LBA-REQ-014, LBA-REQ-015
+### 3.6 Analysis view — addresses LBA-REQ-010, LBA-REQ-011, LBA-REQ-014, LBA-REQ-015
 - Resource-usage correlation folds CPU/RAM/disk samples onto the benchmark frame
   timeline on a shared epoch-ms axis and, anchored on a trigger instant, computes
   a pre/post-trigger window (count, mean, min, max, delta) per metric — so a
@@ -130,7 +130,7 @@ multi-VM / Codespace topology.
   poll / post) to a coding agent through a Model Context Protocol server
   (LBA-REQ-019, ADR-0012).
 
-### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021
+### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022
 - GitFlow branch governance (`main` protected + `develop` integration;
   feature / release / hotfix; SemVer tags on main; coverage retained on the
   release path) satisfies the repo-standards-review CM gate without weakening the
@@ -143,6 +143,10 @@ multi-VM / Codespace topology.
   corresponds to ≥1 requirement (fail-closed), with the ADR↔requirement and
   requirement↔view rules promoted to fail-closed as the registers reconcile
   (LBA-REQ-021, ADR-0013).
+- The requirement traceability matrix (`docs/requirements/traceability-matrix.md`)
+  is generated from the canonical sources rather than hand-maintained, so the
+  requirement → view → decision → test view stays current by construction
+  (LBA-REQ-022, ADR-0013).
 
 ## 4. Architecture decisions (42010 §5.7)
 
@@ -168,6 +172,7 @@ multi-VM / Codespace topology.
 | AD-18 | Expose the actor's tools to agents via a Model Context Protocol server | A standard, agent-discoverable tool surface (ADR-0012) | LBA-REQ-019 |
 | AD-19 | Bidirectional WIN↔LINUX sign-off gates every shared-component publish | Neither plane ships an unreviewed shared release | LBA-REQ-020 |
 | AD-20 | Enforce a 42010 correspondence graph as fail-closed CI gates | Traceability that cannot silently rot (ADR-0013) | LBA-REQ-021 |
+| AD-21 | Generate the requirement traceability matrix from the canonical sources rather than hand-maintaining it | A single derived, gated view that cannot drift from the SRS / RTM / architecture / ADRs (ADR-0013) | LBA-REQ-022 |
 
 ## 5. Risks and open questions
 

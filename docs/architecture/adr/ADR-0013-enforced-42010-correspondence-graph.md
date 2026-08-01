@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-01
 - Deciders: LINUX plane (operator-directed)
-- Relates to: LBA-REQ-021, LBA-REQ-008 (traceability governance), ADR-0010 (branch governance), and the full ADR-0001..0012 decision set
+- Relates to: LBA-REQ-021, LBA-REQ-022, LBA-REQ-008 (traceability governance), ADR-0010 (branch governance), and the full ADR-0001..0012 decision set
 
 ## Context
 

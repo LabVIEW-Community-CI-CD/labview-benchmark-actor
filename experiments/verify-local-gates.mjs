@@ -251,6 +251,14 @@ check('requirements-quality-29148', () => {
   return { governedRows };
 });
 
+// 6d. Traceability matrix is generated + current (LBA-REQ-022, ADR-0013 Stage 3): the derived requirement <->
+//     view <-> decision <-> test matrix must match its canonical sources. Fails closed if the committed
+//     docs/requirements/traceability-matrix.md drifts (run generate-traceability.mjs to refresh + commit).
+check('traceability-matrix-current', () => {
+  execFileSync(process.execPath, [join(here, 'reqs-coverage', 'generate-traceability.mjs'), '--check'], { stdio: 'pipe' });
+  return { generator: 'reqs-coverage/generate-traceability.mjs' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
