@@ -1,0 +1,33 @@
+name: PR Base Branch Guard
+
+# ADR-0021 / LBA-REQ-030: every non-release pull request targets `develop`; `main` takes ONLY release/* and
+# hotfix/* (never develop directly, never feature/authoring work). This runs on pull requests that TARGET main
+# and FAILS CLOSED unless the head is a release-lane source, so a mis-based PR onto main -- the #211/#215/#217
+# class that once dumped integration content onto the release branch -- shows a red check and cannot be merged.
+# Pull requests that target develop do not trigger this workflow (they are already on the correct base).
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-base-branch-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  base-branch-guard:
+    name: enforce non-release PRs target develop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Enforce the base-branch policy (ADR-0021)
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        run: node experiments/acg-governance/pr-base-branch-guard.mjs
