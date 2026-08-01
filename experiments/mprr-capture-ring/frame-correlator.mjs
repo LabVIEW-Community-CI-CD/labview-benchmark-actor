@@ -65,11 +65,27 @@ const SCRIPT = `
   var n = frames.length;
   var sel = model.selectedIndex | 0; if (sel < 0 || sel >= n) { sel = 0; }
 
-  var metrics = [
-    { key: 'cpuPct', label: 'CPU %', color: '#4fc1ff' },
-    { key: 'ramMb', label: 'RAM MB', color: '#a5d6a7' },
-    { key: 'diskPct', label: 'Disk %', color: '#ffd166' }
-  ];
+  // metric set: v2 performance-counter keys when the frames carry a counters{} object (all correlated to the
+  // same 12 FPS frame axis), else the legacy flat CPU/RAM/disk fields. Backward-compatible.
+  var PALETTE = ['#4fc1ff', '#a5d6a7', '#ffd166', '#ff8fab', '#c792ea', '#82e0aa', '#f78c6c', '#7fdbff'];
+  function valueOf(f, m) { return m.counters ? (f && f.counters ? f.counters[m.key] : null) : (f ? f[m.key] : null); }
+  function labelFor(key) { var L = { cpuPct: 'CPU %', ramMb: 'RAM MB', diskPct: 'Disk %' }; return L[key] || key; }
+  var useCounters = frames.some(function (f) { return f && f.counters && typeof f.counters === 'object'; });
+  var metricKeys;
+  if (useCounters && Array.isArray(model.counterKeys) && model.counterKeys.length) {
+    metricKeys = model.counterKeys.slice(0, 8);
+  } else if (useCounters) {
+    var want = ['cpuTotalPct', 'memAvailableMb', 'diskWriteBytesPerSec', 'diskReadBytesPerSec', 'netBytesReceivedPerSec', 'contextSwitchesPerSec'];
+    var union = {};
+    frames.forEach(function (f) { if (f && f.counters) { Object.keys(f.counters).forEach(function (k) { union[k] = 1; }); } });
+    metricKeys = want.filter(function (k) { return union[k]; });
+    if (!metricKeys.length) { metricKeys = Object.keys(union).slice(0, 6); }
+  } else {
+    metricKeys = ['cpuPct', 'ramMb', 'diskPct'];
+  }
+  var metrics = metricKeys.map(function (key, i) {
+    return { key: key, label: useCounters ? key : labelFor(key), color: PALETTE[i % PALETTE.length], counters: useCounters };
+  });
   var VW = 1000, VH = 300, PADL = 8, PADR = 8, PADT = 10, PADB = 16;
   function gx(i) { return PADL + (n <= 1 ? 0 : (i / (n - 1)) * (VW - PADL - PADR)); }
 
@@ -81,9 +97,9 @@ const SCRIPT = `
   svg.setAttribute('preserveAspectRatio', 'none');
   graphwrap.appendChild(svg);
 
-  // one normalized polyline per metric (each scaled to its own min/max so all three shapes are visible)
+  // one normalized polyline per metric (each scaled to its own min/max so all shapes are visible)
   metrics.forEach(function (m) {
-    var vals = frames.map(function (f) { return typeof f[m.key] === 'number' ? f[m.key] : null; });
+    var vals = frames.map(function (f) { var v = valueOf(f, m); return typeof v === 'number' ? v : null; });
     var present = vals.filter(function (v) { return v != null; });
     m.min = present.length ? Math.min.apply(null, present) : 0;
     m.max = present.length ? Math.max.apply(null, present) : 1;
@@ -123,12 +139,13 @@ const SCRIPT = `
   var markerSeq = 0;
 
   function fmt(v, suffix) { return (v == null ? '--' : v) + (suffix || ''); }
+  function fmtVal(v) { return (typeof v === 'number') ? (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 100) / 100) : v; }
   function render() {
     var f = frames[sel];
     line.setAttribute('x1', gx(sel).toFixed(1));
     line.setAttribute('x2', gx(sel).toFixed(1));
     legend.innerHTML = metrics.map(function (m) {
-      return '<span class=sw style="background:' + m.color + '"></span>' + m.label + ': <b>' + fmt(f[m.key]) + '</b>';
+      return '<span class=sw style="background:' + m.color + '"></span>' + m.label + ': <b>' + fmt(fmtVal(valueOf(f, m))) + '</b>';
     }).join('<br>');
     readout.textContent = 'frame ' + (sel + 1) + '/' + n + '   t=' + (f.tMs != null ? f.tMs : sel * Math.round(1000 / (model.fps || 12))) + 'ms';
     root.setAttribute('data-selected-index', String(sel));
@@ -243,10 +260,12 @@ const SCRIPT = `
 
 /**
  * Build the frame-correlator document.
- * @param {object} model { title, fps, frames:[{index,tMs,cpuPct,ramMb,diskPct,imageSrc}], selectedIndex,
- *   markers?:[{id?,instantMs?,frameIndex?,kind?,imageGrab?}], markerToleranceMs? } -- a CLICK (vs a scrub drag)
- *   on the graph drops a marker at that instant (nearest-frame image grabbed only within markerToleranceMs, 200
- *   default) and posts { type:'frame-marker', marker } to the host; pre-seeded markers render deterministically.
+ * @param {object} model { title, fps, frames:[{index,tMs,imageSrc, cpuPct?,ramMb?,diskPct?, counters?:{key:number}}],
+ *   selectedIndex, counterKeys?:string[], markers?:[{id?,instantMs?,frameIndex?,kind?,imageGrab?}], markerToleranceMs? }
+ *   -- frames carrying a v2 `counters` object plot the performance-counter curves (counterKeys selects/orders which,
+ *   else a curated default subset); legacy flat {cpuPct,ramMb,diskPct} frames still plot CPU/RAM/disk (back-compat).
+ *   A CLICK (vs a scrub drag) drops a marker at that instant (nearest-frame image grabbed only within
+ *   markerToleranceMs, 200 default) and posts { type:'frame-marker', marker } to the host; pre-seeded markers render.
  * @param {string} nonce per-load CSP nonce
  * @param {string} cspSource the webview.cspSource (so the frame <img> can load VM-local webview URIs)
  * @returns {string} self-contained HTML
@@ -260,6 +279,7 @@ export function buildFrameCorrelatorHtml(model, nonce, cspSource) {
     frames: Array.isArray(model && model.frames) ? model.frames : [],
     markers: Array.isArray(model && model.markers) ? model.markers : [],
     markerToleranceMs: model && typeof model.markerToleranceMs === 'number' ? model.markerToleranceMs : 200,
+    counterKeys: Array.isArray(model && model.counterKeys) ? model.counterKeys : [],
   };
   const csp =
     "default-src 'none'; " +

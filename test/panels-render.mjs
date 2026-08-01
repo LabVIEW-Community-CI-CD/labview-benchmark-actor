@@ -208,6 +208,39 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(root.getAttribute('data-selected-index') === '0', 'ArrowLeft clamps at frame 0');
 }
 
+// --- 3c-v2. frame correlator, v2 counters{} frames -> plots the SELECTED performance-counter curves ----------
+{
+  const px = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  const N = 8;
+  const frames = Array.from({ length: N }, (_, i) => ({
+    index: i, tMs: Math.round((i * 1000) / 12), imageSrc: px,
+    counters: { cpuTotalPct: 10 + i * 7, memAvailableMb: 4000 - i * 12, diskWriteBytesPerSec: 1e6 * (i % 3), contextSwitchesPerSec: 2000 + i * 130 },
+  }));
+  const counterKeys = ['cpuTotalPct', 'memAvailableMb', 'diskWriteBytesPerSec'];
+  const html = buildFrameCorrelatorHtml({ title: 'v2', fps: 12, selectedIndex: 0, frames, counterKeys }, NONCE, 'vscode-webview://render');
+  const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+  const doc = dom.window.document;
+  const svg = doc.getElementById('fc-graph');
+  assert(svg.querySelectorAll('polyline').length === counterKeys.length, `v2 correlator plots one curve per selected counter (${counterKeys.length}), got ${svg.querySelectorAll('polyline').length}`);
+  const legend = doc.getElementById('fc-legend');
+  assert(counterKeys.every((k) => legend.innerHTML.includes(k)), 'v2 legend labels each plotted performance counter by key');
+  assert(/frame 1\/8/.test(doc.getElementById('fc-readout').textContent), 'v2 correlator readout tracks the frame index');
+}
+
+// --- 3c-default. v2 counters WITHOUT counterKeys -> a curated default subset is plotted ----------------------
+{
+  const frames = Array.from({ length: 5 }, (_, i) => ({
+    index: i, tMs: Math.round((i * 1000) / 12),
+    counters: { cpuTotalPct: 5 + i, memAvailableMb: 3000 - i, diskWriteBytesPerSec: 1e6, diskReadBytesPerSec: 5e5, netBytesReceivedPerSec: 1e4, contextSwitchesPerSec: 1500 },
+  }));
+  const html = buildFrameCorrelatorHtml({ title: 'v2-default', fps: 12, selectedIndex: 0, frames }, NONCE, '');
+  const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+  const doc = dom.window.document;
+  const plotted = doc.getElementById('fc-graph').querySelectorAll('polyline').length;
+  assert(plotted >= 3 && plotted <= 6, `v2 default subset plots a curated few counters, got ${plotted}`);
+  assert(doc.getElementById('fc-legend').innerHTML.includes('cpuTotalPct'), 'v2 default subset includes cpuTotalPct');
+}
+
 // --- 3d. launch-capture ASSEMBLER (buildLaunchCapture, a c8 module) through its non-happy branches: capacity-
 //         degraded + missing-long + no samples + synthesized timing + fps default + dhashHex + screen/source,
 //         short-protection-blocked, and startMs-from-frame + invalid-sample filtering + nearest-sample search. -
