@@ -47,6 +47,31 @@ function Install-GhDirect {
   $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList '/i',"`"$msi`"",'/quiet','/norestart' -Wait -PassThru
   if ($p.ExitCode -ne 0) { throw "gh msi exited $($p.ExitCode)." }
 }
+function Install-NodeDirect {
+  Step "Resolving latest Node.js LTS x64 msi (nodejs.org)"
+  $idx = Invoke-RestMethod -Uri 'https://nodejs.org/dist/index.json' -Headers @{ 'User-Agent' = 'lba-reviewer' }
+  $lts = $idx | Where-Object { $_.lts } | Select-Object -First 1
+  if (-not $lts) { throw "No Node.js LTS release found in the dist index." }
+  $ver = $lts.version
+  $msi = Join-Path $env:TEMP "node-$ver-x64.msi"
+  Step "Downloading Node.js $ver x64 msi"
+  Invoke-WebRequest -Uri "https://nodejs.org/dist/$ver/node-$ver-x64.msi" -OutFile $msi -UseBasicParsing
+  Step "Installing Node.js silently"
+  $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList '/i',"`"$msi`"",'/quiet','/norestart' -Wait -PassThru
+  if ($p.ExitCode -ne 0) { throw "Node.js msi exited $($p.ExitCode)." }
+}
+function Install-GitDirect {
+  Step "Resolving latest Git for Windows 64-bit installer"
+  $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/git-for-windows/git/releases/latest' -Headers @{ 'User-Agent' = 'lba-reviewer' }
+  $asset = $rel.assets | Where-Object { $_.name -like 'Git-*-64-bit.exe' } | Select-Object -First 1
+  if (-not $asset) { throw "No 64-bit Git for Windows installer in the latest release." }
+  $exe = Join-Path $env:TEMP $asset.name
+  Step "Downloading $($asset.name)"
+  Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $exe -UseBasicParsing
+  Step "Installing Git for Windows silently"
+  $p = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/NORESTART','/NOCANCEL','/SP-','/SUPPRESSMSGBOXES','/MERGETASKS=!runcode' -Wait -PassThru
+  if ($p.ExitCode -ne 0) { throw "Git for Windows installer exited $($p.ExitCode)." }
+}
 function Ensure-Tool([string]$Command, [string]$WingetId, [string]$Label, [scriptblock]$DirectInstall) {
   if (Get-Command $Command -ErrorAction SilentlyContinue) { return }
   if (Get-Command winget -ErrorAction SilentlyContinue) {
@@ -63,7 +88,13 @@ function Ensure-Tool([string]$Command, [string]$WingetId, [string]$Label, [scrip
 }
 Ensure-Tool 'code' 'Microsoft.VisualStudioCode' 'VS Code'    { Install-VSCodeDirect }
 Ensure-Tool 'gh'   'GitHub.cli'                 'GitHub CLI' { Install-GhDirect }
-Step "VS Code: $((code --version)[0]); gh: $((gh --version)[0])"
+# node + git are prerequisites of the verify-before-install step (Assert-ReleaseProvenance runs the Node
+# transparency-log verifier over a checkout of this repo). The VirtualBox golden box ships them, but the
+# VMware cleanroom box (vihs/labview-cleanroom) and BYO boxes may ship NEITHER -- self-install them the same
+# winget-free way. Additive + idempotent: Ensure-Tool no-ops when the command is already on PATH.
+Ensure-Tool 'node' 'OpenJS.NodeJS.LTS'          'Node.js'    { Install-NodeDirect }
+Ensure-Tool 'git'  'Git.Git'                    'Git'        { Install-GitDirect }
+Step "VS Code: $((code --version)[0]); gh: $((gh --version)[0]); node: $(node --version); git: $((git --version))"
 
 # Authenticate gh non-interactively. The labview-benchmark-actor repo is INTERNAL (private): the gated
 # ext-v*/collab-cli-v* Releases are NOT world-readable, so a headless guest cannot use gh unauthenticated
@@ -210,9 +241,14 @@ function Assert-VsixKeylessSignature([string]$ExtTag, [string]$Vsix, [string]$Wo
 $extResolved = Resolve-Tag 'ext-v' $extTag
 $dir = Join-Path $env:TEMP 'lba-ext'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
+# Remove any .vsix left by a PRIOR provisioning (a different ext version) first: otherwise
+# `Get-ChildItem -Filter '*.vsix' | Select-Object -First 1` sorts by name and can pick a STALE
+# lower-versioned .vsix, making cosign verify THIS release's signature against the wrong file
+# (digest mismatch -> fail-closed BLOCK). Clean, then select the single freshly-downloaded .vsix.
+Get-ChildItem $dir -Filter '*.vsix' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 Step "Downloading extension .vsix from $extResolved"
 gh release download $extResolved --repo $repo --pattern '*.vsix' --dir $dir --clobber
-$vsix = Get-ChildItem $dir -Filter '*.vsix' | Select-Object -First 1
+$vsix = Get-ChildItem $dir -Filter '*.vsix' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $vsix) { throw "No .vsix asset in release $extResolved." }
 Assert-ReleaseProvenance -ExtTag $extResolved -WorkDir $dir
 Assert-VsixKeylessSignature -ExtTag $extResolved -Vsix $vsix.FullName -WorkDir $dir
