@@ -19,6 +19,7 @@
 | [ADR-0009](ADR-0009-absorb-mprr-model-self-owned.md) | Absorb the mprr ring-buffer and self-test timing model as self-owned (retire the external `svelderrainruiz/mprr` dependency) | WIN | Accepted | LBA-REQ-003, LBA-REQ-005, LBA-REQ-009 |
 | [ADR-0010](ADR-0010-gitflow-branch-governance.md) | GitFlow is the branch-governance doctrine (`main` protected + `develop` integration; feature/release/hotfix rules) | LINUX | Accepted | LBA-REQ-008, LBA-REQ-016 |
 | [ADR-0011](ADR-0011-provider-delegation-cleanroom-uplift.md) | AI-provider uplift is delegated to cleanroom actors over the coordination bus | LINUX | Accepted | LBA-REQ-018 |
+| [ADR-0012](ADR-0012-mcp-server-agent-tool-surface.md) | The benchmark actor exposes its tools to agents through a Model Context Protocol server | LINUX | Accepted | LBA-REQ-019 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
 LINUX takes 0003–0004 (+0010, 0011). Add new ADRs by extending your own range.
