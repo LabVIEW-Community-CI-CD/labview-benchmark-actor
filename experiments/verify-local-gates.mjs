@@ -461,6 +461,14 @@ check('acg-quorum-compare-witnesses', () => {
   return { selftest: 'compare-witnesses 7/7' };
 });
 
+// The ACG witness-bundle assembler (ADR-0014/ADR-0015, LBA-REQ-024): composing a witness's gate/render/capability
+// receipts into the canonical bundle the quorum ingests must FAIL CLOSED on any missing release-gating anchor and
+// corroborate end to end through the quorum -- run its dependency-free self-test as a subprocess.
+check('acg-quorum-assemble-witness', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'assemble-witness.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'assemble-witness 9/9' };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
