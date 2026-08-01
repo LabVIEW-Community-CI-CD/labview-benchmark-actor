@@ -130,7 +130,7 @@ multi-VM / Codespace topology.
   poll / post) to a coding agent through a Model Context Protocol server
   (LBA-REQ-019, ADR-0012).
 
-### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022
+### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022, LBA-REQ-030
 - GitFlow branch governance (`main` protected + `develop` integration;
   feature / release / hotfix; SemVer tags on main; coverage retained on the
   release path) satisfies the repo-standards-review CM gate without weakening the
@@ -148,7 +148,7 @@ multi-VM / Codespace topology.
   requirement → view → decision → test view stays current by construction
   (LBA-REQ-022, ADR-0013).
 
-### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026
+### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026, LBA-REQ-027, LBA-REQ-028, LBA-REQ-029
 
 The Actor Corroboration Grid (ADR-0014) corroborates a component release across
 independent, heterogeneous witnesses. Each witness — initially a Codespace-Linux node,
@@ -161,7 +161,9 @@ Ubuntu codename — for the quorum to permit the release; a sub-majority blocks 
 opens a divergence issue (LBA-REQ-023, ADR-0014). The quorum arithmetic (a graded majority
 over tiered anchors, LBA-REQ-024, ADR-0015), the signed provenance chain verified before
 consumption (LBA-REQ-025, ADR-0016), and the enforced witness independence (distinct enrolled
-environments, LBA-REQ-026, ADR-0017) refine this view.
+environments, LBA-REQ-026, ADR-0017) refine this view. The reviewer station and human sign-off
+(LBA-REQ-027, ADR-0018), the mesh verdict beacon (LBA-REQ-028, ADR-0019), and the agent-facing
+MCP orchestration surface (LBA-REQ-029, ADR-0020) complete it.
 
 ## 4. Architecture decisions (42010 §5.7)
 
@@ -192,6 +194,10 @@ environments, LBA-REQ-026, ADR-0017) refine this view.
 | AD-23 | Score the corroboration quorum as a graded majority over tiered anchors | Heterogeneous witnesses compose; one outage tolerated; divergence is actionable (ADR-0015) | LBA-REQ-024 |
 | AD-24 | Sign and verify the whole corroboration provenance chain before consumption | No unattested release is installable; tamper-evidence is external (ADR-0016) | LBA-REQ-025 |
 | AD-25 | Require distinct enrolled environments for a valid quorum | Agreement cannot be forged by cloning one environment (ADR-0017) | LBA-REQ-026 |
+| AD-26 | Human sign-off is a separate gate atop the machine quorum, on a dual reviewer station | A subjective judgment complements but does not replace the deterministic quorum (ADR-0018) | LBA-REQ-027 |
+| AD-27 | Witnesses beacon their verdicts over the lbabus mesh | Live, distributed verdict collection reusing the bus, no new transport (ADR-0019) | LBA-REQ-028 |
+| AD-28 | Extend the MCP tool surface with grid-orchestration tools | One discoverable agent surface drives the grid (ADR-0020, ADR-0012) | LBA-REQ-029 |
+| AD-29 | Non-release pull requests target develop, not main | Prevents the stale main-based pull-request class from dumping integration onto the release branch (ADR-0021, ADR-0010) | LBA-REQ-030 |
 
 ## 5. Risks and open questions
 
@@ -231,6 +237,10 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0015](adr/ADR-0015-corroboration-quorum-confidence.md) | Corroboration quorum + graded confidence | LINUX |
 | [ADR-0016](adr/ADR-0016-provenance-attestation.md) | Provenance and attestation for the corroboration grid | LINUX |
 | [ADR-0017](adr/ADR-0017-witness-independence.md) | Witness independence for the corroboration grid | LINUX |
+| [ADR-0018](adr/ADR-0018-reviewer-station.md) | Reviewer station for the corroboration grid | LINUX |
+| [ADR-0019](adr/ADR-0019-mesh-integration.md) | Mesh integration for the corroboration grid | LINUX |
+| [ADR-0020](adr/ADR-0020-mcp-orchestration-surface.md) | MCP orchestration surface for the corroboration grid | LINUX |
+| [ADR-0021](adr/ADR-0021-pull-requests-target-develop.md) | Pull requests target develop, not main | LINUX |
 
 Remaining open items: the picture-capture *source*/cadence (storage itself is
 resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded

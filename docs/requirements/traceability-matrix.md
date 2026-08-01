@@ -33,5 +33,9 @@
 | LBA-REQ-024 | Corroboration quorum + graded confidence | Planned | §3.9 Corroboration-grid | ADR-0015 | T-024 | 1 |
 | LBA-REQ-025 | Corroboration provenance + attestation | Planned | §3.9 Corroboration-grid | ADR-0016 | T-025 | 1 |
 | LBA-REQ-026 | Witness independence | Planned | §3.9 Corroboration-grid | ADR-0017 | T-026 | 1 |
+| LBA-REQ-027 | Reviewer station + human sign-off | Planned | §3.9 Corroboration-grid | ADR-0018 | T-027 | 1 |
+| LBA-REQ-028 | Mesh verdict beacon | Planned | §3.9 Corroboration-grid | ADR-0019 | T-028 | 1 |
+| LBA-REQ-029 | MCP orchestration surface | Planned | §3.9 Corroboration-grid | ADR-0020 | T-029 | 1 |
+| LBA-REQ-030 | Pull requests target develop | Planned | §3.8 Configuration-management & assurance | ADR-0021 | T-030 | 1 |
 
-_Generated for 26 requirements._
+_Generated for 30 requirements._
