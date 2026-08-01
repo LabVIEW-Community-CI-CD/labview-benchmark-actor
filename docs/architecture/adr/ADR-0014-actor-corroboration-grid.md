@@ -14,9 +14,9 @@ elements; the repo already ships the ingredients of *independent, multi-environm
 composed them into a release gate:
 
 - **Cross-plane digest agreement** — the deterministic `seriesHash` must match across planes while the per-plane
-  screenshot is a witness ([LBA-REQ-014](../requirements/srs.md); [experiments/benchmark-store/compare-cross-plane.mjs](../../experiments/benchmark-store/compare-cross-plane.mjs)).
-- **A from-source cleanroom bootstrap that self-certifies** via a `gate-suite-receipt.json` verdict ([cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh](../../cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh)).
-- **Headless deterministic viewer rendering** + per-plane receipts ([playwright/screenshot.mjs](../../playwright/screenshot.mjs)), a **corroboration-confidence** reference ([experiments/corroboration-confidence-reference.mjs](../../experiments/corroboration-confidence-reference.mjs)), **ephemeral-mesh** spin-up/teardown ([experiments/ephemeral-mesh/](../../experiments/ephemeral-mesh/)), a **verdict beacon over the lbabus bus** (`LBA_GATE_BEACON_HOSTS`), and **boot-benchmark milestones** (`emit-boot-marker.sh`).
+  screenshot is a witness ([LBA-REQ-014](../../requirements/srs.md); [experiments/benchmark-store/compare-cross-plane.mjs](../../../experiments/benchmark-store/compare-cross-plane.mjs)).
+- **A from-source cleanroom bootstrap that self-certifies** via a `gate-suite-receipt.json` verdict ([cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh](../../../cleanroom/ubuntu-labview/provision-lbabus-fromsource.sh)).
+- **Headless deterministic viewer rendering** + per-plane receipts ([playwright/screenshot.mjs](../../../playwright/screenshot.mjs)), a **corroboration-confidence** reference ([experiments/corroboration-confidence-reference.mjs](../../../experiments/corroboration-confidence-reference.mjs)), **ephemeral-mesh** spin-up/teardown ([experiments/ephemeral-mesh/](../../../experiments/ephemeral-mesh/)), a **verdict beacon over the lbabus bus** (`LBA_GATE_BEACON_HOSTS`), and **boot-benchmark milestones** (`emit-boot-marker.sh`).
 
 Nothing yet composes these into an independent, forgery-resistant, gate-worthy corroboration of a release.
 
