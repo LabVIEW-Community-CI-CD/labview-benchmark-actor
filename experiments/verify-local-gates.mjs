@@ -577,6 +577,15 @@ check('live-v2-capture-real', () => {
   return { chain: 'linuxProcSampler -> buildLaunchCapture -> frame-correlator', counters: r.counterKeys.length, frames: r.frameCount };
 });
 
+// LBA-REQ-011 (extended, mesh-stress-signature@v1): the performance-SIGNATURE extractor -- per-counter features
+// + across-repeat stability (signature vs noise by coefficient-of-variation) + MAD outliers + cross-counter
+// outlier co-occurrence (+/-200 ms) + autocorrelation periodicity -- proven on synthetic cases + the REAL
+// exact-12-FPS Linux /proc capture split into repeats. Pure, dependency-free; the foundation of the mesh ladder.
+check('mesh-stress-signature-extractor', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'signatureExtractor.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'signatureExtractor 5/5', schema: 'mesh-stress-signature@v1' };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
