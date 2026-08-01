@@ -1,0 +1,10 @@
+{
+  "schema": "labview-benchmark-actor/acg-enrolled-environments-v1",
+  "description": "Enrolled witness environments for the Actor Corroboration Grid (ADR-0017). A quorum must span distinct entries here; a witness whose plane/os is not listed does not count toward the quorum.",
+  "environments": [
+    { "id": "CODESPACE/linux", "plane": "CODESPACE", "os": "linux", "description": "GitHub Codespaces noble witness devcontainer (OIDC identity)" },
+    { "id": "VBOX/linux", "plane": "VBOX", "os": "linux", "description": "VirtualBox Ubuntu noble golden VM (enrolled key)" },
+    { "id": "WIN/windows", "plane": "WIN", "os": "windows", "description": "Windows LabVIEW plane (enrolled key)" },
+    { "id": "LINUX/linux", "plane": "LINUX", "os": "linux", "description": "Linux host / native plane (enrolled key)" }
+  ]
+}

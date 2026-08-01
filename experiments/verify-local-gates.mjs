@@ -57,6 +57,7 @@ import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs
 import { execFileSync } from 'node:child_process';
 import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
 import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
+import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/independence.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -536,6 +537,32 @@ check('acg-provenance-verify-before-consume', () => {
   assert(decision.witnesses.length >= 2 && decision.witnesses.every((w) => w.ok), 'every enrolled witness attestation must verify');
   assert(new Set(decision.witnesses.map((w) => w.identity)).size === decision.witnesses.length, 'the witness identities must be distinct');
   return { consume: decision.consume, witnesses: decision.witnesses.map((w) => w.identity) };
+});
+
+// ACG witness-independence engine (ADR-0017, LBA-REQ-026): a quorum is independent only when it spans >= quorumMin
+// DISTINCT ENROLLED environments each with a recorded identity; non-enrolled, duplicate-environment, and
+// identity-less witnesses do not count -- run its dependency-free self-test as a subprocess.
+check('acg-independence-quorum', () => {
+  execFileSync(process.execPath, [join(here, 'acg-independence', 'independence.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'independence 9/9' };
+});
+
+// Live witness-independence evidence (ADR-0017, LBA-REQ-026): the committed {CODESPACE, LINUX} grid must span
+// distinct enrolled environments, each with the identity recorded in its provenance (ADR-0016 attestation).
+// Re-assess independence over the committed bundles + attestation identities + enrolled-environments and assert
+// it matches the committed independence receipt (tamper-evident: a duplicate/non-enrolled environment fails closed).
+check('acg-independence-live', () => {
+  const enrollment = readJson('experiments/acg-independence/enrolled-environments.json');
+  const witnesses = [
+    { bundle: readJson('experiments/acg-quorum/witnesses/codespace.bundle.json'), identity: readJson('experiments/acg-provenance/attestations/codespace.attestation.json').witnessIdentity },
+    { bundle: readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json'), identity: readJson('experiments/acg-provenance/attestations/host-linux.attestation.json').witnessIdentity },
+  ];
+  const receipt = readJson('experiments/acg-independence/independence-receipt.json');
+  const verdict = assessIndependence(witnesses, { enrolledEnvironments: enrolledEnvironmentSet(enrollment) });
+  assert(verdict.independent === true, `the live grid is not independent: ${verdict.reasons.join('; ')}`);
+  assert(JSON.stringify(verdict) === JSON.stringify(receipt), 'the committed independence receipt must match the re-derived verdict');
+  assert(verdict.counted.length >= 2 && verdict.counted.every((c) => c.identity), 'every counted witness must have a recorded identity');
+  return { independent: verdict.independent, environments: verdict.distinctEnrolledEnvironments };
 });
 
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
