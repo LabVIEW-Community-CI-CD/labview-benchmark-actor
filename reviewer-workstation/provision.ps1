@@ -163,6 +163,43 @@ function Assert-ReleaseProvenance([string]$ExtTag, [string]$WorkDir) {
   Step "verify-before-install: provenance verified; proceeding to install."
 }
 
+# cosign KEYLESS verify-before-install (LBA-REQ-025 / ADR-0016, NETWORK-GATED): verify the .vsix's own keyless
+# signature -- a Fulcio certificate bound to the extension-release.yml workflow identity + a public rekor entry,
+# attached to the Release by the hardened release lane -- BEFORE installing it. Needs network (the sigstore TUF
+# root + rekor). A failed OR absent signature BLOCKS the install (fail-closed). Set VIHS_REVIEWER_ALLOW_UNSIGNED=1
+# ONLY to install a pre-hardening release that predates artifact keyless-signing.
+$KeylessIdentityRegexp = '^https://github\.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/\.github/workflows/extension-release\.yml@refs/tags/ext-v'
+$KeylessOidcIssuer = 'https://token.actions.githubusercontent.com'
+
+function Ensure-Cosign {
+  if (Get-Command cosign -ErrorAction SilentlyContinue) { return }
+  Step "Installing cosign (sigstore) via direct download"
+  New-Item -ItemType Directory -Force -Path 'C:\lba-bin' | Out-Null
+  $exe = 'C:\lba-bin\cosign.exe'
+  Invoke-WebRequest -Uri 'https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe' -OutFile $exe -UseBasicParsing
+  $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+  if ($machinePath -notlike '*C:\lba-bin*') { [Environment]::SetEnvironmentVariable('Path', "$machinePath;C:\lba-bin", 'Machine') }
+  $env:Path = "$env:Path;C:\lba-bin"
+  if (-not (Get-Command cosign -ErrorAction SilentlyContinue)) { throw "cosign install did not put 'cosign' on PATH." }
+}
+
+function Assert-VsixKeylessSignature([string]$ExtTag, [string]$Vsix, [string]$WorkDir) {
+  gh release download $ExtTag --repo $repo --pattern '*.vsix.sigstore' --dir $WorkDir --clobber 2>$null
+  $sig = Get-ChildItem $WorkDir -Filter '*.vsix.sigstore' -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $sig) {
+    if ($env:VIHS_REVIEWER_ALLOW_UNSIGNED -eq '1') {
+      Step "WARN: release $ExtTag carries no *.vsix.sigstore keyless signature and VIHS_REVIEWER_ALLOW_UNSIGNED=1 -> installing UNVERIFIED."
+      return
+    }
+    throw "keyless verify-before-install BLOCKED: release $ExtTag carries no *.vsix.sigstore keyless signature. Cut the release with the hardened extension-release workflow, or set VIHS_REVIEWER_ALLOW_UNSIGNED=1 to override (NOT recommended)."
+  }
+  Ensure-Cosign
+  Step "cosign verify-blob: verifying the .vsix keyless signature ($($sig.Name))"
+  & cosign verify-blob --bundle $sig.FullName --certificate-identity-regexp $KeylessIdentityRegexp --certificate-oidc-issuer $KeylessOidcIssuer $Vsix
+  if ($LASTEXITCODE -ne 0) { throw "keyless verify-before-install BLOCKED: the .vsix keyless signature did not verify (exit $LASTEXITCODE). The .vsix will NOT be installed." }
+  Step "cosign verify-blob: the .vsix keyless signature verified (pinned Fulcio identity + public rekor). Proceeding."
+}
+
 # 1) Extension .vsix from the ext-v* Release.
 $extResolved = Resolve-Tag 'ext-v' $extTag
 $dir = Join-Path $env:TEMP 'lba-ext'
@@ -172,6 +209,7 @@ gh release download $extResolved --repo $repo --pattern '*.vsix' --dir $dir --cl
 $vsix = Get-ChildItem $dir -Filter '*.vsix' | Select-Object -First 1
 if (-not $vsix) { throw "No .vsix asset in release $extResolved." }
 Assert-ReleaseProvenance -ExtTag $extResolved -WorkDir $dir
+Assert-VsixKeylessSignature -ExtTag $extResolved -Vsix $vsix.FullName -WorkDir $dir
 Step "Installing extension $($vsix.Name) into the interactive reviewer's profile"
 Install-ExtensionForInteractiveUser $vsix.FullName
 

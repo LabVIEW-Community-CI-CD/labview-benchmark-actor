@@ -768,6 +768,22 @@ check('release-lanes-keyless-attested', () => {
   return { lanes: ['extension-release', 'collab-cli-release'], attested: true };
 });
 
+// LBA-REQ-025 / ADR-0016: the reviewer-workstation must cosign-VERIFY the .vsix's keyless signature (a Fulcio
+// certificate whose identity is pinned to the extension-release workflow + the GitHub Actions OIDC issuer + a
+// public rekor entry) BEFORE installing it. Network-gated on the reviewer box; drift gate over provision.ps1
+// (CRLF-normalized substring checks; fail-closed) asserts the verify runs before the install.
+check('reviewer-workstation-keyless-verify-wired', () => {
+  const norm = readFileSync(join(pkgRoot, 'reviewer-workstation', 'provision.ps1'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/cosign verify-blob/.test(norm), 'provision.ps1 must cosign verify-blob the .vsix keyless signature');
+  assert(/certificate-identity-regexp/.test(norm) && /extension-release/.test(norm), 'the cosign verify must pin the extension-release workflow certificate identity');
+  assert(/token\.actions\.githubusercontent\.com/.test(norm), 'the cosign verify must pin the GitHub Actions OIDC issuer');
+  const verifyAt = norm.indexOf('Assert-VsixKeylessSignature -ExtTag');
+  const installAt = norm.indexOf('Install-ExtensionForInteractiveUser $vsix');
+  assert(verifyAt > 0 && installAt > 0 && verifyAt < installAt, 'the cosign keyless verify must run BEFORE the .vsix install');
+  assert(/keyless verify-before-install BLOCKED/.test(norm), 'provision.ps1 must fail closed (block) when the keyless signature does not verify');
+  return { wired: true };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
