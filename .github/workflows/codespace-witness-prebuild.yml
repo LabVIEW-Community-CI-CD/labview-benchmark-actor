@@ -1,0 +1,86 @@
+name: Codespace Witness Prebuild
+
+# ACG codespace WITNESS prebuild (ADR-0014 / ADR-0015, Phase 1). A REAL container build of the corroboration-grid
+# codespace witness: it builds the `.devcontainer/cleanroom-witness` dev container (Ubuntu 24.04 noble + dotnet 8 +
+# node 22 + sshd), runs its postCreate (`cleanroom/ubuntu-labview/codespace/bootstrap-validate.sh` -> build lbabus
+# from source@commit -> run the SHARED gate-suite), and ASSERTS the emitted gate-suite receipt is `verdict: pass`
+# with lbabus provenance. This is the CI reproducibility proof standing behind the codespace witness -- it catches
+# base-image / dev-container-feature / bootstrap drift before a real codespace is ever opened, and complements the
+# static `codespace-witness-bootstrap-valid` local gate with an actual build.
+#
+# Build-only validation (`push: never`) -- it does not publish an image, because the witness is an intentionally
+# per-commit build-from-source (that IS the machine-parity anchor), not a static pull. Publishing a warm image /
+# wiring a Settings-based Codespaces prebuild is a follow-up. Not a required check; it runs on demand, weekly, and
+# when the witness's own inputs change.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly -- keep the witness green against upstream base-image + dev-container-feature updates.
+    - cron: '23 5 * * 1'
+  pull_request:
+    paths:
+      - '.devcontainer/cleanroom-witness/**'
+      - 'cleanroom/ubuntu-labview/codespace/**'
+      - 'cleanroom/ubuntu-labview/lba/gate-suite.sh'
+      - 'tools/collab-cli/**'
+      - '.github/workflows/codespace-witness-prebuild.yml'
+  push:
+    branches: [develop, main]
+    paths:
+      - '.devcontainer/cleanroom-witness/**'
+      - 'cleanroom/ubuntu-labview/codespace/**'
+      - 'cleanroom/ubuntu-labview/lba/gate-suite.sh'
+      - 'tools/collab-cli/**'
+      - '.github/workflows/codespace-witness-prebuild.yml'
+
+# One run per ref; a newer push supersedes an in-flight build.
+concurrency:
+  group: codespace-witness-prebuild-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  witness-prebuild:
+    name: build witness devcontainer + validate bootstrap
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # Build the witness dev container (runs postCreate = bootstrap-validate) then re-assert the receipt in-container.
+      - name: Build the witness devcontainer + validate the gate-suite receipt
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/cleanroom-witness/devcontainer.json
+          push: never
+          runCmd: |
+            set -euo pipefail
+            receipt="$HOME/.lba/gate-suite-receipt.json"
+            if [ ! -f "$receipt" ]; then
+              echo "::error::no witness gate-suite receipt at $receipt -- postCreate bootstrap-validate did not produce one"
+              exit 1
+            fi
+            echo "--- witness gate-suite receipt ---"
+            cat "$receipt"
+            echo
+            node -e '
+              const fs = require("fs");
+              const p = process.env.HOME + "/.lba/gate-suite-receipt.json";
+              const r = JSON.parse(fs.readFileSync(p, "utf8"));
+              if (r.schema !== "labview-benchmark-actor/cleanroom-gate-suite-receipt-v1") throw new Error("unexpected receipt schema: " + r.schema);
+              if (r.verdict !== "pass") throw new Error("witness verdict is " + r.verdict + " (gatesFailed=" + r.gatesFailed + ")");
+              if (!(r.lbabus && r.lbabus.version && r.lbabus.sourceCommit)) throw new Error("witness receipt missing lbabus provenance");
+              console.log("witness OK: lbabus " + r.lbabus.version + " @ " + r.lbabus.sourceCommit + ", verdict=" + r.verdict + ", gatesFailed=" + r.gatesFailed);
+            '
+            mkdir -p .artifacts
+            cp "$receipt" .artifacts/codespace-witness-gate-suite-receipt.json
+
+      - name: Upload the witness gate-suite receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codespace-witness-gate-suite-receipt
+          path: .artifacts/codespace-witness-gate-suite-receipt.json
+          if-no-files-found: ignore
