@@ -11,10 +11,17 @@ import Module, { createRequire } from 'node:module';
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..');
 const require = createRequire(import.meta.url);
+// Cross-platform temp roots (never rely on a literal POSIX /tmp -- these tests also run on windows-latest CI):
+// a (real) global-storage root the correlator fixture is written under, plus two guaranteed-nonexistent roots
+// used to prove graceful degradation on a corrupt/missing install.
+const gsRoot = join(tmpdir(), 'lba-test-globalstorage-nonexistent-xyz');
+const brokenExtRoot = join(tmpdir(), 'lba-nonexistent-ext-xyz');
+const brokenGsRoot = join(tmpdir(), 'lba-nonexistent-gs2-xyz');
 
 const compiled = join(here, '..', 'out', 'extension.js');
 if (!existsSync(compiled)) {
@@ -163,7 +170,7 @@ try {
   assert(typeof ext.deactivate === 'function', 'the extension exports deactivate()');
 
   const subscriptions = [];
-  ext.activate({ subscriptions, extensionUri: { path: repoRoot, fsPath: repoRoot }, globalStorageUri: { fsPath: '/tmp/lba-test-globalstorage-nonexistent-xyz' }, extension: { packageJSON: { version: '0.1.0' } } });
+  ext.activate({ subscriptions, extensionUri: { path: repoRoot, fsPath: repoRoot }, globalStorageUri: { fsPath: gsRoot }, extension: { packageJSON: { version: '0.1.0' } } });
 
   const expected = [
     'labviewBenchmarkActor.showCapabilities',
@@ -223,18 +230,37 @@ try {
     'the remediation tells the operator to install the coordination CLI'
   );
 
-  // Create Cleanroom Worker VM (LBA distributed CI): invoking it with valid inputs resolves the cloner
-  // script, exercises the input validators + the safe shell-quoting, and drives an integrated terminal.
+  // Create Cleanroom Worker VM (LBA distributed CI): the cloner drives VBoxManage + ssh via a bash script, so
+  // it is a Linux/macOS HOST tool. Prove BOTH host branches independently of the CI OS by faking
+  // process.platform: on win32 it must refuse with actionable guidance and send no command; on a POSIX host it
+  // resolves the cloner, exercises the input validators + safe shell-quoting, and drives an integrated terminal.
+  // (Faking makes this test OS-independent -- asserting the cloner drive unconditionally failed on windows-latest.)
   const createCleanroom = registered.find((r) => r.id === 'labviewBenchmarkActor.createCleanroom');
   assert(createCleanroom, 'createCleanroom command is registered');
-  inputQueue.push('lba-cleanroom-clone-01', '2223', '7441', 'cleanroom-clone');
-  await createCleanroom.handler();
-  const cloneCmd = sentCommands.find((c) => /clone-cleanroom-worker\.sh/.test(c));
-  assert(cloneCmd, 'createCleanroom drives the cloner script in an integrated terminal');
-  assert(
-    /'lba-cleanroom-clone-01' '2223' '7441' 'cleanroom-clone'/.test(cloneCmd),
-    'createCleanroom passes the validated, shell-quoted args (no injection)'
-  );
+  const realPlatformDesc = Object.getOwnPropertyDescriptor(process, 'platform');
+  try {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+    const errsBefore = errorMessages.length;
+    const cmdsBefore = sentCommands.length;
+    await createCleanroom.handler();
+    assert(
+      errorMessages.slice(errsBefore).some((m) => /Linux\/macOS host tool/.test(m)),
+      'createCleanroom refuses on a Windows host with Linux/macOS-host-tool guidance'
+    );
+    assert(sentCommands.length === cmdsBefore, 'createCleanroom sends no cloner command on a Windows host');
+
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+    inputQueue.push('lba-cleanroom-clone-01', '2223', '7441', 'cleanroom-clone');
+    await createCleanroom.handler();
+    const cloneCmd = sentCommands.find((c) => /clone-cleanroom-worker\.sh/.test(c));
+    assert(cloneCmd, 'createCleanroom drives the cloner script in an integrated terminal on a POSIX host');
+    assert(
+      /'lba-cleanroom-clone-01' '2223' '7441' 'cleanroom-clone'/.test(cloneCmd),
+      'createCleanroom passes the validated, shell-quoted args (no injection)'
+    );
+  } finally {
+    Object.defineProperty(process, 'platform', realPlatformDesc);
+  }
 
   // Bootstrap LabVIEW Authoring Lane (Windows/ActiveX): resolves the .ps1, surfaces the Windows-only note,
   // and runs it via pwsh in a terminal.
@@ -311,7 +337,6 @@ try {
 
   // Open Frame Correlator, three ways. First with NO captures on disk (a clean nonexistent dir): it guides
   // the user to run Capture LabVIEW Launch (the empty-captures branch).
-  const gsRoot = '/tmp/lba-test-globalstorage-nonexistent-xyz';
   rmSync(gsRoot, { recursive: true, force: true });
   await registered.find((r) => r.id === 'labviewBenchmarkActor.openFrameCorrelator').handler();
   assert(
@@ -351,7 +376,7 @@ try {
   const savedRegisterTool = mockVscode.lm.registerTool;
   mockVscode.commands.registerCommand = (id, handler) => { second.push({ id, handler }); return { dispose() {} }; };
   mockVscode.lm.registerTool = () => ({ dispose() {} });
-  ext.activate({ subscriptions: [], extensionUri: { path: '/tmp/lba-nonexistent-ext', fsPath: '/tmp/lba-nonexistent-ext' }, globalStorageUri: { fsPath: '/tmp/lba-nonexistent-gs2' }, extension: { packageJSON: { version: '0.1.0' } } });
+  ext.activate({ subscriptions: [], extensionUri: { path: brokenExtRoot, fsPath: brokenExtRoot }, globalStorageUri: { fsPath: brokenGsRoot }, extension: { packageJSON: { version: '0.1.0' } } });
   mockVscode.commands.registerCommand = savedRegisterCommand;
   mockVscode.lm.registerTool = savedRegisterTool;
   const errBefore = errorMessages.length;

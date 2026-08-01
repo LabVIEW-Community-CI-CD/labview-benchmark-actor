@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">
-<coverage lines-valid="2788" lines-covered="2515" line-rate="0.902" branches-valid="644" branches-covered="506" branch-rate="0.7857" timestamp="1785549415684" complexity="0" version="0.1">
+<coverage lines-valid="2788" lines-covered="2520" line-rate="0.9037999999999999" branches-valid="649" branches-covered="512" branch-rate="0.7889" timestamp="1785549942027" complexity="0" version="0.1">
   <sources>
     <source>/home/sergio/repos/gh/labview-benchmark-actor</source>
   </sources>
@@ -1645,9 +1645,9 @@
         </class>
       </classes>
     </package>
-    <package name="src" line-rate="0.7412000000000001" branch-rate="0.6524">
+    <package name="src" line-rate="0.7461" branch-rate="0.6712">
       <classes>
-        <class name="extension.ts" filename="src/extension.ts" line-rate="0.7412000000000001" branch-rate="0.6524">
+        <class name="extension.ts" filename="src/extension.ts" line-rate="0.7461" branch-rate="0.6712">
           <methods>
             <method name="getOutput" hits="3" signature="()V">
               <lines>
@@ -1909,9 +1909,9 @@
                 <line number="833" hits="1"/>
               </lines>
             </method>
-            <method name="createCleanroomCommand" hits="1" signature="()V">
+            <method name="createCleanroomCommand" hits="2" signature="()V">
               <lines>
-                <line number="843" hits="1"/>
+                <line number="843" hits="2"/>
               </lines>
             </method>
             <method name="validateInput" hits="1" signature="()V">
@@ -2788,45 +2788,45 @@
             <line number="840" hits="1" branch="true" condition-coverage="100% (1/1)"/>
             <line number="841" hits="1" branch="false"/>
             <line number="842" hits="1" branch="false"/>
-            <line number="843" hits="1" branch="true" condition-coverage="100% (1/1)"/>
-            <line number="844" hits="1" branch="true" condition-coverage="0% (0/1)"/>
-            <line number="845" hits="0" branch="false"/>
-            <line number="846" hits="0" branch="false"/>
-            <line number="847" hits="0" branch="false"/>
-            <line number="848" hits="0" branch="false"/>
-            <line number="849" hits="0" branch="false"/>
+            <line number="843" hits="2" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="844" hits="2" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="845" hits="1" branch="false"/>
+            <line number="846" hits="1" branch="false"/>
+            <line number="847" hits="1" branch="false"/>
+            <line number="848" hits="1" branch="false"/>
+            <line number="849" hits="1" branch="false"/>
             <line number="850" hits="1" branch="false"/>
-            <line number="851" hits="1" branch="true" condition-coverage="0% (0/1)"/>
+            <line number="851" hits="2" branch="true" condition-coverage="0% (0/1)"/>
             <line number="852" hits="0" branch="false"/>
             <line number="853" hits="0" branch="false"/>
             <line number="854" hits="0" branch="false"/>
             <line number="855" hits="0" branch="false"/>
             <line number="856" hits="0" branch="false"/>
-            <line number="857" hits="1" branch="false"/>
+            <line number="857" hits="1" branch="true" condition-coverage="100% (1/1)"/>
             <line number="858" hits="1" branch="false"/>
             <line number="859" hits="1" branch="false"/>
             <line number="860" hits="1" branch="true" condition-coverage="50% (1/2)"/>
             <line number="861" hits="1" branch="false"/>
-            <line number="862" hits="1" branch="true" condition-coverage="0% (0/1)"/>
+            <line number="862" hits="2" branch="true" condition-coverage="0% (0/1)"/>
             <line number="863" hits="0" branch="false"/>
             <line number="864" hits="0" branch="false"/>
-            <line number="865" hits="1" branch="false"/>
-            <line number="866" hits="1" branch="true" condition-coverage="0% (0/1)"/>
+            <line number="865" hits="1" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="866" hits="2" branch="true" condition-coverage="0% (0/1)"/>
             <line number="867" hits="0" branch="false"/>
             <line number="868" hits="0" branch="false"/>
-            <line number="869" hits="1" branch="false"/>
-            <line number="870" hits="1" branch="true" condition-coverage="0% (0/1)"/>
+            <line number="869" hits="1" branch="true" condition-coverage="100% (1/1)"/>
+            <line number="870" hits="2" branch="true" condition-coverage="0% (0/1)"/>
             <line number="871" hits="0" branch="false"/>
             <line number="872" hits="0" branch="false"/>
-            <line number="873" hits="1" branch="false"/>
+            <line number="873" hits="1" branch="true" condition-coverage="100% (1/1)"/>
             <line number="874" hits="1" branch="false"/>
             <line number="875" hits="1" branch="false"/>
             <line number="876" hits="1" branch="true" condition-coverage="50% (1/2)"/>
             <line number="877" hits="1" branch="false"/>
-            <line number="878" hits="1" branch="true" condition-coverage="0% (0/1)"/>
+            <line number="878" hits="2" branch="true" condition-coverage="0% (0/1)"/>
             <line number="879" hits="0" branch="false"/>
             <line number="880" hits="0" branch="false"/>
-            <line number="881" hits="1" branch="false"/>
+            <line number="881" hits="1" branch="true" condition-coverage="100% (1/1)"/>
             <line number="882" hits="1" branch="false"/>
             <line number="883" hits="1" branch="false"/>
             <line number="884" hits="1" branch="false"/>
