@@ -58,6 +58,8 @@ import { execFileSync } from 'node:child_process';
 import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
 import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
 import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/independence.mjs';
+import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/verdict-beacon.mjs';
+import { bundleDigest } from './acg-provenance/attest.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -580,6 +582,33 @@ check('acg-governance-pr-base-branch-workflow-wired', () => {
   assert(wf.includes('experiments/acg-governance/pr-base-branch-guard.mjs'), 'the workflow invokes the base-branch guard script');
   assert(wf.includes('github.base_ref') && wf.includes('github.head_ref'), 'the workflow passes the PR base/head refs to the guard');
   return { workflow: 'pr-base-branch-guard', guardsMain: true };
+});
+
+// ACG mesh verdict beacon + ledger (ADR-0019, LBA-REQ-028): a witness verdict must beacon as a valid bus-msg@1
+// NOTE, survive the real 4-byte-framed wire, fail closed on malformed frames, and the ledger must dedup + feed the
+// quorum -- run its dependency-free self-test as a subprocess.
+check('acg-mesh-verdict-beacon', () => {
+  execFileSync(process.execPath, [join(here, 'acg-mesh', 'verdict-beacon.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'verdict-beacon 8/8' };
+});
+
+// Live mesh loopback evidence (ADR-0019, LBA-REQ-028): the committed loopback receipt -- the real {codespace, host}
+// verdicts beaconed over bus-msg@1 and collected in the ledger -- must re-derive deterministically from the
+// committed bundles (tamper-evident: the ledgerHash + mesh quorum are recomputed from the same beacons/bundles).
+check('acg-mesh-loopback-evidence', () => {
+  const codespace = readJson('experiments/acg-quorum/witnesses/codespace.bundle.json');
+  const host = readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json');
+  const receipt = readJson('experiments/acg-mesh/mesh-loopback-receipt.json');
+  const notice = (id, b) => ({ identity: id, plane: b.plane, os: b.os, verdict: b.gate.verdict, digest: bundleDigest(b), seriesHash: b.screenshot.seriesHash, sourceCommit: b.gate.lbabus.sourceCommit });
+  const led = new MeshLedger();
+  led.record(buildVerdictBeacon(notice('acg-witness:codespace', codespace), { seq: 1 }));
+  led.record(buildVerdictBeacon(notice('acg-witness:host-linux', host), { seq: 2 }));
+  const out = quorumFromLedger(led, { bundlesByDigest: { [bundleDigest(codespace)]: codespace, [bundleDigest(host)]: host } });
+  assert(out.quorum.verdict === 'pass', `mesh quorum is ${out.quorum.verdict}`);
+  assert(out.resolved === 2 && out.missing.length === 0 && out.mismatched.length === 0, 'both beaconed witnesses must resolve to their bundles');
+  assert(out.ledgerHash === receipt.ledgerHash, 'the committed mesh ledgerHash must match the re-derived one');
+  assert(out.quorum.verdict === receipt.meshQuorum.quorum.verdict && out.resolved === receipt.meshQuorum.resolved, 'the committed mesh receipt must match the re-derived verdict');
+  return { quorum: out.quorum.verdict, resolved: out.resolved, ledgerHash: out.ledgerHash.slice(0, 12) };
 });
 
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation

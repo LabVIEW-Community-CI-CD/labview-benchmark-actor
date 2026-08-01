@@ -1,0 +1,45 @@
+{
+  "schema": "labview-benchmark-actor/acg-mesh-loopback-receipt-v1",
+  "transport": "lbabus bus-msg@1 (ADR-0003) over loopback 127.0.0.1 TCP",
+  "producedAt": "2026-08-01T11:38:14.502Z",
+  "beaconed": [
+    "acg-witness:codespace",
+    "acg-witness:host-linux"
+  ],
+  "ledgerHash": "a307316d80085b7aa0fdf9ea3943614113d2d1c060955e92ac7fabbd778910c5",
+  "meshQuorum": {
+    "schema": "labview-benchmark-actor/acg-mesh-quorum-v1",
+    "ledgerHash": "a307316d80085b7aa0fdf9ea3943614113d2d1c060955e92ac7fabbd778910c5",
+    "beaconed": 2,
+    "resolved": 2,
+    "missing": [],
+    "mismatched": [],
+    "quorum": {
+      "schema": "labview-benchmark-actor/acg-quorum-verdict-v1",
+      "verdict": "pass",
+      "confidence": 0.9166666666666666,
+      "threshold": 0.5,
+      "witnesses": 2,
+      "concurring": 2,
+      "majority": true,
+      "distinctEnvironments": true,
+      "consensusVerdict": "pass",
+      "consensus": {
+        "version": "0.13.0",
+        "sourceCommit": "4df41092d2682379ec4c0ba2ed58246066788315",
+        "verdict": "pass",
+        "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+        "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
+        "ubuntu": "noble"
+      },
+      "divergences": [
+        {
+          "witness": "LINUX",
+          "anchor": "ubuntu",
+          "got": "resolute",
+          "consensus": "noble"
+        }
+      ]
+    }
+  }
+}
