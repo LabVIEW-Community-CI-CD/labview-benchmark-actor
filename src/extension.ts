@@ -926,6 +926,52 @@ async function bootstrapAuthoringLaneCommand(context: vscode.ExtensionContext, o
   terminal.sendText(`pwsh -NoProfile -File "${script}"`);
 }
 
+// Resolve a repo-relative file from the open workspace folder(s), falling back to the bundled extension copy.
+function resolveWorkspaceRepoFile(context: vscode.ExtensionContext, rel: string): string | undefined {
+  const candidates: string[] = [];
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    candidates.push(path.join(folder.uri.fsPath, rel));
+  }
+  candidates.push(path.join(context.extensionUri.fsPath, rel));
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+// Actor Corroboration Grid (ADR-0014, LBA-REQ-023): run the whole grid end-to-end over the committed witnesses
+// and print the release decision -- machine-corroborated across independence + quorum + attestation + mesh, then
+// held at the human sign-off gate. Cross-platform (Node); reads only committed evidence.
+async function runCorroborationGridCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const script = resolveWorkspaceRepoFile(context, path.join('experiments', 'acg-grid', 'grid-run-proof.mjs'));
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Corroboration grid runner not found (experiments/acg-grid/grid-run-proof.mjs). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  output.appendLine(`[runCorroborationGrid] node ${script}`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: 'LBA Corroboration Grid' });
+  terminal.show(true);
+  terminal.sendText(`node "${script}"`);
+}
+
+// Verify-before-install (ADR-0022, LBA-REQ-031): verify a release's corroboration provenance -- every witness
+// attestation must be enrolled-signed AND included in the signed transparency log -- running the same verifier
+// the reviewer workstation runs before installing the .vsix. Cross-platform (Node).
+async function verifyReleaseProvenanceCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const script = resolveWorkspaceRepoFile(context, path.join('experiments', 'acg-transparency', 'verify-release-inclusion.mjs'));
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Release-provenance verifier not found (experiments/acg-transparency/verify-release-inclusion.mjs). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  output.appendLine(`[verifyReleaseProvenance] node ${script}`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: 'LBA Verify Release Provenance' });
+  terminal.show(true);
+  terminal.sendText(`node "${script}"`);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const output = getOutput(context);
 
@@ -1018,6 +1064,13 @@ export function activate(context: vscode.ExtensionContext): void {
   // VI-Package build so it can be tested on a Windows cleanroom.
   context.subscriptions.push(
     vscode.commands.registerCommand('labviewBenchmarkActor.bootstrapAuthoringLane', () => bootstrapAuthoringLaneCommand(context, output))
+  );
+
+  // Actor Corroboration Grid (ADR-0014 / ADR-0022): surface the end-to-end grid run and the verify-before-install
+  // provenance check to the operator, running the same committed engines the local gates re-derive.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.runCorroborationGrid', () => runCorroborationGridCommand(context, output)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.verifyReleaseProvenance', () => verifyReleaseProvenanceCommand(context, output))
   );
 
   // Model Context Protocol surface (VS Code 1.101+): expose this extension's own tools (host capabilities,
