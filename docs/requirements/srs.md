@@ -47,6 +47,7 @@ progressively.
 | LBA-REQ-017 | The system shall record every LabVIEW authoring-lane dependency as a version-pinned entry in a governed dependency manifest. | The authoring lane (`labview_assistant` + its DQMH dependency + the `.vipb` VI-Package build) must build reproducibly on the Windows clean room, which requires every dependency pinned to a concrete, verifiable version rather than a floating reference. | `experiments/labview-authoring/dep-manifest.json` records each authoring dependency with a `pinStatus` of `resolved` (a concrete git SHA, pip version, or vipc) or `tbd-*`, and the verifier rejects a bad schema, a malformed SHA, an unknown plane, a missing python bitness, a bad `pinStatus`, or a `resolved` entry with an empty version. | Run `node experiments/labview-authoring/verify-dep-manifest.mjs` and `verify-dep-manifest.selftest.mjs`; both gated in `verify-local-gates`. |
 | LBA-REQ-018 | The system shall delegate a validated uplift task to a capability-matched cleanroom AI provider over the coordination bus. | Uplift and documentation-drafting work runs where the licensed tooling and capability differentiation live (cleanroom actors running Ollama / Copilot CLI / Codex), so the host observes each cleanroom's gated outcome over the existing `lbabus` transport rather than hosting providers centrally. | `delegateUplift` validates an `lba-uplift-task@v1` spec, drives the provider through a provider-agnostic adapter seam, applies a deterministic acceptance gate (pass and fail), and writes an `lba-uplift-delegation-receipt@v1` announced as an ADR-0003 `DONE` frame; the registry routes a `CLAIM` only to a live capability-matched worker; the worker pool bounds concurrency; each uplift domain (coverage-lift, evidence, risky-test, VIPM credential + routing) gates fail-closed — all proven offline via the mock adapter. | Run the provider-delegation verify suite (`verify-provider-delegation`, `verify-registry`, `verify-claim-tasking`, `verify-worker-pool`, `verify-quality-gate`, `verify-vipm-routing`, `verify-vipm-gate`, `verify-coverage-lift`, `verify-evidence`, `verify-risky-test`); gated in `verify-local-gates`. |
 | LBA-REQ-019 | The system shall expose the benchmark actor's tools to a coding agent through a Model Context Protocol server. | Coding agents consume tooling through MCP, and the actor already holds value an agent wants (host capabilities, the deterministic mprr benchmark series, and the `lbabus` coordination bus), so a standard MCP surface lets an agent discover and call them directly rather than through bespoke VS Code commands. | The compiled JSON-RPC 2.0 handler answers `initialize` / `tools/list` / `tools/call` over newline-delimited stdio, publishes exactly four tools (`get_host_capabilities`, `get_benchmark_series`, `poll_coordination_bus`, `post_coordination_note`), returns `-32601` / `-32602` for an unknown method / tool, and degrades a missing `lbabus` to a soft `isError` rather than a transport crash; the definition provider registers under the same id the manifest contributes; and `docs/mcp-tools.md` matches the published registry. | Run `npm test` (compiles, then runs `test/mcp-server.mjs` -- pure-core, activation, and stdio legs -- and `scripts/mcpToolDoc.mjs --check docs/mcp-tools.md`). |
+| LBA-REQ-020 | The system shall block a component release from publishing until both the WIN and LINUX planes have recorded an agreed sign-off for that exact component version. | A shared release (the `collab-cli` bus binary or the VS Code extension `.vsix`) is co-owned by both planes, so letting either plane publish unilaterally would ship an unreviewed change; each component's release workflow therefore fails closed until both planes commit an explicit `agreed:true` sign-off for the exact version. | `verify-release-agreement.mjs` reads `tools/collab-cli/release-agreement.json` (`release-agreement@v2`) and exits 0 only when every required plane (WIN, LINUX) records `agreed:true` for the `<component, version>`, exits 1 fail-closed on a missing / withheld / unparseable sign-off, and exits 2 on a usage error; both `extension-release.yml` and `collab-cli-release.yml` run it before their publish job. | Run `node tools/collab-cli/verify-release-agreement.mjs <version>` (and `--component extension <version>`); each release workflow gates its publish job on the gate's exit 0. |
 
 ---
 
@@ -572,6 +573,35 @@ progressively.
   dependency enters the packaged `.vsix`. Decision recorded in ADR-0012. Authored
   under the `repo-standards-review` singular-requirement directive (one `shall`).
 
+### LBA-REQ-020: Bidirectional release sign-off
+
+- Status: Proven
+- Area: CM / release governance (bidirectional WIN<->LINUX plane sign-off)
+- Statement: The system shall block a component release from publishing until
+  both the WIN and LINUX planes have recorded an agreed sign-off for that exact
+  component version.
+- Rationale: A shared release — the `collab-cli` bus binary (`collab-cli-vX.Y.Z`)
+  or the VS Code extension `.vsix` (`ext-vX.Y.Z`) — is co-owned by both planes.
+  Letting either plane publish unilaterally would ship an unreviewed change, so
+  each component's release workflow fails closed until both planes commit an
+  explicit `agreed:true` sign-off for the exact version.
+- Acceptance Criteria:
+  - `verify-release-agreement.mjs` reads `tools/collab-cli/release-agreement.json`
+    (`release-agreement@v2`) and exits 0 only when every required plane (WIN and
+    LINUX) records `agreed:true` for the `<component, version>` being published.
+  - The gate fails closed: it exits 1 on a missing, withheld (`agreed:false`), or
+    unparseable sign-off, and exits 2 on a usage error, so an absent ledger never
+    reads as consent.
+  - `<version>` accepts the bare SemVer or the tagged form (`collab-cli-vX.Y.Z` /
+    `ext-vX.Y.Z`); the default component is `collab-cli` and `--component <name>`
+    selects another (e.g. `extension`).
+  - Gated in CI: both `.github/workflows/extension-release.yml` and
+    `.github/workflows/collab-cli-release.yml` run the gate before their publish
+    job, so neither plane can unilaterally ship a shared release.
+- Change Guidance: Keep the gate fail-closed and keep both release workflows
+  calling it before publish. New required planes extend `requiredPlanes`. Authored
+  under the `repo-standards-review` singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -597,3 +627,4 @@ progressively.
 | LBA-REQ-017 | Authoring lane (dependency manifest) | T-017 |
 | LBA-REQ-018 | Provider delegation (cleanroom AI uplift) | T-018 |
 | LBA-REQ-019 | Agentic infra (MCP tool surface) | T-019 |
+| LBA-REQ-020 | CM (bidirectional release sign-off) | T-020 |
