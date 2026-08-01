@@ -29,6 +29,16 @@ tag on `main` remains the sole publish authority (GitFlow never weakens it).
 - Releases are SemVer-tagged (`vX.Y.Z`) on `main`; the tag is CI-owned and triggers publish (`collab-cli-vX.Y.Z` for the CLI; the extension release for the `.vsix`).
 - On the tagged release path CI re-runs the full verification suite and retains its coverage evidence, so coverage is retained on every release tag.
 
+### Merge method by branch type
+
+The repository enables squash, merge-commit, and rebase merges; this convention uses **squash** and **`--no-ff` merge commits**, selected by branch type so the GitFlow topology stays sound (rebase-merge is not part of the convention):
+
+- **Feature → `develop`: squash merge.** Each reviewed pull request lands as one logical, revertible commit, keeping `develop` linear.
+- **Release → `main` and back into `develop`: `--no-ff` merge commit.** The two-parent merge preserves shared ancestry so `main` and `develop` never diverge into different commit SHAs for identical content.
+- **Hotfix → `main` and back into `develop` (or the active `release/*`): `--no-ff` merge commit**, for the same shared-ancestry reason.
+
+Squash is reserved for the single-target feature path only: squashing a release or hotfix into both `main` and `develop` would create unrelated commits for identical content and make subsequent `main` ↔ `develop` merges replay phantom conflicts.
+
 ## Standards-release stamp (ISO 10007 identification)
 
 - `repo-standards-review` release: **v0.2.19**

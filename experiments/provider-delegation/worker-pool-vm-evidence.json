@@ -1,0 +1,30 @@
+{
+  "schema": "labview-benchmark-actor/provider-delegation-worker-pool-evidence@v1",
+  "what": "The persistent worker POOL taking CONCURRENT claims, proven both deterministically (loopback) and cross-machine (host coordinators -> VM pool). The pool bounds in-flight delegations to --concurrency N; excess concurrent claims queue FIFO and drain as slots free.",
+  "provenAt": "2026-07-31T15:20:00Z",
+  "deterministic": {
+    "test": "verify-worker-pool.mjs",
+    "result": "PASS, 7 assertions",
+    "detail": "5 concurrent claims against a pool of N=2: peak in-flight provider calls = 2 (mock with an 80ms delay), every claim ACKed + returned DONE verdict=pass, pool drained (done=5, running=0, queued=0), and the pool stayed up to complete a further claim (persistent)."
+  },
+  "crossMachine": {
+    "worker": "lba-ubuntu-scratch on VM lba-ubuntu2404-labview2026-scratch, `node worker.mjs --listen 7440 --concurrency 2 --provider ollama --model llama3.1:8b`",
+    "coordinators": "3 host coordinators in parallel (observe 7421/7422/7423), tasks T-POOL-1/2/3, reply 10.0.2.2",
+    "provider": "host Ollama llama3.1:8b, reached from the VM at 10.0.2.2:11533 (TCP proxy)",
+    "poolLog": [
+      "CLAIMED id=T-POOL-3 (starting; running=0/2 queued=1)",
+      "CLAIMED id=T-POOL-2 (starting; running=1/2 queued=1)",
+      "CLAIMED id=T-POOL-1 (starting; running=1/2 queued=2)",
+      "DONE id=T-POOL-3 verdict=pass announced=true (running=1/2 queued=1)",
+      "DONE id=T-POOL-2 verdict=pass announced=true (running=1/2 queued=0)",
+      "DONE id=T-POOL-1 verdict=pass announced=true (running=0/2 queued=0)"
+    ],
+    "coordinatorResults": [
+      "coord 1: task=T-POOL-1 claimed=yes verdict=pass",
+      "coord 2: task=T-POOL-2 claimed=yes verdict=pass",
+      "coord 3: task=T-POOL-3 claimed=yes verdict=pass"
+    ],
+    "observed": "the pool ran 2 concurrently and queued the 3rd (queued reached 2), draining to 0 as slots freed; all three claims returned verdict=pass."
+  },
+  "note": "The scratch VM powered off shortly after this run completed (worker SSH exit 255, then VM state=poweroff). The pool proof had already completed and was confirmed by both the worker log and the three coordinators before the VM went down; the deterministic proof is independent. The temporary NAT forward + Ollama proxy were removed."
+}

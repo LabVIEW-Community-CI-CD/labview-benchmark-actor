@@ -1,0 +1,23 @@
+{
+  "schema": "labview-benchmark-actor/coverage-lift-evidence@v1",
+  "what": "The coverage-lift uplift domain: a provider-proposed test gated on the MEASURED function coverage of a named target module, parsed directly from NODE_V8_COVERAGE (dependency-free -- no c8), not on structure. Baseline of an un-exercised module is ~0%, so reaching the floor is the lift.",
+  "provenAt": "2026-07-31T15:40:00Z",
+  "target": "experiments/provider-delegation/fixtures/sample-module.mjs",
+  "deterministic": {
+    "test": "verify-coverage-lift.mjs",
+    "result": "PASS, 8 assertions",
+    "cases": {
+      "thorough": "verdict=pass, funcsPct=100 (all 4 functions + the module called)",
+      "weak": "verdict=fail, funcsPct=40 (< 80 floor; module + classify of 5 functions; the test still ran, exit 0)",
+      "failing": "verdict=fail (proposed-test-runs=false -- the assertion threw)"
+    }
+  },
+  "liveOllama": {
+    "model": "llama3.1:8b",
+    "proposedTestChars": 396,
+    "inspected": "benign -- imports ./target.mjs, calls classify/clamp/sum/fib, process.exit(0); no fs, no network, no child_process",
+    "measured": { "funcsPct": 100, "ran": true, "exitCode": 0, "verdict": "pass" }
+  },
+  "safety": "Measuring executes the proposed test. The deterministic gate runs only TRUSTED hand-authored tests. UNTRUSTED provider-proposed tests should be measured inside the DISPOSABLE cleanroom VM (the harness runs identically there), not on a trusted host. Node --permission cannot be combined with V8 coverage, so isolation is by disposable environment, not by in-process sandbox. The live test above was inspected before execution.",
+  "note": "Coverage is measured as FUNCTION coverage parsed directly from NODE_V8_COVERAGE (dependency-free, no c8), so the gate runs under the pure dependency-free local suite (experiments/verify-local-gates.mjs) too. Gate additionally on branch coverage for stricter uplift."
+}

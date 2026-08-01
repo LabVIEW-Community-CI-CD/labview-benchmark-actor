@@ -27,6 +27,7 @@ Adopt **GitFlow** as the single accepted branch-governance doctrine for labview-
 - Hotfix branches are created from `main`, then merged into `main` and merged into `develop` (or the active `release/*` branch), and deleted after the required merges complete.
 - Releases are SemVer-tagged (`vX.Y.Z`) on `main`; the tag stays CI-owned and is the sole publish authority, so GitFlow does not weaken release security.
 - On the tagged release path CI re-runs the full verification suite and retains its coverage evidence, so coverage is retained on every release tag.
+- Merge method follows the branch type: a feature branch lands on `develop` as a **squash** merge (one logical commit, linear `develop`), while **release and hotfix branches use `--no-ff` merge commits** into both `main` and `develop` so the mandated dual back-merge preserves shared ancestry (squashing them would diverge `main` and `develop` into different SHAs for identical content). Squash and merge-commit are both enabled and used per branch type; rebase-merge is also enabled on the repository but is not part of this convention.
 
 The governance is recorded canonically in `docs/cm/cm-plan.md` and traced by LBA-REQ-016 in the SRS + RTM.
 

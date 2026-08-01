@@ -1,0 +1,5 @@
+# Regenerable / non-deterministic provider outputs. The committed evidence is the deterministic
+# mock path (receipt.json + draft.sample.md); the live provider artifacts are reproduced on demand.
+draft.live.md
+receipt.live.json
+uplift-*.receipt.json
