@@ -169,18 +169,26 @@ jobs:
           if-no-files-found: error
 
       - name: Create GitHub Release
-        # Only on a real tag push (retained for if the org ruleset is lifted). On workflow_dispatch the ext-v*
-        # tag cannot be created by github.token, so the maintainer cuts the release locally from the signed
-        # artifact above with an authorized bypass token.
+        # Under the org tag-creation ruleset the maintainer cuts the release LOCALLY from the signed artifact
+        # with a bypass token; that `gh release create` also creates the ext-v* tag, which FIRES this push
+        # trigger. So on push the release usually ALREADY exists -- detect it and no-op (this run then serves as
+        # a post-cut re-validation of build + agreement + agent-last-gate at the tagged commit). Only if the
+        # release is somehow absent (e.g. a future world where the ruleset is lifted and the tag was pushed
+        # directly) do we create it from the freshly staged + signed assets.
         if: ${{ github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "${GITHUB_REF_NAME}"
-          --repo "${GITHUB_REPOSITORY}"
-          --title "LabVIEW Benchmark Actor ${{ steps.ver.outputs.version }}"
-          --notes-file "${{ steps.notes.outputs.path }}"
-          staging/*
+        run: |
+          set -eu
+          if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists (cut locally from the signed artifact under the org tag ruleset) -- this push-triggered run re-validated build + agreement + agent-last-gate at the tag; nothing to create."
+            exit 0
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "LabVIEW Benchmark Actor ${{ steps.ver.outputs.version }}" \
+            --notes-file "${{ steps.notes.outputs.path }}" \
+            staging/*
 
       - name: Publish to VS Code Marketplace
         # Fork-safe: only the canonical repo publishes. Fail-OPEN on a missing PAT so the GitHub Release

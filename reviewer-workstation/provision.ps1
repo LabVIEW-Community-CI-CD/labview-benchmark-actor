@@ -168,7 +168,13 @@ function Assert-ReleaseProvenance([string]$ExtTag, [string]$WorkDir) {
 # attached to the Release by the hardened release lane -- BEFORE installing it. Needs network (the sigstore TUF
 # root + rekor). A failed OR absent signature BLOCKS the install (fail-closed). Set VIHS_REVIEWER_ALLOW_UNSIGNED=1
 # ONLY to install a pre-hardening release that predates artifact keyless-signing.
-$KeylessIdentityRegexp = '^https://github\.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/\.github/workflows/extension-release\.yml@refs/tags/ext-v'
+# The Fulcio cert identity binds to the ref the signing workflow ran on. Under the org tag-creation ruleset the
+# live release is keyless-signed by extension-release.yml on workflow_dispatch from refs/heads/develop (the tag
+# cannot be pushed, so the OIDC identity can never be a tag ref); the maintainer then cuts the immutable release
+# locally from that signed artifact. Accept EITHER that develop-ref identity OR an ext-v* tag identity (the latter
+# retained for if the ruleset is lifted). The repo + workflow-file + OIDC-issuer pin is the real trust anchor, and
+# the workflow's own fail-closed bidirectional WIN<->LINUX agreement gate is what authorizes the signature.
+$KeylessIdentityRegexp = '^https://github\.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/\.github/workflows/extension-release\.yml@refs/(tags/ext-v|heads/develop)'
 $KeylessOidcIssuer = 'https://token.actions.githubusercontent.com'
 
 function Ensure-Cosign {
