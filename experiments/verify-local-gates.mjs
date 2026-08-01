@@ -61,6 +61,7 @@ import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/i
 import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/verdict-beacon.mjs';
 import { bundleDigest } from './acg-provenance/attest.mjs';
 import { gateReleasePublish } from './acg-reviewer/sign-off.mjs';
+import { runGrid } from './acg-grid/grid.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -639,6 +640,32 @@ check('acg-reviewer-release-decision', () => {
   assert(decision.publish === false, 'publish must be blocked with no recorded human sign-off');
   assert(decision.publish === receipt.decision.publish && decision.quorumPass === receipt.decision.quorumPass, 'the committed release decision must match the re-derived one');
   return { publish: decision.publish, quorumPass: decision.quorumPass };
+});
+
+// The Actor Corroboration Grid END-TO-END (ADR-0014, LBA-REQ-023, the umbrella): the whole gate -- independence +
+// quorum + attestation + mesh + human sign-off composed into one release decision -- must hold and fail closed on
+// any failing stage. Run its dependency-free self-test as a subprocess.
+check('acg-grid-e2e', () => {
+  execFileSync(process.execPath, [join(here, 'acg-grid', 'grid.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'grid 6/6' };
+});
+
+// Live end-to-end grid evidence (ADR-0014, LBA-REQ-023): the REAL {codespace, host} grid must corroborate the
+// release through every MACHINE stage (independence + quorum + attestation + mesh) and be held only at the human
+// sign-off gate. Re-derive runGrid over the committed witnesses + attestations + enrollment and assert
+// machineCorroborated with released blocked pending sign-off -- matching the committed grid-run receipt.
+check('acg-grid-run-live', () => {
+  const witnesses = [
+    { bundle: readJson('experiments/acg-quorum/witnesses/codespace.bundle.json'), attestation: readJson('experiments/acg-provenance/attestations/codespace.attestation.json') },
+    { bundle: readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json'), attestation: readJson('experiments/acg-provenance/attestations/host-linux.attestation.json') },
+  ];
+  const result = runGrid({ witnesses, allowlist: readJson('experiments/acg-provenance/enrollment/allowlist.json'), enrollment: readJson('experiments/acg-independence/enrolled-environments.json'), signOffs: [] });
+  const receipt = readJson('experiments/acg-grid/grid-run-receipt.json');
+  assert(result.machineCorroborated === true, 'the real grid must corroborate through every machine stage');
+  for (const s of ['independence', 'quorum', 'attestation', 'mesh']) assert(result.stages[s].ok === true, `machine stage ${s} must pass`);
+  assert(result.released === false, 'released must be blocked pending a human sign-off');
+  assert(result.machineCorroborated === receipt.result.machineCorroborated && result.released === receipt.result.released, 'the committed grid-run receipt must match the re-derived run');
+  return { machineCorroborated: result.machineCorroborated, released: result.released };
 });
 
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
