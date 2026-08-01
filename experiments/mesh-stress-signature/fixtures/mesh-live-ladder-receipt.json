@@ -1,0 +1,262 @@
+{
+  "schema": "labview-benchmark-actor/mesh-stress-live-ladder@1",
+  "capturedAtIso": "2026-08-01T21:39:22.254Z",
+  "host": {
+    "platform": "linux",
+    "cpus": 24,
+    "totalMemGb": 65,
+    "hostname": "sergio-ThinkPad-P16-Gen-3",
+    "loadAvg1": 5.75
+  },
+  "ladder": {
+    "levels": [
+      "idle",
+      "light",
+      "medium",
+      "heavy",
+      "saturate"
+    ],
+    "repeats": 3,
+    "samplesPerRepeat": 24,
+    "commanded": [
+      {
+        "rung": "idle",
+        "level": 0,
+        "spinners": 0,
+        "workloadWorkers": 0
+      },
+      {
+        "rung": "light",
+        "level": 1,
+        "spinners": 3,
+        "workloadWorkers": 1
+      },
+      {
+        "rung": "medium",
+        "level": 2,
+        "spinners": 6,
+        "workloadWorkers": 2
+      },
+      {
+        "rung": "heavy",
+        "level": 3,
+        "spinners": 12,
+        "workloadWorkers": 4
+      },
+      {
+        "rung": "saturate",
+        "level": 4,
+        "spinners": 24,
+        "workloadWorkers": 8
+      }
+    ]
+  },
+  "frameRateHz": 12,
+  "counterKeys": [
+    "contextSwitchesPerSec",
+    "cpuPrivilegedPct",
+    "cpuTotalPct",
+    "cpuUserPct",
+    "diskReadBytesPerSec",
+    "diskReadsPerSec",
+    "diskWriteBytesPerSec",
+    "diskWritesPerSec",
+    "loadAvg1",
+    "memAvailableMb",
+    "memCommittedBytes",
+    "memCommittedInUsePct",
+    "netBytesReceivedPerSec",
+    "netBytesSentPerSec",
+    "procsRunning"
+  ],
+  "salientDimensions": [
+    "cpuTotalPct.max",
+    "cpuTotalPct.mean",
+    "cpuTotalPct.min",
+    "cpuTotalPct.p50",
+    "cpuTotalPct.p95",
+    "cpuTotalPct.p99",
+    "cpuUserPct.max",
+    "cpuUserPct.mean",
+    "cpuUserPct.min",
+    "cpuUserPct.p50",
+    "cpuUserPct.p95",
+    "cpuUserPct.p99",
+    "diskWriteBytesPerSec.periodicityStrength",
+    "loadAvg1.max",
+    "loadAvg1.mean",
+    "loadAvg1.min",
+    "loadAvg1.p50",
+    "loadAvg1.p95",
+    "loadAvg1.p99",
+    "memAvailableMb.max",
+    "memAvailableMb.mean",
+    "memAvailableMb.p95",
+    "memAvailableMb.p99",
+    "memCommittedBytes.mean",
+    "memCommittedBytes.min",
+    "memCommittedBytes.p50",
+    "memCommittedInUsePct.mean",
+    "memCommittedInUsePct.min",
+    "procsRunning.max",
+    "procsRunning.mean",
+    "procsRunning.min",
+    "procsRunning.p50",
+    "procsRunning.p95",
+    "procsRunning.p99"
+  ],
+  "cpuTotalPctMeanCurve": [
+    {
+      "rung": "idle",
+      "expected": 1.5,
+      "tolerance": 0.5
+    },
+    {
+      "rung": "light",
+      "expected": 14.8,
+      "tolerance": 3.4
+    },
+    {
+      "rung": "medium",
+      "expected": 26.6,
+      "tolerance": 0.2
+    },
+    {
+      "rung": "heavy",
+      "expected": 51.7,
+      "tolerance": 0.5
+    },
+    {
+      "rung": "saturate",
+      "expected": 99.9,
+      "tolerance": 0.2
+    }
+  ],
+  "invariants": {
+    "monotone": 1,
+    "separable": true,
+    "repeatable": true
+  },
+  "separability": [
+    {
+      "from": "idle",
+      "to": "light",
+      "separableDims": 19,
+      "dims": [
+        "cpuTotalPct.max",
+        "cpuTotalPct.mean",
+        "cpuTotalPct.min",
+        "cpuTotalPct.p50",
+        "cpuTotalPct.p95",
+        "cpuTotalPct.p99",
+        "cpuUserPct.max",
+        "cpuUserPct.mean",
+        "cpuUserPct.min",
+        "cpuUserPct.p50",
+        "cpuUserPct.p95",
+        "cpuUserPct.p99",
+        "memAvailableMb.mean",
+        "memCommittedBytes.min",
+        "memCommittedBytes.p50",
+        "memCommittedInUsePct.mean",
+        "procsRunning.mean",
+        "procsRunning.min",
+        "procsRunning.p50"
+      ]
+    },
+    {
+      "from": "light",
+      "to": "medium",
+      "separableDims": 19,
+      "dims": [
+        "cpuTotalPct.max",
+        "cpuTotalPct.mean",
+        "cpuTotalPct.min",
+        "cpuTotalPct.p50",
+        "cpuTotalPct.p95",
+        "cpuTotalPct.p99",
+        "cpuUserPct.max",
+        "cpuUserPct.mean",
+        "cpuUserPct.min",
+        "cpuUserPct.p50",
+        "cpuUserPct.p95",
+        "cpuUserPct.p99",
+        "memCommittedBytes.min",
+        "procsRunning.max",
+        "procsRunning.mean",
+        "procsRunning.min",
+        "procsRunning.p50",
+        "procsRunning.p95",
+        "procsRunning.p99"
+      ]
+    },
+    {
+      "from": "medium",
+      "to": "heavy",
+      "separableDims": 22,
+      "dims": [
+        "cpuTotalPct.max",
+        "cpuTotalPct.mean",
+        "cpuTotalPct.min",
+        "cpuTotalPct.p50",
+        "cpuTotalPct.p95",
+        "cpuTotalPct.p99",
+        "cpuUserPct.max",
+        "cpuUserPct.mean",
+        "cpuUserPct.min",
+        "cpuUserPct.p50",
+        "cpuUserPct.p95",
+        "cpuUserPct.p99",
+        "loadAvg1.p50",
+        "memCommittedBytes.mean",
+        "memCommittedBytes.min",
+        "memCommittedBytes.p50",
+        "procsRunning.max",
+        "procsRunning.mean",
+        "procsRunning.min",
+        "procsRunning.p50",
+        "procsRunning.p95",
+        "procsRunning.p99"
+      ]
+    },
+    {
+      "from": "heavy",
+      "to": "saturate",
+      "separableDims": 27,
+      "dims": [
+        "cpuTotalPct.max",
+        "cpuTotalPct.mean",
+        "cpuTotalPct.min",
+        "cpuTotalPct.p50",
+        "cpuTotalPct.p95",
+        "cpuTotalPct.p99",
+        "cpuUserPct.max",
+        "cpuUserPct.mean",
+        "cpuUserPct.min",
+        "cpuUserPct.p50",
+        "cpuUserPct.p95",
+        "cpuUserPct.p99",
+        "memAvailableMb.max",
+        "memAvailableMb.mean",
+        "memAvailableMb.p95",
+        "memAvailableMb.p99",
+        "memCommittedBytes.mean",
+        "memCommittedBytes.min",
+        "memCommittedBytes.p50",
+        "memCommittedInUsePct.mean",
+        "memCommittedInUsePct.min",
+        "procsRunning.max",
+        "procsRunning.mean",
+        "procsRunning.min",
+        "procsRunning.p50",
+        "procsRunning.p95",
+        "procsRunning.p99"
+      ]
+    }
+  ],
+  "inverseRead": {
+    "heldOutRung": "medium",
+    "inferredRung": "medium",
+    "confidence": 1
+  }
+}
