@@ -564,6 +564,19 @@ check('performance-counter-correlation-live-trigger', () => {
   return { detectedBy: r.detection.detectedBy.map((d) => d.key), effectiveFps: r.capture.measured.effectiveFps };
 });
 
+// LBA-REQ-011 (extended, LIVE end-to-end INTEGRATION): the REAL Linux sampler -> buildLaunchCapture -> v2
+// correlator chain, proven on a committed receipt captured on this host -- the exact-12-FPS /proc counters survive
+// the shipped capture assembler onto EVERY frame and reach the shipped correlator webview model.
+check('live-v2-capture-real', () => {
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'liveV2Capture.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'live-v2-capture-receipt.json'), 'utf8'));
+  assert(r.measured && r.measured.exactly12fps === true, 'the real sampler locked to EXACTLY 12 FPS');
+  assert(r.recordSchema === 'labview-benchmark-actor/launch-capture@1', 'the assembler produced a launch-capture@1 record');
+  assert(r.everyFrameHasCounters === true && r.correlatorRendersCounters === true, 'counters survive sampler -> assembler -> correlator');
+  assert(Array.isArray(r.counterKeys) && r.counterKeys.length >= 12, `the full Linux counter catalog reached the record (${r.counterKeys && r.counterKeys.length})`);
+  return { chain: 'linuxProcSampler -> buildLaunchCapture -> frame-correlator', counters: r.counterKeys.length, frames: r.frameCount };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
