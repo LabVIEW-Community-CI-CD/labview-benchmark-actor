@@ -41,3 +41,6 @@ experiments/agent-last-gate/receipt.json
 coverage/tmp/
 coverage/coverage-summary.json
 .nyc_output/
+
+# .NET "runfile discovery" tooling cache the C# extension writes into the workspace root (codespace/cleanroom noise)
+/dotnet/
