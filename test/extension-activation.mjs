@@ -204,6 +204,7 @@ try {
     'labviewBenchmarkActor.openCrossPlaneTrend',
     'labviewBenchmarkActor.openResourceProfile',
     'labviewBenchmarkActor.openCrossPlaneResource',
+    'labviewBenchmarkActor.openMeshCalibration',
     'labviewBenchmarkActor.writeAgents',
     'labviewBenchmarkActor.showAgents',
     'labviewBenchmarkActor.checkAgents',
@@ -469,6 +470,7 @@ try {
     'labviewBenchmarkActor.openCrossPlaneTrend',
     'labviewBenchmarkActor.openResourceProfile',
     'labviewBenchmarkActor.openCrossPlaneResource',
+    'labviewBenchmarkActor.openMeshCalibration',
   ];
   const panelsBefore = panels.length;
   for (const id of panelCommands) {
@@ -483,6 +485,11 @@ try {
   assert(
     panels.slice(panelsBefore).every((p) => typeof p.webview.html === 'string' && p.webview.html.length > 0),
     'each benchmark panel sets non-empty HTML (fixtures loaded -- the real render path, not the error path)'
+  );
+  // the mesh-stress calibration panel specifically renders the script-free analysis view (LBA-REQ-032, VW-1).
+  assert(
+    panels.slice(panelsBefore).some((p) => /Mesh-Stress Calibration &mdash; Analysis view/.test(p.webview.html) && /script-src 'none'/.test(p.webview.html)),
+    'openMeshCalibration renders the inert mesh calibration analysis view from the staged live-ladder receipt'
   );
 
   // pollBus + postNote (CLI-backed): child_process is mocked to ENOENT, so both surface remediation via runCli.
@@ -580,11 +587,11 @@ try {
   mockVscode.commands.registerCommand = savedRegisterCommand;
   mockVscode.lm.registerTool = savedRegisterTool;
   const errBefore = errorMessages.length;
-  for (const id of ['openBenchmarkRun', 'openBenchmarkTrend', 'openCrossPlaneTrend', 'openResourceProfile', 'openCrossPlaneResource']) {
+  for (const id of ['openBenchmarkRun', 'openBenchmarkTrend', 'openCrossPlaneTrend', 'openResourceProfile', 'openCrossPlaneResource', 'openMeshCalibration']) {
     await second.find((r) => r.id === `labviewBenchmarkActor.${id}`).handler();
   }
   assert(
-    errorMessages.length >= errBefore + 5,
+    errorMessages.length >= errBefore + 6,
     'each panel command reports a UI error (reportUiError) when the staged fixtures are unreadable (graceful degradation, not a crash)'
   );
 

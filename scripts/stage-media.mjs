@@ -79,6 +79,18 @@ writeFileSync(
   join(repo, 'media', 'resource-cross-plane-receipt.json'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'resource-cross-plane-receipt.json'))
 );
+// 1c-iii. The mesh-stress calibration ANALYSIS VIEW (overview.md 3.6 / VW-1, LBA-REQ-032): a self-contained,
+//     script-free builder that renders the committed live mesh-stress ladder receipt (the commanded ladder, the
+//     cpuTotalPct calibration curve + tolerance band, the invariants, the separability, and the inverse read).
+//     Gated by meshCalibrationView.selftest.mjs; the extension opens it via Open Mesh-Stress Calibration.
+writeFileSync(
+  join(repo, 'media', 'meshCalibrationView.mjs'),
+  readFileSync(join(repo, 'experiments', 'mesh-stress-signature', 'meshCalibrationView.mjs'))
+);
+writeFileSync(
+  join(repo, 'media', 'mesh-live-ladder-receipt.json'),
+  readFileSync(join(repo, 'experiments', 'mesh-stress-signature', 'fixtures', 'mesh-live-ladder-receipt.json'))
+);
 
 // 2. Real mprr ring-buffer series for the deployed viewer.
 const fixture = JSON.parse(
