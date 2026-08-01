@@ -33,6 +33,21 @@ ADR-0006).
 
 ---
 
+## Requirements (governed register)
+
+Per the `repo-standards-review` requirement directive (ISO/IEC/IEEE 29148:2018
+§5.2.5 Singular), each requirement is a single-`shall` row with a measurable Fit
+Criterion and a Verification method, validated by
+`scripts/requirements_quality_check.py`. The `### LBA-REQ-NNN` sections below
+elaborate acceptance detail. Rows are migrated into this governed register
+progressively.
+
+| ID | Requirement | Rationale | Fit Criterion | Verification |
+| --- | --- | --- | --- | --- |
+| LBA-REQ-017 | The system shall record every LabVIEW authoring-lane dependency as a version-pinned entry in a governed dependency manifest. | The authoring lane (`labview_assistant` + its DQMH dependency + the `.vipb` VI-Package build) must build reproducibly on the Windows clean room, which requires every dependency pinned to a concrete, verifiable version rather than a floating reference. | `experiments/labview-authoring/dep-manifest.json` records each authoring dependency with a `pinStatus` of `resolved` (a concrete git SHA, pip version, or vipc) or `tbd-*`, and the verifier rejects a bad schema, a malformed SHA, an unknown plane, a missing python bitness, a bad `pinStatus`, or a `resolved` entry with an empty version. | Run `node experiments/labview-authoring/verify-dep-manifest.mjs` and `verify-dep-manifest.selftest.mjs`; both gated in `verify-local-gates`. |
+
+---
+
 ### LBA-REQ-001: Standalone extraction of hooking and agentic infrastructure
 
 - Status: Proposed
@@ -466,6 +481,33 @@ ADR-0006).
 
 ---
 
+### LBA-REQ-017: LabVIEW authoring-lane dependency manifest
+
+- Status: Proven
+- Area: Authoring lane (Windows/ActiveX build reproducibility)
+- Statement: The system shall record every LabVIEW authoring-lane dependency as
+  a version-pinned entry in a governed dependency manifest.
+- Rationale: The authoring lane (`labview_assistant` + its DQMH dependency + the
+  `.vipb` VI-Package build) must build reproducibly on the Windows clean room,
+  which requires every dependency pinned to a concrete, verifiable version rather
+  than a floating reference.
+- Acceptance Criteria:
+  - `experiments/labview-authoring/dep-manifest.json` (`dep-manifest@1`) records
+    each authoring dependency with a `pinStatus` of `resolved` — carrying a
+    concrete git SHA, pip version, or vipc — or `tbd-*` (a pin LINUX still has to
+    verify on the VM; allowed to omit its concrete value but not its shape).
+  - `verify-dep-manifest.mjs` validates the manifest shape and pin format
+    fail-closed: it rejects a bad schema, a malformed SHA, an unknown plane, a
+    missing python bitness, a bad `pinStatus`, or a `resolved` entry with an
+    empty version.
+  - Gated: `verify-dep-manifest.mjs` + `verify-dep-manifest.selftest.mjs` run in
+    `verify-local-gates` (an authoring-namespaced check).
+- Change Guidance: Keep the manifest single-purpose (pin format + shape only, not
+  live resolution) so the check stays deterministic and offline. Authored under
+  the `repo-standards-review` singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -486,3 +528,4 @@ ADR-0006).
 | LBA-REQ-014 | Analysis (cross-plane compare) | T-014 |
 | LBA-REQ-015 | Analysis (VI Analyzer benchmark) | T-015 |
 | LBA-REQ-016 | CM (GitFlow branch governance) | T-016 |
+| LBA-REQ-017 | Authoring lane (dependency manifest) | T-017 |
