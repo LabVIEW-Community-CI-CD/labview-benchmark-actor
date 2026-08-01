@@ -602,6 +602,14 @@ check('mesh-stress-orchestrator', () => {
   return { selftest: 'stressOrchestrator 5/5', schema: 'mesh-stress-orchestrator@v1' };
 });
 
+// LBA-REQ-011 (extended): the in-guest Linux /proc sampler emits the v2 counters{} catalog (key-for-key at PARITY
+// with the host linuxProcSampler), so a Linux actor produces the same performance-counter-correlation@v2 shape a
+// Windows PDH actor does. Replays a committed REAL live capture from in-guest-resource-sampler.py.
+check('in-guest-sampler-v2', () => {
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'inGuestSamplerV2.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'inGuestSamplerV2 2/2 (REAL)', schema: 'in-guest-resource-sampler@v2' };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
