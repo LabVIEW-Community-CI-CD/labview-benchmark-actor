@@ -526,6 +526,19 @@ check('acg-provenance-attest', () => {
   return { selftest: 'attest 10/10' };
 });
 
+// LBA-REQ-011 (extended): click-to-marker on the raw benchmark data with a +/-200 ms image-grab tolerance.
+// A pointer CLICK resolves to an epoch-ms instant, writes a marker into the launch metadata, and post-processing
+// grabs the captured frame image nearest that instant ONLY within the tolerance (never a wrong-frame image).
+// Also drift-guards the all-performance-counter correlation schema (>= 20 counters cataloged, 200 ms tolerance).
+check('frame-markers-image-grab', () => {
+  execFileSync(process.execPath, [join(here, 'resource-usage-correlation', 'frameMarkers.selftest.mjs')], { stdio: 'pipe' });
+  const schema = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'performance-counter-schema.json'), 'utf8'));
+  assert(schema.markers && schema.markers.toleranceMs === 200, 'performance-counter schema marker tolerance must be 200 ms');
+  const counters = Object.values(schema.counterCatalog || {}).reduce((a, c) => a + c.length, 0);
+  assert(counters >= 20, `performance-counter schema must catalog the broad counter set (got ${counters})`);
+  return { selftest: 'frameMarkers 12/12', counters };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-

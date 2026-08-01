@@ -1,0 +1,132 @@
+{
+  "schema": "labview-benchmark-actor/performance-counter-correlation@v2",
+  "supersedes": "labview-benchmark-actor/resource-usage-correlation@v1",
+  "title": "Full performance-counter <-> 12 FPS benchmark-frame correlation + click markers",
+  "requirement": "LBA-REQ-011 (extended: all performance counters, not only CPU/RAM/disk)",
+  "summary": "Correlate EVERY sampled Windows performance counter (not just CPU/RAM/disk) to the 12 FPS benchmark-frame timeline on the shared epoch-ms / frame axis, and let a click on the raw-data chart write a MARKER label into the metadata so post-processing can grab the captured image at that instant within a +/-200 ms tolerance.",
+  "frame": {
+    "frameRateHz": 12,
+    "frameIntervalMs": 83.3333333333,
+    "note": "12 frames/sec => 1000/12 = 83.333.. ms per frame. frameIndex(epochMs) = floor((epochMs - epochMsAtFrameZero) / frameIntervalMs); null before frame 0 (never clamped).",
+    "sharedAxis": "epochMs (host clock). Guest samples are shifted onto the host axis via hostGuestOffsetMs before frameIndex resolution."
+  },
+  "sampling": {
+    "providers": ["typeperf", "logman", "Get-Counter (PDH)"],
+    "cadenceMs": 100,
+    "note": "Counters are sampled ~10 Hz (100 ms) so each 83.33 ms frame has ~1 sample; a frame's counters are the last sample at or before the frame instant, or the mean of samples inside the frame window. Rate counters (…/sec) are already per-second; gauges are instantaneous.",
+    "scopeInstances": {
+      "process": "LabVIEW (the launched IDE process; matched by image name, de-duplicated across PIDs by the harness)",
+      "system": "_Total instances for Processor/PhysicalDisk; * aggregated for Network Interface / GPU Engine"
+    }
+  },
+  "counterCatalog": {
+    "processor": [
+      { "key": "cpuTotalPct", "legacyKey": "cpuPct", "pdh": "\\Processor(_Total)\\% Processor Time", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Total processor busy time (kept as the legacy cpuPct)." },
+      { "key": "cpuUserPct", "pdh": "\\Processor(_Total)\\% User Time", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Time in user mode." },
+      { "key": "cpuPrivilegedPct", "pdh": "\\Processor(_Total)\\% Privileged Time", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Time in kernel/privileged mode." },
+      { "key": "cpuInterruptPct", "pdh": "\\Processor(_Total)\\% Interrupt Time", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Time servicing hardware interrupts." },
+      { "key": "cpuDpcPct", "pdh": "\\Processor(_Total)\\% DPC Time", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Time in deferred procedure calls." },
+      { "key": "processorQueueLength", "pdh": "\\System\\Processor Queue Length", "unit": "count", "kind": "gauge", "scope": "system", "desc": "Threads waiting for a processor (saturation signal)." },
+      { "key": "contextSwitchesPerSec", "pdh": "\\System\\Context Switches/sec", "unit": "per_second", "kind": "rate", "scope": "system", "desc": "Thread context switches (scheduling churn)." },
+      { "key": "systemCallsPerSec", "pdh": "\\System\\System Calls/sec", "unit": "per_second", "kind": "rate", "scope": "system", "desc": "System calls issued." }
+    ],
+    "memory": [
+      { "key": "ramProcessWorkingSetMb", "legacyKey": "ramMb", "pdh": "\\Process(LabVIEW)\\Working Set - Private", "unit": "megabytes", "kind": "gauge", "scope": "process", "desc": "LabVIEW private working set (kept as the legacy ramMb)." },
+      { "key": "memAvailableMb", "pdh": "\\Memory\\Available MBytes", "unit": "megabytes", "kind": "gauge", "scope": "system", "desc": "Physical memory available." },
+      { "key": "memCommittedBytes", "pdh": "\\Memory\\Committed Bytes", "unit": "bytes", "kind": "gauge", "scope": "system", "desc": "Committed virtual memory." },
+      { "key": "memCommittedInUsePct", "pdh": "\\Memory\\% Committed Bytes In Use", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Commit charge vs commit limit." },
+      { "key": "memPagesPerSec", "pdh": "\\Memory\\Pages/sec", "unit": "per_second", "kind": "rate", "scope": "system", "desc": "Hard page faults to/from disk (memory pressure)." },
+      { "key": "memPageFaultsPerSec", "pdh": "\\Memory\\Page Faults/sec", "unit": "per_second", "kind": "rate", "scope": "system", "desc": "All page faults (soft + hard)." },
+      { "key": "memPoolNonpagedBytes", "pdh": "\\Memory\\Pool Nonpaged Bytes", "unit": "bytes", "kind": "gauge", "scope": "system", "desc": "Kernel non-paged pool." },
+      { "key": "memPoolPagedBytes", "pdh": "\\Memory\\Pool Paged Bytes", "unit": "bytes", "kind": "gauge", "scope": "system", "desc": "Kernel paged pool." },
+      { "key": "procPrivateBytes", "pdh": "\\Process(LabVIEW)\\Private Bytes", "unit": "bytes", "kind": "gauge", "scope": "process", "desc": "LabVIEW private (non-shared) committed bytes." },
+      { "key": "procVirtualBytes", "pdh": "\\Process(LabVIEW)\\Virtual Bytes", "unit": "bytes", "kind": "gauge", "scope": "process", "desc": "LabVIEW virtual address space." }
+    ],
+    "disk": [
+      { "key": "diskTotalPct", "legacyKey": "diskPct", "pdh": "\\PhysicalDisk(_Total)\\% Disk Time", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Disk busy time (kept as the legacy diskPct)." },
+      { "key": "diskReadsPerSec", "pdh": "\\PhysicalDisk(_Total)\\Disk Reads/sec", "unit": "per_second", "kind": "rate", "scope": "system", "desc": "Read IOPS." },
+      { "key": "diskWritesPerSec", "pdh": "\\PhysicalDisk(_Total)\\Disk Writes/sec", "unit": "per_second", "kind": "rate", "scope": "system", "desc": "Write IOPS." },
+      { "key": "diskReadBytesPerSec", "pdh": "\\PhysicalDisk(_Total)\\Disk Read Bytes/sec", "unit": "bytes_per_second", "kind": "rate", "scope": "system", "desc": "Read throughput." },
+      { "key": "diskWriteBytesPerSec", "pdh": "\\PhysicalDisk(_Total)\\Disk Write Bytes/sec", "unit": "bytes_per_second", "kind": "rate", "scope": "system", "desc": "Write throughput." },
+      { "key": "diskAvgQueueLength", "pdh": "\\PhysicalDisk(_Total)\\Avg. Disk Queue Length", "unit": "count", "kind": "gauge", "scope": "system", "desc": "Average outstanding disk requests." },
+      { "key": "diskAvgSecPerRead", "pdh": "\\PhysicalDisk(_Total)\\Avg. Disk sec/Read", "unit": "seconds", "kind": "gauge", "scope": "system", "desc": "Read latency." },
+      { "key": "diskAvgSecPerWrite", "pdh": "\\PhysicalDisk(_Total)\\Avg. Disk sec/Write", "unit": "seconds", "kind": "gauge", "scope": "system", "desc": "Write latency." }
+    ],
+    "network": [
+      { "key": "netBytesTotalPerSec", "pdh": "\\Network Interface(*)\\Bytes Total/sec", "unit": "bytes_per_second", "kind": "rate", "scope": "system", "desc": "Aggregate NIC throughput." },
+      { "key": "netBytesReceivedPerSec", "pdh": "\\Network Interface(*)\\Bytes Received/sec", "unit": "bytes_per_second", "kind": "rate", "scope": "system", "desc": "Inbound throughput." },
+      { "key": "netBytesSentPerSec", "pdh": "\\Network Interface(*)\\Bytes Sent/sec", "unit": "bytes_per_second", "kind": "rate", "scope": "system", "desc": "Outbound throughput." },
+      { "key": "netPacketsPerSec", "pdh": "\\Network Interface(*)\\Packets/sec", "unit": "per_second", "kind": "rate", "scope": "system", "desc": "Packet rate." },
+      { "key": "netOutputQueueLength", "pdh": "\\Network Interface(*)\\Output Queue Length", "unit": "count", "kind": "gauge", "scope": "system", "desc": "Queued send packets (network saturation)." }
+    ],
+    "process": [
+      { "key": "procCpuPct", "pdh": "\\Process(LabVIEW)\\% Processor Time", "unit": "percent", "kind": "gauge", "scope": "process", "desc": "LabVIEW CPU share (can exceed 100 on multi-core)." },
+      { "key": "procThreadCount", "pdh": "\\Process(LabVIEW)\\Thread Count", "unit": "count", "kind": "gauge", "scope": "process", "desc": "LabVIEW threads." },
+      { "key": "procHandleCount", "pdh": "\\Process(LabVIEW)\\Handle Count", "unit": "count", "kind": "gauge", "scope": "process", "desc": "LabVIEW open handles (leak signal)." },
+      { "key": "procIoReadBytesPerSec", "pdh": "\\Process(LabVIEW)\\IO Read Bytes/sec", "unit": "bytes_per_second", "kind": "rate", "scope": "process", "desc": "LabVIEW IO read (file + device + pipe)." },
+      { "key": "procIoWriteBytesPerSec", "pdh": "\\Process(LabVIEW)\\IO Write Bytes/sec", "unit": "bytes_per_second", "kind": "rate", "scope": "process", "desc": "LabVIEW IO write." },
+      { "key": "procIoDataBytesPerSec", "pdh": "\\Process(LabVIEW)\\IO Data Bytes/sec", "unit": "bytes_per_second", "kind": "rate", "scope": "process", "desc": "LabVIEW total IO data bytes." }
+    ],
+    "system": [
+      { "key": "sysThreads", "pdh": "\\System\\Threads", "unit": "count", "kind": "gauge", "scope": "system", "desc": "Total system threads." },
+      { "key": "sysProcesses", "pdh": "\\System\\Processes", "unit": "count", "kind": "gauge", "scope": "system", "desc": "Total system processes." },
+      { "key": "pagingFileUsagePct", "pdh": "\\Paging File(_Total)\\% Usage", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Page-file utilization." }
+    ],
+    "gpu": [
+      { "key": "gpuUtilizationPct", "pdh": "\\GPU Engine(*)\\Utilization Percentage", "unit": "percent", "kind": "gauge", "scope": "system", "desc": "Aggregate GPU engine utilization (Windows 10+; present when a GPU counter set exists)." },
+      { "key": "gpuDedicatedMemoryBytes", "pdh": "\\GPU Process Memory(*)\\Dedicated Usage", "unit": "bytes", "kind": "gauge", "scope": "system", "desc": "Dedicated GPU memory in use." }
+    ]
+  },
+  "catalogPolicy": {
+    "curated": true,
+    "note": "This is the curated benchmark-relevant superset across processor/memory/disk/network/process/system/GPU. It is NOT the full Windows PDH registry (hundreds of objects); the schema is EXTENSIBLE -- any additional PDH counter path may be added as a {key,pdh,unit,kind,scope} entry and it flows through correlation + markers unchanged. Counters absent on a given host (e.g. no GPU counter set) sample as null and are skipped in window summaries.",
+    "backwardCompatible": "cpuPct/ramMb/diskPct remain valid legacy sample keys, aliased to cpuTotalPct/ramProcessWorkingSetMb/diskTotalPct."
+  },
+  "sample": {
+    "description": "One resource sample on the shared epoch-ms axis. Every catalog key MAY appear; a missing/unsupported counter is null (skipped in summaries).",
+    "shape": {
+      "epochMs": "number (host-axis epoch ms)",
+      "frameIndex": "integer|null (derived: floor((epochMs - epochMsAtFrameZero)/frameIntervalMs))",
+      "counters": "{ <catalogKey>: number|null, ... }"
+    },
+    "example": {
+      "epochMs": 1785466316652.5,
+      "frameIndex": 4,
+      "counters": {
+        "cpuTotalPct": 13.8, "cpuUserPct": 9.1, "cpuPrivilegedPct": 4.7, "processorQueueLength": 1, "contextSwitchesPerSec": 4210,
+        "ramProcessWorkingSetMb": 631.0, "memAvailableMb": 5120, "memPagesPerSec": 22, "procPrivateBytes": 512000000,
+        "diskTotalPct": 0, "diskReadsPerSec": 0, "diskReadBytesPerSec": 0, "diskAvgSecPerRead": 0,
+        "netBytesTotalPerSec": 1480, "procThreadCount": 41, "procHandleCount": 820, "gpuUtilizationPct": 3.2
+      }
+    }
+  },
+  "markers": {
+    "description": "Click-to-label on the raw-data chart. A pointer click at chart x-position resolves to an epoch-ms instant; that writes a MARKER into the launch metadata. Post-processing reads markers[] and, for each, grabs the captured frame image whose capture instant is nearest the marker within toleranceMs; outside the tolerance the grab is NOT admitted (no wrong-frame image is attached).",
+    "toleranceMs": 200,
+    "trigger": {
+      "event": "pointer click (mousedown->mouseup without drag) on the metric chart or the frame-correlator scrub track",
+      "resolves": "chart x -> epochMs on the shared axis (the same axis the time cursor uses)",
+      "note": "Distinguished from a scrub DRAG: a click (movement < clickSlopPx, default 4) creates a marker; a drag moves the time cursor. A modifier (e.g. Alt+click) MAY be used to force-mark."
+    },
+    "marker": {
+      "id": "string — stable id (e.g. m-<epochMs>-<seq>)",
+      "epochMs": "number — click instant on the shared axis",
+      "frameIndex": "integer|null — floor((epochMs - epochMsAtFrameZero)/frameIntervalMs)",
+      "label": "string — operator-supplied (prompt) or auto ('marker N')",
+      "kind": "user-click | trigger | auto",
+      "createdAt": "string — ISO-8601 when the click happened",
+      "imageGrab": {
+        "toleranceMs": 200,
+        "nearestFrameIndex": "integer|null — the frame whose captureEpochMs is closest to epochMs",
+        "nearestCaptureEpochMs": "number|null",
+        "deltaMs": "number|null — abs(nearestCaptureEpochMs - epochMs)",
+        "admitted": "boolean — deltaMs != null AND deltaMs <= toleranceMs; only then is the frame image grabbed for this marker",
+        "imageRef": "string|null — path/handle of the grabbed frame image when admitted, else null"
+      }
+    },
+    "postProcessing": "For each marker: find argmin over frames of |captureEpochMs(frame) - marker.epochMs|; if that min <= 200 ms, attach frame.image as the marker image (admitted=true); otherwise admitted=false and no image is attached. This keeps a marker's image honest to +/-200 ms of the clicked instant."
+  },
+  "correlationOutputPreserved": {
+    "note": "The v1 pre/post-trigger window analysis is preserved and now runs PER catalog key (not only cpu/ram/disk): each key gets {pre:{count,mean,min,max}, post:{count,mean,min,max}, deltaMean}. triggerFrameIndex, hostGuestOffsetMs, sample/pre/post counts are unchanged."
+  }
+}
