@@ -47,12 +47,29 @@ if (-not $Config) {
     "C:\Program Files\National Instruments\Shared\nilvcli\Examples\LabVIEWCLIExampleProject\ConfigFile.viancfg",
     "C:\Program Files (x86)\National Instruments\Shared\nilvcli\Examples\LabVIEWCLIExampleProject\ConfigFile.viancfg"
   )
+  if (-not $Config) {
+    # Broader recursive search: prefer the LabVIEWCLIExampleProject config (cross-plane parity), else list what
+    # IS present so the operator can pass -Config explicitly.
+    $niRoots = @("C:\Program Files\National Instruments", "C:\Program Files (x86)\National Instruments") | Where-Object { Test-Path $_ }
+    $allCfg = @(Get-ChildItem $niRoots -Recurse -Filter "*.viancfg" -ErrorAction SilentlyContinue)
+    $exCfg = $allCfg | Where-Object { $_.FullName -match 'LabVIEWCLIExampleProject' } | Select-Object -First 1
+    if ($exCfg) { $Config = $exCfg.FullName }
+    elseif ($allCfg.Count -gt 0) {
+      Write-Host "No LabVIEWCLIExampleProject config auto-found. Available .viancfg files:"
+      $allCfg | ForEach-Object { Write-Host "  $($_.FullName)" }
+    }
+  }
 }
 if (-not $LabVIEWPath) {
   $LabVIEWPath = Find-First @(
     "C:\Program Files\National Instruments\LabVIEW 2026\LabVIEW.exe",
     "C:\Program Files (x86)\National Instruments\LabVIEW 2026\LabVIEW.exe"
   )
+  if (-not $LabVIEWPath) {
+    $niRoots2 = @("C:\Program Files\National Instruments", "C:\Program Files (x86)\National Instruments") | Where-Object { Test-Path $_ }
+    $lv = @(Get-ChildItem $niRoots2 -Recurse -Filter "LabVIEW.exe" -ErrorAction SilentlyContinue) | Select-Object -First 1
+    if ($lv) { $LabVIEWPath = $lv.FullName }
+  }
 }
 if (-not $LabVIEWCLI  -or -not (Test-Path $LabVIEWCLI))  { throw "LabVIEWCLI.exe not found -- pass -LabVIEWCLI <path>" }
 if (-not $Config      -or -not (Test-Path $Config))      { throw "VI Analyzer config not found -- pass -Config <ConfigFile.viancfg> (must be the LabVIEWCLIExampleProject for cross-plane parity)" }
