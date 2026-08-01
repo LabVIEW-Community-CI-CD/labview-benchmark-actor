@@ -19,7 +19,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve, relative } from 'node:path';
+import { dirname, join, resolve, relative, sep } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '..', '..');
@@ -61,7 +61,8 @@ function walk(dir, acc) {
     if (['node_modules', '.git', 'bin', 'obj'].includes(e.name)) continue;
     const full = join(dir, e.name);
     if (e.isDirectory()) walk(full, acc);
-    else acc.push(relative(repo, full));
+    // Normalize to forward slashes so the matchers + basename extraction below work on Windows (backslash) too.
+    else acc.push(relative(repo, full).split(sep).join('/'));
   }
   return acc;
 }

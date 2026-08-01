@@ -227,6 +227,30 @@ check('test-requirement-correspondence', () => {
   return { engine: 'reqs-coverage/verify-correspondences.mjs' };
 });
 
+// 6c. Requirements quality (ISO/IEC/IEEE 29148:2018): every governed requirement-register row in
+//     docs/requirements/srs.md states exactly ONE `shall` (§5.2.5 Singular) and avoids ambiguous `and/or`
+//     logic (§5.2.7). Dependency-free local mirror of repo-standards-review's requirements_quality_check.py
+//     (singular-shall), scoped to the governed 5-column table so the 3-column traceability rows are skipped.
+check('requirements-quality-29148', () => {
+  const srs = readFileSync(join(pkgRoot, 'docs', 'requirements', 'srs.md'), 'utf8');
+  const violations = [];
+  let governedRows = 0;
+  for (const line of srs.split(/\r?\n/)) {
+    if (!line.trim().startsWith('|')) continue;
+    const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+    if (cells.length < 5) continue;                       // skip 3-column traceability rows
+    if (!/^[A-Z0-9-]*REQ-\d+$/.test(cells[0])) continue;  // skip header / separator / non-ID rows
+    const [id, statement] = cells;
+    governedRows++;
+    const shallCount = (statement.match(/\bshall\b/gi) || []).length;
+    if (shallCount !== 1) violations.push(`${id}: ${shallCount}x shall (29148 §5.2.5 Singular requires exactly one)`);
+    if (/\band\s*\/\s*or\b/i.test(statement)) violations.push(`${id}: contains "and/or" (29148 §5.2.7 — split into multiple requirements)`);
+  }
+  assert(governedRows > 0, 'no governed requirement rows found in docs/requirements/srs.md');
+  assert(violations.length === 0, `requirements-quality violations:\n    - ${violations.join('\n    - ')}`);
+  return { governedRows };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
