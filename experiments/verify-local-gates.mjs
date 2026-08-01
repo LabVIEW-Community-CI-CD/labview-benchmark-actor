@@ -454,6 +454,20 @@ check('codespace-witness-bootstrap-valid', () => {
   return { devcontainer: 'noble', runsSharedGateSuite: true };
 });
 
+// The ACG codespace-witness PREBUILD workflow (ADR-0014/ADR-0015): a REAL container build of the witness
+// devcontainer that runs bootstrap-validate (postCreate) and asserts the gate-suite receipt is `pass` -- the CI
+// reproducibility proof behind the codespace witness. Assert it stays wired to the witness devcontainer + bootstrap
+// and still validates the receipt verdict (CRLF-normalized: Windows checkout is CRLF; substring matches only).
+check('codespace-witness-prebuild-workflow-wired', () => {
+  const wf = readFileSync(join(pkgRoot, '.github', 'workflows', 'codespace-witness-prebuild.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(wf.includes('devcontainers/ci@'), 'the prebuild builds via the devcontainers/ci action');
+  assert(wf.includes('.devcontainer/cleanroom-witness/devcontainer.json'), 'the prebuild targets the cleanroom-witness devcontainer');
+  assert(wf.includes('cleanroom/ubuntu-labview/codespace'), 'the prebuild re-runs when the witness bootstrap changes');
+  assert(wf.includes('gate-suite-receipt.json') && wf.includes('verdict'), 'the prebuild validates the witness gate-suite receipt verdict');
+  assert(/verdict\s*!==\s*"pass"/.test(wf), 'the prebuild FAILS CLOSED unless the witness verdict is pass');
+  return { workflow: 'codespace-witness-prebuild', buildsWitnessContainer: true };
+});
+
 // The Actor Corroboration Grid quorum (ADR-0015, LBA-REQ-024): the tiered-anchor, graded-majority compare that
 // turns witness bundles into a corroboration verdict must hold -- run its dependency-free self-test as a subprocess.
 check('acg-quorum-compare-witnesses', () => {
