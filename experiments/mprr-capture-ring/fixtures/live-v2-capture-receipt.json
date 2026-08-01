@@ -1,0 +1,41 @@
+{
+  "schema": "labview-benchmark-actor/live-v2-capture@1",
+  "capturedAtIso": "2026-08-01T20:17:51.227Z",
+  "host": {
+    "platform": "linux",
+    "cpus": 24,
+    "hostname": "sergio-ThinkPad-P16-Gen-3"
+  },
+  "source": "linuxProcSampler -> buildLaunchCapture -> frame-correlator",
+  "recordSchema": "labview-benchmark-actor/launch-capture@1",
+  "frameRateHz": 12,
+  "frameIntervalMs": 83.33333333333333,
+  "measured": {
+    "medianCadenceMs": 83,
+    "effectiveFps": 12,
+    "exactly12fps": true,
+    "medianPhaseErrorMs": 0.333251953125,
+    "maxPhaseErrorMs": 1
+  },
+  "frameCount": 36,
+  "sampleCount": 36,
+  "counterKeys": [
+    "contextSwitchesPerSec",
+    "cpuPrivilegedPct",
+    "cpuTotalPct",
+    "cpuUserPct",
+    "diskReadBytesPerSec",
+    "diskReadsPerSec",
+    "diskWriteBytesPerSec",
+    "diskWritesPerSec",
+    "loadAvg1",
+    "memAvailableMb",
+    "memCommittedBytes",
+    "memCommittedInUsePct",
+    "netBytesReceivedPerSec",
+    "netBytesSentPerSec",
+    "procsRunning"
+  ],
+  "everyFrameHasCounters": true,
+  "correlatorRendersCounters": true
+}
