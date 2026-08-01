@@ -765,6 +765,12 @@ check('release-lanes-keyless-attested', () => {
     assert(/id-token:\s*write/.test(text), `${wf} must grant the OIDC id-token for keyless signing`);
     assert(/uses:\s*\.\/\.github\/actions\/keyless-attest/.test(text), `${wf} must invoke the keyless-attest action before creating the release`);
   }
+  // The extension lane's live path under the org tag-creation ruleset: workflow_dispatch builds + keyless-signs
+  // and UPLOADS the signed .vsix as a run artifact (a maintainer then cuts the immutable release locally with a
+  // bypass token). Drift-guard both so the ruleset-safe lane cannot silently regress to the dead push-tag path.
+  const extWf = readFileSync(join(pkgRoot, '.github', 'workflows', 'extension-release.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/workflow_dispatch:/.test(extWf), 'extension-release.yml must expose workflow_dispatch (the org-ruleset-safe live release path)');
+  assert(/uses:\s*actions\/upload-artifact/.test(extWf), 'extension-release.yml must upload the keyless-signed .vsix as a run artifact so the maintainer can cut the immutable release');
   return { lanes: ['extension-release', 'collab-cli-release'], attested: true };
 });
 
