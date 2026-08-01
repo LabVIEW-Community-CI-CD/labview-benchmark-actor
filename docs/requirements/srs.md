@@ -50,6 +50,7 @@ progressively.
 | LBA-REQ-020 | The system shall block a component release from publishing until both the WIN and LINUX planes have recorded an agreed sign-off for that exact component version. | A shared release (the `collab-cli` bus binary or the VS Code extension `.vsix`) is co-owned by both planes, so letting either plane publish unilaterally would ship an unreviewed change; each component's release workflow therefore fails closed until both planes commit an explicit `agreed:true` sign-off for the exact version. | `verify-release-agreement.mjs` reads `tools/collab-cli/release-agreement.json` (`release-agreement@v2`) and exits 0 only when every required plane (WIN, LINUX) records `agreed:true` for the `<component, version>`, exits 1 fail-closed on a missing / withheld / unparseable sign-off, and exits 2 on a usage error; both `extension-release.yml` and `collab-cli-release.yml` run it before their publish job. | Run `node tools/collab-cli/verify-release-agreement.mjs <version>` (and `--component extension <version>`); each release workflow gates its publish job on the gate's exit 0. |
 | LBA-REQ-021 | The system shall reject any governed test file that does not correspond to at least one requirement in the traceability register. | A test that maps to no requirement is either an untraceable capability or dead weight; enforcing the test-to-requirement correspondence as a fail-closed gate keeps the 29119 test suite tied to the 29148 requirements and seeds the ISO/IEC/IEEE 42010 correspondence graph (ADR-0013) that later rules extend. | `verify-correspondences.mjs` enumerates the governed test set (`test/*.mjs`, `experiments/**/verify-*.mjs`, `*.selftest.mjs`, `*.playwright.{mjs,cjs}`, `playwright/*.mjs`, `tools/**/verify-*`) from the working tree and exits 1 listing any file absent from every RTM CodeRef (rule TR-1); it also enforces the ADR-to-requirement (AD-1) and requirement-to-view (VW-1) correspondence rules fail-closed after the ADR-0013 register reconciliation. | Run `node experiments/reqs-coverage/verify-correspondences.mjs`; gated in `verify-local-gates`. |
 | LBA-REQ-022 | The system shall generate the requirement traceability matrix from the governed requirement, test, and decision sources. | Hand-maintaining the requirement-to-view-to-decision-to-test cross-references invites drift, so deriving one matrix from the canonical SRS, RTM, architecture description, and ADR register keeps the traceability view honest and current by construction (ADR-0013 correspondence graph, Stage 3). | `generate-traceability.mjs` reads the requirement ids and titles from `docs/requirements/srs.md`, the status / TestID / CodeRef count from `docs/requirements/rtm.csv`, the addressing architecture view from `docs/architecture/overview.md`, and the decisions from the ADR index, then writes `docs/requirements/traceability-matrix.md`; `--check` exits non-zero when the committed matrix is stale. | Run `node experiments/reqs-coverage/generate-traceability.mjs --check`; gated by `traceability-matrix-current` in `verify-local-gates`. |
+| LBA-REQ-023 | The system shall gate each governed component release on an on-demand corroboration quorum in which a majority of independent witnesses across distinct environments agree on the release's deterministic anchors. | A single cleanroom is an unwitnessed single point of trust; requiring a majority of independent, distinct-environment witnesses to agree on the deterministic anchors raises release confidence and makes a drifted or forged witness detectable as a quorum divergence rather than a silent pass. | The Actor Corroboration Grid (ADR-0014) collects a signed receipt bundle from at least two of three heterogeneous witnesses (Codespace-Linux, VirtualBox-Linux, Windows) and passes only when a majority agree on the OS-independent anchors (viewer `seriesHash`, `lbabus` version + `sourceCommit`, gate-suite `verdict`); a sub-majority blocks the release and opens a divergence issue. | Recorded in ADR-0014; the quorum engine and its per-phase sub-requirements land design-first, each gated in `verify-local-gates` as delivered. |
 
 ---
 
@@ -659,6 +660,34 @@ progressively.
   view, or an ADR trace), regenerate. Decision recorded in ADR-0013. Authored
   under the `repo-standards-review` singular-requirement directive (one `shall`).
 
+### LBA-REQ-023: Actor Corroboration Grid (multi-witness release corroboration)
+
+- Status: Planned
+- Area: Assurance / release corroboration (ISO/IEC/IEEE 42010; ADR-0014)
+- Statement: The system shall gate each governed component release on an on-demand
+  corroboration quorum in which a majority of independent witnesses across distinct
+  environments agree on the release's deterministic anchors.
+- Rationale: A single cleanroom is an unwitnessed single point of trust. Requiring a
+  majority of independent, distinct-environment witnesses to agree on the deterministic
+  anchors raises release confidence and makes a drifted or forged witness detectable as
+  a quorum divergence rather than a silent pass.
+- Acceptance Criteria:
+  - The Actor Corroboration Grid (ADR-0014) collects a signed receipt bundle from the
+    initial three heterogeneous witnesses (Codespace-Linux, VirtualBox-Linux, Windows).
+  - OS-independent anchors (viewer `seriesHash`, `lbabus` version + `sourceCommit`,
+    gate-suite `verdict`) must agree across all participating witnesses; Linux-only
+    anchors (pinned `pngSha256`, Ubuntu codename) across the Linux subset;
+    capability / host / timestamps are recorded witnesses.
+  - The quorum passes on a >=2-of-3 majority; a sub-majority blocks the release and
+    opens a divergence issue.
+  - A valid quorum spans distinct environments (N-of-a-kind rejected); each witness
+    signs its receipt bundle; consumption verifies the attestation before install.
+- Change Guidance: Umbrella requirement for the ACG platform (ADR-0014), delivered
+  design-first. A focused sub-requirement family + sub-ADRs (quorum, provenance,
+  witness-independence, reviewer station, mesh, MCP) land per phase and flip to Proven
+  as each ships. Authored under the `repo-standards-review` singular-requirement
+  directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -687,3 +716,4 @@ progressively.
 | LBA-REQ-020 | CM (bidirectional release sign-off) | T-020 |
 | LBA-REQ-021 | Assurance (test-to-requirement correspondence) | T-021 |
 | LBA-REQ-022 | Assurance (generated traceability matrix) | T-022 |
+| LBA-REQ-023 | Corroboration grid (multi-witness release) | T-023 |

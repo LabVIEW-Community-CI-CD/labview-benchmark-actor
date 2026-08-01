@@ -21,6 +21,7 @@
 | [ADR-0011](ADR-0011-provider-delegation-cleanroom-uplift.md) | AI-provider uplift is delegated to cleanroom actors over the coordination bus | LINUX | Accepted | LBA-REQ-018 |
 | [ADR-0012](ADR-0012-mcp-server-agent-tool-surface.md) | The benchmark actor exposes its tools to agents through a Model Context Protocol server | LINUX | Accepted | LBA-REQ-019 |
 | [ADR-0013](ADR-0013-enforced-42010-correspondence-graph.md) | Adopt an enforced ISO/IEC/IEEE 42010 correspondence graph as the traceability architecture | LINUX | Accepted | LBA-REQ-008, LBA-REQ-021, LBA-REQ-022 |
+| [ADR-0014](ADR-0014-actor-corroboration-grid.md) | Actor Corroboration Grid: multi-witness release corroboration | LINUX | Accepted | LBA-REQ-023 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
-LINUX takes 0003–0004 (+0010, 0011, 0012, 0013). Add new ADRs by extending your own range.
+LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014). Add new ADRs by extending your own range.
