@@ -9,7 +9,7 @@
 
 import Module, { createRequire } from 'node:module';
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -349,6 +349,45 @@ try {
     await agentsCmd('checkAgents')();
     assert(warnMessages.length >= warnBeforeNoFolder + 2, 'writeAgents + checkAgents warn when no workspace folder is open');
     mockVscode.workspace.workspaceFolders = savedFolders2;
+  }
+
+  // Capture ASSEMBLY + CIM sampler SCRIPT: pure/file logic extracted from the cleanroom-gated ffmpeg CAPTURE, so
+  // they are unit-testable directly (the ffmpeg gdigrab + PowerShell spawns that PRODUCE the frames stay live-
+  // proven in the cleanroom, never faked). assembleCaptureFromDir gathers the frame PNGs + resource samples into
+  // a launch-capture record; samplerScript emits the PowerShell CIM sampler.
+  {
+    const capBuilder = await import(pathToFileURL(join(repoRoot, 'media', 'launch-capture.mjs')).href);
+    const capDir = join(tmpdir(), 'lba-test-capture-assemble-xyz');
+    rmSync(capDir, { recursive: true, force: true });
+    mkdirSync(capDir, { recursive: true });
+    writeFileSync(join(capDir, 'frame-00000.png'), 'x'.repeat(120));
+    writeFileSync(join(capDir, 'frame-00001.png'), 'x'.repeat(140));
+    // resources.jsonl: two valid samples + a blank line + a partial (unparseable) line the assembler must skip.
+    writeFileSync(
+      join(capDir, 'resources.jsonl'),
+      '{"ms":1,"cpuPct":10,"ramMb":2000,"diskPct":1}\n\n{bad partial line\n{"ms":2,"cpuPct":12,"ramMb":2010,"diskPct":2}\n'
+    );
+    const rec = ext.assembleCaptureFromDir(capDir, capBuilder);
+    assert(Array.isArray(rec.frames) && rec.frames.length === 2, `assembleCaptureFromDir builds a 2-frame record, got ${rec.frames && rec.frames.length}`);
+    assert(existsSync(join(capDir, 'capture.json')), 'assembleCaptureFromDir writes capture.json alongside the frames');
+
+    // empty dir -> fails closed (no frames were captured).
+    const capEmpty = join(tmpdir(), 'lba-test-capture-empty-xyz');
+    rmSync(capEmpty, { recursive: true, force: true });
+    mkdirSync(capEmpty, { recursive: true });
+    let capThrew = false;
+    try { ext.assembleCaptureFromDir(capEmpty, capBuilder); } catch { capThrew = true; }
+    assert(capThrew, 'assembleCaptureFromDir throws when no frames were captured');
+    rmSync(capDir, { recursive: true, force: true });
+    rmSync(capEmpty, { recursive: true, force: true });
+
+    // CIM sampler script: the CPU/RAM/disk CIM queries + a single-quote-escaped out path (no injection).
+    const script = ext.samplerScript("C:\\lba\\res'ources.jsonl");
+    assert(
+      /Win32_PerfFormattedData_PerfOS_Processor/.test(script) && /TotalVisibleMemorySize/.test(script) && /PerfDisk_PhysicalDisk/.test(script),
+      'samplerScript emits the CPU + RAM + disk CIM queries'
+    );
+    assert(/res''ources\.jsonl/.test(script), 'samplerScript single-quote-escapes the out path (no injection)');
   }
 
   // Benchmark panel commands (LBA-REQ-004/005): each renders a webview from the STAGED fixtures. Invoking them
