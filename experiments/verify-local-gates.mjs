@@ -747,6 +747,7 @@ check('acg-keyless-attest-workflow-wired', () => {
   assert(/cosign sign-blob/.test(wf), 'the workflow must keyless-sign the provenance bundle with cosign');
   assert(/release-provenance-bundle\.json/.test(wf), 'the workflow must sign the release-provenance bundle');
   assert(/--bundle release-provenance\.sigstore/.test(wf), 'the workflow must emit the sigstore bundle (Fulcio cert + rekor entry)');
+  assert(/gh release create/.test(wf), 'the workflow must CREATE the release with the provenance assets attached (immutable-release-safe)');
   return { wired: true };
 });
 
