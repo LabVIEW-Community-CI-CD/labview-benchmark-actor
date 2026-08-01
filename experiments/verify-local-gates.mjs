@@ -509,6 +509,15 @@ check('acg-quorum-live-corroboration', () => {
   return { verdict: verdict.verdict, confidence: +verdict.confidence.toFixed(4), witnesses: verdict.witnesses, tolerated: verdict.divergences.map((d) => d.anchor) };
 });
 
+// ACG provenance + attestation engine (ADR-0016, LBA-REQ-025): the enforceable "verify before consume" core --
+// Ed25519 enrolled-key witness attestations that fail closed on tamper / un-enrolled identity / rogue key / bad
+// signature, and a consume decision that blocks unless every attestation verifies, the witnesses are distinct
+// enrolled identities (ADR-0017), and the re-computed quorum passes -- run its dependency-free self-test.
+check('acg-provenance-attest', () => {
+  execFileSync(process.execPath, [join(here, 'acg-provenance', 'attest.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'attest 10/10' };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
