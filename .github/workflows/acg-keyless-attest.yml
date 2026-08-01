@@ -8,7 +8,10 @@ name: ACG Keyless Attest
 #
 # The live keyless signature + rekor entry require Actions OIDC + network, so this is the CI/maintainer step;
 # its correct wiring is drift-gated OFFLINE by `acg-keyless-attest-workflow-wired` in verify-local-gates.
-# Run it on demand (workflow_dispatch -> artifact) or on a published release (attaches the bundle to the Release).
+# Run it on demand (workflow_dispatch -> artifact) or by pushing an `acg-attest-v*` tag, which keyless-signs
+# the provenance and CREATES an immutable prerelease with the .sigstore bundle attached AT CREATION. (The org
+# enforces immutable releases -- assets cannot be uploaded after a release exists -- so they are provided
+# atomically at creation.)
 
 on:
   workflow_dispatch:
@@ -17,14 +20,12 @@ on:
         description: Release-provenance bundle to keyless-sign
         default: experiments/acg-transparency/release-provenance-bundle.json
         required: false
-  release:
-    # published: a full release; released: promoted from pre-release; prereleased: a NEW pre-release is
-    # created (GitHub does NOT fire `published` for a freshly-created pre-release) -- cover all so a lightweight
-    # prerelease also keyless-signs + attaches the provenance bundle.
-    types: [published, released, prereleased]
+  push:
+    tags:
+      - 'acg-attest-v*'
 
 permissions:
-  contents: write # attach the .sigstore bundle to the Release (release trigger)
+  contents: write # create the immutable prerelease with the .sigstore bundle (tag-push trigger)
   id-token: write # REQUIRED: the OIDC id-token cosign exchanges with Fulcio for a keyless signing certificate
 
 concurrency:
@@ -77,8 +78,13 @@ jobs:
             release-provenance.sig
           if-no-files-found: error
 
-      - name: Attach the sigstore bundle to the Release
-        if: github.event_name == 'release'
+      - name: Create the prerelease with the provenance assets (immutable-safe)
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" release-provenance.sigstore --clobber
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            release-provenance.sigstore release-provenance.pem release-provenance.sig \
+            --prerelease \
+            --title "ACG keyless attestation ${GITHUB_REF_NAME}" \
+            --notes "Keyless-signed corroboration provenance (cosign, GitHub Actions OIDC -> a short-lived Fulcio certificate + a public rekor entry). The .sigstore bundle (cert + rekor SET + inclusion proof), certificate, and signature are attached AT CREATION (the org enforces immutable releases). Signed bundle: experiments/acg-transparency/release-provenance-bundle.json."
