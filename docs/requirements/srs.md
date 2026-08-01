@@ -761,6 +761,8 @@ progressively.
   chain. The real ext-v*/collab-cli-v* release lanes are hardened through the same mechanism: the shared
   `.github/actions/keyless-attest` composite action keyless-signs their artifacts (cosign, Actions OIDC ->
   Fulcio + public rekor) and attaches the signatures at creation (drift-gated by `release-lanes-keyless-attested`).
+  The reviewer-workstation then cosign-verifies the .vsix keyless signature before install (network-gated,
+  fail-closed; drift-gated by `reviewer-workstation-keyless-verify-wired`).
   Authored under
   the `repo-standards-review` singular-requirement directive (one `shall`).
 
