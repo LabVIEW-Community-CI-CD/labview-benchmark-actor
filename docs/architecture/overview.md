@@ -2,8 +2,8 @@
 
 > Standards baseline: `repo-standards-review` v0.2.19. Architecture description
 > follows ISO/IEC/IEEE 42010 (stakeholders, concerns, viewpoints, views,
-> architecture decisions). This is a planning description; no implementation is
-> claimed.
+> architecture decisions). It covers the original plan and the capabilities
+> since delivered, each traced to its requirements in the RTM.
 
 ## 1. Stakeholders and concerns (42010 §5.3)
 
@@ -12,7 +12,9 @@
 | Benchmark operator | Run benchmarks and review metric+picture evidence together over time |
 | Extension maintainer | Clean extraction boundary from `vi-history-suite`; reproducible builds |
 | Golden-VM / infra owner | Reproducible multi-VM provisioning; safe, offline coordination |
-| Standards reviewer | Requirements→architecture→test traceability; stamped baseline |
+| Standards reviewer | Requirements→architecture→test traceability, enforced as a fail-closed 42010 correspondence graph; stamped baseline |
+| Distributed-CI / cleanroom actor | Delegate uplift to a capability-matched AI provider over the bus; gate each outcome deterministically |
+| Release manager | Bidirectional WIN↔LINUX sign-off before any shared-component publish; GitFlow governance on the release path |
 
 ## 2. Context view
 
@@ -98,6 +100,50 @@ multi-VM / Codespace topology.
   note); it never carries run data, run/frame metadata, or images — the entire
   mprr ring buffer stays VM-local (ADR-0005, LBA-REQ-009).
 
+### 3.6 Analysis view — addresses LBA-REQ-011, LBA-REQ-014, LBA-REQ-015
+- Resource-usage correlation folds CPU/RAM/disk samples onto the benchmark frame
+  timeline on a shared epoch-ms axis and, anchored on a trigger instant, computes
+  a pre/post-trigger window (count, mean, min, max, delta) per metric — so a
+  run's machine cost is readable against its own frames (LBA-REQ-011).
+- Cross-plane comparison ingests the same mprr short-packet input on each plane
+  (LINUX, WIN), stores a plane-local run, and compares a shared `benchmarkId`:
+  the deterministic `seriesHash` MUST match across planes (substrate-independent
+  correctness); the per-plane screenshot hash is a visual witness (LBA-REQ-014).
+- A VI Analyzer run over the repo VIs is summarized into a deterministic,
+  order-independent result (pass/fail/error counts + per-VI findings + a
+  `resultHash`), making a static-analysis run a cross-plane-comparable benchmark
+  (LBA-REQ-015).
+
+### 3.7 Agentic-infrastructure view — addresses LBA-REQ-012, LBA-REQ-013, LBA-REQ-018, LBA-REQ-019
+- The `lbabus` binary embeds version-pinned agent base instructions and exposes
+  them via `lbabus agents` (print / --out / --check), so every session on a given
+  version shares byte-identical, hardenable base instructions (LBA-REQ-012).
+- The bus carries a priority tier (P0>P1>P2>P3) and an explicit addressee as
+  additive flat-scalar fields that keep the `vihs-collab-msg@v1` schema, with
+  `--to-me` / `--min-priority` reader filters, so triage never breaks older
+  clients (LBA-REQ-013).
+- Uplift / documentation tasks are delegated to a capability-matched cleanroom AI
+  provider over the bus; the provider seam is agnostic (ollama / copilot-cli /
+  codex / mock), outcomes are gated deterministically, and a receipt is announced
+  as an ADR-0003 `DONE` frame (LBA-REQ-018, ADR-0011).
+- The actor exposes its tools (host capabilities, benchmark series, bus
+  poll / post) to a coding agent through a Model Context Protocol server
+  (LBA-REQ-019, ADR-0012).
+
+### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021
+- GitFlow branch governance (`main` protected + `develop` integration;
+  feature / release / hotfix; SemVer tags on main; coverage retained on the
+  release path) satisfies the repo-standards-review CM gate without weakening the
+  CI-owned protected-main publish authority (LBA-REQ-016, ADR-0010).
+- Every LabVIEW authoring-lane dependency is a version-pinned entry in a governed
+  dependency manifest, so the authoring build is reproducible (LBA-REQ-017).
+- A shared-component release is blocked until both the WIN and LINUX planes record
+  an agreed sign-off for that exact version (LBA-REQ-020).
+- Traceability is enforced as a 42010 correspondence graph: every governed test
+  corresponds to ≥1 requirement (fail-closed), with the ADR↔requirement and
+  requirement↔view rules promoted to fail-closed as the registers reconcile
+  (LBA-REQ-021, ADR-0013).
+
 ## 4. Architecture decisions (42010 §5.7)
 
 | AD | Decision | Rationale | Traces to |
@@ -112,6 +158,16 @@ multi-VM / Codespace topology.
 | AD-8 | Store all run data in the VM-local mprr ring buffer; bus carries inter-actor comms only | Reuse the absorbed mprr model's governed bounded-RAM ring buffer; keep the bus data-agnostic; cleanroom isolation | LBA-REQ-009 |
 | AD-9 | No cross-VM comparison; concentrate runs to the host for an ollama layer | Preserve cleanroom isolation; improve comparison on one concentrated corpus | LBA-REQ-010 |
 | AD-10 | Own the mprr ring/timing model in-repo (absorbed, dependency-free); retire the external `svelderrainruiz/mprr` dependency | Self-contained + testable in-repo; no outside schema to track; the `mprr` name is kept for the local model (ADR-0009) | LBA-REQ-003, LBA-REQ-005, LBA-REQ-009 |
+| AD-11 | Correlate CPU/RAM/disk to the frame timeline with a trigger-anchored pre/post window | The resource cost of a benchmarked action is readable against its own run | LBA-REQ-011 |
+| AD-12 | Embed version-pinned agent base instructions in the `lbabus` binary | Same version ⇒ byte-identical, hardenable base instructions across sessions | LBA-REQ-012 |
+| AD-13 | Priority + addressee envelope on the bus, additive and back-read-compatible | Triage without breaking the `vihs-collab-msg@v1` schema for older clients | LBA-REQ-013 |
+| AD-14 | Deterministic cross-plane benchmark compare (the `seriesHash`/`resultHash` must match; the screenshot is a witness) | Substrate-independent correctness across LINUX/WIN | LBA-REQ-014, LBA-REQ-015 |
+| AD-15 | GitFlow branch governance (`main` protected + `develop` integration) | Passes the repo-standards CM gate without weakening CI publish authority (ADR-0010) | LBA-REQ-016 |
+| AD-16 | Version-pin every LabVIEW authoring-lane dependency in a governed manifest | Reproducible authoring-lane build on the clean room | LBA-REQ-017 |
+| AD-17 | Delegate validated uplift to a capability-matched cleanroom AI provider over the bus | Providers run where the licence/capability lives; the host observes gated outcomes (ADR-0011) | LBA-REQ-018 |
+| AD-18 | Expose the actor's tools to agents via a Model Context Protocol server | A standard, agent-discoverable tool surface (ADR-0012) | LBA-REQ-019 |
+| AD-19 | Bidirectional WIN↔LINUX sign-off gates every shared-component publish | Neither plane ships an unreviewed shared release | LBA-REQ-020 |
+| AD-20 | Enforce a 42010 correspondence graph as fail-closed CI gates | Traceability that cannot silently rot (ADR-0013) | LBA-REQ-021 |
 
 ## 5. Risks and open questions
 
@@ -140,6 +196,13 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0006](adr/ADR-0006-run-concentration-ollama-comparison.md) | Run concentration to the host + ollama comparison (no cross-VM) | WIN |
 | [ADR-0003](adr/ADR-0003-coordination-bus-wire-format.md) | Coordination-bus wire format (length-prefixed JSON over TCP) | LINUX |
 | [ADR-0004](adr/ADR-0004-cross-vm-time-sync.md) | UDP presence/liveness + advisory coordination time (no cross-VM comparison) | LINUX |
+| [ADR-0007](adr/ADR-0007-image-derived-timing-binary-strip.md) | Image-derived timing binds to the pixel-decoded binary strip (cross-platform) | WIN |
+| [ADR-0008](adr/ADR-0008-interactive-ollama-drive-mirrored-build-coordination.md) | Interactive host-Ollama drive + mirrored build-coordination over `lbabus` | WIN |
+| [ADR-0009](adr/ADR-0009-absorb-mprr-model-self-owned.md) | Absorb the mprr ring/timing model as self-owned (retire the external `svelderrainruiz/mprr`) | WIN |
+| [ADR-0010](adr/ADR-0010-gitflow-branch-governance.md) | GitFlow branch governance (`main` protected + `develop` integration) | LINUX |
+| [ADR-0011](adr/ADR-0011-provider-delegation-cleanroom-uplift.md) | AI-provider uplift delegated to cleanroom actors over the bus | LINUX |
+| [ADR-0012](adr/ADR-0012-mcp-server-agent-tool-surface.md) | The actor's tools exposed to agents via a Model Context Protocol server | LINUX |
+| [ADR-0013](adr/ADR-0013-enforced-42010-correspondence-graph.md) | Enforced ISO/IEC/IEEE 42010 correspondence graph as the traceability architecture | LINUX |
 
 Remaining open items: the picture-capture *source*/cadence (storage itself is
 resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded
