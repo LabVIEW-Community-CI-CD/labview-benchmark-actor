@@ -8,7 +8,7 @@
 // Usage: npm test   (== npm run compile && node test/extension-activation.mjs)
 
 import Module, { createRequire } from 'node:module';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -38,8 +38,10 @@ const infoMessages = [];
 const infoResponseQueue = [];
 const executedCommands = [];
 const warnMessages = [];
+const warnResponseQueue = [];
 const sentCommands = [];
 const inputQueue = [];
+let agentsContentProvider = null;
 const mockVscode = {
   window: {
     createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
@@ -56,7 +58,7 @@ const mockVscode = {
     },
     showWarningMessage: (message) => {
       warnMessages.push(message);
-      return undefined;
+      return warnResponseQueue.length ? warnResponseQueue.shift() : undefined;
     },
     showTextDocument: async () => undefined,
     createTerminal: (options) => ({
@@ -105,15 +107,24 @@ const mockVscode = {
     executeCommand: async (id) => { executedCommands.push(id); return undefined; },
   },
   workspace: {
-    registerTextDocumentContentProvider: () => ({ dispose() {} }),
+    registerTextDocumentContentProvider: (_scheme, provider) => {
+      agentsContentProvider = provider;
+      return { dispose() {} };
+    },
     getConfiguration: () => ({ get: (_key, dflt) => dflt }),
     workspaceFolders: [{ uri: { path: repoRoot, fsPath: repoRoot } }],
     fs: {
-      stat: async () => {
-        throw Object.assign(new Error('ENOENT'), { code: 'FileNotFound' });
+      stat: async (uri) => {
+        const p = (uri && (uri.fsPath || uri.path)) || '';
+        if (!existsSync(p)) {
+          throw Object.assign(new Error('ENOENT'), { code: 'FileNotFound' });
+        }
+        return { type: 1, size: statSync(p).size };
       },
       readFile: async (uri) => readFileSync((uri && (uri.fsPath || uri.path)) || ''),
-      writeFile: async () => undefined,
+      writeFile: async (uri, content) => {
+        writeFileSync((uri && (uri.fsPath || uri.path)) || '', content);
+      },
     },
     openTextDocument: async () => ({}),
   },
@@ -273,6 +284,73 @@ try {
   );
   assert(infoMessages.some((m) => /Windows-only/.test(m)), 'bootstrapAuthoringLane surfaces the Windows-only note');
 
+  // Agent instructions commands (issue #98): the extension bundles media/AGENTS.md + manifest and
+  // materializes/verifies a workspace AGENTS.md. These are pure read/hash/compare/write flows (no cleanroom).
+  // Drive them against a REAL temp workspace so the write / exists-overwrite / match / drift branches all run.
+  {
+    const agentsCmd = (id) => registered.find((r) => r.id === `labviewBenchmarkActor.${id}`).handler;
+    const agentsWs = join(tmpdir(), 'lba-test-agents-ws-xyz');
+    rmSync(agentsWs, { recursive: true, force: true });
+    mkdirSync(agentsWs, { recursive: true });
+    const savedFolders = mockVscode.workspace.workspaceFolders;
+    mockVscode.workspace.workspaceFolders = [{ uri: { path: agentsWs, fsPath: agentsWs } }];
+    const writtenAgents = join(agentsWs, 'AGENTS.md');
+    try {
+      // showAgents: opens the shipped canonical (stamped) as a markdown preview; also exercise the registered
+      // content provider that serves it.
+      await agentsCmd('showAgents')();
+      assert(agentsContentProvider && typeof agentsContentProvider.provideTextDocumentContent === 'function', 'showAgents registers an AGENTS content provider');
+      const served = await agentsContentProvider.provideTextDocumentContent();
+      assert(/GENERATED: labview-benchmark-actor extension AGENTS\.md/.test(served), 'the content provider serves the stamped canonical AGENTS.md');
+
+      // checkAgents on an empty workspace (folder present, no AGENTS.md yet) -> warns rather than proceeding.
+      const warnBeforeAbsent = warnMessages.length;
+      await agentsCmd('checkAgents')();
+      assert(warnMessages.slice(warnBeforeAbsent).some((m) => /No AGENTS\.md at the workspace root/.test(m)), 'checkAgents warns when the workspace AGENTS.md is absent');
+
+      // writeAgents on an empty workspace -> materializes AGENTS.md (no overwrite prompt).
+      await agentsCmd('writeAgents')();
+      assert(existsSync(writtenAgents), 'writeAgents materializes AGENTS.md at the workspace root');
+
+      // checkAgents on the freshly-written file -> matches the shipped canonical (stamp stripped before hashing).
+      const infoBeforeMatch = infoMessages.length;
+      await agentsCmd('checkAgents')();
+      assert(infoMessages.slice(infoBeforeMatch).some((m) => /matches the shipped/i.test(m)), 'checkAgents reports a match for the freshly-written AGENTS.md');
+
+      // Drift: corrupt the workspace copy, then checkAgents detects drift and (Show Diff) opens vscode.diff.
+      writeFileSync(writtenAgents, '# drifted agents\n');
+      const execBeforeDrift = executedCommands.length;
+      warnResponseQueue.push('Show Diff');
+      await agentsCmd('checkAgents')();
+      assert(warnMessages.some((m) => /DRIFTED/.test(m)), 'checkAgents flags a drifted AGENTS.md');
+      assert(executedCommands.slice(execBeforeDrift).includes('vscode.diff'), 'checkAgents (Show Diff) opens the diff view');
+
+      // writeAgents when the file EXISTS: overwrite prompt -> Show Diff opens the diff and returns.
+      warnResponseQueue.push('Show Diff');
+      await agentsCmd('writeAgents')();
+      assert(executedCommands.filter((c) => c === 'vscode.diff').length >= 2, 'writeAgents (Show Diff) opens the diff view');
+
+      // writeAgents exists -> Overwrite rewrites the canonical.
+      warnResponseQueue.push('Overwrite');
+      await agentsCmd('writeAgents')();
+      const infoBeforeRecheck = infoMessages.length;
+      await agentsCmd('checkAgents')();
+      assert(infoMessages.slice(infoBeforeRecheck).some((m) => /matches the shipped/i.test(m)), 'the Overwrite-rewritten AGENTS.md matches the canonical again');
+    } finally {
+      mockVscode.workspace.workspaceFolders = savedFolders;
+      rmSync(agentsWs, { recursive: true, force: true });
+    }
+
+    // No-folder branches: both commands warn (rather than throw) when no workspace folder is open.
+    const savedFolders2 = mockVscode.workspace.workspaceFolders;
+    mockVscode.workspace.workspaceFolders = undefined;
+    const warnBeforeNoFolder = warnMessages.length;
+    await agentsCmd('writeAgents')();
+    await agentsCmd('checkAgents')();
+    assert(warnMessages.length >= warnBeforeNoFolder + 2, 'writeAgents + checkAgents warn when no workspace folder is open');
+    mockVscode.workspace.workspaceFolders = savedFolders2;
+  }
+
   // Benchmark panel commands (LBA-REQ-004/005): each renders a webview from the STAGED fixtures. Invoking them
   // covers the extension.ts panel wiring (loadPanelBuilders + loadBenchmarkJson + makeBenchmarkPanel) on the
   // real render path -- the panel builders themselves are proven separately by panels-render.mjs.
@@ -302,17 +380,6 @@ try {
   await registered.find((r) => r.id === 'labviewBenchmarkActor.pollBus').handler();
   inputQueue.push('NOTE test coordination note');
   await registered.find((r) => r.id === 'labviewBenchmarkActor.postNote').handler();
-
-  // Agents commands (extension-embedded AGENTS.md, issue #98): materialize + show + check against the shipped
-  // canonical. fs.readFile is mocked to read the real staged media/AGENTS.md + agents.manifest.json.
-  await registered.find((r) => r.id === 'labviewBenchmarkActor.writeAgents').handler();
-  await registered.find((r) => r.id === 'labviewBenchmarkActor.showAgents').handler();
-  await registered.find((r) => r.id === 'labviewBenchmarkActor.checkAgents').handler();
-  assert(infoMessages.some((m) => /Wrote AGENTS\.md/.test(m)), 'writeAgents materializes AGENTS.md at the workspace root');
-  assert(
-    warnMessages.some((m) => /No AGENTS\.md at the workspace root/.test(m)),
-    'checkAgents warns when the workspace AGENTS.md is absent'
-  );
 
   // LM open-benchmark-panel tool: opens a panel (reusing a panel command) and returns descriptive text.
   const openPanelTool = registeredTools.find((t) => t.name === 'lba-open-benchmark-panel');
