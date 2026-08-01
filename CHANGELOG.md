@@ -6,6 +6,23 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-01
+
+### Added
+- **Run Corroboration Grid** and **Verify Release Provenance** commands — run the
+  Actor Corroboration Grid end-to-end and the verify-before-install provenance check
+  from the Command Palette.
+- The bundled **MCP server now folds in the corroboration-grid tools** — its `tools/list`
+  publishes 13 tools (the 4 core plus `run_quorum`, `get_confidence`, `verify_attestation`,
+  `check_independence`, `assemble_witness`, `verify_inclusion`, `verify_before_install`,
+  `spin_up_witness`, `teardown`) from the single shipped extension server, so an agent can
+  orchestrate release corroboration directly.
+
+### Security
+- The release `.vsix` is keyless-signed with cosign / sigstore (a Fulcio certificate + a
+  public rekor entry) at release creation, and the reviewer-workstation verifies that
+  signature before installing.
+
 ## [0.3.0] - 2026-07-31
 
 ### Added
