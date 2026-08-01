@@ -18,7 +18,10 @@ on:
         default: experiments/acg-transparency/release-provenance-bundle.json
         required: false
   release:
-    types: [published]
+    # published: a full release; released: promoted from pre-release; prereleased: a NEW pre-release is
+    # created (GitHub does NOT fire `published` for a freshly-created pre-release) -- cover all so a lightweight
+    # prerelease also keyless-signs + attaches the provenance bundle.
+    types: [published, released, prereleased]
 
 permissions:
   contents: write # attach the .sigstore bundle to the Release (release trigger)
