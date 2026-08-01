@@ -735,6 +735,21 @@ check('acg-transparency-verify-before-install-wired', () => {
   return { wired: true };
 });
 
+// LBA-REQ-025 sigstore-KEYLESS + public-rekor tier (ADR-0016): the keyless-attest workflow must be wired to
+// keyless-sign the release-provenance bundle with cosign under an Actions OIDC identity (a short-lived Fulcio
+// certificate + an entry in the public rekor log). Drift gate over the workflow (CRLF-normalized substring
+// checks; fail-closed). The LIVE Fulcio/rekor signature is the CI step (needs OIDC + network), demonstrated by
+// dispatching the workflow -- it cannot be re-derived offline, unlike the self-hosted transparency log.
+check('acg-keyless-attest-workflow-wired', () => {
+  const wf = readFileSync(join(pkgRoot, '.github', 'workflows', 'acg-keyless-attest.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/id-token:\s*write/.test(wf), 'the workflow must request the OIDC id-token (keyless signing)');
+  assert(/sigstore\/cosign-installer/.test(wf), 'the workflow must install cosign');
+  assert(/cosign sign-blob/.test(wf), 'the workflow must keyless-sign the provenance bundle with cosign');
+  assert(/release-provenance-bundle\.json/.test(wf), 'the workflow must sign the release-provenance bundle');
+  assert(/--bundle release-provenance\.sigstore/.test(wf), 'the workflow must emit the sigstore bundle (Fulcio cert + rekor entry)');
+  return { wired: true };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
