@@ -56,6 +56,7 @@ import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-pl
 import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs';
 import { execFileSync } from 'node:child_process';
 import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
+import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -516,6 +517,25 @@ check('acg-quorum-live-corroboration', () => {
 check('acg-provenance-attest', () => {
   execFileSync(process.execPath, [join(here, 'acg-provenance', 'attest.selftest.mjs')], { stdio: 'pipe' });
   return { selftest: 'attest 10/10' };
+});
+
+// Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
+// real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
+// bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
+// evident: doctoring a bundle breaks its signature, and a non-enrolled key or a doctored allowlist blocks consume.
+check('acg-provenance-verify-before-consume', () => {
+  const allowlist = readJson('experiments/acg-provenance/enrollment/allowlist.json');
+  const witnesses = [
+    { bundle: readJson('experiments/acg-quorum/witnesses/codespace.bundle.json'), attestation: readJson('experiments/acg-provenance/attestations/codespace.attestation.json') },
+    { bundle: readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json'), attestation: readJson('experiments/acg-provenance/attestations/host-linux.attestation.json') },
+  ];
+  const receipt = readJson('experiments/acg-provenance/consume-decision-receipt.json');
+  const decision = verifyBeforeConsume({ witnesses, allowlist });
+  assert(decision.consume === true, `verify-before-consume blocked: ${decision.reasons.join('; ')}`);
+  assert(decision.consume === receipt.consume && JSON.stringify(decision.reasons) === JSON.stringify(receipt.reasons), 'the committed consume decision must match the re-derived one');
+  assert(decision.witnesses.length >= 2 && decision.witnesses.every((w) => w.ok), 'every enrolled witness attestation must verify');
+  assert(new Set(decision.witnesses.map((w) => w.identity)).size === decision.witnesses.length, 'the witness identities must be distinct');
+  return { consume: decision.consume, witnesses: decision.witnesses.map((w) => w.identity) };
 });
 
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
