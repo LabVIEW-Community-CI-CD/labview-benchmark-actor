@@ -74,14 +74,23 @@ function Install-GitDirect {
 }
 function Ensure-Tool([string]$Command, [string]$WingetId, [string]$Label, [scriptblock]$DirectInstall) {
   if (Get-Command $Command -ErrorAction SilentlyContinue) { return }
+  # winget is BEST-EFFORT: an imaged/golden Windows can have winget present but its sources broken
+  # (0x8a15000f "Data required by the source is missing"). Try it, but ALWAYS fall back to the winget-free
+  # direct download when the tool is still not on PATH -- never fail the reviewer just because winget's sources are.
   if (Get-Command winget -ErrorAction SilentlyContinue) {
     Step "Installing $Label via winget ($WingetId)"
-    winget install --id $WingetId --exact --source winget --accept-package-agreements --accept-source-agreements --silent
-  } else {
-    Step "winget unavailable; installing $Label via direct download"
-    & $DirectInstall
+    try {
+      winget install --id $WingetId --exact --source winget --accept-package-agreements --accept-source-agreements --silent
+    } catch {
+      Step "winget install of $Label errored ($($_.Exception.Message)); will fall back to direct download"
+    }
+    Refresh-MachinePath
   }
-  Refresh-MachinePath
+  if (-not (Get-Command $Command -ErrorAction SilentlyContinue)) {
+    Step "$Label not on PATH (winget absent or its sources failed); installing via direct download"
+    & $DirectInstall
+    Refresh-MachinePath
+  }
   if (-not (Get-Command $Command -ErrorAction SilentlyContinue)) {
     throw "$Label install did not put '$Command' on PATH. Inspect the install output and re-run."
   }
