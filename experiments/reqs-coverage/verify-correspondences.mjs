@@ -9,9 +9,11 @@
 //   TR-1  [FAIL-CLOSED]  every governed test file corresponds to >=1 requirement via an RTM CodeRef.  (LBA-REQ-021)
 //   AD-1  [FAIL-CLOSED]  every ADR traces to >=1 requirement AND is registered in the overview decision register.
 //   VW-1  [FAIL-CLOSED]  every requirement is described in the architecture description (overview.md).
+//   II-1  [FAIL-CLOSED]  every ISO/IEC/IEEE 15289 information item in docs/information-item-map.md resolves on disk.
+//   II-2  [FAIL-CLOSED]  every core governed information item (SRS/RTM/test-plan/CM/architecture/matrix) is in that map.
 //
-// All three rules are fail-closed after the ADR-0013 stage-2 reconciliation. A new rule may start advisory
-// (enforced:false) so it reports a census without blocking, then be promoted by flipping its `enforced` flag
+// Rules are fail-closed after their register is reconciled (ADR-0013 stage-2 for AD-1/VW-1; stage-4 15289 for II-1/II-2).
+// A new rule may start advisory (enforced:false) so it reports a census without blocking, then be promoted by flipping
 // once its register is reconciled.
 //
 // Usage: node experiments/reqs-coverage/verify-correspondences.mjs [--json]
@@ -92,6 +94,25 @@ const orphanAdrs = adrFiles.filter((f) => {
 const adReqs = expandReqRefs(overviewText);
 const reqsNoView = srsIds.filter((id) => !adReqs.has(id));
 
+// ISO/IEC/IEEE 15289 information items <-> files: the "Current Path" column of the information-item map lists
+// each governed information item's committed path. II-1 = every registered item resolves on disk; II-2 = every
+// core governed information item the graph relies on is registered in the map (so neither drifts from the other).
+const INFO_ITEM_MAP = join(repo, 'docs/information-item-map.md');
+const infoItemText = existsSync(INFO_ITEM_MAP) ? readFileSync(INFO_ITEM_MAP, 'utf8') : '';
+const registeredItems = [];
+for (const line of infoItemText.split(/\r?\n/)) {
+  if (!line.startsWith('|')) continue;
+  const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+  const path = (cells[1] || '').match(/`([^`]+)`/); // the "Current Path" cell
+  if (path) registeredItems.push(path[1]);
+}
+const unresolvedItems = registeredItems.filter((p) => !existsSync(join(repo, p)));
+const CORE_INFO_ITEMS = [
+  'docs/requirements/srs.md', 'docs/requirements/rtm.csv', 'docs/testing/test-plan.md',
+  'docs/cm/cm-plan.md', 'docs/architecture/overview.md', 'docs/requirements/traceability-matrix.md',
+];
+const unregisteredItems = CORE_INFO_ITEMS.filter((p) => !registeredItems.includes(p));
+
 const unmappedTests = governedTests.filter((p) => !isMapped(p));
 const rules = [
   { id: 'TR-1', enforced: true, label: 'test<->requirement (every governed test corresponds to >=1 requirement)',
@@ -100,20 +121,24 @@ const rules = [
     total: adrFiles.length, orphans: orphanAdrs },
   { id: 'VW-1', enforced: true, label: 'requirement<->architecture-view (every requirement described in overview.md)',
     total: srsIds.length, orphans: reqsNoView },
+  { id: 'II-1', enforced: true, label: 'information-item<->file (every 15289 information item resolves on disk)',
+    total: registeredItems.length, orphans: unresolvedItems },
+  { id: 'II-2', enforced: true, label: 'information-item completeness (every core governed doc is registered in the 15289 map)',
+    total: CORE_INFO_ITEMS.length, orphans: unregisteredItems },
 ].map((r) => ({ ...r, ok: r.orphans.length === 0, satisfied: r.total - r.orphans.length }));
 
 const enforcedFailures = rules.filter((r) => r.enforced && !r.ok);
 
 if (asJson) {
-  console.log(JSON.stringify({ requirements: srsIds.length, governedTests: governedTests.length, adrs: adrFiles.length, rules }, null, 2));
+  console.log(JSON.stringify({ requirements: srsIds.length, governedTests: governedTests.length, adrs: adrFiles.length, informationItems: registeredItems.length, rules }, null, 2));
 } else {
-  console.log(`correspondences: requirements=${srsIds.length} governed-tests=${governedTests.length} ADRs=${adrFiles.length}`);
+  console.log(`correspondences: requirements=${srsIds.length} governed-tests=${governedTests.length} ADRs=${adrFiles.length} information-items=${registeredItems.length}`);
   for (const r of rules) {
     const tag = r.enforced ? (r.ok ? 'PASS' : 'FAIL') : (r.ok ? 'ADVISORY-OK' : 'ADVISORY');
     console.log(`  ${tag}  ${r.id}  ${r.label}  [${r.satisfied}/${r.total}]${r.enforced ? ' (fail-closed)' : ''}`);
     if (!r.ok) {
       console.log(`    - ${r.orphans.length} not corresponded: ${r.orphans.slice(0, 12).join(', ')}${r.orphans.length > 12 ? ' …' : ''}`);
-      if (!r.enforced) console.log('      (advisory until ADR-0013 stage-2 reconciliation; then promoted to fail-closed)');
+      if (!r.enforced) console.log('      (advisory until its register is reconciled; then promoted to fail-closed)');
     }
   }
   console.log(enforcedFailures.length

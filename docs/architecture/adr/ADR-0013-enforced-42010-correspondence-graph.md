@@ -49,9 +49,9 @@ views are **generated from** it rather than hand-maintained.
 
 - Drift becomes machine-detected immediately (the advisory census reports exactly which decisions and
   requirements are not yet corresponded) and structurally impossible once each rule is promoted.
-- One correspondence engine subsumes the reqs-coverage rings, the tests-all-mapped gate, and future
-  information-item (15289), life-cycle-process (12207), and CM (10007) edges — the constellation
-  `repo-standards-review` already indexes.
+- One correspondence engine subsumes the reqs-coverage rings, the tests-all-mapped gate, the ISO/IEC/IEEE
+  15289 information-item edges (II-1 resolves-on-disk + II-2 completeness, live as of Stage 4), and the future
+  12207 life-cycle-process and 10007 CM edges — the constellation `repo-standards-review` already indexes.
 - `verify-local-gates` gains one check. The stage-2 architecture-description reconciliation lands with this
   ADR, so all three seed rules (TR-1, AD-1, VW-1) ship fail-closed and the graph is conformant end-to-end.
 
