@@ -45,6 +45,7 @@ progressively.
 | ID | Requirement | Rationale | Fit Criterion | Verification |
 | --- | --- | --- | --- | --- |
 | LBA-REQ-017 | The system shall record every LabVIEW authoring-lane dependency as a version-pinned entry in a governed dependency manifest. | The authoring lane (`labview_assistant` + its DQMH dependency + the `.vipb` VI-Package build) must build reproducibly on the Windows clean room, which requires every dependency pinned to a concrete, verifiable version rather than a floating reference. | `experiments/labview-authoring/dep-manifest.json` records each authoring dependency with a `pinStatus` of `resolved` (a concrete git SHA, pip version, or vipc) or `tbd-*`, and the verifier rejects a bad schema, a malformed SHA, an unknown plane, a missing python bitness, a bad `pinStatus`, or a `resolved` entry with an empty version. | Run `node experiments/labview-authoring/verify-dep-manifest.mjs` and `verify-dep-manifest.selftest.mjs`; both gated in `verify-local-gates`. |
+| LBA-REQ-018 | The system shall delegate a validated uplift task to a capability-matched cleanroom AI provider over the coordination bus. | Uplift and documentation-drafting work runs where the licensed tooling and capability differentiation live (cleanroom actors running Ollama / Copilot CLI / Codex), so the host observes each cleanroom's gated outcome over the existing `lbabus` transport rather than hosting providers centrally. | `delegateUplift` validates an `lba-uplift-task@v1` spec, drives the provider through a provider-agnostic adapter seam, applies a deterministic acceptance gate (pass and fail), and writes an `lba-uplift-delegation-receipt@v1` announced as an ADR-0003 `DONE` frame; the registry routes a `CLAIM` only to a live capability-matched worker; the worker pool bounds concurrency; each uplift domain (coverage-lift, evidence, risky-test, VIPM credential + routing) gates fail-closed — all proven offline via the mock adapter. | Run the provider-delegation verify suite (`verify-provider-delegation`, `verify-registry`, `verify-claim-tasking`, `verify-worker-pool`, `verify-quality-gate`, `verify-vipm-routing`, `verify-vipm-gate`, `verify-coverage-lift`, `verify-evidence`, `verify-risky-test`); gated in `verify-local-gates`. |
 
 ---
 
@@ -508,6 +509,38 @@ progressively.
 
 ---
 
+### LBA-REQ-018: Provider-delegated cleanroom AI uplift
+
+- Status: Proven
+- Area: Distributed CI (AI-provider uplift over the coordination bus; ADR-0011)
+- Statement: The system shall delegate a validated uplift task to a
+  capability-matched cleanroom AI provider over the coordination bus.
+- Rationale: Uplift and documentation-drafting work runs where the licensed
+  tooling and capability differentiation live (cleanroom actors running Ollama /
+  Copilot CLI / Codex), so the host observes each cleanroom's gated outcome over
+  the existing `lbabus` transport rather than hosting providers centrally.
+- Acceptance Criteria:
+  - `delegateUplift.mjs` validates an `lba-uplift-task@v1` spec, drives a provider
+    through the provider-agnostic adapter seam (`providerAdapters.mjs`), applies a
+    deterministic acceptance gate (pass and fail), and writes an
+    `lba-uplift-delegation-receipt@v1` announced as an ADR-0003 `DONE` frame.
+  - The registry/router (`registry.mjs`) dispatches a `CLAIM` only to a live,
+    capability-matched worker; the persistent worker pool bounds concurrency; the
+    quality pre-gate short-circuits a weak / off-topic / refusal draft.
+  - Each uplift domain gates fail-closed: coverage-lift (a proposed test gated on
+    the measured line coverage of a target module), evidence (receipt gathering +
+    summary accuracy), risky-test (external-tool gate), and VIPM credential +
+    capability routing.
+  - Gated: the ten `provider-delegation/verify-*.mjs` self-tests run in
+    `verify-local-gates`, all deterministic and offline (mock adapter, no GPU /
+    no network).
+- Change Guidance: Keep the harness provider-agnostic (the adapter seam) and
+  composed of existing infra (ADR-0003 bus + `ollama-drive` + `ollama-comparison`);
+  do not introduce a new transport. Decision recorded in ADR-0011. Authored under
+  the `repo-standards-review` singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -529,3 +562,4 @@ progressively.
 | LBA-REQ-015 | Analysis (VI Analyzer benchmark) | T-015 |
 | LBA-REQ-016 | CM (GitFlow branch governance) | T-016 |
 | LBA-REQ-017 | Authoring lane (dependency manifest) | T-017 |
+| LBA-REQ-018 | Provider delegation (cleanroom AI uplift) | T-018 |
