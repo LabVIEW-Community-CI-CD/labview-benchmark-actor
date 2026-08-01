@@ -49,6 +49,7 @@ progressively.
 | LBA-REQ-019 | The system shall expose the benchmark actor's tools to a coding agent through a Model Context Protocol server. | Coding agents consume tooling through MCP, and the actor already holds value an agent wants (host capabilities, the deterministic mprr benchmark series, and the `lbabus` coordination bus), so a standard MCP surface lets an agent discover and call them directly rather than through bespoke VS Code commands. | The compiled JSON-RPC 2.0 handler answers `initialize` / `tools/list` / `tools/call` over newline-delimited stdio, publishes exactly four tools (`get_host_capabilities`, `get_benchmark_series`, `poll_coordination_bus`, `post_coordination_note`), returns `-32601` / `-32602` for an unknown method / tool, and degrades a missing `lbabus` to a soft `isError` rather than a transport crash; the definition provider registers under the same id the manifest contributes; and `docs/mcp-tools.md` matches the published registry. | Run `npm test` (compiles, then runs `test/mcp-server.mjs` -- pure-core, activation, and stdio legs -- and `scripts/mcpToolDoc.mjs --check docs/mcp-tools.md`). |
 | LBA-REQ-020 | The system shall block a component release from publishing until both the WIN and LINUX planes have recorded an agreed sign-off for that exact component version. | A shared release (the `collab-cli` bus binary or the VS Code extension `.vsix`) is co-owned by both planes, so letting either plane publish unilaterally would ship an unreviewed change; each component's release workflow therefore fails closed until both planes commit an explicit `agreed:true` sign-off for the exact version. | `verify-release-agreement.mjs` reads `tools/collab-cli/release-agreement.json` (`release-agreement@v2`) and exits 0 only when every required plane (WIN, LINUX) records `agreed:true` for the `<component, version>`, exits 1 fail-closed on a missing / withheld / unparseable sign-off, and exits 2 on a usage error; both `extension-release.yml` and `collab-cli-release.yml` run it before their publish job. | Run `node tools/collab-cli/verify-release-agreement.mjs <version>` (and `--component extension <version>`); each release workflow gates its publish job on the gate's exit 0. |
 | LBA-REQ-021 | The system shall reject any governed test file that does not correspond to at least one requirement in the traceability register. | A test that maps to no requirement is either an untraceable capability or dead weight; enforcing the test-to-requirement correspondence as a fail-closed gate keeps the 29119 test suite tied to the 29148 requirements and seeds the ISO/IEC/IEEE 42010 correspondence graph (ADR-0013) that later rules extend. | `verify-correspondences.mjs` enumerates the governed test set (`test/*.mjs`, `experiments/**/verify-*.mjs`, `*.selftest.mjs`, `*.playwright.{mjs,cjs}`, `playwright/*.mjs`, `tools/**/verify-*`) from the working tree and exits 1 listing any file absent from every RTM CodeRef (rule TR-1); it also enforces the ADR-to-requirement (AD-1) and requirement-to-view (VW-1) correspondence rules fail-closed after the ADR-0013 register reconciliation. | Run `node experiments/reqs-coverage/verify-correspondences.mjs`; gated in `verify-local-gates`. |
+| LBA-REQ-022 | The system shall generate the requirement traceability matrix from the governed requirement, test, and decision sources. | Hand-maintaining the requirement-to-view-to-decision-to-test cross-references invites drift, so deriving one matrix from the canonical SRS, RTM, architecture description, and ADR register keeps the traceability view honest and current by construction (ADR-0013 correspondence graph, Stage 3). | `generate-traceability.mjs` reads the requirement ids and titles from `docs/requirements/srs.md`, the status / TestID / CodeRef count from `docs/requirements/rtm.csv`, the addressing architecture view from `docs/architecture/overview.md`, and the decisions from the ADR index, then writes `docs/requirements/traceability-matrix.md`; `--check` exits non-zero when the committed matrix is stale. | Run `node experiments/reqs-coverage/generate-traceability.mjs --check`; gated by `traceability-matrix-current` in `verify-local-gates`. |
 
 ---
 
@@ -631,6 +632,33 @@ progressively.
   described by a view, to keep AD-1 / VW-1 green (ADR-0013). Authored under the
   `repo-standards-review` singular-requirement directive (one `shall`).
 
+### LBA-REQ-022: Generated traceability matrix
+
+- Status: Proven
+- Area: Assurance / traceability (ISO/IEC/IEEE 42010 correspondence graph, Stage 3; ADR-0013)
+- Statement: The system shall generate the requirement traceability matrix from
+  the governed requirement, test, and decision sources.
+- Rationale: Hand-maintaining the requirement -> view -> decision -> test -> code
+  cross-references invites drift. Deriving a single matrix from the canonical
+  sources (the SRS, the RTM, the architecture description, and the ADR register)
+  keeps the traceability view honest and current by construction, and makes the
+  correspondence graph (ADR-0013) presentable, not only enforceable.
+- Acceptance Criteria:
+  - `generate-traceability.mjs` reads requirement ids + titles from
+    `docs/requirements/srs.md`, status / TestID / CodeRef count from
+    `docs/requirements/rtm.csv`, the addressing architecture view from
+    `docs/architecture/overview.md` (the `### N.M ... addresses` headings), and
+    the decisions from the ADR index `README.md` "Traces to" column, then writes
+    `docs/requirements/traceability-matrix.md` (one row per requirement).
+  - The generator is deterministic: `--check` re-derives the matrix and exits
+    non-zero when the committed file drifts from the sources.
+  - Gated: `traceability-matrix-current` runs `--check` in `verify-local-gates`,
+    so the derived view cannot rot.
+- Change Guidance: Never hand-edit `traceability-matrix.md` -- re-run the
+  generator and commit. When a source changes (a requirement, a test mapping, a
+  view, or an ADR trace), regenerate. Decision recorded in ADR-0013. Authored
+  under the `repo-standards-review` singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -658,3 +686,4 @@ progressively.
 | LBA-REQ-019 | Agentic infra (MCP tool surface) | T-019 |
 | LBA-REQ-020 | CM (bidirectional release sign-off) | T-020 |
 | LBA-REQ-021 | Assurance (test-to-requirement correspondence) | T-021 |
+| LBA-REQ-022 | Assurance (generated traceability matrix) | T-022 |
