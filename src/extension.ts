@@ -630,8 +630,33 @@ async function openCorrelatorForCapture(
     diskPct: f.diskPct,
     imageSrc: panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString(),
   }));
-  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel };
+  const existingMarkers = Array.isArray(record.markers) ? record.markers : [];
+  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel, markers: existingMarkers };
   panel.webview.html = correlator.buildFrameCorrelatorHtml(model, getNonce(), panel.webview.cspSource);
+
+  // Persist a CLICK marker into the capture metadata ("mouse click -> label in metadata"): the webview posts
+  // { type:'frame-marker', marker } on each click; append it to capture.json so markers survive a reopen.
+  const capturePath = path.join(dir, 'capture.json');
+  panel.webview.onDidReceiveMessage(
+    (msg: { type?: string; marker?: unknown } | undefined) => {
+      if (!msg || msg.type !== 'frame-marker' || !msg.marker) {
+        return;
+      }
+      try {
+        const current = JSON.parse(readFileSync(capturePath, 'utf8')) as LaunchCaptureRecord;
+        const markers = Array.isArray(current.markers) ? current.markers : [];
+        markers.push(msg.marker);
+        current.markers = markers;
+        writeFileSync(capturePath, `${JSON.stringify(current, null, 2)}\n`);
+        const m = msg.marker as { frameIndex?: unknown };
+        output.appendLine(`persisted frame-marker @frame ${String(m.frameIndex)} (${markers.length} total) to ${capturePath}`);
+      } catch (err) {
+        output.appendLine(`failed to persist frame-marker: ${String(err)}`);
+      }
+    },
+    undefined,
+    context.subscriptions
+  );
   output.appendLine(`correlator opened for ${dir} (${framesModel.length} frames)`);
 }
 

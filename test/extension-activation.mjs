@@ -79,8 +79,15 @@ const mockVscode = {
         title,
         webview: {
           _html: '',
+          _msgHandler: null,
           asWebviewUri: (u) => ({ toString: () => `vscode-resource://${u && u.path ? u.path : u}` }),
           cspSource: 'vscode-webview:',
+          onDidReceiveMessage(handler, _thisArg, disposables) {
+            this._msgHandler = handler;
+            const d = { dispose() {} };
+            if (Array.isArray(disposables)) { disposables.push(d); }
+            return d;
+          },
           set html(v) {
             this._html = v;
           },
@@ -535,6 +542,24 @@ try {
   await registered.find((r) => r.id === 'labviewBenchmarkActor.openFrameCorrelator').handler();
   assert(panels.length === panelsBeforeCorrelator + 1, 'openFrameCorrelator renders a webview panel from the latest capture on disk');
   assert(/fc-root|Content-Security-Policy/.test(panels[panels.length - 1].webview.html), 'the frame-correlator webview HTML is built from the capture record');
+  // a CLICK marker posted by the webview is persisted into the capture metadata ("mouse click -> label in
+  // metadata"); unrelated / empty messages are ignored; reopening the correlator seeds the persisted markers.
+  const corrPanel = panels[panels.length - 1];
+  corrPanel.webview._msgHandler(undefined); // ignored (!msg)
+  corrPanel.webview._msgHandler({ type: 'noise' }); // ignored (type mismatch)
+  corrPanel.webview._msgHandler({ type: 'frame-marker' }); // ignored (!marker)
+  corrPanel.webview._msgHandler({ type: 'frame-marker', marker: { id: 'm-83-1', instantMs: 83, frameIndex: 1, kind: 'user-click', imageGrab: { admitted: true, deltaMs: 0 } } });
+  corrPanel.webview._msgHandler({ type: 'frame-marker', marker: { id: 'm-0-2', instantMs: 0, frameIndex: 0, kind: 'user-click', imageGrab: { admitted: true, deltaMs: 0 } } });
+  const persisted = JSON.parse(readFileSync(join(captureRunDir, 'capture.json'), 'utf8'));
+  assert(
+    Array.isArray(persisted.markers) && persisted.markers.length === 2 && persisted.markers[0].frameIndex === 1,
+    'posted frame-markers are appended to capture.json metadata (unrelated/empty messages ignored)'
+  );
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.openFrameCorrelator').handler();
+  assert(/m-83-1/.test(panels[panels.length - 1].webview.html), 'reopening the correlator seeds the persisted markers back into the webview');
+  // a persist failure is swallowed (corrupt capture.json -> the try/catch logs, never throws into the webview)
+  writeFileSync(join(captureRunDir, 'capture.json'), 'not json{');
+  corrPanel.webview._msgHandler({ type: 'frame-marker', marker: { id: 'm-x', frameIndex: 3 } });
   rmSync(gsRoot, { recursive: true, force: true });
 
   // Error-path coverage: re-activate against an extensionUri that lacks media/ so the panel fixture loads throw
