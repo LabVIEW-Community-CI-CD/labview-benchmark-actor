@@ -12,6 +12,8 @@ import { compareWitnesses } from '../acg-quorum/compare-witnesses.mjs';
 import { assembleWitness } from '../acg-quorum/assemble-witness.mjs';
 import { verifyBeforeConsume } from '../acg-provenance/attest.mjs';
 import { assessIndependence, enrolledEnvironmentSet } from '../acg-independence/independence.mjs';
+import { verifyReleaseInclusion } from '../acg-transparency/transparency-log.mjs';
+import { verifyReleaseProvenance } from '../acg-transparency/verify-release-inclusion.mjs';
 
 export const ACG_GRID_MCP_SERVER_NAME = 'labview-benchmark-actor/acg-grid';
 export const ACG_GRID_MCP_PROTOCOL_VERSION = '2025-06-18';
@@ -27,6 +29,11 @@ const asObject = (a) => {
 const reqArray = (a, k) => {
   const v = asObject(a)[k];
   if (!Array.isArray(v) || v.length === 0) throw new McpArgumentError(`"${k}" must be a non-empty array`);
+  return v;
+};
+const reqObject = (a, k) => {
+  const v = asObject(a)[k];
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) throw new McpArgumentError(`"${k}" must be an object`);
   return v;
 };
 
@@ -51,6 +58,8 @@ const HANDLERS = {
   verify_attestation: (args) => verifyBeforeConsume({ witnesses: reqArray(args, 'witnesses'), allowlist: asObject(args).allowlist ?? {} }),
   check_independence: (args) => assessIndependence(reqArray(args, 'witnesses'), { enrolledEnvironments: enrolledEnvironmentSet(asObject(args).enrollment ?? { environments: [] }) }),
   assemble_witness: (args) => assembleWitness(asObject(args)),
+  verify_inclusion: (args) => verifyReleaseInclusion({ attestation: reqObject(args, 'attestation'), inclusion: reqObject(args, 'inclusion'), signedTreeHead: reqObject(args, 'signedTreeHead'), logPublicKeyPem: asObject(args).logPublicKeyPem }),
+  verify_before_install: (args) => verifyReleaseProvenance(reqObject(args, 'provenance')),
   spin_up_witness: (args) => {
     const plane = asObject(args).plane;
     const command = SPIN_UP_PLAN[plane];
@@ -73,6 +82,8 @@ export const ACG_GRID_TOOLS = [
   { name: 'verify_attestation', description: 'Verify-before-consume (ADR-0016): given attested witnesses + an enrolled allowlist, decide whether the release is consumable.', inputSchema: { type: 'object', properties: { witnesses: { type: 'array' }, allowlist: { type: 'object' } }, required: ['witnesses'], additionalProperties: false } },
   { name: 'check_independence', description: 'Assess witness independence (ADR-0017): whether the witnesses span distinct enrolled environments with recorded identities.', inputSchema: { type: 'object', properties: { witnesses: { type: 'array' }, enrollment: { type: 'object' } }, required: ['witnesses'], additionalProperties: false } },
   { name: 'assemble_witness', description: 'Assemble a witness bundle (ADR-0014) from its gate/screenshot/capability receipts, failing closed on a missing anchor.', inputSchema: { type: 'object', properties: { plane: { type: 'string' }, gate: { type: 'object' }, screenshot: { type: 'object' }, capability: { type: 'object' }, os: { type: 'string' }, ubuntu: { type: 'string' } }, required: ['plane', 'gate', 'screenshot'], additionalProperties: false } },
+  { name: 'verify_inclusion', description: 'Transparency-log inclusion (ADR-0022): verify a witness attestation is included in the Ed25519-signed Merkle transparency log, reconstructing the signed root from the inclusion proof.', inputSchema: { type: 'object', properties: { attestation: { type: 'object' }, inclusion: { type: 'object' }, signedTreeHead: { type: 'object' }, logPublicKeyPem: { type: 'string' } }, required: ['attestation', 'inclusion', 'signedTreeHead'], additionalProperties: false } },
+  { name: 'verify_before_install', description: 'Verify-before-install (ADR-0022, LBA-REQ-031): given a release-provenance bundle, decide whether the release is installable -- at least quorumMin witnesses each enrolled-signed AND included in the signed transparency log.', inputSchema: { type: 'object', properties: { provenance: { type: 'object' } }, required: ['provenance'], additionalProperties: false } },
   { name: 'teardown', description: 'Return the teardown plan for a corroboration-grid witness of a given plane. Live execution is the operator step.', inputSchema: { type: 'object', properties: { plane: { type: 'string', enum: ['CODESPACE', 'VBOX', 'WIN'] }, id: { type: 'string' } }, required: ['plane'], additionalProperties: false } },
 ];
 

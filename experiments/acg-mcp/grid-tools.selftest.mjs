@@ -8,6 +8,8 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { handleAcgGridMcpMessage, dispatchGridTool } from './grid-tools.mjs';
+import { signBundle, generateEnrolledKeypair } from '../acg-provenance/attest.mjs';
+import { recordRelease } from '../acg-transparency/transparency-log.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 let pass = 0;
@@ -24,6 +26,21 @@ const mkBundle = (plane, o = {}) => ({
 const grid = [mkBundle('CODESPACE'), mkBundle('VBOX'), mkBundle('WIN', { os: 'windows', png: 'png-win' })];
 const call = (name, args) => handleAcgGridMcpMessage({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } });
 
+// Transparency-log fixtures (ADR-0022): real enrolled-key attestations recorded into one signed Merkle log.
+const idOf = (b) => `acg-witness:${b.plane.toLowerCase()}`;
+const witnessKp = Object.fromEntries(grid.map((b) => [b.plane, generateEnrolledKeypair()]));
+const attestations = grid.map((b) => signBundle(b, { privateKeyPem: witnessKp[b.plane].privateKeyPem, identity: idOf(b) }));
+const witnessAllowlist = Object.fromEntries(grid.map((b) => [idOf(b), witnessKp[b.plane].publicKeyPem]));
+const logKp = generateEnrolledKeypair();
+const txReceipt = recordRelease(attestations, { privateKeyPem: logKp.privateKeyPem, logIdentity: 'acg-log:test', timestamp: '2026-08-01T00:00:00.000Z' });
+const provenance = {
+  quorumMin: 2,
+  logAllowlist: { 'acg-log:test': logKp.publicKeyPem },
+  witnessAllowlist,
+  signedTreeHead: txReceipt.signedTreeHead,
+  witnesses: grid.map((b, i) => ({ witnessIdentity: idOf(b), bundle: b, attestation: attestations[i], inclusion: txReceipt.inclusions[i] })),
+};
+
 // 1. initialize
 ok('initialize returns the protocol + serverInfo', () => {
   const r = handleAcgGridMcpMessage({ jsonrpc: '2.0', id: 1, method: 'initialize' }, { serverVersion: '9.9.9' });
@@ -36,7 +53,7 @@ ok('initialize returns the protocol + serverInfo', () => {
 ok('tools/list publishes the ADR-0020 grid tools', () => {
   const r = handleAcgGridMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
   const names = r.result.tools.map((t) => t.name);
-  for (const req of ['spin_up_witness', 'run_quorum', 'get_confidence', 'verify_attestation', 'teardown']) assert.ok(names.includes(req), `missing ${req}`);
+  for (const req of ['spin_up_witness', 'run_quorum', 'get_confidence', 'verify_attestation', 'verify_inclusion', 'verify_before_install', 'teardown']) assert.ok(names.includes(req), `missing ${req}`);
 });
 
 // 3. run_quorum composes the quorum.
@@ -61,6 +78,30 @@ ok('spin_up_witness + teardown return plans', () => {
   const down = JSON.parse(call('teardown', { plane: 'VBOX', id: 'clone-01' }).result.content[0].text);
   assert.equal(down.executed, false);
   assert.match(down.command, /VBoxManage unregistervm/);
+});
+
+// 5b. verify_inclusion confirms a real attestation is logged; a mismatched proof fails closed.
+ok('verify_inclusion confirms a logged attestation + fails closed on a mismatch', () => {
+  const good = JSON.parse(call('verify_inclusion', { attestation: attestations[0], inclusion: txReceipt.inclusions[0], signedTreeHead: txReceipt.signedTreeHead, logPublicKeyPem: logKp.publicKeyPem }).result.content[0].text);
+  assert.equal(good.included, true);
+  const bad = JSON.parse(call('verify_inclusion', { attestation: attestations[1], inclusion: txReceipt.inclusions[0], signedTreeHead: txReceipt.signedTreeHead, logPublicKeyPem: logKp.publicKeyPem }).result.content[0].text);
+  assert.equal(bad.included, false);
+});
+
+// 5c. verify_before_install admits a fully attested + logged release and blocks a sub-quorum one.
+ok('verify_before_install admits a logged release + blocks a sub-quorum one', () => {
+  const admit = JSON.parse(call('verify_before_install', { provenance }).result.content[0].text);
+  assert.equal(admit.admit, true);
+  assert.ok(admit.verified >= 2);
+  const tampered = { ...provenance, witnesses: provenance.witnesses.map((w, i) => (i < 2 ? { ...w, inclusion: { ...w.inclusion, leaf: '0'.repeat(64) } } : w)) };
+  const block = JSON.parse(call('verify_before_install', { provenance: tampered }).result.content[0].text);
+  assert.equal(block.admit, false);
+});
+
+// 5d. the transparency tools fail closed on a bad argument shape (-32602).
+ok('the transparency tools fail closed on bad arg shapes', () => {
+  assert.equal(handleAcgGridMcpMessage({ jsonrpc: '2.0', id: 51, method: 'tools/call', params: { name: 'verify_before_install', arguments: { provenance: 'nope' } } }).error.code, -32602);
+  assert.equal(handleAcgGridMcpMessage({ jsonrpc: '2.0', id: 52, method: 'tools/call', params: { name: 'verify_inclusion', arguments: {} } }).error.code, -32602);
 });
 
 // 6. an unknown tool fails with -32602.
