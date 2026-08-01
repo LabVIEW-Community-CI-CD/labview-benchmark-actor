@@ -87,7 +87,46 @@ The server runs **locally over stdio** and starts on demand; nothing is sent to
 the internet. For the full tool contract (inputs, outputs, examples) see
 [../mcp-tools.md](../mcp-tools.md).
 
-## 6. Where to look next
+## 6. Corroborate a release before you trust it
+
+Before a shared component release (the extension `.vsix` or the `lbabus` CLI) is
+trusted, the **Actor Corroboration Grid** checks that independent witnesses across
+distinct environments agree on the release's deterministic anchors, and that the
+release's provenance is attested and logged.
+
+Two commands are available from the Command Palette:
+
+- **LabVIEW Benchmark Actor: Run Corroboration Grid** — runs the end-to-end grid
+  over the recorded witnesses and prints the release decision: whether the release
+  is *machine-corroborated* (independent witnesses agree, the quorum passes, every
+  attestation verifies, and the mesh re-derives the same verdict) and whether it is
+  *released* (a human reviewer's sign-off also accompanies the verdict).
+- **LabVIEW Benchmark Actor: Verify Release Provenance** — runs *verify-before-install*:
+  it admits a release only when enough enrolled witnesses each carry an attestation
+  that is included in the signed transparency log. A missing or tampered proof blocks
+  the install. This is the same check the reviewer workstation runs before it installs
+  the `.vsix`.
+
+A release is corroborated only when **independent** witnesses (distinct enrolled
+environments) **agree** on the OS-independent anchors, and it is **published** only
+when a human reviewer has *also* signed off — the machine quorum and the human sign-off
+are both required (LBA-REQ-023 / LBA-REQ-027).
+
+**Public tamper-evidence (sigstore keyless + rekor).** Where an OIDC identity exists
+(GitHub Actions), the release provenance is keyless-signed with cosign — a short-lived
+certificate bound to the signing workflow, with the signature recorded in the public
+sigstore transparency log (rekor). This is the external, publicly verifiable tier that
+complements the repository's own signed transparency log (LBA-REQ-025 / LBA-REQ-031).
+
+**For agents (MCP tools).** The grid is also exposed on the MCP surface, so an
+MCP-capable agent can orchestrate corroboration directly: `run_quorum` /
+`get_confidence` (the graded quorum), `verify_attestation` and `check_independence`
+(provenance + independence), `verify_inclusion` / `verify_before_install`
+(transparency-log inclusion), and `spin_up_witness` / `teardown` (witness provisioning
+plans). Signing and recording stay operator/CI steps — no signing key is ever passed to
+a tool (LBA-REQ-029).
+
+## 7. Where to look next
 
 - What the system must do: [../requirements/srs.md](../requirements/srs.md)
 - How it is structured: [../architecture/overview.md](../architecture/overview.md)

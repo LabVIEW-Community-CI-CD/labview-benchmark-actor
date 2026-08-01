@@ -19,7 +19,7 @@
 | Architecture Description | `docs/architecture/overview.md` | Maintainers | topology, transport, or view/decision change | viewpoints and decisions trace to `LBA-REQ` IDs |
 | Test Plan | `docs/testing/test-plan.md` | QA/maintainers | validation approach or coverage change | each `LBA-REQ` maps to at least one test item |
 | Configuration Management Plan | `docs/cm/cm-plan.md` | Maintainers | baseline, branch, release, or move-procedure change | CM plan names the governing standards release and move procedure |
-| User Guide | `docs/information-for-users/user-guide.md` | Maintainers | install route or benchmark-UI change | guide covers install, run, and the time-cursor review workflow |
+| User Guide | `docs/information-for-users/user-guide.md` | Maintainers | install route or benchmark-UI change | guide covers install, run, the time-cursor review workflow, multi-VM coordination, MCP tools, and release corroboration |
 | Requirements Traceability Matrix | `docs/requirements/rtm.csv` | Maintainers | requirement, test, or code-reference change | every `LBA-REQ` maps to a test + code refs; Proven rows resolve on disk (reqs-coverage) |
 | Generated Traceability Matrix | `docs/requirements/traceability-matrix.md` | Maintainers (generated) | any requirement / test / view / decision source change | regenerated from the sources; the `traceability-matrix-current` gate fails closed on drift |
 
