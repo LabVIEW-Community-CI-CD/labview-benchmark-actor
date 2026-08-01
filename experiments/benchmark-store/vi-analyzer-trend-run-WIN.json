@@ -1,0 +1,24 @@
+{
+  "schema": "labview-benchmark-actor/benchmark-run@v1",
+  "benchmarkId": "vi-analyzer-labviewcliexampleproject-trend",
+  "plane": "WIN",
+  "runId": "vi-analyzer-labviewcliexampleproject-trend-win",
+  "capturedAt": "2026-08-01T03:35:26Z",
+  "ringBufferRef": "WIN/vi-analyzer-labviewcliexampleproject-trend-win/vi-analyzer-trend.json",
+  "ringBufferBytes": 3998,
+  "framesRef": null,
+  "metrics": {
+    "totalTests": 69,
+    "passedTests": 69,
+    "failedTests": 0,
+    "errorTests": 0,
+    "pass": 1,
+    "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+    "runs": 6,
+    "distinctResultHashes": 1,
+    "coldWallMs": 94683,
+    "warmMedianMs": 4895,
+    "warmMinMs": 4821,
+    "warmMaxMs": 9557
+  }
+}

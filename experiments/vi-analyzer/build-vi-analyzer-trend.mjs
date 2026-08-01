@@ -48,26 +48,47 @@ const coldWallMs = runs[0].wallMs;
 const warmWallMs = runs.slice(1).map((r) => r.wallMs);
 const warmMedianMs = median(warmWallMs);
 
+// Per-plane metadata: the SAME LabVIEWCLIExampleProject config runs on both substrates so the resultHash must
+// match; only the host substrate (OS + LabVIEW build + display model) differs.
+const plane = (process.env.LBA_PLANE || 'LINUX').toUpperCase();
+const PLANE_META = {
+  LINUX: {
+    vm: 'lba-ubuntu2404-labview2026-scratch',
+    labview: 'LabVIEW 2026 Q1 Community 64-bit (activated)',
+    display: 'headless Xvfb :99 (xdpyinfo-gated readiness)',
+    harness: 'experiments/vi-analyzer/run-vi-analyzer-trend.sh (guest-resident; explicit PATH survives a detached shell)',
+    note: 'run 1 cold-launches LabVIEW; runs 2..N connect to the resident LabVIEW (VI Server 3363) -> warm analyze',
+  },
+  WIN: {
+    vm: 'actor-win11-decouple',
+    labview: 'LabVIEW 2026 32-bit (licensed)',
+    display: 'interactive Windows desktop (no Xvfb; LabVIEW needs a window station)',
+    harness: 'experiments/vi-analyzer/run-vi-analyzer-trend.ps1 (operator-run; the SAME LabVIEWCLIExampleProject shipped via the VM share)',
+    note: 'run 1 cold-launches LabVIEW (Windows first-launch mass-compile, very cold); runs 2..N warm',
+  },
+};
+const pm = PLANE_META[plane] || PLANE_META.LINUX;
+
 const receipt = {
   schema: 'labview-benchmark-actor/vi-analyzer-trend-live-evidence@1',
   capturedAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
-  operatorPrompt: 'Go (VI Analyzer TREND -- guest-resident scheduler, the previously-blocked multi-run)',
+  operatorPrompt: `Go. windows cleanroom has a labview license (VI Analyzer TREND, ${plane} plane)`,
   cleanroom: {
-    vm: 'lba-ubuntu2404-labview2026-scratch',
-    plane: 'LINUX',
+    vm: pm.vm,
+    plane,
     hypervisor: 'virtualbox',
-    labview: 'LabVIEW 2026 Q1 Community (activated)',
-    viAnalyzerToolkit: 'installed (vialinux/1 + vi.lib/addons/analyzer)',
+    labview: pm.labview,
+    viAnalyzerToolkit: 'installed',
   },
   workload: {
     type: 'vi-analyzer-trend',
     operation: 'LabVIEWCLI -OperationName RunVIAnalyzer',
-    display: 'headless Xvfb :99 (xdpyinfo-gated readiness)',
+    display: pm.display,
     config: 'NI LabVIEWCLIExampleProject/ConfigFile.viancfg',
     target: '3 VIs (Add.vi, Increment.vi, Decrement.vi) -> 69 tests',
     runs: runs.length,
-    harness: 'experiments/vi-analyzer/run-vi-analyzer-trend.sh (guest-resident; explicit PATH survives a detached shell)',
-    note: 'run 1 cold-launches LabVIEW; runs 2..N connect to the resident LabVIEW (VI Server 3363) -> warm analyze',
+    harness: pm.harness,
+    note: pm.note,
   },
   runs,
   trend: {

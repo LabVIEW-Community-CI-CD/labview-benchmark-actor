@@ -1,0 +1,137 @@
+{
+  "schema": "labview-benchmark-actor/vi-analyzer-trend-live-evidence@1",
+  "capturedAt": "2026-08-01T03:35:26Z",
+  "operatorPrompt": "Go. windows cleanroom has a labview license (VI Analyzer TREND, WIN plane)",
+  "cleanroom": {
+    "vm": "actor-win11-decouple",
+    "plane": "WIN",
+    "hypervisor": "virtualbox",
+    "labview": "LabVIEW 2026 32-bit (licensed)",
+    "viAnalyzerToolkit": "installed"
+  },
+  "workload": {
+    "type": "vi-analyzer-trend",
+    "operation": "LabVIEWCLI -OperationName RunVIAnalyzer",
+    "display": "interactive Windows desktop (no Xvfb; LabVIEW needs a window station)",
+    "config": "NI LabVIEWCLIExampleProject/ConfigFile.viancfg",
+    "target": "3 VIs (Add.vi, Increment.vi, Decrement.vi) -> 69 tests",
+    "runs": 6,
+    "harness": "experiments/vi-analyzer/run-vi-analyzer-trend.ps1 (operator-run; the SAME LabVIEWCLIExampleProject shipped via the VM share)",
+    "note": "run 1 cold-launches LabVIEW (Windows first-launch mass-compile, very cold); runs 2..N warm"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wallMs": 94683,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 2,
+      "wallMs": 9557,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 3,
+      "wallMs": 6948,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 4,
+      "wallMs": 4842,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 5,
+      "wallMs": 4821,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 6,
+      "wallMs": 4895,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    }
+  ],
+  "trend": {
+    "wallMs": [
+      94683,
+      9557,
+      6948,
+      4842,
+      4821,
+      4895
+    ],
+    "coldWallMs": 94683,
+    "warmMedianMs": 4895,
+    "warmMinMs": 4821,
+    "warmMaxMs": 9557,
+    "coldOverWarm": 19.34,
+    "note": "wall ms per LabVIEWCLI RunVIAnalyzer invocation; warm runs are analyze-dominated (LabVIEW resident)"
+  },
+  "determinism": {
+    "distinctResultHashes": 1,
+    "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+    "deterministicAcrossRuns": true,
+    "matchesSingleRunCanonical": true,
+    "canonicalHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+  },
+  "gate": {
+    "by": "agent (deterministic)",
+    "method": "run-vi-analyzer-trend.sh (guest) -> parse-vi-analyzer-ascii.mjs -> viAnalyzerResult.mjs per run",
+    "verdict": "PASS -- 6/6 runs 69/69 all-pass; ONE resultHash across all runs, matching the single-run canonical (determinism proven)",
+    "note": "a compute workload: the deterministic result digest repeated across runs is the gate, not a screenshot"
+  }
+}

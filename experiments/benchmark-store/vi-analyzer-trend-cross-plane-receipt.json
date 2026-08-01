@@ -1,0 +1,136 @@
+{
+  "schema": "labview-benchmark-actor/vi-analyzer-trend-cross-plane@1",
+  "capturedAt": "2026-08-01T03:36:41Z",
+  "benchmarkId": "vi-analyzer-labviewcliexampleproject-trend",
+  "planes": {
+    "linux": "vi-analyzer-labviewcliexampleproject-trend-linux",
+    "win": "vi-analyzer-labviewcliexampleproject-trend-win"
+  },
+  "correctness": {
+    "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+    "match": true,
+    "verdict": "SUBSTRATE-INDEPENDENT -- LINUX (64-bit LabVIEW 2026) and WIN (32-bit LabVIEW 2026) produce the BYTE-IDENTICAL VI Analyzer resultHash (69/69 all-pass)"
+  },
+  "timing": {
+    "coldWallMs": {
+      "linux": 8363,
+      "win": 94683,
+      "delta": 86320,
+      "pctOfLinux": 1032.2
+    },
+    "warmMedianMs": {
+      "linux": 3885,
+      "win": 4895,
+      "delta": 1010,
+      "pctOfLinux": 26
+    },
+    "note": "Timing legitimately differs: WIN cold-launch ~11x LINUX (Windows first-launch mass-compile/indexing); WIN warm-analyze ~26% slower. Correctness (resultHash) is identical; cost is substrate-dependent."
+  },
+  "compare": {
+    "schema": "labview-benchmark-actor/cross-plane-compare@v1",
+    "benchmarkId": "vi-analyzer-labviewcliexampleproject-trend",
+    "linux": {
+      "totalTests": 69,
+      "passedTests": 69,
+      "failedTests": 0,
+      "errorTests": 0,
+      "pass": 1,
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+      "runs": 6,
+      "distinctResultHashes": 1,
+      "coldWallMs": 8363,
+      "warmMedianMs": 3885,
+      "warmMinMs": 3159,
+      "warmMaxMs": 4621
+    },
+    "win": {
+      "totalTests": 69,
+      "passedTests": 69,
+      "failedTests": 0,
+      "errorTests": 0,
+      "pass": 1,
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+      "runs": 6,
+      "distinctResultHashes": 1,
+      "coldWallMs": 94683,
+      "warmMedianMs": 4895,
+      "warmMinMs": 4821,
+      "warmMaxMs": 9557
+    },
+    "deltas": {
+      "totalTests": {
+        "linux": 69,
+        "win": 69,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "passedTests": {
+        "linux": 69,
+        "win": 69,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "failedTests": {
+        "linux": 0,
+        "win": 0,
+        "delta": 0,
+        "pctOfLinux": null
+      },
+      "errorTests": {
+        "linux": 0,
+        "win": 0,
+        "delta": 0,
+        "pctOfLinux": null
+      },
+      "pass": {
+        "linux": 1,
+        "win": 1,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "runs": {
+        "linux": 6,
+        "win": 6,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "distinctResultHashes": {
+        "linux": 1,
+        "win": 1,
+        "delta": 0,
+        "pctOfLinux": 0
+      },
+      "coldWallMs": {
+        "linux": 8363,
+        "win": 94683,
+        "delta": 86320,
+        "pctOfLinux": 1032.2
+      },
+      "warmMedianMs": {
+        "linux": 3885,
+        "win": 4895,
+        "delta": 1010,
+        "pctOfLinux": 26
+      },
+      "warmMinMs": {
+        "linux": 3159,
+        "win": 4821,
+        "delta": 1662,
+        "pctOfLinux": 52.6
+      },
+      "warmMaxMs": {
+        "linux": 4621,
+        "win": 9557,
+        "delta": 4936,
+        "pctOfLinux": 106.8
+      }
+    },
+    "digests": {
+      "resultHash": {
+        "linux": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+        "win": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+        "match": true
+      }
+    }
+  }
+}
