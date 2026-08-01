@@ -622,6 +622,18 @@ check('win-pdh-sampler-12fps', () => {
   return { selftest: 'winPdhSampler 4/4 (REAL)', plane: 'WIN', effectiveFps: cap.measured.effectiveFps, keys: cap.counterKeys.length };
 });
 
+// LBA-REQ-032 (mesh-stress-signature@v1, LIVE): the full stress ladder calibrated END TO END on REAL data -- each
+// rung applied REAL scaled CPU load, linuxProcSampler captured a REAL exact-12-FPS series, the extractor built the
+// per-rung signatures, and the fitter fit the ladder with the monotone/separable/repeatable invariants HOLDING +
+// a held-out rung inverse-reading back to itself. Replays the committed live receipt.
+check('mesh-live-ladder-real', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'liveLadderRun.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mesh-stress-signature', 'fixtures', 'mesh-live-ladder-receipt.json'), 'utf8'));
+  assert(r.invariants.monotone === 1 && r.invariants.separable === true && r.invariants.repeatable === true, 'the live ladder design invariants must hold on real data');
+  assert(r.inverseRead.heldOutRung === r.inverseRead.inferredRung, 'a held-out rung must inverse-read back to itself');
+  return { rungs: r.ladder.levels.length, salient: r.salientDimensions.length, cpuCurve: (r.cpuTotalPctMeanCurve || []).map((c) => c.expected) };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
