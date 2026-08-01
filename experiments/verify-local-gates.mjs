@@ -586,6 +586,14 @@ check('mesh-stress-signature-extractor', () => {
   return { selftest: 'signatureExtractor 5/5', schema: 'mesh-stress-signature@v1' };
 });
 
+// LBA-REQ-011 (extended, mesh-stress-signature@v1): the CALIBRATION-CURVE fitter -- fit stressRung -> expected +
+// tolerance band per counter-feature from the per-rung signatures, score the monotone/separable/repeatable design
+// invariants, and the inverse read (observed signature -> inferred rung). Proven on a synthetic idle..saturate ladder.
+check('mesh-stress-signature-calibrator', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'calibrationCurveFitter.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'calibrationCurveFitter 4/4', schema: 'mesh-stress-calibration@v1' };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
