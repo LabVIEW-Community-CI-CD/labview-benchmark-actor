@@ -55,6 +55,7 @@ import { verifyDepManifest } from './labview-authoring/verify-dep-manifest.mjs';
 import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-plane.mjs';
 import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs';
 import { execFileSync } from 'node:child_process';
+import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -481,6 +482,31 @@ check('acg-quorum-compare-witnesses', () => {
 check('acg-quorum-assemble-witness', () => {
   execFileSync(process.execPath, [join(here, 'acg-quorum', 'assemble-witness.selftest.mjs')], { stdio: 'pipe' });
   return { selftest: 'assemble-witness 9/9' };
+});
+
+// Live corroboration evidence (ADR-0014/ADR-0015, LBA-REQ-024): the committed witness bundles from the REAL
+// {CODESPACE, LINUX} grid must still corroborate. Re-derive the verdict from the committed bundles and assert it
+// matches the committed corroboration receipt (tamper-evident: a doctored release anchor changes the verdict), and
+// that every OS-independent (release-critical) anchor -- plus the Linux render -- is identical across the witnesses.
+// The Ubuntu codename MAY differ (noble codespace vs the host's own Ubuntu) -- that divergence is graded, not fatal.
+check('acg-quorum-live-corroboration', () => {
+  const codespace = readJson('experiments/acg-quorum/witnesses/codespace.bundle.json');
+  const host = readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json');
+  const receipt = readJson('experiments/acg-quorum/corroboration-receipt.json');
+  const verdict = compareWitnesses([codespace, host]);
+  assert(verdict.verdict === 'pass', `live corroboration verdict is ${verdict.verdict}`);
+  assert(
+    verdict.verdict === receipt.verdict && verdict.confidence === receipt.confidence && verdict.consensusVerdict === receipt.consensusVerdict,
+    'the committed corroboration receipt must match the re-derived verdict'
+  );
+  assert(JSON.stringify(verdict.consensus) === JSON.stringify(receipt.consensus), 'the committed consensus anchors must match the re-derived ones');
+  assert(verdict.divergences.length === receipt.divergences.length, 'the committed divergences must match the re-derived ones');
+  // Every OS-independent (release-critical) anchor must corroborate -- never appear as a divergence -- and so must the Linux render.
+  for (const k of ['version', 'sourceCommit', 'verdict', 'seriesHash', 'pngSha256']) {
+    assert(verdict.consensus[k] != null, `consensus is missing the ${k} anchor`);
+    assert(verdict.divergences.every((d) => d.anchor !== k), `the ${k} anchor must corroborate across the witnesses`);
+  }
+  return { verdict: verdict.verdict, confidence: +verdict.confidence.toFixed(4), witnesses: verdict.witnesses, tolerated: verdict.divergences.map((d) => d.anchor) };
 });
 
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
