@@ -17,7 +17,7 @@
 | LBA-REQ-008 | Standards-baseline stamp and move-readiness | Proven | §3.1 Packaging / boundary | ADR-0010, ADR-0013 | T-008 | 5 |
 | LBA-REQ-009 | VM cleanroom image storage via the mprr ring buffer | Proven | §3.3 Actor / run-result | ADR-0009 | T-009 | 5 |
 | LBA-REQ-010 | Own-run review, host concentration, and the ollama comparison layer | Proven | §3.6 Analysis | ADR-0006, ADR-0008 | T-010 | 16 |
-| LBA-REQ-011 | CPU/RAM/disk usage correlation with a pre/post-trigger window | Proven | §3.6 Analysis | — | T-011 | 36 |
+| LBA-REQ-011 | CPU/RAM/disk usage correlation with a pre/post-trigger window | Proven | §3.6 Analysis | — | T-011 | 30 |
 | LBA-REQ-012 | Version-pinned agent base instructions | Proven | §3.7 Agentic-infrastructure | — | T-012 | 5 |
 | LBA-REQ-013 | Prioritized, addressable coordination messages | Proven | §3.7 Agentic-infrastructure | — | T-013 | 4 |
 | LBA-REQ-014 | Cross-plane benchmark comparison | Proven | §3.6 Analysis | — | T-014 | 17 |
@@ -38,5 +38,6 @@
 | LBA-REQ-029 | MCP orchestration surface | Proven | §3.9 Corroboration-grid | ADR-0020 | T-029 | 11 |
 | LBA-REQ-030 | Pull requests target develop | Proven | §3.8 Configuration-management & assurance | ADR-0021 | T-030 | 5 |
 | LBA-REQ-031 | Transparency-log inclusion + verify-before-install | Proven | §3.9 Corroboration-grid | ADR-0022 | T-031 | 11 |
+| LBA-REQ-032 | Mesh-stress performance-signature calibration | Proven | §3.6 Analysis | — | T-032 | 9 |
 
-_Generated for 31 requirements._
+_Generated for 32 requirements._

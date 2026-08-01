@@ -100,11 +100,16 @@ multi-VM / Codespace topology.
   note); it never carries run data, run/frame metadata, or images — the entire
   mprr ring buffer stays VM-local (ADR-0005, LBA-REQ-009).
 
-### 3.6 Analysis view — addresses LBA-REQ-010, LBA-REQ-011, LBA-REQ-014, LBA-REQ-015
+### 3.6 Analysis view — addresses LBA-REQ-010, LBA-REQ-011, LBA-REQ-014, LBA-REQ-015, LBA-REQ-032
 - Resource-usage correlation folds CPU/RAM/disk samples onto the benchmark frame
   timeline on a shared epoch-ms axis and, anchored on a trigger instant, computes
   a pre/post-trigger window (count, mean, min, max, delta) per metric — so a
   run's machine cost is readable against its own frames (LBA-REQ-011).
+- Mesh-stress performance-signature calibration extracts a per-actor signature
+  (the repetitive + outlier features of the 42-counter series across repeated
+  runs), fits a stress-ladder calibration curve (rung → expected value + tolerance
+  band, scored monotone/separable/repeatable), and inverse-reads an observed
+  signature to an inferred stress level (LBA-REQ-032).
 - Cross-plane comparison ingests the same mprr short-packet input on each plane
   (LINUX, WIN), stores a plane-local run, and compares a shared `benchmarkId`:
   the deterministic `seriesHash` MUST match across planes (substrate-independent

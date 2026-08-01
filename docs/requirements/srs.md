@@ -59,6 +59,7 @@ progressively.
 | LBA-REQ-029 | The system shall expose the corroboration grid's operations to agents through the Model Context Protocol tool surface. | Agents already consume actor tools through the MCP server (ADR-0012), so exposing the grid's operations on the same surface lets an agent orchestrate corroboration directly rather than through bespoke commands (ADR-0020). | The ADR-0012 MCP surface gains grid tools (`spin_up_witness`, `run_quorum`, `get_confidence`, `verify_attestation`, `teardown`); the surface is designed now and implemented in a later phase. | The ACG MCP surface (`experiments/acg-mcp/grid-tools.mjs` + `server.mjs`) exposes the grid tools over the same dependency-free JSON-RPC 2.0 contract as the ADR-0012 server; run_quorum/get_confidence/verify_attestation/check_independence/assemble_witness compose the engines, `verify_inclusion`/`verify_before_install` verify transparency-log inclusion (ADR-0022), and spin_up_witness/teardown return provisioning plans. Self-test 13/13 incl. a spawned stdio round-trip (initialize/tools/list/tools/call), gated by `acg-mcp-grid-surface`. |
 | LBA-REQ-030 | The system shall require every non-release pull request to target the develop integration branch. | GitFlow makes develop the integration branch (ADR-0010), but stale main-based pull requests (#211 / #215 / #217) dumped integration content onto the release branch because no rule stated where feature work targets; codifying the base-branch rule prevents that class of error (ADR-0021). | Every non-release pull request targets develop; main receives only release/hotfix merges via a no-fast-forward merge; a pull request found on the wrong base is re-targeted or closed rather than merged. | The base-branch guard (`experiments/acg-governance/pr-base-branch-guard.mjs`, self-test 11/11) blocks any non-release head targeting main (develop and feature/authoring included), and the `.github/workflows/pr-base-branch-guard.yml` workflow enforces it on PRs targeting main; gated by `acg-governance-pr-base-branch` and `acg-governance-pr-base-branch-workflow-wired`. |
 | LBA-REQ-031 | The system shall admit a component release for installation only after its corroboration attestation is proven included in the signed transparency log. | Provenance that lives only beside a verdict can be silently dropped or forged; recording each witness attestation in an append-only, Ed25519-signed Merkle transparency log makes an unattested or un-logged release refusable before install, with tamper-evident inclusion proofs (ADR-0022, extends ADR-0016). | Each witness attestation is a leaf in a signed Merkle log using RFC 6962 domain-separated hashing; the reviewer-workstation install plus a standalone verifier admit a release only when at least the quorum minimum of enrolled-witness attestations each carry an inclusion proof against the signed tree head; any missing or tampered proof blocks the install. | The transparency log `experiments/acg-transparency/transparency-log.mjs` (RFC 6962 inclusion + consistency + Ed25519 signed tree heads, self-test 26/26, gated by `acg-transparency-log`) records the real {codespace, host} attestations under one signed head (`acg-transparency-log-live`); the verifier `experiments/acg-transparency/verify-release-inclusion.mjs` admits the real bundle plus blocks a tampered one (`acg-transparency-verify-before-install`), wired fail-closed into `reviewer-workstation/provision.ps1` before the .vsix install (`acg-transparency-verify-before-install-wired`). |
+| LBA-REQ-032 | The system shall calibrate a stress-ladder performance-signature curve from repeated per-rung benchmark signatures so an observed signature maps to an inferred stress level within the calibrated tolerance band. | The mesh-stress program re-verifies the maximum drop-free streaming ceiling under a stressed actor mesh (mesh-stress-signature@v1); calibrating each actor's 42-counter performance signature across a stress ladder turns raw per-actor counters into a monotone, separable, repeatable stress read for later ladder testing (design #272, builds on performance-counter-correlation@v2). | The signature extractor derives per-counter features (mean/std/percentiles/drift/periodicity) plus across-repeat stability (signature vs noise) plus MAD outliers plus cross-counter outlier co-occurrence from repeated runs; the calibration-curve fitter maps each per-rung signature to an expected value plus tolerance band, scores the monotone/separable/repeatable invariants, drops non-tracking features, and inverse-reads an observed signature to an inferred rung with a confidence; the stress orchestrator emits the monotone commanded ladder (per-actor VirtualBox throttle plus host/guest stress-ng) pinning each actor to a distinct level. | Run `node experiments/mesh-stress-signature/signatureExtractor.selftest.mjs` (5/5), `calibrationCurveFitter.selftest.mjs` (4/4), and `stressOrchestrator.selftest.mjs` (5/5); gated by `mesh-stress-signature-extractor` / `mesh-stress-signature-calibrator` / `mesh-stress-orchestrator` in `verify-local-gates`. |
 
 ---
 
@@ -913,6 +914,42 @@ progressively.
 
 ---
 
+### LBA-REQ-032: Mesh-stress performance-signature calibration
+
+- Status: Proven
+- Area: Analysis / mesh-stress performance signature (mesh-stress-signature@v1)
+- Statement: The system shall calibrate a stress-ladder performance-signature
+  curve from repeated per-rung benchmark signatures so an observed signature maps
+  to an inferred stress level within the calibrated tolerance band.
+- Rationale: The mesh-stress program (mesh-stress-signature@v1, design #272)
+  re-verifies the maximum drop-free streaming ceiling under a stressed actor mesh
+  where each actor runs at a different stress level; calibrating each actor's
+  42-counter performance signature across the stress ladder turns raw per-actor
+  counters into a monotone, separable, repeatable stress read for later ladder
+  testing. Builds on performance-counter-correlation@v2 (LBA-REQ-011).
+- Acceptance Criteria:
+  - A performance signature is the repetitive (stable) plus outlier features of
+    the per-actor counter series across repeated runs; a feature is signature when
+    its across-repeat coefficient-of-variation is within the stability threshold,
+    else it is noise.
+  - The calibration curve gives, per counter-feature dimension, an expected value
+    plus a tolerance band per stress rung, and its fit is scored against the design
+    invariants monotone (salient features track the rung), separable (adjacent rung
+    bands resolve on at least one dimension), and repeatable (each rung retains
+    stable signature features); a non-tracking feature is dropped.
+  - An observed signature inverse-reads to an inferred stress rung with a
+    confidence derived from the band distance.
+  - The commanded ladder is monotone (CPU cap decreases, workload increases from
+    idle to saturate) and pins each mesh actor to a distinct level.
+- Change Guidance: The three pure engines (signature extractor, calibration-curve
+  fitter, stress orchestrator) are delivered under `experiments/mesh-stress-signature/`
+  (mesh-stress-signature@v1), each with a self-test gated in `verify-local-gates`
+  and mapped in the RTM; the live Windows/Linux mesh ladder run is the remaining
+  phase. Builds on LBA-REQ-011 (performance-counter-correlation@v2). Authored under
+  the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -948,3 +985,4 @@ progressively.
 | LBA-REQ-029 | Agentic infra (MCP grid surface) | T-029 |
 | LBA-REQ-030 | CM (PRs target develop) | T-030 |
 | LBA-REQ-031 | Corroboration grid (transparency log + verify-before-install) | T-031 |
+| LBA-REQ-032 | Analysis (mesh-stress signature) | T-032 |
