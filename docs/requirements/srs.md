@@ -405,6 +405,21 @@ ADR-0006).
     runs on BOTH ubuntu-latest and windows-latest -- so both operating systems
     computing the same `resultHash` for the same real report IS the two-plane
     agreement.
+  - The REAL run is ALSO proven cross-plane by two INDEPENDENT LIVE runs (the
+    stronger form): the LINUX clean room (64-bit LabVIEW 2026 on Ubuntu/VBox) and
+    the WIN clean room (32-bit LabVIEW 2026 on Windows/VBox) EACH ran
+    `LabVIEWCLI RunVIAnalyzer` on the same shipped `LabVIEWCLIExampleProject`
+    (3 VIs -> 69 tests) as a 6-run determinism trend, and both produced the
+    byte-identical `resultHash 0419a449...`
+    (`compare-vi-analyzer-trend-cross-plane.mjs` reports `match=true`, exiting 1
+    on mismatch). Timing legitimately differs (LINUX cold/warm 2.15x; WIN 19.34x
+    -- Windows first-launch mass-compile/indexing), which the store
+    `crossPlaneCompare` reports as numeric deltas while the `resultHash` digest
+    matches. Receipts: `vi-analyzer-trend-live-evidence.json` (LINUX),
+    `vi-analyzer-trend-live-evidence-WIN.json` (WIN), and
+    `vi-analyzer-trend-cross-plane-receipt.json`; `verify-vi-analyzer-trend.mjs`
+    re-derives every run's hash from committed data (no clean room needed to
+    re-check).
   - Gated: `verify-vi-analyzer-result` (7/7), local gates
     `vi-analyzer-result-model-green` + `vi-analyzer-report-schema-green` +
     `vi-analyzer-ascii-parser-green` + `vi-analyzer-real-report-cross-plane-green`.
