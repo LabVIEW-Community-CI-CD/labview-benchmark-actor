@@ -11,9 +11,12 @@
     "sharedAxis": "epochMs (host clock). Guest samples are shifted onto the host axis via hostGuestOffsetMs before frameIndex resolution."
   },
   "sampling": {
-    "providers": ["typeperf", "logman", "Get-Counter (PDH)"],
-    "cadenceMs": 100,
-    "note": "Counters are sampled ~10 Hz (100 ms) so each 83.33 ms frame has ~1 sample; a frame's counters are the last sample at or before the frame instant, or the mean of samples inside the frame window. Rate counters (…/sec) are already per-second; gauges are instantaneous.",
+    "resolution": "EXACTLY the frame rate (12 FPS -> 1000/12 = 83.333 ms), PHASE-LOCKED to the frame clock so each counter sample maps 1:1 to a 12 FPS long packet/frame. typeperf / logman / Get-Counter are deterministic but FLOOR AT 1 Hz -- too coarse for 12 FPS; use a DRIFT-CORRECTED frame-locked loop (each sample scheduled at epoch0 + n*frameInterval). PROVEN real: linuxProcSampler.mjs achieved effectiveFps 12.000, median phase-error 0.33 ms, max 1 ms.",
+    "samplers": {
+      "linux": "linuxProcSampler.mjs -- reads /proc + /sys (cpu /proc/stat, mem /proc/meminfo, disk /proc/diskstats, net /proc/net/dev, ctxt + procs /proc/stat, load /proc/loadavg) in the frame-locked loop; emits the platform-neutral v2 counters{} shape.",
+      "windows": "a tight PDH-query loop (NOT typeperf, whose 1 Hz floor cannot hit 12 FPS) polling the PDH counters below at the frame interval, emitting the same v2 counters{} keys."
+    },
+    "crossPlatform": "the concept is NOT Windows-only. Each catalog key carries a Windows PDH path (the pdh field); the SAME key is sourced on Linux from /proc + /sys per linuxProcSampler.mjs. A counter with no analogue on a plane samples null and is skipped. Linux-native keys (procsRunning, loadAvg1) have no Windows analogue and vice-versa.",
     "scopeInstances": {
       "process": "LabVIEW (the launched IDE process; matched by image name, de-duplicated across PIDs by the harness)",
       "system": "_Total instances for Processor/PhysicalDisk; * aggregated for Network Interface / GPU Engine"
