@@ -438,6 +438,22 @@ check('cleanroom-gate-suite-shared-in-sync', () => {
   return { bodyLines: end - start - 1 };
 });
 
+// The Actor Corroboration Grid codespace witness (ADR-0014/ADR-0015): its devcontainer + bootstrap-validate must
+// stay well-formed -- noble base (parity with the VBox golden VM), postCreate runs bootstrap-validate, and the
+// bootstrap builds lbabus from source AND runs the SHARED gate-suite (not a private copy). Pure string/JSON
+// checks (Windows-safe -- no bash invocation, CRLF-tolerant substring matches).
+check('codespace-witness-bootstrap-valid', () => {
+  const dc = JSON.parse(readFileSync(join(pkgRoot, '.devcontainer', 'cleanroom-witness', 'devcontainer.json'), 'utf8'));
+  assert(String(dc.postCreateCommand || '').includes('bootstrap-validate.sh'), 'the witness devcontainer runs bootstrap-validate on postCreate');
+  assert(/ubuntu-24\.04/.test(String(dc.image || '')), 'the witness devcontainer is Ubuntu 24.04 (noble) to match the VBox golden VM');
+  const bs = readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'codespace', 'bootstrap-validate.sh'), 'utf8');
+  assert(bs.startsWith('#!/usr/bin/env bash'), 'bootstrap-validate.sh has a bash shebang');
+  assert(bs.includes('set -euo pipefail'), 'bootstrap-validate.sh runs in strict mode');
+  assert(bs.includes('cleanroom/ubuntu-labview/lba/gate-suite.sh'), 'the witness runs the SHARED gate-suite (single source), not a copy');
+  assert(bs.includes('dotnet publish') && bs.includes('LbaBus.csproj'), 'the witness builds lbabus from source');
+  return { devcontainer: 'noble', runsSharedGateSuite: true };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
