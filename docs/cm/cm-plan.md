@@ -31,7 +31,7 @@ tag on `main` remains the sole publish authority (GitFlow never weakens it).
 
 ### Merge method by branch type
 
-Both squash and merge-commit are enabled on the repository; the method is selected by branch type so the GitFlow topology stays sound:
+The repository enables squash, merge-commit, and rebase merges; this convention uses **squash** and **`--no-ff` merge commits**, selected by branch type so the GitFlow topology stays sound (rebase-merge is not part of the convention):
 
 - **Feature → `develop`: squash merge.** Each reviewed pull request lands as one logical, revertible commit, keeping `develop` linear.
 - **Release → `main` and back into `develop`: `--no-ff` merge commit.** The two-parent merge preserves shared ancestry so `main` and `develop` never diverge into different commit SHAs for identical content.
