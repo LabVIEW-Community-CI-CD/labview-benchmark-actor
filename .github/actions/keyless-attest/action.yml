@@ -1,0 +1,39 @@
+name: Keyless attest release artifacts
+description: >-
+  Keyless-sign every artifact in a directory with cosign under the GitHub Actions OIDC identity (a short-lived
+  Fulcio certificate + a public rekor entry), emitting <file>.sigstore, <file>.pem, and <file>.sig alongside each
+  file so the caller can attach them to the IMMUTABLE release AT CREATION (`gh release create ... staging/*`).
+  The caller job must grant `id-token: write`. Same mechanism as acg-keyless-attest.yml (LBA-REQ-025 / ADR-0016).
+
+inputs:
+  artifacts-dir:
+    description: Absolute path to the directory whose files are keyless-signed in place.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3
+
+    - name: Keyless-sign the release artifacts (Fulcio cert + public rekor entry)
+      shell: bash
+      run: |
+        set -eu
+        dir="${{ inputs.artifacts-dir }}"
+        test -d "$dir" || { echo "keyless-attest: artifacts dir not found: $dir" >&2; exit 1; }
+        shopt -s nullglob
+        signed=0
+        for f in "$dir"/*; do
+          [ -f "$f" ] || continue
+          case "$f" in *.sigstore | *.pem | *.sig) continue ;; esac
+          echo "keyless-attest: signing $f"
+          cosign sign-blob --yes \
+            --output-certificate "$f.pem" \
+            --output-signature "$f.sig" \
+            --bundle "$f.sigstore" \
+            "$f"
+          signed=$((signed + 1))
+        done
+        echo "keyless-attest: keyless-signed $signed artifact(s) in $dir (Fulcio + public rekor)"
+        [ "$signed" -gt 0 ] || { echo "keyless-attest: no artifacts to sign in $dir" >&2; exit 1; }

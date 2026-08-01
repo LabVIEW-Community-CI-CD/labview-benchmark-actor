@@ -758,7 +758,10 @@ progressively.
   rekor logIndex 2312189991). PROVEN: the provenance is now stored ON THE RELEASE -- the immutable prerelease
   `acg-attest-v0.0.2` carries the keyless-signed `.sigstore` bundle + certificate + signature attached at
   creation -- completing all four storage locations (Release, repo, transparency log, mesh ledger) and the full
-  chain. Authored under
+  chain. The real ext-v*/collab-cli-v* release lanes are hardened through the same mechanism: the shared
+  `.github/actions/keyless-attest` composite action keyless-signs their artifacts (cosign, Actions OIDC ->
+  Fulcio + public rekor) and attaches the signatures at creation (drift-gated by `release-lanes-keyless-attested`).
+  Authored under
   the `repo-standards-review` singular-requirement directive (one `shall`).
 
 ### LBA-REQ-026: Witness independence

@@ -57,6 +57,9 @@ jobs:
   release:
     needs: [build, agreement]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release + attach assets
+      id-token: write # keyless-sign the artifacts with cosign (Fulcio OIDC -> public rekor)
     steps:
       - uses: actions/checkout@v5
 
@@ -124,6 +127,13 @@ jobs:
           echo "Release notes for ${version}:"
           cat "$notes_file"
           echo "path=${notes_file}" >> "$GITHUB_OUTPUT"
+
+      - name: Keyless-attest the release artifacts (Fulcio + public rekor)
+        # Sign the staged .vsix keylessly (cosign, Actions OIDC) so the release carries a Fulcio cert + a
+        # public rekor entry, attached AT CREATION with the .vsix (immutable-safe). LBA-REQ-025 / ADR-0016.
+        uses: ./.github/actions/keyless-attest
+        with:
+          artifacts-dir: ${{ github.workspace }}/staging
 
       - name: Create GitHub Release
         env:

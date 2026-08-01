@@ -31,7 +31,7 @@
 | LBA-REQ-022 | Generated traceability matrix | Proven | §3.8 Configuration-management & assurance | ADR-0013 | T-022 | 3 |
 | LBA-REQ-023 | Actor Corroboration Grid (multi-witness release corroboration) | Proven | §3.9 Corroboration-grid | ADR-0014 | T-023 | 6 |
 | LBA-REQ-024 | Corroboration quorum + graded confidence | Proven | §3.9 Corroboration-grid | ADR-0015 | T-024 | 10 |
-| LBA-REQ-025 | Corroboration provenance + attestation | Proven | §3.9 Corroboration-grid | ADR-0016 | T-025 | 10 |
+| LBA-REQ-025 | Corroboration provenance + attestation | Proven | §3.9 Corroboration-grid | ADR-0016 | T-025 | 13 |
 | LBA-REQ-026 | Witness independence | Proven | §3.9 Corroboration-grid | ADR-0017 | T-026 | 6 |
 | LBA-REQ-027 | Reviewer station + human sign-off | Proven | §3.9 Corroboration-grid | ADR-0018 | T-027 | 6 |
 | LBA-REQ-028 | Mesh verdict beacon | Proven | §3.9 Corroboration-grid | ADR-0019 | T-028 | 6 |
