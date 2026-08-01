@@ -1877,9 +1877,18 @@ check('capture-ring-frame-correlator', () => {
   const model = { title: 'gate', fps: cap.fps, selectedIndex: 0, frames: cap.frames.map((f) => ({ index: f.index, tMs: f.tMs, cpuPct: f.cpuPct, ramMb: f.ramMb, diskPct: f.diskPct, imageSrc: 'vscode-webview://x/frame' })) };
   const html = buildFrameCorrelatorHtml(model, 'g', 'vscode-webview://x');
   assert(html.includes("script-src 'nonce-g'") && html.includes('img-src vscode-webview://x data:'), 'correlator is a nonce-scoped doc that only loads VM-local webview images');
-  assert(html.includes('#ff3b30') && html.includes("key: 'cpuPct'") && html.includes("key: 'ramMb'") && html.includes("key: 'diskPct'"), 'correlator draws the red line + the CPU/RAM/disk curves');
+  assert(html.includes('#ff3b30') && html.includes("'cpuPct'") && html.includes("'ramMb'") && html.includes("'diskPct'"), 'correlator draws the red line + the legacy CPU/RAM/disk fallback metrics');
+  // v2: frames carrying a counters{} object plot the performance-counter curves. Source the REAL exact-12-FPS
+  // Linux /proc capture (one sample per 12 FPS frame) and assert the catalog + selected keys reach the webview.
+  const v2cap = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'fixtures', 'linux-proc-12fps-capture.json'), 'utf8'));
+  const v2frames = v2cap.samples.slice(0, 24).map((s, i) => ({ index: i, tMs: s.epochMs - v2cap.epochMsAtFrameZero, counters: s.counters, imageSrc: 'vscode-webview://x/f' }));
+  const v2html = buildFrameCorrelatorHtml({ title: 'v2', fps: 12, selectedIndex: 0, frames: v2frames, counterKeys: ['cpuTotalPct', 'memAvailableMb', 'diskWriteBytesPerSec'] }, 'g', 'vscode-webview://x');
+  assert(v2html.includes('valueOf') && v2html.includes('useCounters'), 'the shipped correlator runtime is v2-counter capable');
+  const v2island = JSON.parse(v2html.match(/<script id="fc-model"[^>]*>([\s\S]*?)<\/script>/)[1].replace(/\\u003c/g, '<'));
+  assert(v2island.frames[0].counters && typeof v2island.frames[0].counters.cpuTotalPct === 'number', 'real exact-12-FPS counters are carried into the correlator model');
+  assert(Array.isArray(v2island.counterKeys) && v2island.counterKeys.length === 3, 'the selected counterKeys are carried into the runtime');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-launch-capture.mjs')], { stdio: 'pipe' });
-  return { record: 'launch-capture@1', frames: N, dualPacket: cap.dualPacket.outcome, suite: 'verify-launch-capture subprocess' };
+  return { record: 'launch-capture@1', frames: N, v2Counters: v2island.counterKeys.length, dualPacket: cap.dualPacket.outcome, suite: 'verify-launch-capture subprocess' };
 });
 
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
