@@ -551,6 +551,19 @@ check('performance-counter-correlation-real', () => {
   return { selftest: 'performanceCounterCorrelation 4/4 (REAL data)', effectiveFps: cap.measured.effectiveFps };
 });
 
+// LBA-REQ-011 (extended, LIVE end-to-end): the capture->correlate driver proven on a committed REAL receipt -- an
+// EXACTLY-12-FPS /proc capture with a REAL CPU+disk burst fired at the trigger frame -- must show the correlation
+// SURFACING the trigger (an expected counter rose past its detection threshold) with the frame-lock held at the median.
+check('performance-counter-correlation-live-trigger', () => {
+  execFileSync(process.execPath, [join(here, 'resource-usage-correlation', 'captureAndCorrelate.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'fixtures', 'linux-proc-12fps-correlated-trigger.json'), 'utf8'));
+  assert(r.capture.measured.exactly12fps === true, 'the live capture must be EXACTLY 12 FPS');
+  assert(Math.abs(r.capture.frameIntervalMs - 1000 / 12) < 1e-6, 'frame interval must be exactly 1000/12 ms');
+  assert(r.capture.measured.medianPhaseErrorMs <= 5, `median frame-lock error must stay tight under load (<=5 ms), got ${r.capture.measured.medianPhaseErrorMs}`);
+  assert(r.detection.triggerDetected === true && Array.isArray(r.detection.detectedBy) && r.detection.detectedBy.length >= 1, 'the real burst must be detected across the trigger');
+  return { detectedBy: r.detection.detectedBy.map((d) => d.key), effectiveFps: r.capture.measured.effectiveFps };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-

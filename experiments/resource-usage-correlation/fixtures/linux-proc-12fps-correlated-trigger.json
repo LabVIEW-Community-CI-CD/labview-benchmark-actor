@@ -1,0 +1,351 @@
+{
+  "schema": "labview-benchmark-actor/perf-counter-live-correlation@1",
+  "capturedAtIso": "2026-08-01T19:11:44.368Z",
+  "host": {
+    "platform": "linux",
+    "cpus": 24,
+    "hostname": "sergio-ThinkPad-P16-Gen-3"
+  },
+  "workload": "cpu(2 spinners) + disk(fsync writer) burst, child processes",
+  "capture": {
+    "frameRateHz": 12,
+    "frameIntervalMs": 83.33333333333333,
+    "sampleCount": 96,
+    "measured": {
+      "medianCadenceMs": 83,
+      "effectiveFps": 11.998500187476566,
+      "exactly12fps": true,
+      "medianPhaseErrorMs": 0.333251953125,
+      "maxPhaseErrorMs": 7.333251953125
+    }
+  },
+  "trigger": {
+    "triggerEpochMs": 1785611499027.6667,
+    "triggerFrameIndex": 32,
+    "triggerFrame": 32
+  },
+  "correlation": {
+    "counterKeys": [
+      "contextSwitchesPerSec",
+      "cpuPrivilegedPct",
+      "cpuTotalPct",
+      "cpuUserPct",
+      "diskReadBytesPerSec",
+      "diskReadsPerSec",
+      "diskWriteBytesPerSec",
+      "diskWritesPerSec",
+      "loadAvg1",
+      "memAvailableMb",
+      "memCommittedBytes",
+      "memCommittedInUsePct",
+      "netBytesReceivedPerSec",
+      "netBytesSentPerSec",
+      "procsRunning"
+    ],
+    "preSampleCount": 31,
+    "postSampleCount": 65,
+    "perCounter": {
+      "contextSwitchesPerSec": {
+        "pre": {
+          "count": 31,
+          "mean": 17478.415690440823,
+          "min": 14855.421686746988,
+          "max": 22746.987951807227
+        },
+        "post": {
+          "count": 65,
+          "mean": 17124.263214766914,
+          "min": 13951.807228915663,
+          "max": 22807.22891566265
+        },
+        "deltaMean": -354.15247567390907
+      },
+      "cpuPrivilegedPct": {
+        "pre": {
+          "count": 31,
+          "mean": 2.0545121571351856,
+          "min": 0.9950248756218906,
+          "max": 6.030150753768844
+        },
+        "post": {
+          "count": 65,
+          "mean": 6.623178799869047,
+          "min": 1.4018691588785046,
+          "max": 10.552763819095476
+        },
+        "deltaMean": 4.568666642733861
+      },
+      "cpuTotalPct": {
+        "pre": {
+          "count": 31,
+          "mean": 3.9114094722950172,
+          "min": 2.4875621890547266,
+          "max": 9.045226130653267
+        },
+        "post": {
+          "count": 65,
+          "mean": 19.103419098239456,
+          "min": 2.803738317757009,
+          "max": 48.529411764705884
+        },
+        "deltaMean": 15.19200962594444
+      },
+      "cpuUserPct": {
+        "pre": {
+          "count": 31,
+          "mean": 1.824229036306712,
+          "min": 0.9950248756218906,
+          "max": 6.030150753768844
+        },
+        "post": {
+          "count": 65,
+          "mean": 11.615388398690905,
+          "min": 1.4018691588785046,
+          "max": 41.17647058823529
+        },
+        "deltaMean": 9.791159362384194
+      },
+      "diskReadBytesPerSec": {
+        "pre": {
+          "count": 31,
+          "mean": 31827918.59874649,
+          "min": 0,
+          "max": 69483951.80722891
+        },
+        "post": {
+          "count": 65,
+          "mean": 33987971.49592842,
+          "min": 0,
+          "max": 75800674.69879517
+        },
+        "deltaMean": 2160052.897181932
+      },
+      "diskReadsPerSec": {
+        "pre": {
+          "count": 31,
+          "mean": 65.86511405650916,
+          "min": 0,
+          "max": 132.5301204819277
+        },
+        "post": {
+          "count": 65,
+          "mean": 66.66310188234552,
+          "min": 0,
+          "max": 144.57831325301203
+        },
+        "deltaMean": 0.7979878258363584
+      },
+      "diskWriteBytesPerSec": {
+        "pre": {
+          "count": 31,
+          "mean": 34732232.64594205,
+          "min": 0,
+          "max": 70022095.23809524
+        },
+        "post": {
+          "count": 65,
+          "mean": 42527212.820876226,
+          "min": 0,
+          "max": 424355469.87951803
+        },
+        "deltaMean": 7794980.174934179
+      },
+      "diskWritesPerSec": {
+        "pre": {
+          "count": 31,
+          "mean": 92.73246939863579,
+          "min": 0,
+          "max": 178.57142857142856
+        },
+        "post": {
+          "count": 65,
+          "mean": 547.7381710015012,
+          "min": 0,
+          "max": 24817.073170731706
+        },
+        "deltaMean": 455.00570160286543
+      },
+      "loadAvg1": {
+        "pre": {
+          "count": 31,
+          "mean": 2.9800000000000004,
+          "min": 2.98,
+          "max": 2.98
+        },
+        "post": {
+          "count": 65,
+          "mean": 3.1424615384615375,
+          "min": 2.98,
+          "max": 3.22
+        },
+        "deltaMean": 0.1624615384615371
+      },
+      "memAvailableMb": {
+        "pre": {
+          "count": 31,
+          "mean": 36525.662802419356,
+          "min": 36509.9609375,
+          "max": 36543.57421875
+        },
+        "post": {
+          "count": 65,
+          "mean": 36347.49591346154,
+          "min": 36069.90625,
+          "max": 36517.19140625
+        },
+        "deltaMean": -178.16688895781408
+      },
+      "memCommittedBytes": {
+        "pre": {
+          "count": 31,
+          "mean": 56017652174.451614,
+          "min": 55981490176,
+          "max": 57041489920
+        },
+        "post": {
+          "count": 65,
+          "mean": 56171120797.53846,
+          "min": 55989055488,
+          "max": 56994279424
+        },
+        "deltaMean": 153468623.0868454
+      },
+      "memCommittedInUsePct": {
+        "pre": {
+          "count": 31,
+          "mean": 41.49575493145499,
+          "min": 41.46706568093541,
+          "max": 41.52090507748368
+        },
+        "post": {
+          "count": 65,
+          "mean": 41.78113015903331,
+          "min": 41.50932381972531,
+          "max": 42.22575381411925
+        },
+        "deltaMean": 0.2853752275783208
+      },
+      "netBytesReceivedPerSec": {
+        "pre": {
+          "count": 31,
+          "mean": 32106.2740723066,
+          "min": 0,
+          "max": 532156.626506024
+        },
+        "post": {
+          "count": 65,
+          "mean": 714.2195154243345,
+          "min": 0,
+          "max": 21180.722891566264
+        },
+        "deltaMean": -31392.054556882267
+      },
+      "netBytesSentPerSec": {
+        "pre": {
+          "count": 31,
+          "mean": 22442.020798319852,
+          "min": 0,
+          "max": 155736.52694610777
+        },
+        "post": {
+          "count": 65,
+          "mean": 478.87534152594395,
+          "min": 0,
+          "max": 19927.710843373494
+        },
+        "deltaMean": -21963.145456793907
+      },
+      "procsRunning": {
+        "pre": {
+          "count": 31,
+          "mean": 1.5483870967741935,
+          "min": 1,
+          "max": 4
+        },
+        "post": {
+          "count": 65,
+          "mean": 5.338461538461538,
+          "min": 4,
+          "max": 12
+        },
+        "deltaMean": 3.7900744416873446
+      }
+    }
+  },
+  "detection": {
+    "triggerDetected": true,
+    "detectedBy": [
+      {
+        "key": "cpuTotalPct",
+        "deltaMean": 15.19200962594444,
+        "threshold": 5
+      },
+      {
+        "key": "diskWriteBytesPerSec",
+        "deltaMean": 7794980.174934179,
+        "threshold": 1000000
+      },
+      {
+        "key": "diskWritesPerSec",
+        "deltaMean": 455.00570160286543,
+        "threshold": 10
+      }
+    ],
+    "expectedRisers": [
+      "cpuTotalPct",
+      "diskWriteBytesPerSec",
+      "diskWritesPerSec",
+      "contextSwitchesPerSec"
+    ],
+    "thresholds": {
+      "cpuTotalPct": 5,
+      "diskWriteBytesPerSec": 1000000,
+      "diskWritesPerSec": 10,
+      "contextSwitchesPerSec": 2000
+    },
+    "topMovers": [
+      {
+        "key": "cpuUserPct",
+        "preMean": 1.824229036306712,
+        "postMean": 11.615388398690905,
+        "deltaMean": 9.791159362384194,
+        "score": 5.367286216541717
+      },
+      {
+        "key": "diskWritesPerSec",
+        "preMean": 92.73246939863579,
+        "postMean": 547.7381710015012,
+        "deltaMean": 455.00570160286543,
+        "score": 4.906649251913043
+      },
+      {
+        "key": "cpuTotalPct",
+        "preMean": 3.9114094722950172,
+        "postMean": 19.103419098239456,
+        "deltaMean": 15.19200962594444,
+        "score": 3.8840243481413204
+      },
+      {
+        "key": "procsRunning",
+        "preMean": 1.5483870967741935,
+        "postMean": 5.338461538461538,
+        "deltaMean": 3.7900744416873446,
+        "score": 2.44775641025641
+      },
+      {
+        "key": "cpuPrivilegedPct",
+        "preMean": 2.0545121571351856,
+        "postMean": 6.623178799869047,
+        "deltaMean": 4.568666642733861,
+        "score": 2.2237233432117605
+      },
+      {
+        "key": "diskWriteBytesPerSec",
+        "preMean": 34732232.64594205,
+        "postMean": 42527212.820876226,
+        "deltaMean": 7794980.174934179,
+        "score": 0.2244307256143209
+      }
+    ]
+  }
+}
