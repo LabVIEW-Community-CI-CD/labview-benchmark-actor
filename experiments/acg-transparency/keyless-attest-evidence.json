@@ -1,0 +1,18 @@
+{
+  "schema": "labview-benchmark-actor/acg-keyless-attest-evidence-v1",
+  "note": "LIVE evidence (LBA-REQ-025 / ADR-0016) that the sigstore-KEYLESS + public-rekor tier works end to end. The acg-keyless-attest workflow ran in GitHub Actions where an OIDC identity exists, and cosign keyless-signed the committed release-provenance bundle: a short-lived Fulcio certificate bound to this workflow's identity, with the signature recorded in the PUBLIC rekor transparency log. Publicly verifiable at the rekor logIndex below -- this is cited evidence (rekor is networked and cannot be re-derived offline), not a fabricated local artifact.",
+  "workflow": "acg-keyless-attest.yml",
+  "event": "workflow_dispatch",
+  "ref": "develop",
+  "headSha": "e212f124a633868de915e360577974e5fba1f410",
+  "runId": 30701351016,
+  "runUrl": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/actions/runs/30701351016",
+  "conclusion": "success",
+  "ranAt": "2026-08-01T13:15:15Z",
+  "signedBundle": "experiments/acg-transparency/release-provenance-bundle.json",
+  "signedBundleSha256": "65b14e94d535ed22b64accfc88264987d8aac7fce241f41bd4cdfe2b3b706617",
+  "signingTool": "cosign sign-blob --yes (keyless, ambient GitHub Actions OIDC -> Fulcio)",
+  "rekorLogIndex": 2311970781,
+  "rekorSearchUrl": "https://search.sigstore.dev/?logIndex=2311970781",
+  "remaining": "the workflow also attaches the .sigstore bundle to a GitHub Release on a release-publish event; that path is wired but fires only on a real cut release (a maintainer step), so LBA-REQ-025 stays Planned pending that demonstration."
+}
