@@ -287,6 +287,23 @@ try {
   );
   assert(infoMessages.some((m) => /Windows-only/.test(m)), 'bootstrapAuthoringLane surfaces the Windows-only note');
 
+  // Actor Corroboration Grid surface (ADR-0014 / ADR-0022): runCorroborationGrid runs the end-to-end grid proof
+  // and verifyReleaseProvenance runs the verify-before-install verifier, each via node in an integrated terminal.
+  const runGridCmd = registered.find((r) => r.id === 'labviewBenchmarkActor.runCorroborationGrid');
+  assert(runGridCmd, 'runCorroborationGrid command is registered');
+  await runGridCmd.handler();
+  assert(
+    sentCommands.some((c) => /node .*acg-grid[/\\]grid-run-proof\.mjs/.test(c)),
+    'runCorroborationGrid runs grid-run-proof.mjs via node in a terminal'
+  );
+  const verifyProvCmd = registered.find((r) => r.id === 'labviewBenchmarkActor.verifyReleaseProvenance');
+  assert(verifyProvCmd, 'verifyReleaseProvenance command is registered');
+  await verifyProvCmd.handler();
+  assert(
+    sentCommands.some((c) => /node .*acg-transparency[/\\]verify-release-inclusion\.mjs/.test(c)),
+    'verifyReleaseProvenance runs verify-release-inclusion.mjs via node in a terminal'
+  );
+
   // Agent instructions commands (issue #98): the extension bundles media/AGENTS.md + manifest and
   // materializes/verifies a workspace AGENTS.md. These are pure read/hash/compare/write flows (no cleanroom).
   // Drive them against a REAL temp workspace so the write / exists-overwrite / match / drift branches all run.
@@ -564,6 +581,10 @@ try {
   await second.find((r) => r.id === 'labviewBenchmarkActor.bootstrapAuthoringLane').handler();
   assert(errorMessages.slice(errBeforeScripts).some((m) => /Cleanroom cloner not found/.test(m)), 'createCleanroom reports the cloner-not-found guard when no script resolves');
   assert(errorMessages.slice(errBeforeScripts).some((m) => /Authoring-lane bootstrap not found/.test(m)), 'bootstrapAuthoringLane reports the bootstrap-not-found guard when no script resolves');
+  await second.find((r) => r.id === 'labviewBenchmarkActor.runCorroborationGrid').handler();
+  await second.find((r) => r.id === 'labviewBenchmarkActor.verifyReleaseProvenance').handler();
+  assert(errorMessages.slice(errBeforeScripts).some((m) => /Corroboration grid runner not found/.test(m)), 'runCorroborationGrid reports the runner-not-found guard when no script resolves');
+  assert(errorMessages.slice(errBeforeScripts).some((m) => /Release-provenance verifier not found/.test(m)), 'verifyReleaseProvenance reports the verifier-not-found guard when no script resolves');
   await second.find((r) => r.id === 'labviewBenchmarkActor.postNote').handler(); // empty inputQueue -> no message -> abort before the CLI
   mockVscode.workspace.workspaceFolders = savedFoldersBroken;
 

@@ -114,6 +114,14 @@
       {
         "command": "labviewBenchmarkActor.bootstrapAuthoringLane",
         "title": "LabVIEW Benchmark Actor: Bootstrap LabVIEW Authoring Lane (Windows)"
+      },
+      {
+        "command": "labviewBenchmarkActor.runCorroborationGrid",
+        "title": "LabVIEW Benchmark Actor: Run Corroboration Grid"
+      },
+      {
+        "command": "labviewBenchmarkActor.verifyReleaseProvenance",
+        "title": "LabVIEW Benchmark Actor: Verify Release Provenance"
       }
     ],
     "languageModelTools": [
