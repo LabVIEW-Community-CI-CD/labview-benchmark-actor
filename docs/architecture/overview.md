@@ -148,6 +148,18 @@ multi-VM / Codespace topology.
   requirement → view → decision → test view stays current by construction
   (LBA-REQ-022, ADR-0013).
 
+### 3.9 Corroboration-grid view — addresses LBA-REQ-023
+
+The Actor Corroboration Grid (ADR-0014) corroborates a component release across
+independent, heterogeneous witnesses. Each witness — initially a Codespace-Linux node,
+the VirtualBox-Linux cleanroom, and the Windows plane — builds `lbabus` from the same
+source@commit, self-certifies via the shared gate-suite, renders the deterministic
+viewer, and emits a signed receipt bundle. A majority (≥2 of 3) must agree on the
+OS-independent anchors (viewer `seriesHash`, `lbabus` version + `sourceCommit`,
+gate-suite `verdict`) — the Linux subset additionally on the pinned `pngSha256` and the
+Ubuntu codename — for the quorum to permit the release; a sub-majority blocks it and
+opens a divergence issue (LBA-REQ-023, ADR-0014).
+
 ## 4. Architecture decisions (42010 §5.7)
 
 | AD | Decision | Rationale | Traces to |
@@ -173,6 +185,7 @@ multi-VM / Codespace topology.
 | AD-19 | Bidirectional WIN↔LINUX sign-off gates every shared-component publish | Neither plane ships an unreviewed shared release | LBA-REQ-020 |
 | AD-20 | Enforce a 42010 correspondence graph as fail-closed CI gates | Traceability that cannot silently rot (ADR-0013) | LBA-REQ-021 |
 | AD-21 | Generate the requirement traceability matrix from the canonical sources rather than hand-maintaining it | A single derived, gated view that cannot drift from the SRS / RTM / architecture / ADRs (ADR-0013) | LBA-REQ-022 |
+| AD-22 | Corroborate each component release via a multi-witness quorum (the Actor Corroboration Grid) | Independent cross-environment agreement raises release confidence and resists forgery (ADR-0014) | LBA-REQ-023 |
 
 ## 5. Risks and open questions
 
@@ -208,6 +221,7 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0011](adr/ADR-0011-provider-delegation-cleanroom-uplift.md) | AI-provider uplift delegated to cleanroom actors over the bus | LINUX |
 | [ADR-0012](adr/ADR-0012-mcp-server-agent-tool-surface.md) | The actor's tools exposed to agents via a Model Context Protocol server | LINUX |
 | [ADR-0013](adr/ADR-0013-enforced-42010-correspondence-graph.md) | Enforced ISO/IEC/IEEE 42010 correspondence graph as the traceability architecture | LINUX |
+| [ADR-0014](adr/ADR-0014-actor-corroboration-grid.md) | Actor Corroboration Grid: multi-witness release corroboration | LINUX |
 
 Remaining open items: the picture-capture *source*/cadence (storage itself is
 resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded

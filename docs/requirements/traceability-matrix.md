@@ -29,5 +29,6 @@
 | LBA-REQ-020 | Bidirectional release sign-off | Proven | §3.8 Configuration-management & assurance | — | T-020 | 4 |
 | LBA-REQ-021 | Test-to-requirement correspondence gate | Proven | §3.8 Configuration-management & assurance | ADR-0013 | T-021 | 3 |
 | LBA-REQ-022 | Generated traceability matrix | Proven | §3.8 Configuration-management & assurance | ADR-0013 | T-022 | 3 |
+| LBA-REQ-023 | Actor Corroboration Grid (multi-witness release corroboration) | Planned | §3.9 Corroboration-grid | ADR-0014 | T-023 | 1 |
 
-_Generated for 22 requirements._
+_Generated for 23 requirements._
