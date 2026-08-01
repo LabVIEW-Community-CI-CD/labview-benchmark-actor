@@ -38,6 +38,6 @@
 | LBA-REQ-029 | MCP orchestration surface | Proven | §3.9 Corroboration-grid | ADR-0020 | T-029 | 11 |
 | LBA-REQ-030 | Pull requests target develop | Proven | §3.8 Configuration-management & assurance | ADR-0021 | T-030 | 5 |
 | LBA-REQ-031 | Transparency-log inclusion + verify-before-install | Proven | §3.9 Corroboration-grid | ADR-0022 | T-031 | 11 |
-| LBA-REQ-032 | Mesh-stress performance-signature calibration | Proven | §3.6 Analysis | — | T-032 | 12 |
+| LBA-REQ-032 | Mesh-stress performance-signature calibration | Proven | §3.6 Analysis | — | T-032 | 14 |
 
 _Generated for 32 requirements._

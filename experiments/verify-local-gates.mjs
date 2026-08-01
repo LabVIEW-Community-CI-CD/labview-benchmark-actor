@@ -634,6 +634,14 @@ check('mesh-live-ladder-real', () => {
   return { rungs: r.ladder.levels.length, salient: r.salientDimensions.length, cpuCurve: (r.cpuTotalPctMeanCurve || []).map((c) => c.expected) };
 });
 
+// LBA-REQ-032 (overview.md §3.6 / VW-1): the mesh-stress calibration ANALYSIS VIEW renders the committed live
+// ladder receipt into an inert (script-free) HTML surface -- the commanded ladder, the cpuTotalPct calibration
+// curve + tolerance band, the monotone/separable/repeatable invariants, the separability, and the inverse read.
+check('mesh-calibration-view', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'meshCalibrationView.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'meshCalibrationView 6/6', surface: 'script-free HTML' };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
