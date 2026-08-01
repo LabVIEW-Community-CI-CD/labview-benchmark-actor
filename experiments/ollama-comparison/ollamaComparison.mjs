@@ -73,3 +73,19 @@ export async function compareOverCorpus(corpus, driveFn) {
   }
   return { schema: SCHEMA, comparisonCount: results.length, results };
 }
+
+// --- Faithfulness scoring (shared with the maintainer model-faithfulness-sweep AND the provider-delegation
+// quality pre-gate) -----------------------------------------------------------------------------------------
+// A model reads a run-over-run change and describes its DIRECTION; these word classes let us score whether the
+// text faithfully reports "up" (regression / higher) vs "down" (improvement / lower) -- a deterministic,
+// model-free faithfulness signal.
+export const FAITHFULNESS_UP = /\b(increas\w*|higher|rose|grew|grow\w*|greater|regress\w*|worse\w*|degrad\w*|climb\w*|jump\w*)/gi;
+export const FAITHFULNESS_DOWN = /\b(decreas\w*|lower|fell|drop\w*|reduc\w*|improv\w*|better|gain\w*|declin\w*|less\b|fewer)/gi;
+
+// Score one verdict: which direction does the text predict (majority of direction words), and is it correct?
+export function scoreDirection(text, expectedDir) {
+  const up = (String(text).match(FAITHFULNESS_UP) || []).length;
+  const down = (String(text).match(FAITHFULNESS_DOWN) || []).length;
+  const predicted = up === down ? 'tie' : up > down ? 'up' : 'down';
+  return { predicted, correct: predicted === expectedDir, up, down };
+}

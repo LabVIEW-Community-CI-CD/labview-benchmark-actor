@@ -423,7 +423,7 @@ function resolveFfmpeg(): string {
 }
 
 // PowerShell CIM sampler: instant formatted counters (CPU/disk %) + OS memory -> JSONL every ~200 ms.
-function samplerScript(outFile: string): string {
+export function samplerScript(outFile: string): string {
   const out = outFile.replace(/'/g, "''");
   return [
     "$ErrorActionPreference='SilentlyContinue'",
@@ -564,6 +564,13 @@ async function stopCaptureCommand(context: vscode.ExtensionContext, output: vsco
 
 async function assembleCapture(context: vscode.ExtensionContext, dir: string): Promise<LaunchCaptureRecord> {
   const builder = await loadCaptureBuilder(context.extensionUri);
+  return assembleCaptureFromDir(dir, builder);
+}
+
+// Assemble the captured PNG frames + resource samples in `dir` into a launch-capture@1 record (mprr dual-packet)
+// and write capture.json. Split out from the cleanroom-gated ffmpeg CAPTURE that PRODUCES the frames, so this
+// pure file-assembly around the unit-tested builder is itself directly unit-testable with fixture frames.
+export function assembleCaptureFromDir(dir: string, builder: CaptureBuilder): LaunchCaptureRecord {
   const frameFiles = readdirSync(dir)
     .filter((f) => /^frame-\d+\.png$/.test(f))
     .sort();
@@ -814,6 +821,111 @@ async function checkAgentsCommand(context: vscode.ExtensionContext, output: vsco
   }
 }
 
+// Create a cleanroom WORKER VM for cross-machine routing (the distributed-CI north-star): drives the reusable
+// cloner experiments/multi-vm-topology/clone-cleanroom-worker.sh, which linked-clones the golden Ubuntu+LabVIEW
+// base VM from its snapshot, assigns distinct NAT ports, provisions it (Node + the provider-delegation harness),
+// and launches the worker as a PERSISTENT systemd unit -- so the host router can route capability-differentiated
+// tasks across REAL VMs (proven by experiments/provider-delegation/prove-2vm-routing.mjs). The script uses
+// VBoxManage + ssh + bash, so this is a Linux/macOS host operator tool; it runs in an integrated terminal so the
+// operator watches the VM come up (and can answer any prompt). Inputs are validated to a safe charset + quoted,
+// so nothing typed into the prompts can inject shell.
+function cleanroomPortValidator(v: string): string | undefined {
+  return /^\d{1,5}$/.test(v) && Number(v) > 0 && Number(v) < 65536 ? undefined : 'Enter a valid TCP port (1-65535)';
+}
+
+function cleanroomShellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+function resolveCloneScript(context: vscode.ExtensionContext): string | undefined {
+  const rel = path.join('experiments', 'multi-vm-topology', 'clone-cleanroom-worker.sh');
+  const candidates: string[] = [];
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    candidates.push(path.join(folder.uri.fsPath, rel));
+  }
+  candidates.push(path.join(context.extensionUri.fsPath, rel));
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+async function createCleanroomCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  if (process.platform === 'win32') {
+    void vscode.window.showErrorMessage(
+      'Create Cleanroom Worker VM is a Linux/macOS host tool (it drives VBoxManage + ssh via a bash script).'
+    );
+    return;
+  }
+  const script = resolveCloneScript(context);
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Cleanroom cloner not found (experiments/multi-vm-topology/clone-cleanroom-worker.sh). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  const cloneName = await vscode.window.showInputBox({
+    prompt: 'Cleanroom clone VM name',
+    value: 'lba-cleanroom-clone-01',
+    validateInput: (v) => (/^[A-Za-z0-9._-]+$/.test(v) ? undefined : 'Use letters, digits, dot, dash, underscore only'),
+  });
+  if (!cloneName) {
+    return;
+  }
+  const sshPort = await vscode.window.showInputBox({ prompt: 'Guest SSH host port', value: '2223', validateInput: cleanroomPortValidator });
+  if (!sshPort) {
+    return;
+  }
+  const workerPort = await vscode.window.showInputBox({ prompt: 'Worker host port', value: '7441', validateInput: cleanroomPortValidator });
+  if (!workerPort) {
+    return;
+  }
+  const actorId = await vscode.window.showInputBox({
+    prompt: 'Worker actor id',
+    value: 'cleanroom-clone',
+    validateInput: (v) => (/^[A-Za-z0-9._-]+$/.test(v) ? undefined : 'Use letters, digits, dot, dash, underscore only'),
+  });
+  if (!actorId) {
+    return;
+  }
+
+  output.appendLine(`[createCleanroom] cloning -> ${cloneName} (ssh ${sshPort}, worker ${workerPort}, actor ${actorId})`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: `LBA Create Cleanroom: ${cloneName}` });
+  terminal.show(true);
+  const args = [cloneName, sshPort, workerPort, actorId].map(cleanroomShellQuote).join(' ');
+  terminal.sendText(`bash ${cleanroomShellQuote(script)} ${args}`);
+}
+
+// Bootstrap the LabVIEW AUTHORING LANE (labview_assistant + its DQMH dependency + the .vipb VI-Package build).
+// WINDOWS ONLY: labview_assistant drives the LabVIEW IDE via ActiveX, so the lane runs on a Windows cleanroom,
+// not the Linux host. This surfaces the committed PowerShell bootstrap (experiments/authoring-lane/
+// bootstrap-authoring-lane.ps1) so it can be run against a Windows cleanroom that has LabVIEW + VIPM Community.
+function resolveAuthoringLaneScript(context: vscode.ExtensionContext): string | undefined {
+  const rel = path.join('experiments', 'authoring-lane', 'bootstrap-authoring-lane.ps1');
+  const candidates: string[] = [];
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    candidates.push(path.join(folder.uri.fsPath, rel));
+  }
+  candidates.push(path.join(context.extensionUri.fsPath, rel));
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+async function bootstrapAuthoringLaneCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const script = resolveAuthoringLaneScript(context);
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Authoring-lane bootstrap not found (experiments/authoring-lane/bootstrap-authoring-lane.ps1). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  void vscode.window.showInformationMessage(
+    'The LabVIEW authoring lane is Windows-only (labview_assistant drives LabVIEW via ActiveX). Run this on a Windows cleanroom with LabVIEW + VIPM Community activated.'
+  );
+  output.appendLine(`[bootstrapAuthoringLane] ${script} (Windows/pwsh: clones labview_assistant, installs DQMH, builds the .vipb)`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: 'LBA Authoring Lane Bootstrap' });
+  terminal.show(true);
+  terminal.sendText(`pwsh -NoProfile -File "${script}"`);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const output = getOutput(context);
 
@@ -894,6 +1006,18 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('labviewBenchmarkActor.writeAgents', () => writeAgentsCommand(context, output)),
     vscode.commands.registerCommand('labviewBenchmarkActor.showAgents', () => showAgentsCommand(context)),
     vscode.commands.registerCommand('labviewBenchmarkActor.checkAgents', () => checkAgentsCommand(context, output))
+  );
+
+  // Cross-machine cleanroom creation (distributed CI): clone a capability-differentiated worker VM from the
+  // golden snapshot and launch its bus worker, so the host router can route across REAL VMs.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.createCleanroom', () => createCleanroomCommand(context, output))
+  );
+
+  // LabVIEW authoring lane (Windows/ActiveX): bootstrap labview_assistant + its DQMH dependency + the .vipb
+  // VI-Package build so it can be tested on a Windows cleanroom.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.bootstrapAuthoringLane', () => bootstrapAuthoringLaneCommand(context, output))
   );
 
   // Model Context Protocol surface (VS Code 1.101+): expose this extension's own tools (host capabilities,

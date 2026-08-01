@@ -2,15 +2,13 @@
   "schema": "labview-benchmark-actor/cross-plane-comparison-receipt@v1",
   "requirement": "LBA-REQ-014",
   "benchmarkId": "mprr-short-ring-fixture",
-  "producedAt": "2026-07-28T19:44:38.333Z",
+  "producedAt": "2026-07-31T13:23:39.519Z",
   "linuxRunId": "mprr-short-ring-fixture-linux",
   "winRunId": "mprr-short-ring-fixture-win",
+  "anchorDigest": "seriesHash",
+  "anchorMatch": true,
   "seriesHashMatch": true,
-  "screenshotWitness": {
-    "linux": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
-    "win": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
-    "identical": true
-  },
+  "screenshotWitness": null,
   "comparison": {
     "schema": "labview-benchmark-actor/cross-plane-compare@v1",
     "benchmarkId": "mprr-short-ring-fixture",
@@ -33,8 +31,7 @@
       "capacityBytes": 58000,
       "ringHeadPublished": 1608,
       "authoritative": 1,
-      "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
-      "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8"
+      "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa"
     },
     "deltas": {
       "totalBytes": {
@@ -84,11 +81,6 @@
       "seriesHash": {
         "linux": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
         "win": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
-        "match": true
-      },
-      "pngSha256": {
-        "linux": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
-        "win": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
         "match": true
       }
     }

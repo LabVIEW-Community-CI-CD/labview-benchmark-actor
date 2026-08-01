@@ -53,6 +53,7 @@ import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mj
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { verifyDepManifest } from './labview-authoring/verify-dep-manifest.mjs';
 import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-plane.mjs';
+import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs';
 import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -217,6 +218,46 @@ check('adr-index-integrity', () => {
     assert(files.includes(l), `index links ${l} but the file does not exist`);
   }
   return { adrFiles: files.length, indexed: linked.length };
+});
+
+// 6b. Test<->requirement correspondence (ISO/IEC/IEEE 42010 correspondence graph, ADR-0013): every governed
+//     test file corresponds to >=1 requirement (rule TR-1, fail-closed); the engine also prints the advisory
+//     ADR<->requirement (AD-1) and requirement<->view (VW-1) census. Fails iff a fail-closed rule is broken.
+check('test-requirement-correspondence', () => {
+  execFileSync(process.execPath, [join(here, 'reqs-coverage', 'verify-correspondences.mjs')], { stdio: 'pipe' });
+  return { engine: 'reqs-coverage/verify-correspondences.mjs' };
+});
+
+// 6c. Requirements quality (ISO/IEC/IEEE 29148:2018): every governed requirement-register row in
+//     docs/requirements/srs.md states exactly ONE `shall` (§5.2.5 Singular) and avoids ambiguous `and/or`
+//     logic (§5.2.7). Dependency-free local mirror of repo-standards-review's requirements_quality_check.py
+//     (singular-shall), scoped to the governed 5-column table so the 3-column traceability rows are skipped.
+check('requirements-quality-29148', () => {
+  const srs = readFileSync(join(pkgRoot, 'docs', 'requirements', 'srs.md'), 'utf8');
+  const violations = [];
+  let governedRows = 0;
+  for (const line of srs.split(/\r?\n/)) {
+    if (!line.trim().startsWith('|')) continue;
+    const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+    if (cells.length < 5) continue;                       // skip 3-column traceability rows
+    if (!/^[A-Z0-9-]*REQ-\d+$/.test(cells[0])) continue;  // skip header / separator / non-ID rows
+    const [id, statement] = cells;
+    governedRows++;
+    const shallCount = (statement.match(/\bshall\b/gi) || []).length;
+    if (shallCount !== 1) violations.push(`${id}: ${shallCount}x shall (29148 §5.2.5 Singular requires exactly one)`);
+    if (/\band\s*\/\s*or\b/i.test(statement)) violations.push(`${id}: contains "and/or" (29148 §5.2.7 — split into multiple requirements)`);
+  }
+  assert(governedRows > 0, 'no governed requirement rows found in docs/requirements/srs.md');
+  assert(violations.length === 0, `requirements-quality violations:\n    - ${violations.join('\n    - ')}`);
+  return { governedRows };
+});
+
+// 6d. Traceability matrix is generated + current (LBA-REQ-022, ADR-0013 Stage 3): the derived requirement <->
+//     view <-> decision <-> test matrix must match its canonical sources. Fails closed if the committed
+//     docs/requirements/traceability-matrix.md drifts (run generate-traceability.mjs to refresh + commit).
+check('traceability-matrix-current', () => {
+  execFileSync(process.execPath, [join(here, 'reqs-coverage', 'generate-traceability.mjs'), '--check'], { stdio: 'pipe' });
+  return { generator: 'reqs-coverage/generate-traceability.mjs' };
 });
 
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
@@ -436,6 +477,61 @@ check('docs-stamp-and-no-id-renumbering', () => {
     assert(ids[i] === i + 1, `requirement ids must be contiguous 1..N; expected ${i + 1}, got ${ids[i]}`);
   }
   return { ids: ids.length, lanes: ['architecture', 'cm', 'requirements', 'testing'] };
+});
+
+// 17b. The collab-cli CLI embeds the CANONICAL requirements (SRS + RTM) BY REFERENCE, so `lbabus docs
+//      show srs|rtm` surfaces the exact requirements THIS build carries and they stay aligned with the
+//      build. Static wiring guard (dep-free, no dotnet): the embed cannot silently regress; the embed
+//      round-trip itself is the ci-docs / verify-linux gate.
+check('collab-cli-embeds-canonical-requirements', () => {
+  const csproj = readFileSync(join(pkgRoot, 'tools', 'collab-cli', 'LbaBus.csproj'), 'utf8');
+  for (const [inc, logical] of [
+    ['../../docs/requirements/srs.md', 'docs.requirements.srs.md'],
+    ['../../docs/requirements/rtm.csv', 'docs.requirements.rtm.csv'],
+  ]) {
+    assert(csproj.includes(`Include="${inc}"`), `csproj must embed ${inc} by reference`);
+    assert(csproj.includes(`<LogicalName>${logical}</LogicalName>`), `csproj must pin the ${logical} manifest name`);
+  }
+  // The canonical sources the CLI embeds must exist on disk.
+  for (const rel of ['srs.md', 'rtm.csv']) {
+    assert(existsSync(join(pkgRoot, 'docs', 'requirements', rel)), `docs/requirements/${rel} must exist`);
+  }
+  // The docs command registry must key both requirement docs so `docs show srs|rtm` resolves.
+  const docs = readFileSync(join(pkgRoot, 'tools', 'collab-cli', 'Docs.cs'), 'utf8');
+  for (const id of ['"srs"', '"rtm"', '"guide"']) {
+    assert(docs.includes(id), `Docs.cs registry must define the ${id} doc`);
+  }
+  return { embedded: ['srs', 'rtm'], surfacedBy: 'lbabus docs show <id>' };
+});
+
+// 17c. GitFlow branch governance (LBA-REQ-016) is documented so the authoritative repo-standards-review CM
+//      gate stays PASS: the CM plan must state all three branch rules (the 9 GitFlow signals), the merge
+//      method by branch type, and ADR-0010 must record the decision. Dep-free static guard against regression.
+check('gitflow-branch-governance-documented', () => {
+  const cm = readFileSync(join(pkgRoot, 'docs', 'cm', 'cm-plan.md'), 'utf8');
+  assert(/feature branches.*from\s+`?develop`?/i.test(cm) && /feature branches.*(into|target)\s+`?develop`?/i.test(cm), 'CM plan must state feature branches from + back into develop');
+  assert(/release branches.*from\s+`?develop`?/i.test(cm) && /release branches.*(into|to)\s+`?main`?/i.test(cm) && /release branches.*(into|to)\s+`?develop`?/i.test(cm), 'CM plan must state release branches from develop to main + develop');
+  assert(/delete .*release.*(after|until).*(both|required) merges complete/i.test(cm), 'CM plan must state release-branch deletion after both merges complete');
+  assert(/hotfix branches.*from\s+`?main`?/i.test(cm) && /hotfix branches.*(into|to)\s+`?main`?/i.test(cm), 'CM plan must state hotfix branches from + into main');
+  assert(/merge method/i.test(cm) && /squash/i.test(cm) && /--no-ff|merge commit/i.test(cm), 'CM plan must document the merge method by branch type (squash for feature; --no-ff merge commit for release/hotfix back-merges)');
+  assert(existsSync(join(pkgRoot, 'docs', 'architecture', 'adr', 'ADR-0010-gitflow-branch-governance.md')), 'ADR-0010 must record the GitFlow decision');
+  return { rules: ['feature', 'release', 'hotfix', 'merge-method'], adr: 'ADR-0010' };
+});
+
+// 17d. Coverage gate (LBA-REQ-016 CM / ISO-IEC-IEEE 29119): the committed Cobertura coverage artifact meets
+//      the parametrized floor in coverage-thresholds.json (the PR Coverage Gate workflow enforces it live and
+//      `npm run coverage:bump` ratchets the floor up gradually). Dep-free static check.
+check('coverage-artifact-meets-floor', () => {
+  const floor = readJson('coverage-thresholds.json').floor;
+  const xml = readFileSync(join(pkgRoot, 'coverage', 'cobertura-coverage.xml'), 'utf8');
+  const m = xml.match(/line-rate="([0-9.]+)"/);
+  assert(m, 'coverage/cobertura-coverage.xml must carry a line-rate');
+  const linePct = Number(m[1]) * 100;
+  assert(linePct >= floor.lines, `coverage line-rate ${linePct.toFixed(2)}% must meet the parametrized floor ${floor.lines}%`);
+  const wf = join(pkgRoot, '.github', 'workflows', 'coverage.yml');
+  assert(existsSync(wf), 'the PR Coverage Gate workflow (.github/workflows/coverage.yml) must exist');
+  assert(/name:\s*PR Coverage Gate/.test(readFileSync(wf, 'utf8')), 'workflow must publish the "PR Coverage Gate / coverage" context');
+  return { linePct: +linePct.toFixed(2), floor: floor.lines };
 });
 
 // 18. Viewer time-cursor logic receipt is green: pointer + keyboard map to an in-bounds sample and no
@@ -1472,6 +1568,138 @@ check('readme-marketplace-safe-links', () => {
   assert(rel.length === 0,
     `README has ${rel.length} repo-relative link(s) that 404 on the Marketplace listing: ${rel.slice(0, 4).join(', ')}${rel.length > 4 ? ' ...' : ''}`);
   return { links: 'all absolute or anchors' };
+});
+// Canonical ephemeral mesh (experiments/ephemeral-mesh): the committed receipt attests one full "cattle"
+// cycle -- golden snapshot -> linked clone -> boot -> lbabus loopback MESH OK -> DESTROY -- and the shared
+// validator re-proves it here fails-closed (no VM needed at gate time). LBA-REQ-006 (clean teardown) +
+// LBA-REQ-007 (comms-only), ADR-0003/0004.
+check('ephemeral-mesh-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  // Teeth: the validator rejects a receipt that claims reboot-survival, an undestroyed clone, or no MESH OK.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { r.lifecycle.survivesReboot = true; },
+    (r) => { r.lifecycle.destroyed = false; },
+    (r) => { r.loopbackMesh.meshOk = false; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 3, 'validator must reject reboot-survival / undestroyed / mesh-not-ok receipts');
+  return { plane: summary.plane, bootSeconds: summary.bootSeconds, meshOk: summary.meshOk, destroyed: summary.destroyed };
+});
+// Typed source->sink strict serialization (experiments/ephemeral-mesh, P2): the committed typed receipt attests
+// a sink SERIALIZED 2 sources' streams into a dense ingestSeq log, closed by a terminal DONE per stream; the
+// shared validator re-derives it fails-closed here (spec docs/proposals/mesh-node-types.md 4.3). LBA-REQ-006/007.
+check('ephemeral-mesh-typed-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt-typed.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  assert(summary.meshMode === 'typed', 'meshMode must be typed');
+  // Teeth: the validator rejects unordered mode, a source that listened, a missing terminal DONE, non-dense ingestSeq.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { r.serializationMode = 'unordered'; },
+    (r) => { r.nodes.find((n) => n.nodeType === 'source').activity.listened = true; },
+    (r) => { const s = r.nodes.find((n) => n.nodeType === 'sink'); s.orderedReceipt.frameLog = s.orderedReceipt.frameLog.filter((f) => f.frameType !== 'DONE'); },
+    (r) => { const s = r.nodes.find((n) => n.nodeType === 'sink'); s.orderedReceipt.frameLog[1].ingestSeq = 999; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 4, 'validator must reject unordered / source-listened / missing-DONE / non-dense typed receipts');
+  return { meshMode: summary.meshMode, sources: summary.sources, sinks: summary.sinks, serializationMode: summary.serializationMode };
+});
+// Typed both<->both (experiments/ephemeral-mesh): 2 full peers, each SINKS its peer's seq'd stream into its own
+// dense ingestSeq log. The shared validator re-derives BOTH per-node ordered logs fails-closed. LBA-REQ-006/007.
+check('ephemeral-mesh-2node-receipt-green', () => {
+  const receipt = readJson('experiments/ephemeral-mesh/receipt-2node.json');
+  const summary = validateEphemeralMeshReceipt(receipt);
+  assert(summary.meshMode === 'typed' && summary.boths === 2, 'both<->both typed with 2 both-nodes');
+  // Teeth: a broken peer log (missing terminal DONE) or a type-not-honored both node is rejected.
+  let rejected = 0;
+  for (const mutate of [
+    (r) => { const n = r.nodes[0]; n.orderedReceipt.frameLog = n.orderedReceipt.frameLog.filter((f) => f.frameType !== 'DONE'); },
+    (r) => { r.nodes[1].activity.emittedCoordination = false; },
+  ]) {
+    const bad = JSON.parse(JSON.stringify(receipt));
+    mutate(bad);
+    try { validateEphemeralMeshReceipt(bad); } catch { rejected += 1; }
+  }
+  assert(rejected === 2, 'validator must reject missing-DONE / type-not-honored both<->both receipts');
+  return { meshMode: summary.meshMode, boths: summary.boths };
+});
+
+// Provider-delegation harness (experiments/provider-delegation): AI providers on cleanrooms delegated uplift/
+// doc tasks over the lbabus bus. Each verify is a dependency-free deterministic self-test (mock provider, no
+// GPU / no network / no npm install); running them as subprocesses gates the whole harness under this
+// authoritative suite -- the provider seam + the CLAIM/ACK/DONE dispatch + the worker pool + the objective
+// coverage-lift gate (measured from raw V8 coverage, so it needs no c8).
+check('provider-delegation-harness', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-provider-delegation.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-provider-delegation 13/13 (task-spec + provider seam + acceptance gate + receipt)' };
+});
+check('provider-delegation-claim-tasking', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-claim-tasking.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-claim-tasking 7/7 (CLAIM dispatch -> worker ACK -> DONE over bus-msg@1)' };
+});
+check('provider-delegation-worker-pool', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-worker-pool.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-worker-pool 7/7 (M concurrent claims bounded to N, queued + drained, persistent)' };
+});
+check('provider-delegation-coverage-lift', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-coverage-lift.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-coverage-lift 8/8 (provider-proposed test gated on measured V8 function coverage)' };
+});
+check('provider-delegation-risky-test', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-risky-test.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-risky-test 9/9 (tool-gated: present+pass, absent->skip, present+fail)' };
+});
+check('provider-delegation-evidence', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-evidence.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-evidence 8/8 (gather + validate receipts + grounded-summary gate)' };
+});
+check('provider-delegation-quality-gate', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-quality-gate.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-quality-gate 14/14 (faithfulness pre-gate short-circuits weak drafts; reuses ollama-comparison scorer)' };
+});
+check('provider-delegation-registry', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-registry.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-registry 9/9 (capability + liveness routing + load-balance across a multi-worker pool)' };
+});
+check('provider-delegation-vipm-gate', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-vipm-gate.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-vipm-gate 36/36 (credential-from-file activate/login, redaction=no secret leak, Community-only-in-public-repo licensing)' };
+});
+check('provider-delegation-vipm-routing', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-vipm-routing.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-vipm-routing 15/15 (VIPM-capability routing: edition-aware, Community-only-in-public-repo)' };
+});
+
+// DoD Gate (ISO/IEC/IEEE 29119-2 exit/completion criteria; 12207 process outcomes): the release-readiness
+// Definition of Done is DEFINED, standards-grounded, and WIRED to an enforcing status context. This keeps the
+// "DoD Gate / dod" contract from silently drifting or disappearing. Standards are referenced by identifier only
+// (the licensed PDFs stay local, never committed). Dep-free static check.
+check('dod-definition-present', () => {
+  const doc = join(pkgRoot, 'docs', 'dod', 'definition-of-done.md');
+  assert(existsSync(doc), 'the Definition of Done (docs/dod/definition-of-done.md) must exist');
+  const text = readFileSync(doc, 'utf8');
+  assert(/DoD Gate\s*\/\s*dod/.test(text), 'the DoD doc must carry the "DoD Gate / dod" context marker');
+  for (const section of [/##\s*Standards basis/i, /##\s*Entry criteria/i, /##\s*Exit criteria/i]) {
+    assert(section.test(text), `the DoD doc must define ${section}`);
+  }
+  // The exit criteria must trace to REAL, enforceable gates (objective, not aspirational).
+  for (const gate of ['verify-local-gates', 'PR Coverage Gate / coverage', 'reqs-coverage']) {
+    assert(text.includes(gate), `the DoD exit criteria must reference the enforcing gate "${gate}"`);
+  }
+  const wf = join(pkgRoot, '.github', 'workflows', 'dod.yml');
+  assert(existsSync(wf), 'the DoD Gate workflow (.github/workflows/dod.yml) must exist');
+  const wfText = readFileSync(wf, 'utf8');
+  assert(/name:\s*DoD Gate/.test(wfText), 'workflow must publish the "DoD Gate / dod" context (name: DoD Gate + job dod)');
+  assert(/job|dod:/.test(wfText) && /verify-local-gates\.mjs/.test(wfText), 'the DoD Gate job must enforce the DoD by running the local gate suite');
+  return { doc: 'docs/dod/definition-of-done.md', context: 'DoD Gate / dod', exitCriteria: 7 };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

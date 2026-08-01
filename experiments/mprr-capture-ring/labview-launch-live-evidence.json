@@ -1,0 +1,163 @@
+{
+  "schema": "labview-benchmark-actor/labview-launch-live-evidence@1",
+  "capturedAt": "2026-07-31T20:52:29Z",
+  "operatorPrompt": "spin it up, use it as a visual gate yourself too",
+  "cleanroom": {
+    "vm": "lba-ubuntu2404-labview2026-scratch",
+    "hypervisor": "virtualbox",
+    "plane": "LINUX",
+    "snapshot": "mesh-node-ready",
+    "captureSource": "vbox-vnc (RFB VNC-auth, 127.0.0.1:5900)",
+    "launchMethod": "gdm stopped -> xinit /usr/local/bin/labview64 -- :0 vt1 (guest console)",
+    "labview": "LabVIEW 2026 Q1 Community Edition (activated)"
+  },
+  "singleLaunch": {
+    "orchestrator": "experiments/mprr-capture-ring/live-vbox-labview-launch.mjs",
+    "launchMs": 1835,
+    "framesCaptured": 265,
+    "stableTailFrames": 244,
+    "uiReadyPin": "0000010101010100",
+    "integrityHash": "d45eaf6eaf0647249cc12dac202caafd6892250d493500e9e7ccd16a2168b132"
+  },
+  "trend": {
+    "runner": "experiments/mprr-capture-ring/live-vbox-labview-trend.mjs",
+    "iterations": 5,
+    "values": [
+      1673,
+      1584,
+      1582,
+      1587,
+      1510
+    ],
+    "verdict": "PASS",
+    "stats": {
+      "min": 1510,
+      "max": 1673,
+      "mean": 1587.2,
+      "median": 1584,
+      "stddev": 51.7,
+      "spread": 163
+    },
+    "baselineMs": 1584,
+    "toleranceMs": 2000,
+    "slopeMsPerRun": -32.3,
+    "drifting": false
+  },
+  "corroboration": {
+    "canonicalFixture": "experiments/mprr-capture-ring/fixtures/labview-launch-record.json (proof #192/#193)",
+    "uiReadyPinMatchesCanonical": true,
+    "integrityHashMatchesCanonical": true,
+    "note": "same LabVIEW GS UI-READY perceptual fingerprint + integrity as the canonical cross-plane proof (deterministic visual witness)"
+  },
+  "gates": {
+    "automatedVisualGate": {
+      "by": "agent",
+      "method": "VBoxManage controlvm <vm> screenshotpng -> image inspection",
+      "verdict": "PASS",
+      "observed": "LabVIEW 2026 Q1 Community Edition Getting Started window (File/Operate/Tools/Help, Create Project, Open Existing, New-Features carousel) fully rendered; activated (no activation dialog)",
+      "artifactsVmLocalNotCommitted": [
+        "/tmp/lba-shot-labview.png (single, carousel 4/7)",
+        "/tmp/lba-shot-trend-run5.png (trend run5, carousel 2/7)",
+        "/tmp/lba-shot-resource.png (resource run, carousel 3/7)",
+        "/tmp/lba-shot-cold3.png (cold run3, carousel 6/7)"
+      ],
+      "resourceRunObserved": "LabVIEW 2026 Q1 Community Edition GS window, carousel 3/7 (distinct fresh launch); PASS",
+      "coldRunObserved": "LabVIEW 2026 Q1 Community Edition GS window, carousel 6/7 (4th distinct fresh-launch position); PASS"
+    },
+    "humanVisualGate": {
+      "by": "operator",
+      "status": "invited",
+      "note": "same screenshots presented in chat for the operator's human gate"
+    }
+  },
+  "resourceCorrelation": {
+    "orchestrator": "experiments/mprr-capture-ring/live-vbox-resource-correlation.mjs",
+    "requirement": "LBA-REQ-011",
+    "schema": "labview-benchmark-actor/resource-correlated-launch@1",
+    "launchMs": 1745,
+    "hostGuestOffsetMs": -325,
+    "preSampleCount": 21,
+    "postSampleCount": 174,
+    "headline": {
+      "cpuPctPreToPost": [
+        4.89,
+        1.31,
+        -3.58
+      ],
+      "ramMbPreToPost": [
+        778.37,
+        822.17,
+        43.81
+      ],
+      "diskPctPreToPost": [
+        1.08,
+        0.3,
+        -0.78
+      ]
+    },
+    "note": "guest CPU/RAM/disk sampled in-guest at 100ms while LabVIEW launched, folded onto the host epoch (offset via min-RTT) and split at the UI-READY settle trigger (pre=launching / post=settled)"
+  },
+  "coldTrend": {
+    "runner": "live-vbox-labview-launch.mjs per run; VBoxManage controlvm <vm> reset between runs (cold page cache)",
+    "method": "hard-reset the VM, wait for fresh gdm boot, re-set runtime VNC pw, capture the FIRST launch (cold)",
+    "iterations": 3,
+    "values": [
+      3836,
+      2335,
+      2592
+    ],
+    "verdict": "PASS",
+    "stats": {
+      "min": 2335,
+      "max": 3836,
+      "mean": 2921,
+      "median": 2592,
+      "stddev": 655.5,
+      "spread": 1501
+    },
+    "baselineMs": 2592,
+    "slopeMsPerRun": -622
+  },
+  "warmVsCold": {
+    "warmMedianMs": 1584,
+    "coldMedianMs": 2592,
+    "deltaMedianMs": 1008,
+    "deltaPct": 63.6,
+    "note": "cold (page-cache-cleared, first launch after reboot) is markedly slower AND noisier than warm; the delta is the OS-page-cache cost of reading LabVIEW off disk"
+  },
+  "presentationProof": {
+    "what": "the SHIPPED benchmark panels (media/benchmark-panels.mjs) rendered with THIS session's live-captured records, screenshotted in a REAL browser (the same engine as the VS Code webview)",
+    "engine": "chromium (ms-playwright chromium-1234, headless --screenshot)",
+    "panels": {
+      "singleRun": "buildBenchmarkPanelHtml(live 1835ms record) -> headline 1835 ms launchMs, UI-READY dhash-64 grid (pin 0000010101010100), 265 frames / 244 stable tail, integrity d45eaf6e",
+      "warmTrend": "buildTrendPanelHtml(live warm trend) -> 5 markers 1673/1584/1582/1587/1510, PASS, median baseline 1584, slope -32.3 ms/run",
+      "coldTrend": "buildTrendPanelHtml(live cold trend) -> 3 markers 3836/2335/2592, PASS, median 2592, mean 2921, stddev 655.5",
+      "resourceProfile": "buildResourcePanelHtml(live resource run) -> 1745 ms launch badge, CPU/RAM/disk sparklines with the red UI-READY trigger line (RAM steps up +43.81 MB at the trigger), 21 pre / 174 post samples, offset -325 ms",
+      "crossPlaneTrend": "buildCrossPlaneTrendPanelHtml(live LINUX trend vs committed real WIN trend) -> overlay chart LINUX(blue) below WIN(orange), witness mean delta 823.4 ms, faster LINUX, match (tol 8000), both verdicts PASS",
+      "crossPlaneResource": "buildCrossPlaneResourcePanelHtml(live LINUX resource vs committed WIN resource) -> CPU AGREE, Disk AGREE, RAM DIVERGE (WIN +115.78 vs live-LINUX +43.81, |d| 71.97 > tol 50). HONEST: the live LINUX RAM delta is understated because its pre-window caught gdm teardown (lean-baseline gotcha); the historical lean LINUX run (+116.88) agreed with WIN. The panel faithfully renders the real measurement, not a faked agreement."
+    },
+    "selfVisualGate": "PASS on rendering all 6 panels (single-run, warm trend, cold trend, resource profile, cross-plane trend, cross-plane resource) from live-captured data; the frame correlator needs per-frame PNGs (Windows gdigrab path) so is not renderable on the Linux VNC path. The cross-plane resource RAM DIVERGE is an honest reflection of a lean-baseline artifact in the live LINUX run, not a UI fault.",
+    "artifactsVmLocalNotCommitted": [
+      "/tmp/panel-single.png",
+      "/tmp/panel-warm.png",
+      "/tmp/panel-cold.png",
+      "/tmp/panel-resource.png",
+      "/tmp/panel-crossplane.png",
+      "/tmp/panel-xresource.png",
+      "/tmp/panel-xresource-lean.png (lean, RAM AGREE)"
+    ]
+  },
+  "leanBaselineRerun": {
+    "why": "the first resource run's RAM DIVERGE was a lean-baseline artifact (pre-window caught gdm teardown); re-ran with gdm stopped + RAM settled BEFORE the pre-window",
+    "method": "ssh sudo systemctl stop gdm; confirm MemAvailable settled (freed ~267MB); THEN run live-vbox-resource-correlation.mjs (pre-window now lean idle -> LabVIEW load)",
+    "launchMs": 2743,
+    "ramMbPreToPost": [
+      604.64,
+      717.41,
+      112.77
+    ],
+    "crossPlaneResource": "ALL THREE AGREE now -- CPU |d|0.5(tol8), RAM |d|3.01(tol50) [WIN +115.78 vs lean-LINUX +112.77], Disk |d|0.44(tol8); verdict PASS",
+    "conclusion": "both hypervisors load LabVIEW's ~+114MB resident memory within ~3MB = substrate-independent, CONFIRMED on freshly captured live LINUX data (turns the earlier honest DIVERGE into a clean AGREE)",
+    "selfVisualGate": "PASS -- RAM card is green AGREE, footer 'within 3.01 MB: a substrate-independent signal'"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "labview-benchmark-actor/provider-delegation-vm-run-evidence@v1",
+  "what": "The provider-delegation harness run ON the actual Ubuntu cleanroom VM, coordinating with the host over TCP and UDP (lbabus net). The VM drives the HOST's Ollama over TCP, gates the draft, and announces the receipt over TCP; separately the VM beacons presence over UDP. Both legs were received by host lbabus observers.",
+  "provenAt": "2026-07-31T15:14:12Z",
+  "topology": {
+    "vm": "lba-ubuntu2404-labview2026-scratch",
+    "guestIp": "10.0.2.15",
+    "hostGateway": "10.0.2.2",
+    "network": "VirtualBox NAT (guest reaches host services at 10.0.2.2)",
+    "vmNode": "v18.19.1 (apt)",
+    "vmLbabus": "0.13.0 (self-contained single-file; scp from host build -- a real cleanroom builds it on first boot)",
+    "hostProvider": "ollama llama3.1:8b at 127.0.0.1:11434, exposed to the guest via a loopback TCP proxy on 0.0.0.0:11533"
+  },
+  "tcpLeg": {
+    "transport": "TCP",
+    "provider": "ollama (host, reached from the VM at 10.0.2.2:11533)",
+    "model": "llama3.1:8b",
+    "delegationVerdict": "pass",
+    "outputChars": 1900,
+    "providerMs": 9898,
+    "announceTarget": "10.0.2.2:7420",
+    "hostObserver": "lbabus net listen --tcp 7420 (bind 0.0.0.0)",
+    "hostReceived": "uplift-actor #0 DONE task:uplift:doc-draft (1 message received)",
+    "receiptSchema": "labview-benchmark-actor/lba-uplift-delegation-receipt@v1"
+  },
+  "udpLeg": {
+    "transport": "UDP",
+    "sender": "LBA-UBUNTU-SCRATCH",
+    "beacon": "lbabus net beacon --hosts 10.0.2.2 --udp 7421 --count 3 --task uplift-presence",
+    "hostObserver": "lbabus net listen --udp 7421 (bind 0.0.0.0)",
+    "hostReceived": "LBA-UBUNTU-SCRATCH PROGRESS task:uplift-presence (1 message from 1 distinct sender)"
+  },
+  "note": "Comms-only invariant preserved: the provider ran off the VM's network and only the small receipt/beacon crossed the bus. In a real cleanroom the VM builds lbabus on first boot and self-certifies via lba-gate-suite.service (PR #220) before running delegated tasks."
+}

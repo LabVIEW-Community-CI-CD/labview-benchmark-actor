@@ -1,0 +1,26 @@
+{
+  "schema": "labview-benchmark-actor/provider-delegation-claim-tasking-evidence@v1",
+  "what": "Bus-side CLAIM tasking proven cross-machine: a HOST coordinator dispatched a CLAIM to the VM WORKER, which claimed it (ACK), ran the provider delegation locally against the host Ollama over TCP, and returned the DONE receipt to the host observer -- all over bus-msg@1 / ADR-0003 framing.",
+  "provenAt": "2026-07-31T15:20:00Z",
+  "topology": {
+    "coordinator": "host (observer bound 0.0.0.0:7420)",
+    "worker": "lba-ubuntu-scratch on VM lba-ubuntu2404-labview2026-scratch (listen 0.0.0.0:7440)",
+    "hostToWorker": "NAT forward host 127.0.0.1:7440 -> guest :7440 (VBoxManage natpf1 uplift-worker)",
+    "workerToHost": "guest reaches host observer at 10.0.2.2:7420 (NAT gateway)",
+    "provider": "ollama llama3.1:8b on the host, reached from the VM at 10.0.2.2:11533 (TCP proxy)"
+  },
+  "flow": [
+    "coordinator: CLAIM uplift:doc-draft id=T-GATE-SUITE-NOTE -> worker 127.0.0.1:7440 (reply 10.0.2.2:7420)",
+    "worker: CLAIMED uplift:doc-draft id=T-GATE-SUITE-NOTE -> reply 10.0.2.2:7420 (ACK to host observer)",
+    "worker: ran runDelegation against host Ollama over TCP; verdict=pass",
+    "worker: DONE id=T-GATE-SUITE-NOTE verdict=pass announced=true (DONE receipt to host observer)",
+    "coordinator: claimed=yes verdict=pass (exit 0)"
+  ],
+  "dispatchEnvelope": {
+    "type": "CLAIM",
+    "task": "uplift:doc-draft",
+    "payloadShape": "{ taskSpec: lba-uplift-task@v1, replyTo: 'host:port' }"
+  },
+  "deterministicProof": "verify-claim-tasking.mjs -> PASS, 7 assertions (loopback, mock provider): dispatch -> worker ACK -> DONE receipt; verdict pass for a good task, fail for an unmeetable one.",
+  "note": "Comms-only: only the CLAIM/ACK/DONE frames crossed the bus; the provider ran off the VM's network. Wire-compatible with lbabus net (a real lbabus could send the CLAIM or observe the DONE)."
+}

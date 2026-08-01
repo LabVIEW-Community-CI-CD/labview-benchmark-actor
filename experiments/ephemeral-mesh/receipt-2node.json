@@ -1,0 +1,154 @@
+{
+  "schema": "labview-benchmark-actor/ephemeral-mesh-receipt-v1",
+  "concept": "ephemeral-mesh@1",
+  "meshMode": "typed",
+  "serializationMode": "serialized",
+  "requirement": "LBA-REQ-006",
+  "alsoRequirements": [
+    "LBA-REQ-007"
+  ],
+  "test": "T-EPHEMERAL-MESH-P2-TYPED-BOTH",
+  "ranAt": "2026-07-31T10:27:35.114Z",
+  "plane": "LINUX",
+  "hypervisor": "virtualbox",
+  "transport": "lbabus net -- labview-benchmark-actor/bus-msg@1, ADR-0003/0004 (private intnet lbamesh-eph-1785493655114, TCP 7420; both<->both typed streams, sessionId S-1785493655114)",
+  "lifecycle": {
+    "model": "golden snapshot -> 2 linked clones (both) -> boot -> both<->both strict serialization -> destroy",
+    "goldenVm": "lba-ubuntu2404-labview2026-scratch",
+    "goldenSnapshot": "mesh-node-ready",
+    "cloneVms": [
+      "lba-eph-a-1785493655114",
+      "lba-eph-b-1785493655114"
+    ],
+    "cloneType": "linked",
+    "intnet": "lbamesh-eph-1785493655114",
+    "identity": "actor (dev-default, non-secret) via SSH key auth",
+    "bootSeconds": 14,
+    "survivesReboot": false,
+    "destroyed": true,
+    "removalConfirmed": true
+  },
+  "nodes": [
+    {
+      "id": "eph-a",
+      "nodeType": "both",
+      "ip": "192.168.66.11",
+      "lbabusVersion": "0.11.0",
+      "activity": {
+        "listened": true,
+        "emittedCoordination": true
+      },
+      "orderedReceipt": {
+        "ingestSeqDense": true,
+        "totalFrames": 3,
+        "strictSerialization": true,
+        "orderKey": "(sessionId,senderId,seq) within a stream; cross-source by sink ingestSeq (arrival)",
+        "frameLog": [
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-B",
+            "seq": 1,
+            "ingestSeq": 1,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-B",
+            "seq": 2,
+            "ingestSeq": 2,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-B",
+            "seq": 2,
+            "ingestSeq": 3,
+            "frameType": "DONE"
+          }
+        ],
+        "perStream": [
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-B",
+            "firstSeq": 1,
+            "lastSeq": 2,
+            "count": 2,
+            "contiguous": true,
+            "inIngestOrder": true,
+            "terminalDone": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "eph-b",
+      "nodeType": "both",
+      "ip": "192.168.66.12",
+      "lbabusVersion": "0.11.0",
+      "activity": {
+        "listened": true,
+        "emittedCoordination": true
+      },
+      "orderedReceipt": {
+        "ingestSeqDense": true,
+        "totalFrames": 4,
+        "strictSerialization": true,
+        "orderKey": "(sessionId,senderId,seq) within a stream; cross-source by sink ingestSeq (arrival)",
+        "frameLog": [
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-A",
+            "seq": 1,
+            "ingestSeq": 1,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-A",
+            "seq": 2,
+            "ingestSeq": 2,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-A",
+            "seq": 3,
+            "ingestSeq": 3,
+            "frameType": "PAYLOAD"
+          },
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-A",
+            "seq": 3,
+            "ingestSeq": 4,
+            "frameType": "DONE"
+          }
+        ],
+        "perStream": [
+          {
+            "sessionId": "S-1785493655114",
+            "senderId": "EPH-A",
+            "firstSeq": 1,
+            "lastSeq": 3,
+            "count": 3,
+            "contiguous": true,
+            "inIngestOrder": true,
+            "terminalDone": true
+          }
+        ]
+      }
+    }
+  ],
+  "asserts": {
+    "sshKeyAuthNoPassword": true,
+    "lbabusPresent": true,
+    "nodeTypesHonored": true,
+    "strictSerialization": true,
+    "meshOk": true,
+    "cloneCreated": true,
+    "cloneDestroyed": true,
+    "commsOnly": true,
+    "noRebootSurvivalNeeded": true
+  },
+  "pass": true
+}

@@ -1,0 +1,49 @@
+{
+  "schema": "labview-benchmark-actor/vi-analyzer-live-evidence@1",
+  "capturedAt": "2026-07-31T21:30:50Z",
+  "operatorPrompt": "Go (2nd live workload: VI Analyzer)",
+  "cleanroom": {
+    "vm": "lba-ubuntu2404-labview2026-scratch",
+    "plane": "LINUX",
+    "hypervisor": "virtualbox",
+    "labview": "LabVIEW 2026 Q1 Community (activated)",
+    "viAnalyzerToolkit": "installed (vialinux/1 + vi.lib/addons/analyzer)"
+  },
+  "workload": {
+    "type": "vi-analyzer",
+    "operation": "LabVIEWCLI -OperationName RunVIAnalyzer",
+    "display": "headless Xvfb :99",
+    "config": "NI LabVIEWCLIExampleProject/ConfigFile.viancfg",
+    "target": "3 VIs (Add.vi, Increment.vi, Decrement.vi)",
+    "analysisMs": 3520,
+    "wallMsColdLaunchPlusAnalyze": 18873,
+    "note": "analysisMs = pure VI Analyzer time from the report; wall = cold LabVIEWCLI launch of LabVIEW + analyzer load + analyze + report"
+  },
+  "result": {
+    "totalTests": 69,
+    "passed": 69,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+    "verdict": "all-pass"
+  },
+  "gate": {
+    "by": "agent (deterministic)",
+    "method": "parse-vi-analyzer-ascii.mjs -> validate-vi-analyzer-report.mjs",
+    "verdict": "PASS -- 69/69 tests passed, findings consistent with summary, resultHash validated",
+    "note": "a compute workload (headless) -- the deterministic result digest is the gate, not a screenshot"
+  },
+  "normalizedReport": {
+    "schema": "vi-analyzer-report@v2",
+    "config": "LabVIEWCLIExampleProject",
+    "summary": {
+      "passed": 69,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0,
+      "unloadable": 0
+    },
+    "findings": []
+  }
+}

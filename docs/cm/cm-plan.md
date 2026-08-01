@@ -2,8 +2,9 @@
 
 > Standards baseline: `repo-standards-review` **v0.2.19** (commit `d44f210d`).
 > CM follows ISO 10007 (configuration management) and ISO/IEC/IEEE 12207
-> (life-cycle processes). This governs the specification package while it lives
-> on the prototype branch and through its move to a dedicated repository.
+> (life-cycle processes). This governs the labview-benchmark-actor package now
+> that it lives in its own dedicated repository (graduated from the
+> `vi-history-suite` prototype subtree).
 
 ## Configuration items
 
@@ -14,16 +15,29 @@
 | CI-3 | Requirement IDs (`LBA-REQ-NNN`) | Stable; never renumbered on move |
 | CI-4 | Run-result schema, bus message schema | Versioned contracts (frozen per test slice) |
 
-## Baseline and branch strategy
+## Branch governance — GitFlow (ISO 10007 §5, ISO/IEC/IEEE 12207)
 
-- Current baseline: **prototype specification** on
-  `prototype/labview-benchmark-actor` (off `vi-history-suite` `develop`
-  `bb704bba`).
-- The prototype branch is planning material only — no runtime code or CI gate
-  is claimed as proving evidence here.
-- Coordination for this thread runs on the collaboration bus
-  (GitHub Discussion) until the TCP/UDP bus (LBA-REQ-007) exists; the discussion
-  thread is the interim status-accounting channel.
+labview-benchmark-actor has graduated from the `vi-history-suite` prototype
+subtree into this dedicated repository and adopts **GitFlow** as its
+branch-governance doctrine (LBA-REQ-016; ADR-0010). `main` is the protected
+production branch, `develop` is the integration branch, and the CI-owned SemVer
+tag on `main` remains the sole publish authority (GitFlow never weakens it).
+
+- Feature branches are created from `develop` and merge back into `develop` through a reviewed pull request; the feature branch is deleted after merge.
+- Release branches are cut from `develop`, then merged into `main` and merged into `develop`; delete the release branch after both merges complete.
+- Hotfix branches are created from `main`, then merged into `main` and merged into `develop` (or the active `release/*` branch when one is open), and deleted after the required merges complete.
+- Releases are SemVer-tagged (`vX.Y.Z`) on `main`; the tag is CI-owned and triggers publish (`collab-cli-vX.Y.Z` for the CLI; the extension release for the `.vsix`).
+- On the tagged release path CI re-runs the full verification suite and retains its coverage evidence, so coverage is retained on every release tag.
+
+### Merge method by branch type
+
+The repository enables squash, merge-commit, and rebase merges; this convention uses **squash** and **`--no-ff` merge commits**, selected by branch type so the GitFlow topology stays sound (rebase-merge is not part of the convention):
+
+- **Feature → `develop`: squash merge.** Each reviewed pull request lands as one logical, revertible commit, keeping `develop` linear.
+- **Release → `main` and back into `develop`: `--no-ff` merge commit.** The two-parent merge preserves shared ancestry so `main` and `develop` never diverge into different commit SHAs for identical content.
+- **Hotfix → `main` and back into `develop` (or the active `release/*`): `--no-ff` merge commit**, for the same shared-ancestry reason.
+
+Squash is reserved for the single-target feature path only: squashing a release or hotfix into both `main` and `develop` would create unrelated commits for identical content and make subsequent `main` ↔ `develop` merges replay phantom conflicts.
 
 ## Standards-release stamp (ISO 10007 identification)
 

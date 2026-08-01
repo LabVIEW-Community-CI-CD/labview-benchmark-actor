@@ -1,0 +1,137 @@
+{
+  "schema": "labview-benchmark-actor/vi-analyzer-trend-live-evidence@1",
+  "capturedAt": "2026-08-01T02:27:17Z",
+  "operatorPrompt": "Go (VI Analyzer TREND -- guest-resident scheduler, the previously-blocked multi-run)",
+  "cleanroom": {
+    "vm": "lba-ubuntu2404-labview2026-scratch",
+    "plane": "LINUX",
+    "hypervisor": "virtualbox",
+    "labview": "LabVIEW 2026 Q1 Community (activated)",
+    "viAnalyzerToolkit": "installed (vialinux/1 + vi.lib/addons/analyzer)"
+  },
+  "workload": {
+    "type": "vi-analyzer-trend",
+    "operation": "LabVIEWCLI -OperationName RunVIAnalyzer",
+    "display": "headless Xvfb :99 (xdpyinfo-gated readiness)",
+    "config": "NI LabVIEWCLIExampleProject/ConfigFile.viancfg",
+    "target": "3 VIs (Add.vi, Increment.vi, Decrement.vi) -> 69 tests",
+    "runs": 6,
+    "harness": "experiments/vi-analyzer/run-vi-analyzer-trend.sh (guest-resident; explicit PATH survives a detached shell)",
+    "note": "run 1 cold-launches LabVIEW; runs 2..N connect to the resident LabVIEW (VI Server 3363) -> warm analyze"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "wallMs": 8363,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 2,
+      "wallMs": 4491,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 3,
+      "wallMs": 4621,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 4,
+      "wallMs": 3159,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 5,
+      "wallMs": 3882,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    },
+    {
+      "run": 6,
+      "wallMs": 3885,
+      "exit": 0,
+      "totalTests": 69,
+      "summary": {
+        "passed": 69,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "unloadable": 0
+      },
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+    }
+  ],
+  "trend": {
+    "wallMs": [
+      8363,
+      4491,
+      4621,
+      3159,
+      3882,
+      3885
+    ],
+    "coldWallMs": 8363,
+    "warmMedianMs": 3885,
+    "warmMinMs": 3159,
+    "warmMaxMs": 4621,
+    "coldOverWarm": 2.15,
+    "note": "wall ms per LabVIEWCLI RunVIAnalyzer invocation; warm runs are analyze-dominated (LabVIEW resident)"
+  },
+  "determinism": {
+    "distinctResultHashes": 1,
+    "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+    "deterministicAcrossRuns": true,
+    "matchesSingleRunCanonical": true,
+    "canonicalHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+  },
+  "gate": {
+    "by": "agent (deterministic)",
+    "method": "run-vi-analyzer-trend.sh (guest) -> parse-vi-analyzer-ascii.mjs -> viAnalyzerResult.mjs per run",
+    "verdict": "PASS -- 6/6 runs 69/69 all-pass; ONE resultHash across all runs, matching the single-run canonical (determinism proven)",
+    "note": "a compute workload: the deterministic result digest repeated across runs is the gate, not a screenshot"
+  }
+}

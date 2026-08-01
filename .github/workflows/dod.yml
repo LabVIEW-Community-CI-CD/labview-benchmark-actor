@@ -1,0 +1,32 @@
+# DoD Gate — the release-readiness Definition of Done for labview-benchmark-actor.
+#
+# The status context this publishes is "DoD Gate / dod" (workflow name / job name). It enforces the
+# Definition of Done in docs/dod/definition-of-done.md by running the authoritative, dependency-free local
+# gate suite (node experiments/verify-local-gates.mjs) — which includes the dod-definition-present check.
+# A change is "Done" only when this gate is green (all exit criteria met). Standards basis (reference only,
+# no reproduced text): ISO/IEC/IEEE 29119-2:2021 (exit/completion criteria), 12207:2017 (process outcomes),
+# 29148:2018 (traceability), 15289:2019 (information items), ISO 10007:2017 (CM), 42010:2022 (architecture).
+name: DoD Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  dod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Enforce the Definition of Done (local gate suite must be green)
+        run: node experiments/verify-local-gates.mjs

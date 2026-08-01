@@ -25,7 +25,7 @@ check('the committed dep-manifest.json validates', () => {
   const r = verifyDepManifest(real);
   assert(r.ok, `expected ok, got errors: ${r.errors.join('; ')}`);
   assert(r.summary.gitRepos === 2 && r.summary.pipTools === 2 && r.summary.vipmPackages === 1, 'expected 2 gitRepos / 2 pipTools / 1 vipmPackage');
-  assert(r.summary.resolved >= 3 && r.summary.tbd >= 2, 'expected the resolved (labview_assistant, icon-editor, lvkit) + tbd (pylabview, dqmh) split');
+  assert(r.summary.resolved >= 4 && r.summary.tbd >= 1, 'expected the resolved (labview_assistant, icon-editor, lvkit, pylabview) + tbd (dqmh) split');
 });
 
 check('the resolved git pins are real 40-hex SHAs', () => {
@@ -83,12 +83,17 @@ check('a bad labviewBitness fails closed', () => {
   assert(!verifyDepManifest(m).ok, 'labviewBitness must be 32 or 64');
 });
 
-check('tbd-* pins may omit their concrete value (pylabview / dqmh)', () => {
-  // pylabview (tbd-linux-verify) has an empty version, dqmh (tbd-linux-owns-vipc) is fine -> still ok overall
-  const r = verifyDepManifest(real);
+check('pylabview is pinned (LINUX-verified ==0.1.2)', () => {
   const pylabview = real.pipTools.find((t) => t.name === 'pylabview');
-  assert(pylabview.pinStatus === 'tbd-linux-verify' && pylabview.version === '', 'pylabview is a tbd pin with an empty version');
-  assert(r.ok, 'a manifest with tbd pins still validates');
+  assert(pylabview.pinStatus === 'verified' && pylabview.version === '==0.1.2', 'pylabview pinned to the version lvkit 0.5.7 resolves');
+});
+
+check('tbd-* pins may omit their concrete value (dqmh)', () => {
+  // dqmh (tbd-linux-owns-vipc) has no concrete version yet -> the manifest still validates
+  const r = verifyDepManifest(real);
+  const dqmh = real.vipmPackages.find((p) => p.name === 'dqmh');
+  assert(dqmh.pinStatus === 'tbd-linux-owns-vipc' && (dqmh.version === '' || dqmh.version == null), 'dqmh is a tbd pin with no concrete version yet');
+  assert(r.ok, 'a manifest with a tbd pin still validates');
 });
 
 console.log(`verify-dep-manifest self-test: ${pass}/${planned} PASS`);

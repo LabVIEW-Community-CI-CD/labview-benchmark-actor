@@ -25,7 +25,7 @@ const CLI = 'lbabus';
 // out/mcp/runBenchmarkActorMcpServer.js -> the extension install root is two levels up.
 const repoRoot = path.join(__dirname, '..', '..');
 
-function errorText(error: unknown): string {
+export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
@@ -51,9 +51,9 @@ async function runLbabus(args: string[], timeoutMs: number): Promise<McpToolResu
   }
 }
 
-function readServerVersion(): string {
+export function readServerVersion(root: string = repoRoot): string {
   try {
-    const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version?: string };
+    const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version?: string };
     return typeof pkg.version === 'string' ? pkg.version : 'unknown';
   } catch {
     return 'unknown';
@@ -61,9 +61,9 @@ function readServerVersion(): string {
 }
 
 /** Read the deterministic bundled mprr series and project it into a stable, hashed envelope. */
-async function getBenchmarkSeries(): Promise<McpToolResult> {
+export async function getBenchmarkSeries(root: string = repoRoot): Promise<McpToolResult> {
   try {
-    const raw = readFileSync(path.join(repoRoot, 'media', 'mprr-series.json'), 'utf8');
+    const raw = readFileSync(path.join(root, 'media', 'mprr-series.json'), 'utf8');
     const series = JSON.parse(raw) as Array<{ t: number; v: number }>;
     const seriesHash = createHash('sha256').update(JSON.stringify(series)).digest('hex');
     const envelope = {
