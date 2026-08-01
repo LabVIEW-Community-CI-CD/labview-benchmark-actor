@@ -30,7 +30,7 @@
 | LBA-REQ-021 | Test-to-requirement correspondence gate | Proven | §3.8 Configuration-management & assurance | ADR-0013 | T-021 | 3 |
 | LBA-REQ-022 | Generated traceability matrix | Proven | §3.8 Configuration-management & assurance | ADR-0013 | T-022 | 3 |
 | LBA-REQ-023 | Actor Corroboration Grid (multi-witness release corroboration) | Planned | §3.9 Corroboration-grid | ADR-0014 | T-023 | 1 |
-| LBA-REQ-024 | Corroboration quorum + graded confidence | Planned | §3.9 Corroboration-grid | ADR-0015 | T-024 | 1 |
+| LBA-REQ-024 | Corroboration quorum + graded confidence | Proven | §3.9 Corroboration-grid | ADR-0015 | T-024 | 4 |
 | LBA-REQ-025 | Corroboration provenance + attestation | Planned | §3.9 Corroboration-grid | ADR-0016 | T-025 | 1 |
 | LBA-REQ-026 | Witness independence | Planned | §3.9 Corroboration-grid | ADR-0017 | T-026 | 1 |
 | LBA-REQ-027 | Reviewer station + human sign-off | Planned | §3.9 Corroboration-grid | ADR-0018 | T-027 | 1 |

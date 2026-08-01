@@ -454,6 +454,13 @@ check('codespace-witness-bootstrap-valid', () => {
   return { devcontainer: 'noble', runsSharedGateSuite: true };
 });
 
+// The Actor Corroboration Grid quorum (ADR-0015, LBA-REQ-024): the tiered-anchor, graded-majority compare that
+// turns witness bundles into a corroboration verdict must hold -- run its dependency-free self-test as a subprocess.
+check('acg-quorum-compare-witnesses', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'compare-witnesses.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'compare-witnesses 7/7' };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
