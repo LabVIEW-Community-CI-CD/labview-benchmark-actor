@@ -642,6 +642,17 @@ check('mesh-calibration-view', () => {
   return { selftest: 'meshCalibrationView 6/6', surface: 'script-free HTML' };
 });
 
+// LBA-REQ-032 (mesh-stress-signature@v1, LIVE + CONCURRENT): the SIMULTANEOUS mesh -- 5 actors, each pinned to a
+// disjoint core pool and commanded to a DIFFERENT rung AT ONCE, are each sampled on their own exact-12-FPS /proc
+// series, and every actor is inverse-read back to its OWN rung. Replays the committed concurrent receipt.
+check('mesh-concurrent-actors-real', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'concurrentMeshRun.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mesh-stress-signature', 'fixtures', 'mesh-concurrent-actors-receipt.json'), 'utf8'));
+  assert(r.measured.exactly12fps === true && r.concurrency.allActorsSampledEveryFrame === true, 'the actors must be sampled simultaneously at exactly 12 FPS');
+  assert(r.allActorsRecovered === true && r.perActorInverseRead.every((x) => x.correct), 'every concurrently-stressed actor must inverse-read back to its own rung');
+  return { actors: r.perActorInverseRead.length, recovered: r.allActorsRecovered, cpuMeans: r.actors.map((a) => a.cpuPoolPctMean) };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
