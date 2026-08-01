@@ -148,7 +148,7 @@ multi-VM / Codespace topology.
   requirement → view → decision → test view stays current by construction
   (LBA-REQ-022, ADR-0013).
 
-### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026, LBA-REQ-027, LBA-REQ-028, LBA-REQ-029
+### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026, LBA-REQ-027, LBA-REQ-028, LBA-REQ-029, LBA-REQ-031
 
 The Actor Corroboration Grid (ADR-0014) corroborates a component release across
 independent, heterogeneous witnesses. Each witness — initially a Codespace-Linux node,
@@ -163,7 +163,9 @@ over tiered anchors, LBA-REQ-024, ADR-0015), the signed provenance chain verifie
 consumption (LBA-REQ-025, ADR-0016), and the enforced witness independence (distinct enrolled
 environments, LBA-REQ-026, ADR-0017) refine this view. The reviewer station and human sign-off
 (LBA-REQ-027, ADR-0018), the mesh verdict beacon (LBA-REQ-028, ADR-0019), and the agent-facing
-MCP orchestration surface (LBA-REQ-029, ADR-0020) complete it.
+MCP orchestration surface (LBA-REQ-029, ADR-0020) complete it. Provenance is published to a signed,
+append-only Merkle transparency log (RFC 6962) and the reviewer station verifies a release's corroboration
+chain is attested and logged before installing it (verify-before-install, LBA-REQ-031, ADR-0022).
 
 ## 4. Architecture decisions (42010 §5.7)
 
@@ -198,6 +200,7 @@ MCP orchestration surface (LBA-REQ-029, ADR-0020) complete it.
 | AD-27 | Witnesses beacon their verdicts over the lbabus mesh | Live, distributed verdict collection reusing the bus, no new transport (ADR-0019) | LBA-REQ-028 |
 | AD-28 | Extend the MCP tool surface with grid-orchestration tools | One discoverable agent surface drives the grid (ADR-0020, ADR-0012) | LBA-REQ-029 |
 | AD-29 | Non-release pull requests target develop, not main | Prevents the stale main-based pull-request class from dumping integration onto the release branch (ADR-0021, ADR-0010) | LBA-REQ-030 |
+| AD-30 | Publish corroboration provenance to a signed Merkle transparency log and verify inclusion before install | Append-only, offline-verifiable provenance; no unattested or un-logged release is installable (ADR-0022, ADR-0016) | LBA-REQ-031 |
 
 ## 5. Risks and open questions
 
@@ -241,6 +244,7 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0019](adr/ADR-0019-mesh-integration.md) | Mesh integration for the corroboration grid | LINUX |
 | [ADR-0020](adr/ADR-0020-mcp-orchestration-surface.md) | MCP orchestration surface for the corroboration grid | LINUX |
 | [ADR-0021](adr/ADR-0021-pull-requests-target-develop.md) | Pull requests target develop, not main | LINUX |
+| [ADR-0022](adr/ADR-0022-transparency-log-inclusion.md) | Signed Merkle transparency log + verify-before-install | LINUX |
 
 Remaining open items: the picture-capture *source*/cadence (storage itself is
 resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded

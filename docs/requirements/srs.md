@@ -58,6 +58,7 @@ progressively.
 | LBA-REQ-028 | The system shall beacon each witness's corroboration verdict over the lbabus coordination mesh. | Verdicts already travel the bus via the gate-suite beacon, so collecting each witness's outcome over the existing mesh gives a live, distributed view without a new transport (ADR-0019). | Each witness joins the lbabus mesh and beacons its verdict (reusing the gate-suite verdict beacon and the mesh topology); a mesh ledger records the beaconed verdicts and feeds the provenance store. | The mesh verdict beacon (`experiments/acg-mesh/verdict-beacon.mjs`, self-test 8/8 incl. a real bus-msg@1 wire round-trip) builds a comms-only verdict NOTE + a tamper-evident MeshLedger and resolves beaconed witnesses to the quorum; gated by `acg-mesh-verdict-beacon`, with the live loopback proof (real {codespace, host} verdicts beaconed over 127.0.0.1 TCP -> ledger -> quorum pass) re-derived by `acg-mesh-loopback-evidence`. |
 | LBA-REQ-029 | The system shall expose the corroboration grid's operations to agents through the Model Context Protocol tool surface. | Agents already consume actor tools through the MCP server (ADR-0012), so exposing the grid's operations on the same surface lets an agent orchestrate corroboration directly rather than through bespoke commands (ADR-0020). | The ADR-0012 MCP surface gains grid tools (`spin_up_witness`, `run_quorum`, `get_confidence`, `verify_attestation`, `teardown`); the surface is designed now and implemented in a later phase. | The ACG MCP surface (`experiments/acg-mcp/grid-tools.mjs` + `server.mjs`) exposes the grid tools over the same dependency-free JSON-RPC 2.0 contract as the ADR-0012 server; run_quorum/get_confidence/verify_attestation/check_independence/assemble_witness compose the engines and spin_up_witness/teardown return provisioning plans. Self-test 10/10 incl. a spawned stdio round-trip (initialize/tools/list/tools/call), gated by `acg-mcp-grid-surface`. |
 | LBA-REQ-030 | The system shall require every non-release pull request to target the develop integration branch. | GitFlow makes develop the integration branch (ADR-0010), but stale main-based pull requests (#211 / #215 / #217) dumped integration content onto the release branch because no rule stated where feature work targets; codifying the base-branch rule prevents that class of error (ADR-0021). | Every non-release pull request targets develop; main receives only release/hotfix merges via a no-fast-forward merge; a pull request found on the wrong base is re-targeted or closed rather than merged. | The base-branch guard (`experiments/acg-governance/pr-base-branch-guard.mjs`, self-test 11/11) blocks any non-release head targeting main (develop and feature/authoring included), and the `.github/workflows/pr-base-branch-guard.yml` workflow enforces it on PRs targeting main; gated by `acg-governance-pr-base-branch` and `acg-governance-pr-base-branch-workflow-wired`. |
+| LBA-REQ-031 | The system shall admit a component release for installation only after its corroboration attestation is proven included in the signed transparency log. | Provenance that lives only beside a verdict can be silently dropped or forged; recording each witness attestation in an append-only, Ed25519-signed Merkle transparency log makes an unattested or un-logged release refusable before install, with tamper-evident inclusion proofs (ADR-0022, extends ADR-0016). | Each witness attestation is a leaf in a signed Merkle log using RFC 6962 domain-separated hashing; the reviewer-workstation install plus a standalone verifier admit a release only when at least the quorum minimum of enrolled-witness attestations each carry an inclusion proof against the signed tree head; any missing or tampered proof blocks the install. | The transparency log `experiments/acg-transparency/transparency-log.mjs` (RFC 6962 inclusion + consistency + Ed25519 signed tree heads, self-test 26/26, gated by `acg-transparency-log`) records the real {codespace, host} attestations under one signed head (`acg-transparency-log-live`); the verifier `experiments/acg-transparency/verify-release-inclusion.mjs` admits the real bundle plus blocks a tampered one (`acg-transparency-verify-before-install`), wired fail-closed into `reviewer-workstation/provision.ps1` before the .vsix install (`acg-transparency-verify-before-install-wired`). |
 
 ---
 
@@ -859,6 +860,37 @@ progressively.
   gated by `acg-governance-pr-base-branch` + `acg-governance-pr-base-branch-workflow-wired`.
   Authored under the `repo-standards-review` singular-requirement directive (one `shall`).
 
+### LBA-REQ-031: Transparency-log inclusion + verify-before-install
+
+- Status: Proven
+- Area: Assurance / supply-chain transparency (ADR-0022, extends ADR-0016)
+- Statement: The system shall admit a component release for installation only after its
+  corroboration attestation is proven included in the signed transparency log.
+- Rationale: Provenance that lives only beside a verdict can be silently dropped or forged.
+  Recording each witness attestation in an append-only, Ed25519-signed Merkle transparency
+  log (RFC 6962) makes an unattested or un-logged release refusable before install, with
+  tamper-evident inclusion proofs.
+- Acceptance Criteria:
+  - Each witness attestation is a leaf in a signed Merkle log; the signed tree head binds the
+    root, size, and log identity.
+  - An inclusion proof reconstructs the signed root from a single leaf without the whole log;
+    a consistency proof shows the log was only appended to between two signed heads.
+  - The reviewer-workstation install plus a standalone verifier admit a release only when at
+    least the quorum minimum of enrolled-witness attestations are proven included; a missing
+    or tampered proof blocks the install (fail-closed).
+- Change Guidance: Extends ADR-0016 (ADR-0022); delivers the offline-verifiable
+  transparency-log and reviewer-workstation-verify clauses of LBA-REQ-025. DELIVERED as
+  `experiments/acg-transparency/transparency-log.mjs` (RFC 6962 domain-separated hashing,
+  inclusion + consistency proofs, Ed25519 signed tree heads; self-test 26/26, gated by
+  `acg-transparency-log`), LIVE over the real {codespace, host} attestations recorded under one
+  signed head (`acg-transparency-log-live`), with the verifier
+  `experiments/acg-transparency/verify-release-inclusion.mjs` (admits the real bundle, blocks a
+  tampered one; gated by `acg-transparency-verify-before-install`) wired fail-closed into
+  `reviewer-workstation/provision.ps1` before the `.vsix` install
+  (`acg-transparency-verify-before-install-wired`). LBA-REQ-025's sigstore-keyless OIDC and
+  public-rekor clauses remain the networked tier and stay Planned. Authored under the
+  `repo-standards-review` singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -895,3 +927,4 @@ progressively.
 | LBA-REQ-028 | Corroboration grid (mesh verdict beacon) | T-028 |
 | LBA-REQ-029 | Agentic infra (MCP grid surface) | T-029 |
 | LBA-REQ-030 | CM (PRs target develop) | T-030 |
+| LBA-REQ-031 | Corroboration grid (transparency log + verify-before-install) | T-031 |
