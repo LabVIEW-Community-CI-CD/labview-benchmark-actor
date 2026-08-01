@@ -48,7 +48,10 @@ const mockVscode = {
     showInputBox: async (options) => {
       const value = inputQueue.shift();
       if (options && typeof options.validateInput === 'function' && value !== undefined) {
-        options.validateInput(value);
+        const validationError = options.validateInput(value);
+        if (validationError) {
+          return undefined; // invalid input -> VS Code blocks OK; simulate the user cancelling
+        }
       }
       return value;
     },
@@ -390,6 +393,49 @@ try {
     assert(/res''ources\.jsonl/.test(script), 'samplerScript single-quote-escapes the out path (no injection)');
   }
 
+  // createCleanroom input VALIDATION: an invalid name/port/actor is rejected by the validators and aborts the
+  // command early (each `if (!x) return`). The mock treats a validation failure as the user cancelling (VS Code
+  // blocks OK on an invalid value), so no cloner command is sent.
+  {
+    const cc = registered.find((r) => r.id === 'labviewBenchmarkActor.createCleanroom').handler;
+    const sentBeforeInvalid = sentCommands.length;
+    inputQueue.push('bad name!'); // cloneName invalid -> reject + early return
+    await cc();
+    inputQueue.push('ok-name', '99999'); // sshPort out of range -> reject + early return
+    await cc();
+    inputQueue.push('ok-name', '2223', 'not-a-port'); // workerPort invalid -> reject + early return
+    await cc();
+    inputQueue.push('ok-name', '2223', '7441', 'bad actor!'); // actorId invalid -> reject + early return
+    await cc();
+    assert(sentCommands.length === sentBeforeInvalid, 'createCleanroom aborts (sends no cloner command) when any input fails validation');
+  }
+
+  // captureLaunch on a host without LabVIEW.exe (the Linux test host) -> the "LabVIEW.exe not found" guard, and
+  // it returns BEFORE any spawn (the ffmpeg/proc capture itself is cleanroom-gated + live-proven, never faked).
+  const errsBeforeCapture = errorMessages.length;
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+  assert(
+    errorMessages.slice(errsBeforeCapture).some((m) => /LabVIEW\.exe not found/.test(m)),
+    'captureLaunch surfaces the LabVIEW-not-found guard when no LabVIEW is configured'
+  );
+
+  // lmTextResult fallback: when the host predates the LanguageModelToolResult/TextPart classes, the tools return
+  // a plain { content:[{type,value}] } shape instead of the API objects.
+  {
+    const savedResult = mockVscode.LanguageModelToolResult;
+    const savedPart = mockVscode.LanguageModelTextPart;
+    mockVscode.LanguageModelToolResult = undefined;
+    mockVscode.LanguageModelTextPart = undefined;
+    const summaryTool = registeredTools.find((x) => x.name === 'lba-benchmark-summary');
+    const res = await summaryTool.tool.invoke({}, {});
+    assert(
+      res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].value === 'string',
+      'lmTextResult falls back to a plain content shape when the LM API classes are absent'
+    );
+    mockVscode.LanguageModelToolResult = savedResult;
+    mockVscode.LanguageModelTextPart = savedPart;
+  }
+
   // Benchmark panel commands (LBA-REQ-004/005): each renders a webview from the STAGED fixtures. Invoking them
   // covers the extension.ts panel wiring (loadPanelBuilders + loadBenchmarkJson + makeBenchmarkPanel) on the
   // real render path -- the panel builders themselves are proven separately by panels-render.mjs.
@@ -493,6 +539,25 @@ try {
     errorMessages.length >= errBefore + 5,
     'each panel command reports a UI error (reportUiError) when the staged fixtures are unreadable (graceful degradation, not a crash)'
   );
+
+  // openViewer on the broken install: loadSeries cannot read media/mprr-series.json, so it falls back to the
+  // built-in demo series (the viewer always renders a valid series).
+  const panelsBeforeBrokenViewer = panels.length;
+  second.find((r) => r.id === 'labviewBenchmarkActor.openViewer').handler();
+  assert(panels.length === panelsBeforeBrokenViewer + 1, 'openViewer still renders on a broken install (loadSeries demo-series fallback)');
+
+  // Script-resolution guards + the postNote empty-input abort, on the broken install with NO workspace folder:
+  // createCleanroom + bootstrapAuthoringLane can resolve no script -> each surfaces its "not found" guidance,
+  // and postNote with no message entered aborts before the CLI.
+  const savedFoldersBroken = mockVscode.workspace.workspaceFolders;
+  mockVscode.workspace.workspaceFolders = undefined;
+  const errBeforeScripts = errorMessages.length;
+  await second.find((r) => r.id === 'labviewBenchmarkActor.createCleanroom').handler();
+  await second.find((r) => r.id === 'labviewBenchmarkActor.bootstrapAuthoringLane').handler();
+  assert(errorMessages.slice(errBeforeScripts).some((m) => /Cleanroom cloner not found/.test(m)), 'createCleanroom reports the cloner-not-found guard when no script resolves');
+  assert(errorMessages.slice(errBeforeScripts).some((m) => /Authoring-lane bootstrap not found/.test(m)), 'bootstrapAuthoringLane reports the bootstrap-not-found guard when no script resolves');
+  await second.find((r) => r.id === 'labviewBenchmarkActor.postNote').handler(); // empty inputQueue -> no message -> abort before the CLI
+  mockVscode.workspace.workspaceFolders = savedFoldersBroken;
 
   ext.deactivate(); // must not throw
 
