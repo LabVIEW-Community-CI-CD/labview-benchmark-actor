@@ -34,13 +34,16 @@ Seed the engine now with:
 
 - **TR-1 (fail-closed)** — every governed test file corresponds to at least one requirement through an RTM
   CodeRef (this is `LBA-REQ-021`; it subsumes the previously-planned ring-3 "tests-all-mapped" gate).
-- **AD-1 (advisory)** — every ADR traces to at least one requirement.
-- **VW-1 (advisory)** — every requirement is described in the architecture description.
+- **AD-1 (fail-closed)** — every ADR traces to at least one requirement and is registered in the `overview.md`
+  decision register (so the inline register and the `ADR-00NN` files cannot drift apart).
+- **VW-1 (fail-closed)** — every requirement is described by an architecture view in `overview.md`.
 
-Each advisory rule is **promoted to fail-closed** as its register is reconciled (stage 2: unify the inline
-`AD-n` table with the `ADR-00NN` files into one governed decision register; extend the `overview.md` §3 views
-and §4 decisions to cover `LBA-REQ-011..020`). As the graph becomes authoritative, the RTM, the coverage
-matrix, and the architecture-description views are **generated from** it rather than hand-maintained.
+The stage-2 reconciliation lands with this decision: the `overview.md` §3 views and §4 decision register are
+extended to cover `LBA-REQ-011..021`, the §6 ADR index is completed, and the stakeholders/concerns are refreshed —
+so AD-1 and VW-1 are promoted from advisory to fail-closed in the same change. A later correspondence rule may
+still start advisory (`enforced:false`) to report a census without blocking, then be promoted once its register
+is reconciled. As the graph becomes authoritative, the RTM, the coverage matrix, and the architecture-description
+views are **generated from** it rather than hand-maintained.
 
 ## Consequences
 
@@ -49,8 +52,8 @@ matrix, and the architecture-description views are **generated from** it rather 
 - One correspondence engine subsumes the reqs-coverage rings, the tests-all-mapped gate, and future
   information-item (15289), life-cycle-process (12207), and CM (10007) edges — the constellation
   `repo-standards-review` already indexes.
-- `verify-local-gates` gains one check; the advisory rules are visible-but-non-blocking until reconciled, so
-  this ADR ships without forcing the stage-2 architecture-description rework into the same increment.
+- `verify-local-gates` gains one check. The stage-2 architecture-description reconciliation lands with this
+  ADR, so all three seed rules (TR-1, AD-1, VW-1) ship fail-closed and the graph is conformant end-to-end.
 
 ## Alternatives considered
 

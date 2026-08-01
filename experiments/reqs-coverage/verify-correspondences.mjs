@@ -7,12 +7,12 @@
 // enforces the correspondence RULES. Dependency-free (Node builtins only). Decision recorded in ADR-0013.
 //
 //   TR-1  [FAIL-CLOSED]  every governed test file corresponds to >=1 requirement via an RTM CodeRef.  (LBA-REQ-021)
-//   AD-1  [ADVISORY]     every ADR file traces to >=1 requirement (ADR <-> requirement correspondence).
-//   VW-1  [ADVISORY]     every requirement is described in the architecture description (overview.md).
+//   AD-1  [FAIL-CLOSED]  every ADR traces to >=1 requirement AND is registered in the overview decision register.
+//   VW-1  [FAIL-CLOSED]  every requirement is described in the architecture description (overview.md).
 //
-// Advisory rules print a census (counts + exact orphans) but do NOT fail the gate until their registers are
-// reconciled (ADR-0013 stage 2: unify the inline AD-n table with the ADR files; extend the views + decisions
-// to cover REQ-011..020). Promote a rule to enforcement by setting its `enforced` flag true.
+// All three rules are fail-closed after the ADR-0013 stage-2 reconciliation. A new rule may start advisory
+// (enforced:false) so it reports a census without blocking, then be promoted by flipping its `enforced` flag
+// once its register is reconciled.
 //
 // Usage: node experiments/reqs-coverage/verify-correspondences.mjs [--json]
 // Exit 0 when every FAIL-CLOSED rule holds, 1 otherwise.
@@ -75,23 +75,29 @@ const isGovernedTest = (p) =>
 const governedTests = TEST_ROOTS.flatMap((r) => walk(join(repo, r), [])).filter(isGovernedTest).sort();
 const isMapped = (p) => referenced.has(p) || referenced.has(p.split('/').pop());
 
-// ADR <-> requirement correspondence.
+// ADR <-> requirement + decision-register reconciliation: each ADR must trace to a requirement AND appear in
+// the overview.md decision register (so the inline register and the ADR files cannot drift apart).
+const overviewText = existsSync(OVERVIEW) ? readFileSync(OVERVIEW, 'utf8') : '';
 const adrFiles = existsSync(ADR_DIR)
   ? readdirSync(ADR_DIR).filter((f) => /^ADR-\d{4}-.*\.md$/.test(f)).sort()
   : [];
-const orphanAdrs = adrFiles.filter((f) => expandReqRefs(readFileSync(join(ADR_DIR, f), 'utf8')).size === 0);
+const orphanAdrs = adrFiles.filter((f) => {
+  const traced = expandReqRefs(readFileSync(join(ADR_DIR, f), 'utf8')).size > 0;
+  const registered = overviewText.includes(f.slice(0, 8)); // e.g. "ADR-0001"
+  return !(traced && registered);
+});
 
 // requirement <-> architecture-view correspondence (described anywhere in the architecture description).
-const adReqs = existsSync(OVERVIEW) ? expandReqRefs(readFileSync(OVERVIEW, 'utf8')) : new Set();
+const adReqs = expandReqRefs(overviewText);
 const reqsNoView = srsIds.filter((id) => !adReqs.has(id));
 
 const unmappedTests = governedTests.filter((p) => !isMapped(p));
 const rules = [
   { id: 'TR-1', enforced: true, label: 'test<->requirement (every governed test corresponds to >=1 requirement)',
     total: governedTests.length, orphans: unmappedTests },
-  { id: 'AD-1', enforced: false, label: 'ADR<->requirement (every ADR traces to >=1 requirement)',
+  { id: 'AD-1', enforced: true, label: 'ADR<->requirement + register (every ADR traces to a requirement and is registered in overview.md)',
     total: adrFiles.length, orphans: orphanAdrs },
-  { id: 'VW-1', enforced: false, label: 'requirement<->architecture-view (every requirement described in overview.md)',
+  { id: 'VW-1', enforced: true, label: 'requirement<->architecture-view (every requirement described in overview.md)',
     total: srsIds.length, orphans: reqsNoView },
 ].map((r) => ({ ...r, ok: r.orphans.length === 0, satisfied: r.total - r.orphans.length }));
 
@@ -111,6 +117,6 @@ if (asJson) {
   }
   console.log(enforcedFailures.length
     ? `correspondences: ${enforcedFailures.length} FAIL-CLOSED rule(s) broken — graph NOT conformant`
-    : 'correspondences: fail-closed rules PASS (advisory census pending ADR-0013 reconciliation)');
+    : 'correspondences: all correspondence rules PASS (graph conformant)');
 }
 process.exit(enforcedFailures.length ? 1 : 0);
