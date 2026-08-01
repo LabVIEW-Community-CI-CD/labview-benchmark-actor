@@ -4,14 +4,28 @@ name: extension-release
 # GitHub Release asset. The reviewer-workstation Vagrant provisioning downloads the .vsix from this
 # Release and installs it into the guest (mirrors how the lbabus nupkg ships as a Release asset).
 #
-# Trigger: push a tag `ext-vX.Y.Z` whose X.Y.Z matches "version" in package.json.
-# The publish is fail-closed behind the bidirectional WIN <-> LINUX agreement gate (component:
-# extension) - neither plane may unilaterally ship the extension.
+# Trigger: workflow_dispatch (input: version X.Y.Z) is the live path -- it builds, agreement-gates,
+# keyless-signs, and uploads the signed .vsix as a run artifact; a maintainer then cuts the immutable
+# GitHub Release locally with an authorized bypass token (the org ruleset blocks `git push` of the tag,
+# so the retained `push: tags: ext-v*` trigger cannot fire for a new release). X.Y.Z must match "version"
+# in package.json. The publish is fail-closed behind the bidirectional WIN <-> LINUX agreement gate
+# (component: extension) - neither plane may unilaterally ship the extension.
 
 on:
   push:
     tags:
       - 'ext-v*.*.*'
+  # Under the org tag-creation ruleset a maintainer cannot `git push` an ext-v* tag, so the push trigger above
+  # cannot fire for a new release; workflow_dispatch is the live path. It builds, agreement-gates, keyless-signs,
+  # and UPLOADS the signed .vsix (+ .sigstore/.pem/.sig) as a run artifact; a maintainer then cuts the immutable
+  # release locally with an authorized bypass token (`gh release create ext-vX.Y.Z staging/*`), attaching the
+  # signed .vsix AT CREATION (immutable-safe). The push path is retained for if the ruleset is ever lifted.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Extension version X.Y.Z to build, keyless-sign, and stage as a signed artifact (must match package.json). Leave blank for a tag push.
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -45,11 +59,15 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Derive version from tag
+      - name: Derive version
         id: ver
         run: |
-          tag="${GITHUB_REF_NAME}"
-          echo "version=${tag#ext-v}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            tag="${GITHUB_REF_NAME}"; version="${tag#ext-v}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Verify bidirectional WIN <-> LINUX agreement (extension)
         run: node tools/collab-cli/verify-release-agreement.mjs --component extension "${{ steps.ver.outputs.version }}"
@@ -67,13 +85,16 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Derive version from tag
+      - name: Derive version
         id: ver
         run: |
-          tag="${GITHUB_REF_NAME}"
-          version="${tag#ext-v}"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            tag="${GITHUB_REF_NAME}"; version="${tag#ext-v}"
+          fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Building extension ${version} from tag ${tag}"
+          echo "Building extension ${version}"
 
       - name: Verify tag matches package.json version
         run: |
@@ -135,7 +156,23 @@ jobs:
         with:
           artifacts-dir: ${{ github.workspace }}/staging
 
+      - name: Upload the keyless-signed release assets (immutable-release + org-ruleset safe)
+        # Under the org tag-creation ruleset the in-Actions github.token cannot create the ext-v* tag; only a
+        # maintainer's authorized bypass token can (via the releases API). So the reliable output of this job is
+        # the SIGNED staging set (.vsix + its .sigstore/.pem/.sig) as a run artifact. After the bidirectional
+        # agreement gate is green a maintainer downloads it and runs `gh release create ext-vX.Y.Z staging/*`,
+        # attaching the signed .vsix AT CREATION (immutable-safe). Mirrors how acg-attest-v0.0.2 was cut.
+        uses: actions/upload-artifact@v4
+        with:
+          name: ext-vsix-signed-${{ steps.ver.outputs.version }}
+          path: staging/*
+          if-no-files-found: error
+
       - name: Create GitHub Release
+        # Only on a real tag push (retained for if the org ruleset is lifted). On workflow_dispatch the ext-v*
+        # tag cannot be created by github.token, so the maintainer cuts the release locally from the signed
+        # artifact above with an authorized bypass token.
+        if: ${{ github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: >
