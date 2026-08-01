@@ -751,6 +751,23 @@ check('acg-keyless-attest-workflow-wired', () => {
   return { wired: true };
 });
 
+// LBA-REQ-025 / ADR-0016: the REAL release lanes must keyless-attest their artifacts. A shared composite action
+// keyless-signs each staged artifact (cosign, Actions OIDC -> Fulcio cert + public rekor), and both release
+// workflows invoke it under `id-token: write` before creating the release (assets attached at creation,
+// immutable-safe). Drift gate over the action + both workflows (CRLF-normalized substring checks; fail-closed).
+check('release-lanes-keyless-attested', () => {
+  const action = readFileSync(join(pkgRoot, '.github', 'actions', 'keyless-attest', 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/using:\s*composite/.test(action), 'the keyless-attest action must be a composite action');
+  assert(/sigstore\/cosign-installer/.test(action), 'the keyless-attest action must install cosign');
+  assert(/cosign sign-blob/.test(action), 'the keyless-attest action must keyless-sign the artifacts with cosign');
+  for (const wf of ['extension-release.yml', 'collab-cli-release.yml']) {
+    const text = readFileSync(join(pkgRoot, '.github', 'workflows', wf), 'utf8').replace(/\r\n/g, '\n');
+    assert(/id-token:\s*write/.test(text), `${wf} must grant the OIDC id-token for keyless signing`);
+    assert(/uses:\s*\.\/\.github\/actions\/keyless-attest/.test(text), `${wf} must invoke the keyless-attest action before creating the release`);
+  }
+  return { lanes: ['extension-release', 'collab-cli-release'], attested: true };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.

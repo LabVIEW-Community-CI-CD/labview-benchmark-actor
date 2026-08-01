@@ -69,6 +69,9 @@ jobs:
   release:
     needs: [harness, agreement]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release + attach assets
+      id-token: write # keyless-sign the artifacts with cosign (Fulcio OIDC -> public rekor)
     defaults:
       run:
         working-directory: tools/collab-cli
@@ -136,6 +139,13 @@ jobs:
           echo "Release notes for ${version}:"
           cat "$notes_file"
           echo "path=${notes_file}" >> "$GITHUB_OUTPUT"
+
+      - name: Keyless-attest the release artifacts (Fulcio + public rekor)
+        # Sign every staged asset (nupkg + the linux/win lbabus binaries) keylessly (cosign, Actions OIDC) so
+        # the release carries Fulcio certs + public rekor entries, attached AT CREATION (immutable-safe).
+        uses: ./.github/actions/keyless-attest
+        with:
+          artifacts-dir: ${{ github.workspace }}/staging
 
       - name: Create GitHub Release
         working-directory: .
