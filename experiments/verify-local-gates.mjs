@@ -610,6 +610,18 @@ check('in-guest-sampler-v2', () => {
   return { selftest: 'inGuestSamplerV2 2/2 (REAL)', schema: 'in-guest-resource-sampler@v2' };
 });
 
+// LBA-REQ-011 (extended, cross-platform + EXACTLY 12 FPS): the WINDOWS PDH sampler (System.Diagnostics.Performance-
+// Counter, WALL-CLOCK frame-locked -- Get-Counter/typeperf floor at 1 Hz), proven on a committed REAL capture from
+// the golden Windows VM: EXACTLY 12 FPS + the v2 counters{} catalog + cross-plane parity with linuxProcSampler on
+// the shared keys + the series flows through the v2 correlation engine.
+check('win-pdh-sampler-12fps', () => {
+  execFileSync(process.execPath, [join(here, 'resource-usage-correlation', 'winPdhSampler.selftest.mjs')], { stdio: 'pipe' });
+  const cap = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'fixtures', 'win-pdh-12fps-capture.json'), 'utf8'));
+  assert(cap.plane === 'WIN' && cap.measured.exactly12fps === true, 'the committed Windows PDH capture must be EXACTLY 12 FPS');
+  assert(Array.isArray(cap.counterKeys) && cap.counterKeys.length >= 12, `the Windows PDH catalog (${cap.counterKeys && cap.counterKeys.length} keys)`);
+  return { selftest: 'winPdhSampler 4/4 (REAL)', plane: 'WIN', effectiveFps: cap.measured.effectiveFps, keys: cap.counterKeys.length };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
