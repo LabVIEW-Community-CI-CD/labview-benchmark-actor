@@ -8,24 +8,28 @@ name: ACG Keyless Attest
 #
 # The live keyless signature + rekor entry require Actions OIDC + network, so this is the CI/maintainer step;
 # its correct wiring is drift-gated OFFLINE by `acg-keyless-attest-workflow-wired` in verify-local-gates.
-# Run it on demand (workflow_dispatch -> artifact) or by pushing an `acg-attest-v*` tag, which keyless-signs
-# the provenance and CREATES an immutable prerelease with the .sigstore bundle attached AT CREATION. (The org
-# enforces immutable releases -- assets cannot be uploaded after a release exists -- so they are provided
-# atomically at creation.)
+# Run it via workflow_dispatch. With no `tag` input it just uploads the .sigstore bundle as a run artifact;
+# with a `tag` input it ALSO creates an immutable prerelease with the .sigstore bundle + cert + signature
+# attached AT CREATION (the org enforces immutable releases -- assets are provided atomically at creation,
+# never uploaded afterward). Direct `git push` of a tag is blocked by an org ruleset, so tag creation goes
+# through the releases API here; if this workflow's token lacks release-creation bypass, a maintainer instead
+# downloads the run artifact and runs `gh release create <tag> release-provenance.sigstore ...` with an
+# authorized token (that is how acg-attest-v0.0.2 was cut).
 
 on:
   workflow_dispatch:
     inputs:
+      tag:
+        description: Tag for the immutable prerelease to create with the provenance assets (blank = artifact only)
+        required: false
+        default: ''
       bundle:
         description: Release-provenance bundle to keyless-sign
         default: experiments/acg-transparency/release-provenance-bundle.json
         required: false
-  push:
-    tags:
-      - 'acg-attest-v*'
 
 permissions:
-  contents: write # create the immutable prerelease with the .sigstore bundle (tag-push trigger)
+  contents: write # create the immutable prerelease with the provenance assets (dispatch with a tag input)
   id-token: write # REQUIRED: the OIDC id-token cosign exchanges with Fulcio for a keyless signing certificate
 
 concurrency:
@@ -78,13 +82,14 @@ jobs:
             release-provenance.sig
           if-no-files-found: error
 
-      - name: Create the prerelease with the provenance assets (immutable-safe)
-        if: github.event_name == 'push'
+      - name: Create the immutable prerelease with the provenance assets
+        if: ${{ github.event.inputs.tag != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          gh release create "${{ github.event.inputs.tag }}" \
             release-provenance.sigstore release-provenance.pem release-provenance.sig \
             --prerelease \
-            --title "ACG keyless attestation ${GITHUB_REF_NAME}" \
+            --target "${{ github.ref_name }}" \
+            --title "ACG keyless attestation ${{ github.event.inputs.tag }}" \
             --notes "Keyless-signed corroboration provenance (cosign, GitHub Actions OIDC -> a short-lived Fulcio certificate + a public rekor entry). The .sigstore bundle (cert + rekor SET + inclusion proof), certificate, and signature are attached AT CREATION (the org enforces immutable releases). Signed bundle: experiments/acg-transparency/release-provenance-bundle.json."
