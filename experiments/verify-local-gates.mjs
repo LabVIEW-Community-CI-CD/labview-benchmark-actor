@@ -60,6 +60,7 @@ import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
 import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/independence.mjs';
 import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/verdict-beacon.mjs';
 import { bundleDigest } from './acg-provenance/attest.mjs';
+import { gateReleasePublish } from './acg-reviewer/sign-off.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -617,6 +618,27 @@ check('acg-mesh-loopback-evidence', () => {
 check('acg-mcp-grid-surface', () => {
   execFileSync(process.execPath, [join(here, 'acg-mcp', 'grid-tools.selftest.mjs')], { stdio: 'pipe' });
   return { selftest: 'grid-tools 10/10' };
+});
+
+// ACG reviewer station + human sign-off (ADR-0018, LBA-REQ-027): a corroborated release must be blocked from
+// publishing until a recorded, enrolled, approving human sign-off accompanies the exact machine-quorum verdict --
+// and the sign-off must not substitute for the quorum -- run its dependency-free self-test as a subprocess.
+check('acg-reviewer-sign-off', () => {
+  execFileSync(process.execPath, [join(here, 'acg-reviewer', 'sign-off.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'sign-off 10/10' };
+});
+
+// Live release-decision evidence (ADR-0018, LBA-REQ-027): the real corroborated release must be BLOCKED pending a
+// human sign-off. Re-derive the LBA-REQ-027 gate over the committed machine-quorum verdict with no sign-off and
+// assert the machine quorum passed but publish is blocked -- matching the committed release-decision receipt.
+check('acg-reviewer-release-decision', () => {
+  const quorumVerdict = readJson('experiments/acg-quorum/corroboration-receipt.json');
+  const receipt = readJson('experiments/acg-reviewer/release-decision-receipt.json');
+  const decision = gateReleasePublish({ quorumVerdict, signOffs: [] });
+  assert(decision.quorumPass === true, 'the committed corroboration must pass the machine quorum');
+  assert(decision.publish === false, 'publish must be blocked with no recorded human sign-off');
+  assert(decision.publish === receipt.decision.publish && decision.quorumPass === receipt.decision.quorumPass, 'the committed release decision must match the re-derived one');
+  return { publish: decision.publish, quorumPass: decision.quorumPass };
 });
 
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
