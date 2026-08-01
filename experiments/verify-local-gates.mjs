@@ -594,6 +594,14 @@ check('mesh-stress-signature-calibrator', () => {
   return { selftest: 'calibrationCurveFitter 4/4', schema: 'mesh-stress-calibration@v1' };
 });
 
+// LBA-REQ-011 (extended, mesh-stress-signature@v1): the stress ORCHESTRATOR -- the COMMANDED side of the ladder:
+// monotone levels (cap down, workload up) + per-actor VirtualBox throttle (--cpuexecutioncap / --bandwidthctl) +
+// guest/host stress-ng commands + a ladder plan pinning each actor to a DIFFERENT level (a horizontal slice).
+check('mesh-stress-orchestrator', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'stressOrchestrator.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'stressOrchestrator 5/5', schema: 'mesh-stress-orchestrator@v1' };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
