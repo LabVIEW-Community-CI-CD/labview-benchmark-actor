@@ -539,6 +539,18 @@ check('frame-markers-image-grab', () => {
   return { selftest: 'frameMarkers 12/12', counters };
 });
 
+// LBA-REQ-011 (extended, cross-platform + EXACTLY 12 FPS): the full-counter correlation engine + the deterministic
+// frame-locked Linux /proc sampler, proven on REAL data (the exact-12-FPS Linux capture + the real LINUX & WIN
+// launch fixtures). Drift-guards the committed capture being EXACTLY 12 FPS (1:1 with the 12 FPS long packets).
+check('performance-counter-correlation-real', () => {
+  execFileSync(process.execPath, [join(here, 'resource-usage-correlation', 'performanceCounterCorrelation.selftest.mjs')], { stdio: 'pipe' });
+  const cap = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'fixtures', 'linux-proc-12fps-capture.json'), 'utf8'));
+  assert(cap.measured && cap.measured.exactly12fps === true, 'the committed Linux capture must be EXACTLY 12 FPS');
+  assert(Math.abs(cap.frameIntervalMs - 1000 / 12) < 1e-6, 'frame interval must be exactly 1000/12 ms');
+  assert(cap.measured.maxPhaseErrorMs <= 5, `frame-lock phase error must be tight (<=5 ms), got ${cap.measured.maxPhaseErrorMs}`);
+  return { selftest: 'performanceCounterCorrelation 4/4 (REAL data)', effectiveFps: cap.measured.effectiveFps };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
