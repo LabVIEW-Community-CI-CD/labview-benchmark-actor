@@ -1,0 +1,29 @@
+{
+  "schema": "labview-benchmark-actor/risky-test-evidence@v1",
+  "what": "The risky-test uplift domain: a provider-proposed test that exercises a REAL external tool (ffmpeg, LabVIEW's CLI) that hosted CI cannot provide. Tool-gated acceptance: SKIP when the tool is absent, run + gate when present.",
+  "provenAt": "2026-07-31T16:15:00Z",
+  "deterministic": {
+    "test": "verify-risky-test.mjs",
+    "result": "PASS, 9 assertions",
+    "cases": {
+      "present-pass": "tool=node (always present) + a passing test -> verdict=pass (risky-test-runs ok)",
+      "absent-skip": "an absent required tool -> verdict=SKIP (not fail); a skipped check is recorded",
+      "present-fail": "tool present + a failing test -> verdict=fail"
+    }
+  },
+  "liveCleanroom": {
+    "vm": "lba-ubuntu2404-labview2026-scratch (restarted; guest 10.0.2.15, Node 18)",
+    "ffmpeg": {
+      "installed": "ffmpeg 6.1.1 at /usr/bin/ffmpeg (apt)",
+      "ollamaProposed": "verdict=fail -- llama3.1:8b wrote CommonJS require('child_process') in an ESM .mjs (require is not defined) -> the test threw -> the gate correctly FAILED it (teeth)",
+      "correctTest": "verdict=pass -- a correct ESM `ffmpeg -version` test ran the real /usr/bin/ffmpeg (tool-present:ffmpeg ok, risky-test-runs ok, exit 0)"
+    },
+    "labview": {
+      "cli": "LabVIEWCLI (capital) at /usr/local/bin/LabVIEWCLI -- IS on PATH (the earlier lowercase 'labviewcli' skipped only due to case)",
+      "hostRun": "tool=LabVIEWCLI on the host (LabVIEW 2026 Community, VI Server enabled port 3363): a LabVIEWCLI MassCompile ran -- 'Connection established with LabVIEW at port number 3363' + 'MassCompile operation succeeded' -> risky-test-runs ok -> verdict=PASS",
+      "cleanroomVM": "on the scratch VM LabVIEW LAUNCHES under Xvfb with -LabVIEWPath (NOT activation-blocked for launch); LabVIEWCLI additionally needs the VI Server enabled in ~/natinst/.config/LabVIEW-2026/labview.conf (server.tcp.enabled=True, port 3363) -- added. A real VM run also needs a virtual display (Xvfb)."
+    }
+  },
+  "safety": "The risky-test executes a provider-proposed test that invokes a real tool. The DETERMINISTIC gate uses node itself as the always-present tool (safe). UNTRUSTED provider-proposed tests that drive ffmpeg/LabVIEW run in the DISPOSABLE cleanroom VM -- exactly where the Ollama ffmpeg test above executed -- not on a trusted host. The host LabVIEW pass used a TRUSTED, hand-authored LabVIEWCLI test (not provider-generated code).",
+  "note": "The same domain gate is a deterministic skip under the dependency-free CI suite (no ffmpeg/LabVIEW) and a real proof where the tool exists. Linux LabVIEWCLI needs -LabVIEWPath + a display (Xvfb when headless) + the VI Server enabled in labview.conf; with those the LabVIEW risky-test PASSES against real LabVIEW 2026 Community."
+}

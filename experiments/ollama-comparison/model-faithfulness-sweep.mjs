@@ -15,7 +15,7 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { concentrateManifest, dereferenceMetrics } from '../host-concentration/ingestCorpusManifest.mjs';
-import { buildComparisonPlan } from './ollamaComparison.mjs';
+import { buildComparisonPlan, scoreDirection } from './ollamaComparison.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -53,16 +53,8 @@ const expected = plan.comparisons.map((c) => ({
     cpuOf.get(`${c.actorId}/${c.candidateRunId}`) > cpuOf.get(`${c.actorId}/${c.baselineRunId}`) ? 'up' : 'down',
 }));
 
-const UP = /\b(increas\w*|higher|rose|grew|grow\w*|greater|regress\w*|worse\w*|degrad\w*|climb\w*|jump\w*)/gi;
-const DOWN = /\b(decreas\w*|lower|fell|drop\w*|reduc\w*|improv\w*|better|gain\w*|declin\w*|less\b|fewer)/gi;
-
-// Score one verdict: which direction does the model predict (majority of direction words), and is it correct?
-function scoreDirection(text, expectedDir) {
-  const up = (text.match(UP) || []).length;
-  const down = (text.match(DOWN) || []).length;
-  const predicted = up === down ? 'tie' : up > down ? 'up' : 'down';
-  return { predicted, correct: predicted === expectedDir, up, down };
-}
+// scoreDirection + the UP/DOWN word classes now live in ollamaComparison.mjs (shared with the
+// provider-delegation quality pre-gate), so the faithfulness scorer has a single source of truth.
 
 async function drive(model, prompt) {
   const startedAt = Date.now();

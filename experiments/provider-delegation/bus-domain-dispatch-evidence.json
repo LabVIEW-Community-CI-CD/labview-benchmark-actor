@@ -1,0 +1,30 @@
+{
+  "schema": "labview-benchmark-actor/bus-domain-dispatch-evidence@v1",
+  "what": "Bus-side dispatch of the uplift DOMAINS to the cleanroom worker pool: a HOST coordinator hands a coverage-lift and a risky-test task to the VM worker over lbabus (bus-msg@1 CLAIM); the VM worker (provider=ollama) runs the full domain ON THE VM and returns the DONE receipt.",
+  "provenAt": "2026-07-31T17:00:00Z",
+  "topology": {
+    "coordinator": "host (observer 0.0.0.0:7420 / 7421)",
+    "worker": "lba-ubuntu-scratch on VM lba-ubuntu2404-labview2026-scratch, worker pool --concurrency 2 --provider ollama --model llama3.1:8b",
+    "hostToWorker": "NAT forward host 127.0.0.1:7440 -> guest :7440",
+    "workerToHost": "guest reaches host observer at 10.0.2.2:<port>",
+    "provider": "host Ollama reached from the VM at 10.0.2.2:11533 (TCP proxy)"
+  },
+  "dispatched": [
+    {
+      "domain": "coverage-lift",
+      "id": "T-CL-BUS",
+      "target": "/home/actor/provider-delegation/fixtures/sample-module.mjs (on the VM)",
+      "flow": "coordinator CLAIM uplift:coverage-lift -> worker CLAIMED -> drove Ollama for a test -> measured V8 function coverage of the target ON THE VM -> DONE announced",
+      "verdict": "pass"
+    },
+    {
+      "domain": "risky-test",
+      "id": "T-RT-BUS",
+      "tool": "ffmpeg (/usr/bin/ffmpeg on the VM)",
+      "flow": "coordinator CLAIM uplift:risky-test -> worker CLAIMED -> detected ffmpeg present -> drove Ollama for an ffmpeg test -> ran it -> DONE announced",
+      "verdict": "fail",
+      "note": "the gate has teeth: Ollama's proposed ffmpeg test failed (llama3.1:8b tends to write CommonJS require() in an ESM .mjs). The DISPATCH + tool detection + execution all worked; the provider's test was flawed."
+    }
+  ],
+  "note": "The same bus-msg@1 CLAIM/ACK/DONE path was proven earlier for doc-draft; runDelegation dispatches all four domains, so the worker pool runs coverage-lift/risky-test/evidence unchanged. Comms-only: the provider drive + the domain acceptance ran on the VM; only the CLAIM/ACK/receipt crossed the bus."
+}

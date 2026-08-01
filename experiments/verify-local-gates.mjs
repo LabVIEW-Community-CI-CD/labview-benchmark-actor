@@ -1574,6 +1574,52 @@ check('ephemeral-mesh-2node-receipt-green', () => {
   return { meshMode: summary.meshMode, boths: summary.boths };
 });
 
+// Provider-delegation harness (experiments/provider-delegation): AI providers on cleanrooms delegated uplift/
+// doc tasks over the lbabus bus. Each verify is a dependency-free deterministic self-test (mock provider, no
+// GPU / no network / no npm install); running them as subprocesses gates the whole harness under this
+// authoritative suite -- the provider seam + the CLAIM/ACK/DONE dispatch + the worker pool + the objective
+// coverage-lift gate (measured from raw V8 coverage, so it needs no c8).
+check('provider-delegation-harness', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-provider-delegation.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-provider-delegation 13/13 (task-spec + provider seam + acceptance gate + receipt)' };
+});
+check('provider-delegation-claim-tasking', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-claim-tasking.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-claim-tasking 7/7 (CLAIM dispatch -> worker ACK -> DONE over bus-msg@1)' };
+});
+check('provider-delegation-worker-pool', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-worker-pool.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-worker-pool 7/7 (M concurrent claims bounded to N, queued + drained, persistent)' };
+});
+check('provider-delegation-coverage-lift', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-coverage-lift.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-coverage-lift 8/8 (provider-proposed test gated on measured V8 function coverage)' };
+});
+check('provider-delegation-risky-test', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-risky-test.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-risky-test 9/9 (tool-gated: present+pass, absent->skip, present+fail)' };
+});
+check('provider-delegation-evidence', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-evidence.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-evidence 8/8 (gather + validate receipts + grounded-summary gate)' };
+});
+check('provider-delegation-quality-gate', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-quality-gate.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-quality-gate 14/14 (faithfulness pre-gate short-circuits weak drafts; reuses ollama-comparison scorer)' };
+});
+check('provider-delegation-registry', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-registry.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-registry 9/9 (capability + liveness routing + load-balance across a multi-worker pool)' };
+});
+check('provider-delegation-vipm-gate', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-vipm-gate.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-vipm-gate 36/36 (credential-from-file activate/login, redaction=no secret leak, Community-only-in-public-repo licensing)' };
+});
+check('provider-delegation-vipm-routing', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-vipm-routing.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-vipm-routing 15/15 (VIPM-capability routing: edition-aware, Community-only-in-public-repo)' };
+});
+
 // DoD Gate (ISO/IEC/IEEE 29119-2 exit/completion criteria; 12207 process outcomes): the release-readiness
 // Definition of Done is DEFINED, standards-grounded, and WIRED to an enforcing status context. This keeps the
 // "DoD Gate / dod" contract from silently drifting or disappearing. Standards are referenced by identifier only
