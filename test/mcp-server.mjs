@@ -145,7 +145,48 @@ const msgNonObj = await core.handleBenchmarkActorMcpMessage({ id: 18, method: 't
 assert(msgNonObj.error && msgNonObj.error.code === -32602, 'post with non-object arguments -> -32602');
 const msgBlank = await core.handleBenchmarkActorMcpMessage({ id: 19, method: 'tools/call', params: { name: 'post_coordination_note', arguments: { message: '   ' } } }, deps);
 assert(msgBlank.error && msgBlank.error.code === -32602, 'post with a blank (whitespace-only) message -> -32602');
-console.log('mcp-core: PASS -- protocol dispatch + 4 tools + -32601/-32602 error codes');
+
+// Folded EXTRA tools: the ACG corroboration-grid surface is injected at runtime; a mock here proves the pure
+// handler PUBLISHES the injected tools in tools/list, ROUTES a call to dispatchExtraTool and wraps its result,
+// maps a folded-tool argument error to -32602, and rides a genuine folded-tool failure in the isError envelope.
+const extraTool = { name: 'demo_grid_tool', description: 'demo', inputSchema: { type: 'object', properties: {}, additionalProperties: false } };
+const extraDeps = {
+  ...deps,
+  extraTools: [extraTool],
+  dispatchExtraTool: (name, args) => {
+    if (args && args.bad) { throw new core.McpArgumentError('bad demo arg'); }
+    if (args && args.boom) { throw new Error('grid tool exploded'); }
+    return { ok: true, echo: args ?? null };
+  },
+};
+const extraList = await core.handleBenchmarkActorMcpMessage({ id: 20, method: 'tools/list' }, extraDeps);
+assert(extraList.result.tools.length === 5 && extraList.result.tools.some((t) => t.name === 'demo_grid_tool'), 'tools/list folds injected extra tools alongside the 4 core tools');
+const extraCall = await core.handleBenchmarkActorMcpMessage({ id: 21, method: 'tools/call', params: { name: 'demo_grid_tool', arguments: { x: 1 } } }, extraDeps);
+assert(JSON.parse(extraCall.result.content[0].text).ok === true, 'tools/call routes a folded tool to dispatchExtraTool and wraps its plain result');
+const extraBad = await core.handleBenchmarkActorMcpMessage({ id: 22, method: 'tools/call', params: { name: 'demo_grid_tool', arguments: { bad: true } } }, extraDeps);
+assert(extraBad.error && extraBad.error.code === -32602, 'a folded-tool argument error -> -32602');
+const extraBoom = await core.handleBenchmarkActorMcpMessage({ id: 23, method: 'tools/call', params: { name: 'demo_grid_tool', arguments: { boom: true } } }, extraDeps);
+assert(extraBoom.result && extraBoom.result.isError === true, 'a folded-tool execution failure rides isError in the result envelope');
+
+// loadAcgGridTools folds the REAL bundled grid tools (out/acg-mcp-bundle/) into a deps object, and degrades
+// quietly when the bundle is absent -- exercised in-process for determinism + coverage of the runtime loader.
+const runner = require(serverPath);
+const gridDeps = { ...deps };
+await runner.loadAcgGridTools(gridDeps, root);
+assert(
+  Array.isArray(gridDeps.extraTools) && gridDeps.extraTools.length === 9 && typeof gridDeps.dispatchExtraTool === 'function',
+  'loadAcgGridTools folds the 9 ACG grid tools into the server deps from the staged bundle'
+);
+const gridList = await core.handleBenchmarkActorMcpMessage({ id: 30, method: 'tools/list' }, gridDeps);
+assert(gridList.result.tools.length === 13, 'the folded deps publish all 13 tools (4 core + 9 grid)');
+const gridOk = await core.handleBenchmarkActorMcpMessage({ id: 31, method: 'tools/call', params: { name: 'spin_up_witness', arguments: { plane: 'WIN' } } }, gridDeps);
+assert(JSON.parse(gridOk.result.content[0].text).plane === 'WIN', 'a folded grid tool executes via the loaded deps');
+const gridBad = await core.handleBenchmarkActorMcpMessage({ id: 32, method: 'tools/call', params: { name: 'run_quorum', arguments: {} } }, gridDeps);
+assert(gridBad.error && gridBad.error.code === -32602, "a folded grid tool's argument error is bridged to -32602");
+const degradeDeps = { ...deps };
+await runner.loadAcgGridTools(degradeDeps, join(root, 'no-such-acg-bundle-root-xyz'));
+assert(degradeDeps.extraTools === undefined, 'loadAcgGridTools degrades quietly (no extra tools) when the bundle is absent');
+console.log('mcp-core: PASS -- protocol dispatch + 4 tools + folded extra-tool routing + -32601/-32602 error codes');
 
 // ---- 2. ACTIVATION: the extension registers the MCP provider (manifest id == runtime id) ----
 const captured = [];
@@ -237,7 +278,7 @@ await new Promise((resolve, reject) => {
   let buf = '';
   const got = new Map();
   let parseErr = null;
-  const want = [1, 2, 3, 4, 5];
+  const want = [1, 2, 3, 4, 5, 6];
   const timer = setTimeout(() => {
     child.kill();
     reject(new Error('stdio round-trip timed out'));
@@ -262,7 +303,11 @@ await new Promise((resolve, reject) => {
     try {
       assert(got.get(1).result.protocolVersion === '2025-06-18', '[stdio] initialize protocol version');
       assert(got.get(1).result.serverInfo.name === 'labview-benchmark-actor', '[stdio] initialize serverInfo name');
-      assert(got.get(2).result.tools.length === 4, '[stdio] tools/list returns 4 tools');
+      const stdioTools = got.get(2).result.tools.map((t) => t.name);
+      assert(stdioTools.length === 13, '[stdio] tools/list folds the 4 core + 9 ACG grid tools (13 total)');
+      for (const g of ['run_quorum', 'verify_attestation', 'verify_inclusion', 'verify_before_install', 'spin_up_witness']) {
+        assert(stdioTools.includes(g), `[stdio] tools/list includes the folded grid tool ${g}`);
+      }
       const env = JSON.parse(got.get(3).result.content[0].text);
       assert(
         env.schema === 'labview-benchmark-actor/benchmark-series@v1' &&
@@ -276,6 +321,8 @@ await new Promise((resolve, reject) => {
         '[stdio] get_host_capabilities returns a content result (runLbabus success or a soft ENOENT isError)'
       );
       assert(parseErr && parseErr.error.code === -32700, '[stdio] a malformed line yields a -32700 parse error (id null)');
+      const grid6 = JSON.parse(got.get(6).result.content[0].text);
+      assert(grid6.executed === false && /gh codespace create/.test(grid6.command), '[stdio] a folded grid tool (spin_up_witness) executes in the single shipped server binary');
     } catch (e) {
       child.kill();
       reject(e);
@@ -294,6 +341,7 @@ await new Promise((resolve, reject) => {
   send({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'nope' } });
   child.stdin.write('this is not valid json\n');
   send({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_host_capabilities' } });
+  send({ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'spin_up_witness', arguments: { plane: 'CODESPACE' } } });
 });
 console.log('mcp-stdio: PASS -- spawned server round-trips initialize + tools/list + tools/call over stdio');
 

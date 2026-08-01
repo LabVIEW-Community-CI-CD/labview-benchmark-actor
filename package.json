@@ -235,7 +235,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && node scripts/stage-media.mjs",
+    "compile": "tsc -p ./ && node scripts/stage-media.mjs && node scripts/stage-acg-mcp.mjs",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node test/extension-activation.mjs && node test/viewer-render.mjs && node test/viewer-plain-render.mjs && node test/panels-render.mjs && node test/mcp-server.mjs && node scripts/mcpToolDoc.mjs --check docs/mcp-tools.md",
     "package": "vsce package --out labview-benchmark-actor.vsix",

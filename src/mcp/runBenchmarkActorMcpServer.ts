@@ -10,11 +10,13 @@ import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import {
   BenchmarkActorMcpToolDeps,
   JsonRpcRequest,
+  McpArgumentError,
   McpToolResult,
   handleBenchmarkActorMcpMessage
 } from '../mcp/benchmarkActorMcpServer';
@@ -89,6 +91,42 @@ const serverDeps: BenchmarkActorMcpToolDeps = {
   postCoordinationNote: ({ message }) => runLbabus(['post', '--type', 'NOTE', '--message', message], 20000)
 };
 
+// Fold the ACG corroboration-grid tools into THIS server from the bundled dep-free engines
+// (out/acg-mcp-bundle/, staged by scripts/stage-acg-mcp.mjs), so agents get the grid tools from the single
+// shipped extension binary rather than a sibling experiments/acg-mcp/server.mjs (LBA-REQ-029). The engines are
+// ESM .mjs and this entrypoint compiles to CommonJS, so use a real dynamic import() (hidden from tsc's
+// down-levelling via new Function) to load them. If the bundle is absent, the grid tools are simply not
+// offered (the core tools still work) -- degrade, do not crash.
+const dynamicImport = new Function('u', 'return import(u)') as (u: string) => Promise<Record<string, unknown>>;
+
+export async function loadAcgGridTools(deps: BenchmarkActorMcpToolDeps, root: string = repoRoot): Promise<void> {
+  try {
+    const bundlePath = path.join(root, 'out', 'acg-mcp-bundle', 'acg-mcp', 'grid-tools.mjs');
+    const grid = await dynamicImport(pathToFileURL(bundlePath).href);
+    const gridTools = grid.ACG_GRID_TOOLS as BenchmarkActorMcpToolDeps['extraTools'];
+    const gridDispatch = grid.dispatchGridTool as ((name: string, args: unknown) => unknown) | undefined;
+    const GridArgError = grid.McpArgumentError as (new (message?: string) => Error) | undefined;
+    if (!Array.isArray(gridTools) || typeof gridDispatch !== 'function') {
+      return;
+    }
+    const mutable = deps as { extraTools?: BenchmarkActorMcpToolDeps['extraTools']; dispatchExtraTool?: BenchmarkActorMcpToolDeps['dispatchExtraTool'] };
+    mutable.extraTools = gridTools;
+    mutable.dispatchExtraTool = (name: string, args: unknown) => {
+      try {
+        return gridDispatch(name, args);
+      } catch (error) {
+        // Bridge the bundled grid's own McpArgumentError to this server's, so a bad arg maps to -32602.
+        if (GridArgError && error instanceof GridArgError) {
+          throw new McpArgumentError(errorText(error));
+        }
+        throw error;
+      }
+    };
+  } catch (error) {
+    process.stderr.write(`ACG grid tools unavailable (bundle not loaded): ${errorText(error)}\n`);
+  }
+}
+
 function writeResponse(response: unknown): void {
   process.stdout.write(`${JSON.stringify(response)}\n`);
 }
@@ -117,7 +155,8 @@ function dispatchLineSafely(line: string): void {
   });
 }
 
-export function runBenchmarkActorMcpServer(): void {
+export async function runBenchmarkActorMcpServer(): Promise<void> {
+  await loadAcgGridTools(serverDeps);
   let buffer = '';
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', (chunk: string) => {
@@ -139,5 +178,5 @@ export function runBenchmarkActorMcpServer(): void {
 }
 
 if (require.main === module) {
-  runBenchmarkActorMcpServer();
+  void runBenchmarkActorMcpServer();
 }

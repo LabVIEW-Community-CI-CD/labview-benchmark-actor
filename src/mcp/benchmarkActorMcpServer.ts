@@ -118,6 +118,14 @@ export interface BenchmarkActorMcpToolDeps {
   getBenchmarkSeries(): Promise<McpToolResult>;
   pollCoordinationBus(args: { tail: number }): Promise<McpToolResult>;
   postCoordinationNote(args: { message: string }): Promise<McpToolResult>;
+  /**
+   * Optional EXTRA tools folded into this single server at runtime (the ACG corroboration-grid surface).
+   * Their schemas are published in `tools/list` alongside the core tools; a `tools/call` for one routes to
+   * {@link dispatchExtraTool}. Kept injected (not static) so the pure handler stays domain-free.
+   */
+  readonly extraTools?: readonly BenchmarkActorMcpTool[];
+  /** Execute a folded extra tool by name. Throw {@link McpArgumentError} for a bad argument shape (-32602). */
+  dispatchExtraTool?(name: string, args: unknown): Promise<unknown> | unknown;
 }
 
 function success(id: number | string | null, result: unknown): JsonRpcResponse {
@@ -126,6 +134,18 @@ function success(id: number | string | null, result: unknown): JsonRpcResponse {
 
 function failure(id: number | string | null, code: number, message: string): JsonRpcResponse {
   return { jsonrpc: '2.0', id, error: { code, message } };
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Normalize a folded extra-tool return value into an MCP tool result (wrap a plain value as pretty JSON). */
+function toMcpResult(value: unknown): McpToolResult {
+  if (value && typeof value === 'object' && Array.isArray((value as McpToolResult).content)) {
+    return value as McpToolResult;
+  }
+  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] };
 }
 
 function parseTail(rawArguments: unknown): number {
@@ -204,21 +224,32 @@ export async function handleBenchmarkActorMcpMessage(
       return success(id, {});
 
     case 'tools/list':
-      return success(id, { tools: BENCHMARK_ACTOR_MCP_TOOLS });
+      return success(id, { tools: [...BENCHMARK_ACTOR_MCP_TOOLS, ...(deps.extraTools ?? [])] });
 
     case 'tools/call': {
       const params = (message.params ?? {}) as { name?: unknown; arguments?: unknown };
       if (typeof params.name !== 'string') {
         return failure(id, JSON_RPC_INVALID_PARAMS, 'tools/call requires a string "name"');
       }
-      if (!KNOWN_TOOL_NAMES.has(params.name)) {
+      const isCore = KNOWN_TOOL_NAMES.has(params.name);
+      const isExtra = !isCore && (deps.extraTools ?? []).some((t) => t.name === params.name);
+      if (!isCore && !isExtra) {
         return failure(id, JSON_RPC_INVALID_PARAMS, `unknown tool: ${params.name}`);
       }
       try {
-        return success(id, await callTool(params.name, params.arguments, deps));
+        if (isCore) {
+          return success(id, await callTool(params.name, params.arguments, deps));
+        }
+        const result = await deps.dispatchExtraTool!(params.name, params.arguments);
+        return success(id, toMcpResult(result));
       } catch (error) {
         if (error instanceof McpArgumentError) {
           return failure(id, JSON_RPC_INVALID_PARAMS, error.message);
+        }
+        // A folded (extra) tool's genuine execution failure rides inside the result envelope per MCP so the
+        // agent can read it; a CORE tool's non-argument failure propagates (as before) for the transport to log.
+        if (isExtra) {
+          return success(id, { content: [{ type: 'text', text: errorText(error) }], isError: true });
         }
         throw error;
       }
