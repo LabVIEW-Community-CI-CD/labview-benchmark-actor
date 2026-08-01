@@ -8,8 +8,8 @@
 // Usage: npm test   (== npm run compile && node test/extension-activation.mjs)
 
 import Module, { createRequire } from 'node:module';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -38,15 +38,20 @@ const infoMessages = [];
 const infoResponseQueue = [];
 const executedCommands = [];
 const warnMessages = [];
+const warnResponseQueue = [];
 const sentCommands = [];
 const inputQueue = [];
+let agentsContentProvider = null;
 const mockVscode = {
   window: {
     createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
     showInputBox: async (options) => {
       const value = inputQueue.shift();
       if (options && typeof options.validateInput === 'function' && value !== undefined) {
-        options.validateInput(value);
+        const validationError = options.validateInput(value);
+        if (validationError) {
+          return undefined; // invalid input -> VS Code blocks OK; simulate the user cancelling
+        }
       }
       return value;
     },
@@ -56,7 +61,7 @@ const mockVscode = {
     },
     showWarningMessage: (message) => {
       warnMessages.push(message);
-      return undefined;
+      return warnResponseQueue.length ? warnResponseQueue.shift() : undefined;
     },
     showTextDocument: async () => undefined,
     createTerminal: (options) => ({
@@ -105,15 +110,24 @@ const mockVscode = {
     executeCommand: async (id) => { executedCommands.push(id); return undefined; },
   },
   workspace: {
-    registerTextDocumentContentProvider: () => ({ dispose() {} }),
+    registerTextDocumentContentProvider: (_scheme, provider) => {
+      agentsContentProvider = provider;
+      return { dispose() {} };
+    },
     getConfiguration: () => ({ get: (_key, dflt) => dflt }),
     workspaceFolders: [{ uri: { path: repoRoot, fsPath: repoRoot } }],
     fs: {
-      stat: async () => {
-        throw Object.assign(new Error('ENOENT'), { code: 'FileNotFound' });
+      stat: async (uri) => {
+        const p = (uri && (uri.fsPath || uri.path)) || '';
+        if (!existsSync(p)) {
+          throw Object.assign(new Error('ENOENT'), { code: 'FileNotFound' });
+        }
+        return { type: 1, size: statSync(p).size };
       },
       readFile: async (uri) => readFileSync((uri && (uri.fsPath || uri.path)) || ''),
-      writeFile: async () => undefined,
+      writeFile: async (uri, content) => {
+        writeFileSync((uri && (uri.fsPath || uri.path)) || '', content);
+      },
     },
     openTextDocument: async () => ({}),
   },
@@ -273,6 +287,155 @@ try {
   );
   assert(infoMessages.some((m) => /Windows-only/.test(m)), 'bootstrapAuthoringLane surfaces the Windows-only note');
 
+  // Agent instructions commands (issue #98): the extension bundles media/AGENTS.md + manifest and
+  // materializes/verifies a workspace AGENTS.md. These are pure read/hash/compare/write flows (no cleanroom).
+  // Drive them against a REAL temp workspace so the write / exists-overwrite / match / drift branches all run.
+  {
+    const agentsCmd = (id) => registered.find((r) => r.id === `labviewBenchmarkActor.${id}`).handler;
+    const agentsWs = join(tmpdir(), 'lba-test-agents-ws-xyz');
+    rmSync(agentsWs, { recursive: true, force: true });
+    mkdirSync(agentsWs, { recursive: true });
+    const savedFolders = mockVscode.workspace.workspaceFolders;
+    mockVscode.workspace.workspaceFolders = [{ uri: { path: agentsWs, fsPath: agentsWs } }];
+    const writtenAgents = join(agentsWs, 'AGENTS.md');
+    try {
+      // showAgents: opens the shipped canonical (stamped) as a markdown preview; also exercise the registered
+      // content provider that serves it.
+      await agentsCmd('showAgents')();
+      assert(agentsContentProvider && typeof agentsContentProvider.provideTextDocumentContent === 'function', 'showAgents registers an AGENTS content provider');
+      const served = await agentsContentProvider.provideTextDocumentContent();
+      assert(/GENERATED: labview-benchmark-actor extension AGENTS\.md/.test(served), 'the content provider serves the stamped canonical AGENTS.md');
+
+      // checkAgents on an empty workspace (folder present, no AGENTS.md yet) -> warns rather than proceeding.
+      const warnBeforeAbsent = warnMessages.length;
+      await agentsCmd('checkAgents')();
+      assert(warnMessages.slice(warnBeforeAbsent).some((m) => /No AGENTS\.md at the workspace root/.test(m)), 'checkAgents warns when the workspace AGENTS.md is absent');
+
+      // writeAgents on an empty workspace -> materializes AGENTS.md (no overwrite prompt).
+      await agentsCmd('writeAgents')();
+      assert(existsSync(writtenAgents), 'writeAgents materializes AGENTS.md at the workspace root');
+
+      // checkAgents on the freshly-written file -> matches the shipped canonical (stamp stripped before hashing).
+      const infoBeforeMatch = infoMessages.length;
+      await agentsCmd('checkAgents')();
+      assert(infoMessages.slice(infoBeforeMatch).some((m) => /matches the shipped/i.test(m)), 'checkAgents reports a match for the freshly-written AGENTS.md');
+
+      // Drift: corrupt the workspace copy, then checkAgents detects drift and (Show Diff) opens vscode.diff.
+      writeFileSync(writtenAgents, '# drifted agents\n');
+      const execBeforeDrift = executedCommands.length;
+      warnResponseQueue.push('Show Diff');
+      await agentsCmd('checkAgents')();
+      assert(warnMessages.some((m) => /DRIFTED/.test(m)), 'checkAgents flags a drifted AGENTS.md');
+      assert(executedCommands.slice(execBeforeDrift).includes('vscode.diff'), 'checkAgents (Show Diff) opens the diff view');
+
+      // writeAgents when the file EXISTS: overwrite prompt -> Show Diff opens the diff and returns.
+      warnResponseQueue.push('Show Diff');
+      await agentsCmd('writeAgents')();
+      assert(executedCommands.filter((c) => c === 'vscode.diff').length >= 2, 'writeAgents (Show Diff) opens the diff view');
+
+      // writeAgents exists -> Overwrite rewrites the canonical.
+      warnResponseQueue.push('Overwrite');
+      await agentsCmd('writeAgents')();
+      const infoBeforeRecheck = infoMessages.length;
+      await agentsCmd('checkAgents')();
+      assert(infoMessages.slice(infoBeforeRecheck).some((m) => /matches the shipped/i.test(m)), 'the Overwrite-rewritten AGENTS.md matches the canonical again');
+    } finally {
+      mockVscode.workspace.workspaceFolders = savedFolders;
+      rmSync(agentsWs, { recursive: true, force: true });
+    }
+
+    // No-folder branches: both commands warn (rather than throw) when no workspace folder is open.
+    const savedFolders2 = mockVscode.workspace.workspaceFolders;
+    mockVscode.workspace.workspaceFolders = undefined;
+    const warnBeforeNoFolder = warnMessages.length;
+    await agentsCmd('writeAgents')();
+    await agentsCmd('checkAgents')();
+    assert(warnMessages.length >= warnBeforeNoFolder + 2, 'writeAgents + checkAgents warn when no workspace folder is open');
+    mockVscode.workspace.workspaceFolders = savedFolders2;
+  }
+
+  // Capture ASSEMBLY + CIM sampler SCRIPT: pure/file logic extracted from the cleanroom-gated ffmpeg CAPTURE, so
+  // they are unit-testable directly (the ffmpeg gdigrab + PowerShell spawns that PRODUCE the frames stay live-
+  // proven in the cleanroom, never faked). assembleCaptureFromDir gathers the frame PNGs + resource samples into
+  // a launch-capture record; samplerScript emits the PowerShell CIM sampler.
+  {
+    const capBuilder = await import(pathToFileURL(join(repoRoot, 'media', 'launch-capture.mjs')).href);
+    const capDir = join(tmpdir(), 'lba-test-capture-assemble-xyz');
+    rmSync(capDir, { recursive: true, force: true });
+    mkdirSync(capDir, { recursive: true });
+    writeFileSync(join(capDir, 'frame-00000.png'), 'x'.repeat(120));
+    writeFileSync(join(capDir, 'frame-00001.png'), 'x'.repeat(140));
+    // resources.jsonl: two valid samples + a blank line + a partial (unparseable) line the assembler must skip.
+    writeFileSync(
+      join(capDir, 'resources.jsonl'),
+      '{"ms":1,"cpuPct":10,"ramMb":2000,"diskPct":1}\n\n{bad partial line\n{"ms":2,"cpuPct":12,"ramMb":2010,"diskPct":2}\n'
+    );
+    const rec = ext.assembleCaptureFromDir(capDir, capBuilder);
+    assert(Array.isArray(rec.frames) && rec.frames.length === 2, `assembleCaptureFromDir builds a 2-frame record, got ${rec.frames && rec.frames.length}`);
+    assert(existsSync(join(capDir, 'capture.json')), 'assembleCaptureFromDir writes capture.json alongside the frames');
+
+    // empty dir -> fails closed (no frames were captured).
+    const capEmpty = join(tmpdir(), 'lba-test-capture-empty-xyz');
+    rmSync(capEmpty, { recursive: true, force: true });
+    mkdirSync(capEmpty, { recursive: true });
+    let capThrew = false;
+    try { ext.assembleCaptureFromDir(capEmpty, capBuilder); } catch { capThrew = true; }
+    assert(capThrew, 'assembleCaptureFromDir throws when no frames were captured');
+    rmSync(capDir, { recursive: true, force: true });
+    rmSync(capEmpty, { recursive: true, force: true });
+
+    // CIM sampler script: the CPU/RAM/disk CIM queries + a single-quote-escaped out path (no injection).
+    const script = ext.samplerScript("C:\\lba\\res'ources.jsonl");
+    assert(
+      /Win32_PerfFormattedData_PerfOS_Processor/.test(script) && /TotalVisibleMemorySize/.test(script) && /PerfDisk_PhysicalDisk/.test(script),
+      'samplerScript emits the CPU + RAM + disk CIM queries'
+    );
+    assert(/res''ources\.jsonl/.test(script), 'samplerScript single-quote-escapes the out path (no injection)');
+  }
+
+  // createCleanroom input VALIDATION: an invalid name/port/actor is rejected by the validators and aborts the
+  // command early (each `if (!x) return`). The mock treats a validation failure as the user cancelling (VS Code
+  // blocks OK on an invalid value), so no cloner command is sent.
+  {
+    const cc = registered.find((r) => r.id === 'labviewBenchmarkActor.createCleanroom').handler;
+    const sentBeforeInvalid = sentCommands.length;
+    inputQueue.push('bad name!'); // cloneName invalid -> reject + early return
+    await cc();
+    inputQueue.push('ok-name', '99999'); // sshPort out of range -> reject + early return
+    await cc();
+    inputQueue.push('ok-name', '2223', 'not-a-port'); // workerPort invalid -> reject + early return
+    await cc();
+    inputQueue.push('ok-name', '2223', '7441', 'bad actor!'); // actorId invalid -> reject + early return
+    await cc();
+    assert(sentCommands.length === sentBeforeInvalid, 'createCleanroom aborts (sends no cloner command) when any input fails validation');
+  }
+
+  // captureLaunch on a host without LabVIEW.exe (the Linux test host) -> the "LabVIEW.exe not found" guard, and
+  // it returns BEFORE any spawn (the ffmpeg/proc capture itself is cleanroom-gated + live-proven, never faked).
+  const errsBeforeCapture = errorMessages.length;
+  await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+  assert(
+    errorMessages.slice(errsBeforeCapture).some((m) => /LabVIEW\.exe not found/.test(m)),
+    'captureLaunch surfaces the LabVIEW-not-found guard when no LabVIEW is configured'
+  );
+
+  // lmTextResult fallback: when the host predates the LanguageModelToolResult/TextPart classes, the tools return
+  // a plain { content:[{type,value}] } shape instead of the API objects.
+  {
+    const savedResult = mockVscode.LanguageModelToolResult;
+    const savedPart = mockVscode.LanguageModelTextPart;
+    mockVscode.LanguageModelToolResult = undefined;
+    mockVscode.LanguageModelTextPart = undefined;
+    const summaryTool = registeredTools.find((x) => x.name === 'lba-benchmark-summary');
+    const res = await summaryTool.tool.invoke({}, {});
+    assert(
+      res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].value === 'string',
+      'lmTextResult falls back to a plain content shape when the LM API classes are absent'
+    );
+    mockVscode.LanguageModelToolResult = savedResult;
+    mockVscode.LanguageModelTextPart = savedPart;
+  }
+
   // Benchmark panel commands (LBA-REQ-004/005): each renders a webview from the STAGED fixtures. Invoking them
   // covers the extension.ts panel wiring (loadPanelBuilders + loadBenchmarkJson + makeBenchmarkPanel) on the
   // real render path -- the panel builders themselves are proven separately by panels-render.mjs.
@@ -302,17 +465,6 @@ try {
   await registered.find((r) => r.id === 'labviewBenchmarkActor.pollBus').handler();
   inputQueue.push('NOTE test coordination note');
   await registered.find((r) => r.id === 'labviewBenchmarkActor.postNote').handler();
-
-  // Agents commands (extension-embedded AGENTS.md, issue #98): materialize + show + check against the shipped
-  // canonical. fs.readFile is mocked to read the real staged media/AGENTS.md + agents.manifest.json.
-  await registered.find((r) => r.id === 'labviewBenchmarkActor.writeAgents').handler();
-  await registered.find((r) => r.id === 'labviewBenchmarkActor.showAgents').handler();
-  await registered.find((r) => r.id === 'labviewBenchmarkActor.checkAgents').handler();
-  assert(infoMessages.some((m) => /Wrote AGENTS\.md/.test(m)), 'writeAgents materializes AGENTS.md at the workspace root');
-  assert(
-    warnMessages.some((m) => /No AGENTS\.md at the workspace root/.test(m)),
-    'checkAgents warns when the workspace AGENTS.md is absent'
-  );
 
   // LM open-benchmark-panel tool: opens a panel (reusing a panel command) and returns descriptive text.
   const openPanelTool = registeredTools.find((t) => t.name === 'lba-open-benchmark-panel');
@@ -387,6 +539,33 @@ try {
     errorMessages.length >= errBefore + 5,
     'each panel command reports a UI error (reportUiError) when the staged fixtures are unreadable (graceful degradation, not a crash)'
   );
+
+  // openViewer on the broken install: loadSeries cannot read media/mprr-series.json, so it falls back to the
+  // built-in demo series (the viewer always renders a valid series).
+  const panelsBeforeBrokenViewer = panels.length;
+  second.find((r) => r.id === 'labviewBenchmarkActor.openViewer').handler();
+  assert(panels.length === panelsBeforeBrokenViewer + 1, 'openViewer still renders on a broken install (loadSeries demo-series fallback)');
+
+  // Script-resolution guards + the postNote empty-input abort, on the broken install with NO workspace folder:
+  // createCleanroom + bootstrapAuthoringLane can resolve no script -> each surfaces its "not found" guidance,
+  // and postNote with no message entered aborts before the CLI.
+  const savedFoldersBroken = mockVscode.workspace.workspaceFolders;
+  mockVscode.workspace.workspaceFolders = undefined;
+  const errBeforeScripts = errorMessages.length;
+  // createCleanroom refuses on a Windows host BEFORE resolving the script; fake a POSIX host so it reaches the
+  // cloner-not-found guard regardless of the CI OS.
+  const brokenPlatDesc = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+  try {
+    await second.find((r) => r.id === 'labviewBenchmarkActor.createCleanroom').handler();
+  } finally {
+    Object.defineProperty(process, 'platform', brokenPlatDesc);
+  }
+  await second.find((r) => r.id === 'labviewBenchmarkActor.bootstrapAuthoringLane').handler();
+  assert(errorMessages.slice(errBeforeScripts).some((m) => /Cleanroom cloner not found/.test(m)), 'createCleanroom reports the cloner-not-found guard when no script resolves');
+  assert(errorMessages.slice(errBeforeScripts).some((m) => /Authoring-lane bootstrap not found/.test(m)), 'bootstrapAuthoringLane reports the bootstrap-not-found guard when no script resolves');
+  await second.find((r) => r.id === 'labviewBenchmarkActor.postNote').handler(); // empty inputQueue -> no message -> abort before the CLI
+  mockVscode.workspace.workspaceFolders = savedFoldersBroken;
 
   ext.deactivate(); // must not throw
 

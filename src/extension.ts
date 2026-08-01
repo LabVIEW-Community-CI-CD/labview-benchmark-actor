@@ -423,7 +423,7 @@ function resolveFfmpeg(): string {
 }
 
 // PowerShell CIM sampler: instant formatted counters (CPU/disk %) + OS memory -> JSONL every ~200 ms.
-function samplerScript(outFile: string): string {
+export function samplerScript(outFile: string): string {
   const out = outFile.replace(/'/g, "''");
   return [
     "$ErrorActionPreference='SilentlyContinue'",
@@ -564,6 +564,13 @@ async function stopCaptureCommand(context: vscode.ExtensionContext, output: vsco
 
 async function assembleCapture(context: vscode.ExtensionContext, dir: string): Promise<LaunchCaptureRecord> {
   const builder = await loadCaptureBuilder(context.extensionUri);
+  return assembleCaptureFromDir(dir, builder);
+}
+
+// Assemble the captured PNG frames + resource samples in `dir` into a launch-capture@1 record (mprr dual-packet)
+// and write capture.json. Split out from the cleanroom-gated ffmpeg CAPTURE that PRODUCES the frames, so this
+// pure file-assembly around the unit-tested builder is itself directly unit-testable with fixture frames.
+export function assembleCaptureFromDir(dir: string, builder: CaptureBuilder): LaunchCaptureRecord {
   const frameFiles = readdirSync(dir)
     .filter((f) => /^frame-\d+\.png$/.test(f))
     .sort();
