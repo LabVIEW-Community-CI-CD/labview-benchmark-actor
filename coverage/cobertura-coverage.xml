@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">
-<coverage lines-valid="2795" lines-covered="2661" line-rate="0.9520000000000001" branches-valid="684" branches-covered="564" branch-rate="0.8245" timestamp="1785553206080" complexity="0" version="0.1">
+<coverage lines-valid="2795" lines-covered="2661" line-rate="0.9520000000000001" branches-valid="684" branches-covered="564" branch-rate="0.8245" timestamp="1785553442335" complexity="0" version="0.1">
   <sources>
     <source>/home/sergio/repos/gh/labview-benchmark-actor</source>
   </sources>

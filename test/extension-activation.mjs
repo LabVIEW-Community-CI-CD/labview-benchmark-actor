@@ -552,7 +552,15 @@ try {
   const savedFoldersBroken = mockVscode.workspace.workspaceFolders;
   mockVscode.workspace.workspaceFolders = undefined;
   const errBeforeScripts = errorMessages.length;
-  await second.find((r) => r.id === 'labviewBenchmarkActor.createCleanroom').handler();
+  // createCleanroom refuses on a Windows host BEFORE resolving the script; fake a POSIX host so it reaches the
+  // cloner-not-found guard regardless of the CI OS.
+  const brokenPlatDesc = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+  try {
+    await second.find((r) => r.id === 'labviewBenchmarkActor.createCleanroom').handler();
+  } finally {
+    Object.defineProperty(process, 'platform', brokenPlatDesc);
+  }
   await second.find((r) => r.id === 'labviewBenchmarkActor.bootstrapAuthoringLane').handler();
   assert(errorMessages.slice(errBeforeScripts).some((m) => /Cleanroom cloner not found/.test(m)), 'createCleanroom reports the cloner-not-found guard when no script resolves');
   assert(errorMessages.slice(errBeforeScripts).some((m) => /Authoring-lane bootstrap not found/.test(m)), 'bootstrapAuthoringLane reports the bootstrap-not-found guard when no script resolves');
