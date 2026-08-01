@@ -565,6 +565,23 @@ check('acg-independence-live', () => {
   return { independent: verdict.independent, environments: verdict.distinctEnrolledEnvironments };
 });
 
+// ACG governance: PRs target develop, not main (ADR-0021, LBA-REQ-030). The base-branch policy -- non-release
+// heads may not target main; only release/* and hotfix/* do (main never takes develop directly) -- must hold.
+check('acg-governance-pr-base-branch', () => {
+  execFileSync(process.execPath, [join(here, 'acg-governance', 'pr-base-branch-guard.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'pr-base-branch-guard 11/11' };
+});
+
+// The base-branch guard WORKFLOW (ADR-0021, LBA-REQ-030) must stay wired: it runs on pull requests targeting main
+// and invokes the guard script, so a mis-based PR onto main fails closed (CRLF-normalized; substring checks only).
+check('acg-governance-pr-base-branch-workflow-wired', () => {
+  const wf = readFileSync(join(pkgRoot, '.github', 'workflows', 'pr-base-branch-guard.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/pull_request:/.test(wf) && /branches:\s*\[\s*main\s*\]/.test(wf), 'the guard triggers on pull requests targeting main');
+  assert(wf.includes('experiments/acg-governance/pr-base-branch-guard.mjs'), 'the workflow invokes the base-branch guard script');
+  assert(wf.includes('github.base_ref') && wf.includes('github.head_ref'), 'the workflow passes the PR base/head refs to the guard');
+  return { workflow: 'pr-base-branch-guard', guardsMain: true };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.

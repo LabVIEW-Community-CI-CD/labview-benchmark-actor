@@ -57,7 +57,7 @@ progressively.
 | LBA-REQ-027 | The system shall block a corroborated release from publishing until a recorded human sign-off accompanies the machine quorum verdict. | Machine corroboration establishes reproducibility, but a human still judges whether the result looks correct; requiring a recorded sign-off alongside the quorum keeps that judgment explicit and un-skippable (ADR-0018). | The human visual gate runs on either the Windows reviewer VM or a zero-install Linux browser codespace; a release publishes only when the machine quorum passes and the signed human sign-off is recorded, and the sign-off does not substitute for the quorum. | Recorded in ADR-0018; the sign-off capture lands in Phase 4 and is gated as delivered. |
 | LBA-REQ-028 | The system shall beacon each witness's corroboration verdict over the lbabus coordination mesh. | Verdicts already travel the bus via the gate-suite beacon, so collecting each witness's outcome over the existing mesh gives a live, distributed view without a new transport (ADR-0019). | Each witness joins the lbabus mesh and beacons its verdict (reusing the gate-suite verdict beacon and the mesh topology); a mesh ledger records the beaconed verdicts and feeds the provenance store. | Recorded in ADR-0019; the mesh beacon and ledger land in Phase 4 and are gated as delivered. |
 | LBA-REQ-029 | The system shall expose the corroboration grid's operations to agents through the Model Context Protocol tool surface. | Agents already consume actor tools through the MCP server (ADR-0012), so exposing the grid's operations on the same surface lets an agent orchestrate corroboration directly rather than through bespoke commands (ADR-0020). | The ADR-0012 MCP surface gains grid tools (`spin_up_witness`, `run_quorum`, `get_confidence`, `verify_attestation`, `teardown`); the surface is designed now and implemented in a later phase. | Recorded in ADR-0020; the tool implementations land in Phase 4 and are gated as delivered. |
-| LBA-REQ-030 | The system shall require every non-release pull request to target the develop integration branch. | GitFlow makes develop the integration branch (ADR-0010), but stale main-based pull requests (#211 / #215 / #217) dumped integration content onto the release branch because no rule stated where feature work targets; codifying the base-branch rule prevents that class of error (ADR-0021). | Every non-release pull request targets develop; main receives only release/hotfix merges via a no-fast-forward merge; a pull request found on the wrong base is re-targeted or closed rather than merged. | Recorded in ADR-0021; the base-branch rule is documented governance and its automated check is future work. |
+| LBA-REQ-030 | The system shall require every non-release pull request to target the develop integration branch. | GitFlow makes develop the integration branch (ADR-0010), but stale main-based pull requests (#211 / #215 / #217) dumped integration content onto the release branch because no rule stated where feature work targets; codifying the base-branch rule prevents that class of error (ADR-0021). | Every non-release pull request targets develop; main receives only release/hotfix merges via a no-fast-forward merge; a pull request found on the wrong base is re-targeted or closed rather than merged. | The base-branch guard (`experiments/acg-governance/pr-base-branch-guard.mjs`, self-test 11/11) blocks any non-release head targeting main (develop and feature/authoring included), and the `.github/workflows/pr-base-branch-guard.yml` workflow enforces it on PRs targeting main; gated by `acg-governance-pr-base-branch` and `acg-governance-pr-base-branch-workflow-wired`. |
 
 ---
 
@@ -823,7 +823,7 @@ progressively.
 
 ### LBA-REQ-030: Pull requests target develop
 
-- Status: Planned
+- Status: Proven
 - Area: Configuration management / branch governance (ADR-0021, refines ADR-0010)
 - Statement: The system shall require every non-release pull request to target the develop
   integration branch.
@@ -834,9 +834,12 @@ progressively.
   - Every non-release pull request targets develop.
   - Main receives only release/hotfix merges via a no-fast-forward merge.
   - A pull request found on the wrong base is re-targeted or closed rather than merged.
-- Change Guidance: Refines ADR-0010 (ADR-0021); flips to Proven when an automated PR-base
-  check ships. Authored under the `repo-standards-review` singular-requirement directive
-  (one `shall`).
+- Change Guidance: Refines ADR-0010 (ADR-0021). DELIVERED as the base-branch guard
+  `experiments/acg-governance/pr-base-branch-guard.mjs` (blocks any non-release head targeting
+  main -- develop and feature/authoring included; only release/* and hotfix/* target main;
+  self-test 11/11) enforced on pull requests by `.github/workflows/pr-base-branch-guard.yml`,
+  gated by `acg-governance-pr-base-branch` + `acg-governance-pr-base-branch-workflow-wired`.
+  Authored under the `repo-standards-review` singular-requirement directive (one `shall`).
 
 ---
 
