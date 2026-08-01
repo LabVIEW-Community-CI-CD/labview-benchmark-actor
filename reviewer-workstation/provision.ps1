@@ -126,6 +126,43 @@ function Install-ExtensionForInteractiveUser([string]$VsixPath) {
   code --install-extension $VsixPath @extDirArgs --force
 }
 
+# Verify-before-install (ADR-0022 / LBA-REQ-031, closing the reviewer-workstation clause of LBA-REQ-025): the
+# release corroboration provenance MUST verify before the .vsix is installed. Download the release's provenance
+# bundle and run the dependency-free Node verifier (experiments/acg-transparency/verify-release-inclusion.mjs),
+# which admits install only when >= quorumMin witnesses each have an enrolled-witness-signed attestation that is
+# INCLUDED in the Ed25519-signed Merkle transparency log. A non-zero exit BLOCKS the install (fail-closed). Set
+# VIHS_REVIEWER_ALLOW_UNATTESTED=1 ONLY to provision from a pre-provenance release.
+function Assert-ReleaseProvenance([string]$ExtTag, [string]$WorkDir) {
+  gh release download $ExtTag --repo $repo --pattern '*.provenance.json' --dir $WorkDir --clobber 2>$null
+  $prov = Get-ChildItem $WorkDir -Filter '*.provenance.json' -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $prov) {
+    if ($env:VIHS_REVIEWER_ALLOW_UNATTESTED -eq '1') {
+      Step "WARN: release $ExtTag carries no *.provenance.json and VIHS_REVIEWER_ALLOW_UNATTESTED=1 -> installing UNATTESTED."
+      return
+    }
+    throw "verify-before-install BLOCKED: release $ExtTag carries no *.provenance.json corroboration bundle. Cut the release with an attached provenance bundle, or set VIHS_REVIEWER_ALLOW_UNATTESTED=1 to override (NOT recommended)."
+  }
+  if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    throw "verify-before-install BLOCKED: 'node' is not on PATH; the reviewer box needs Node to verify the corroboration provenance."
+  }
+  $srcDir = $env:VIHS_REVIEWER_REPO_DIR
+  if (-not $srcDir) { $srcDir = Join-Path $env:TEMP 'lba-actor-src' }
+  if (Test-Path (Join-Path $srcDir '.git')) {
+    Step "Updating verifier source at $srcDir"
+    git -C $srcDir fetch --depth 1 origin | Out-Null
+    git -C $srcDir reset --hard origin/HEAD | Out-Null
+  } else {
+    Step "Cloning verifier source ($repo) to $srcDir"
+    gh repo clone $repo $srcDir -- --depth 1
+  }
+  $verifier = Join-Path $srcDir 'experiments\acg-transparency\verify-release-inclusion.mjs'
+  if (-not (Test-Path $verifier)) { throw "verify-before-install BLOCKED: verifier not found at $verifier." }
+  Step "Running verify-before-install over $($prov.Name)"
+  & node $verifier --provenance $prov.FullName
+  if ($LASTEXITCODE -ne 0) { throw "verify-before-install BLOCKED: the corroboration provenance for $ExtTag did not verify (exit $LASTEXITCODE). The .vsix will NOT be installed." }
+  Step "verify-before-install: provenance verified; proceeding to install."
+}
+
 # 1) Extension .vsix from the ext-v* Release.
 $extResolved = Resolve-Tag 'ext-v' $extTag
 $dir = Join-Path $env:TEMP 'lba-ext'
@@ -134,6 +171,7 @@ Step "Downloading extension .vsix from $extResolved"
 gh release download $extResolved --repo $repo --pattern '*.vsix' --dir $dir --clobber
 $vsix = Get-ChildItem $dir -Filter '*.vsix' | Select-Object -First 1
 if (-not $vsix) { throw "No .vsix asset in release $extResolved." }
+Assert-ReleaseProvenance -ExtTag $extResolved -WorkDir $dir
 Step "Installing extension $($vsix.Name) into the interactive reviewer's profile"
 Install-ExtensionForInteractiveUser $vsix.FullName
 

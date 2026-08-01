@@ -29,6 +29,7 @@
 | [ADR-0019](ADR-0019-mesh-integration.md) | Mesh integration for the corroboration grid | LINUX | Accepted | LBA-REQ-028 |
 | [ADR-0020](ADR-0020-mcp-orchestration-surface.md) | MCP orchestration surface for the corroboration grid | LINUX | Accepted | LBA-REQ-029 |
 | [ADR-0021](ADR-0021-pull-requests-target-develop.md) | Pull requests target develop, not main | LINUX | Accepted | LBA-REQ-030 |
+| [ADR-0022](ADR-0022-transparency-log-inclusion.md) | Signed Merkle transparency log + verify-before-install | LINUX | Accepted | LBA-REQ-031 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
-LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021). Add new ADRs by extending your own range.
+LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0022). Add new ADRs by extending your own range.

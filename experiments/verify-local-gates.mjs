@@ -17,9 +17,10 @@
 //   node experiments/verify-local-gates.mjs [--json] [--out <path>]
 // Exit code 0 when every check passes, 1 otherwise.
 
-import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity } from './corroboration-confidence-reference.mjs';
 import { ingestShortPackets, MPRR_RING_SCHEMA, TICKS_PER_MS, DEFAULT_BLOCK_DURATION_MS, DEFAULT_BLOCK_DURATION_TICKS, ADMISSION_CAPACITY_HEADROOM, AUTHORITATIVE_BOUNDARY_VARIATION_PCT, NORMAL_LOAD_BOUNDARY_VARIATION_PCT, createShortRing, CLI_DEFAULT_CAPACITY_BYTES } from './mprr-ring/mprrRing.mjs';
 import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
@@ -62,6 +63,7 @@ import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/ver
 import { bundleDigest } from './acg-provenance/attest.mjs';
 import { gateReleasePublish } from './acg-reviewer/sign-off.mjs';
 import { runGrid } from './acg-grid/grid.mjs';
+import { verifySignedTreeHead, verifyReleaseInclusion } from './acg-transparency/transparency-log.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -666,6 +668,71 @@ check('acg-grid-run-live', () => {
   assert(result.released === false, 'released must be blocked pending a human sign-off');
   assert(result.machineCorroborated === receipt.result.machineCorroborated && result.released === receipt.result.released, 'the committed grid-run receipt must match the re-derived run');
   return { machineCorroborated: result.machineCorroborated, released: result.released };
+});
+
+// The Merkle TRANSPARENCY LOG (ADR-0022, LBA-REQ-031, the rekor analogue): RFC 6962 domain-separated hashing,
+// inclusion + append-only consistency proofs, and Ed25519 signed tree heads -- the machine core of
+// verify-before-install. Run its dependency-free self-test as a subprocess.
+check('acg-transparency-log', () => {
+  execFileSync(process.execPath, [join(here, 'acg-transparency', 'transparency-log.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'transparency-log 26/26' };
+});
+
+// Live transparency-log evidence (ADR-0022, LBA-REQ-031): the REAL {codespace, host} attestations must be
+// INCLUDED in the Ed25519-signed Merkle transparency log, and verify-before-install must admit each. Re-derive
+// every inclusion against the committed signed root, verify the signed tree head against the enrolled log key,
+// and match the committed verify-before-install decision -- fully offline.
+check('acg-transparency-log-live', () => {
+  const attestations = [
+    readJson('experiments/acg-provenance/attestations/codespace.attestation.json'),
+    readJson('experiments/acg-provenance/attestations/host-linux.attestation.json'),
+  ];
+  const proof = readJson('experiments/acg-transparency/release-transparency-receipt.json');
+  const allowlist = readJson('experiments/acg-transparency/enrollment/log-allowlist.json');
+  const decisionReceipt = readJson('experiments/acg-transparency/inclusion-decision-receipt.json');
+  const logPublicKeyPem = allowlist[proof.signedTreeHead.logIdentity];
+  assert(!!logPublicKeyPem, 'the signing log identity must be enrolled in the log allowlist');
+  assert(verifySignedTreeHead(proof.signedTreeHead, { publicKeyPem: logPublicKeyPem }), 'the signed tree head must verify against the enrolled log key');
+  const decisions = attestations.map((attestation, i) => verifyReleaseInclusion({ attestation, inclusion: proof.inclusions[i], signedTreeHead: proof.signedTreeHead, logPublicKeyPem }));
+  for (const d of decisions) assert(d.included === true, `attestation must be included in the transparency log (${d.reason || ''})`);
+  assert(decisionReceipt.allIncluded === true && decisions.length === decisionReceipt.decisions.length, 'the committed verify-before-install decision must match the re-derived one');
+  return { size: proof.signedTreeHead.size, allIncluded: decisions.every((d) => d.included) };
+});
+
+// Verify-before-install end-to-end (ADR-0022, LBA-REQ-031): the reviewer-workstation verifier must ADMIT the
+// real release-provenance bundle (>= quorumMin witnesses attested + logged) and BLOCK a tampered one. Spawn it
+// exactly as the reviewer box would.
+check('acg-transparency-verify-before-install', () => {
+  const cli = join(here, 'acg-transparency', 'verify-release-inclusion.mjs');
+  const provPath = join(here, 'acg-transparency', 'release-provenance-bundle.json');
+  execFileSync(process.execPath, [cli, '--provenance', provPath], { stdio: 'pipe' }); // exit 0 = admit
+  const bundle = readJson('experiments/acg-transparency/release-provenance-bundle.json');
+  bundle.witnesses[0].inclusion.leaf = '0'.repeat(64);
+  const tampered = join(tmpdir(), `acg-tampered-prov-${process.pid}.json`);
+  writeFileSync(tampered, JSON.stringify(bundle));
+  let blocked = false;
+  try {
+    execFileSync(process.execPath, [cli, '--provenance', tampered], { stdio: 'pipe' });
+  } catch {
+    blocked = true;
+  } finally {
+    rmSync(tampered, { force: true });
+  }
+  assert(blocked, 'verify-before-install must BLOCK a tampered provenance bundle');
+  return { admit: true, tamperBlocked: blocked };
+});
+
+// The reviewer-workstation provisioner must WIRE verify-before-install (ADR-0022, LBA-REQ-031): it verifies the
+// release corroboration provenance and BLOCKS the .vsix install on failure. Drift gate over provision.ps1
+// (CRLF-normalized substring checks; fail-closed).
+check('acg-transparency-verify-before-install-wired', () => {
+  const norm = readFileSync(join(pkgRoot, 'reviewer-workstation', 'provision.ps1'), 'utf8').replace(/\r\n/g, '\n');
+  assert(norm.includes('verify-release-inclusion.mjs'), 'provision.ps1 must invoke the verify-before-install verifier');
+  const guardAt = norm.indexOf('Assert-ReleaseProvenance -ExtTag');
+  const installAt = norm.indexOf('Install-ExtensionForInteractiveUser $vsix');
+  assert(guardAt > 0 && installAt > 0 && guardAt < installAt, 'verify-before-install must run BEFORE the .vsix install');
+  assert(norm.includes('verify-before-install BLOCKED'), 'provision.ps1 must fail closed (block) when the provenance does not verify');
+  return { wired: true };
 });
 
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation

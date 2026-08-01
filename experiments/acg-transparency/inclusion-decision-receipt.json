@@ -1,0 +1,16 @@
+{
+  "schema": "labview-benchmark-actor/acg-verify-before-install-receipt-v1",
+  "note": "verify-before-install decision: an artifact is installable only if its witness attestation is INCLUDED in the signed transparency log. Both real witnesses are included -> install admitted.",
+  "logIdentity": "acg-log:linux",
+  "allIncluded": true,
+  "decisions": [
+    {
+      "witnessIdentity": "acg-witness:codespace",
+      "included": true
+    },
+    {
+      "witnessIdentity": "acg-witness:host-linux",
+      "included": true
+    }
+  ]
+}

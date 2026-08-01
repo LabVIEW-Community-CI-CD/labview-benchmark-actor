@@ -1,0 +1,35 @@
+{
+  "schema": "labview-benchmark-actor/acg-transparency-receipt-v1",
+  "note": "the REAL {codespace, host} witness attestations recorded into one Ed25519-signed Merkle transparency log (RFC 6962). Each attestation has an inclusion proof against the signed root; the log private key is held out-of-repo.",
+  "logIdentity": "acg-log:linux",
+  "signedTreeHead": {
+    "schema": "labview-benchmark-actor/acg-signed-tree-head-v1",
+    "logIdentity": "acg-log:linux",
+    "size": 2,
+    "root": "3b8b715a13902713cba60ec37bd55840350f457fa1dce9b588ae6e51b7fc3b3d",
+    "timestamp": "2026-08-01T00:00:00.000Z",
+    "algorithm": "ed25519",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAAE+la3mKQfYcRwXKfyGP+2bKhdl8w0/Kqwh11KnIK90=\n-----END PUBLIC KEY-----\n",
+    "signature": "N53RxTH9BbfGpmyv706Bmqo2Ac4aIOYnqBYa4In4lbOWJWaD20esBEOMupoA01pYyA4wRwMbwTVHep7pEZa2Ag=="
+  },
+  "inclusions": [
+    {
+      "witnessIdentity": "acg-witness:codespace",
+      "index": 0,
+      "treeSize": 2,
+      "leaf": "170f3eccfa1f9bdfdd14c10ca22b18f17c26ac6881ceb620726de6d2ef4a3302",
+      "proof": [
+        "4cffa2170335f416c78482bb5da7cbcbee774420d8639cb7e049ba1a6de14791"
+      ]
+    },
+    {
+      "witnessIdentity": "acg-witness:host-linux",
+      "index": 1,
+      "treeSize": 2,
+      "leaf": "4cffa2170335f416c78482bb5da7cbcbee774420d8639cb7e049ba1a6de14791",
+      "proof": [
+        "170f3eccfa1f9bdfdd14c10ca22b18f17c26ac6881ceb620726de6d2ef4a3302"
+      ]
+    }
+  ]
+}
