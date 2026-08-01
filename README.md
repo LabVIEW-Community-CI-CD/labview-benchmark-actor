@@ -1,6 +1,6 @@
 # labview-benchmark-actor — Specification Package
 
-> **Status:** Prototype specification (planning). No implementation yet.
+> **Status:** Originating specification. The extension is now implemented and ships as `ext-v*` GitHub Releases (latest `ext-v0.4.0`).
 > **Standards baseline:** `repo-standards-review` **v0.2.19** (GitLab
 > `svelderrainruiz/repo-standards-review`, commit `d44f210d`).
 > **Stamp rationale:** this package is authored to move to a future
@@ -10,14 +10,15 @@
 
 ## Purpose
 
-`labview-benchmark-actor` extracts the **hooking and agentic infrastructure**
-currently developed on `vi-history-suite`'s `develop` and `prototype` branches
-into a **standalone, installable VS Code extension**. Installed on a **GitHub
+`labview-benchmark-actor` is a **standalone, installable VS Code extension**
+providing **hooking and agentic benchmarking infrastructure** (originally
+prototyped in `vi-history-suite`, since extracted into this independent repo —
+no runtime dependency on that prototype). Installed on a **GitHub
 Codespace** or a **Vagrant golden VM**, it lets an operator drive
 **benchmarking** through that agentic infrastructure and review results through
 a **time-cursor benchmark viewer**.
 
-Five capabilities distinguish it from the parent repo:
+Five capabilities define the extension:
 
 1. **Benchmark time-cursor UI** — a benchmark chart with a draggable **vertical
    time cursor**; dragging it left↔right selects a point in time, and the

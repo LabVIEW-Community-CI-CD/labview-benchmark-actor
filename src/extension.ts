@@ -13,7 +13,7 @@ const execFileAsync = promisify(execFile);
 // The labview-benchmark-actor extension packages the standalone agentic infrastructure (LBA-REQ-001): it
 // surfaces the cross-plane coordination bus (`lbabus`) inside the VS Code host so an operator can observe
 // host capabilities, poll the coordination bus, and post a coordination note from the IDE. The extension
-// depends only on `vscode` + Node built-ins -- no `vi-history-suite`-private module on its graph.
+// depends only on `vscode` + Node built-ins -- no external prototype-private module on its graph.
 
 const CLI = 'lbabus';
 
