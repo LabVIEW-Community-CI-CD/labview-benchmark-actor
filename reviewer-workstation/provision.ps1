@@ -4,7 +4,7 @@
   Reviewer-workstation provisioner for labview-benchmark-actor (#108).
 
 .DESCRIPTION
-  Repurposes the vi-history-suite golden box `vihs/win11-labview2026` (Windows 11 + LabVIEW 2026 +
+  Uses the labview-benchmark-actor golden box `actor/win11-labview2026` (Windows 11 + LabVIEW 2026 +
   VS Code + Node + git + LabVIEW fixtures). It adds ONLY the labview-benchmark-actor bits:
     1. the extension .vsix, from the gated `ext-v*` GitHub Release;
     2. the `lbabus` CLI (self-contained win-x64) from the `collab-cli-v*` Release;
@@ -20,7 +20,7 @@ $extTag    = $env:VIHS_REVIEWER_EXT_TAG
 $lbabusTag = $env:VIHS_REVIEWER_LBABUS_TAG
 Step "repo=$repo ext-tag=$extTag lbabus-tag=$lbabusTag"
 
-# 0) Prereqs. The VirtualBox golden box (vihs/win11-labview2026) ships VS Code + gh, but the VMware
+# 0) Prereqs. The VirtualBox golden box (actor/win11-labview2026) ships VS Code + gh, but the VMware
 #    cleanroom box (vihs/labview-cleanroom) and BYO reviewer boxes may ship NEITHER the tools NOR winget
 #    (confirmed live: the cleanroom box has no `code` and no App Installer/winget). So self-install with a
 #    winget-free direct download from the official vendor URLs, falling back to winget only if present.

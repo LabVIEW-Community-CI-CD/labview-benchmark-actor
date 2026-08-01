@@ -2,8 +2,8 @@
  * Model Context Protocol (MCP) surface for labview-benchmark-actor.
  *
  * A dependency-free JSON-RPC 2.0 handler (no MCP SDK) exposing THIS extension's own tools to an agent:
- * host capabilities, the deterministic benchmark series, and the cross-plane coordination bus. Adapted
- * from the vi-history-suite MCP pattern, but it carries none of the VI-semantic domain — it wraps the
+ * host capabilities, the deterministic benchmark series, and the cross-plane coordination bus. It follows
+ * a standard JSON-RPC MCP server pattern and carries no VI-semantic domain — it wraps the
  * same surfaces the extension's commands do (`lbabus capabilities|poll|post` + the bundled mprr series).
  *
  * This module is PURE and unit-testable: the side-effecting tool implementations (shelling `lbabus`,
