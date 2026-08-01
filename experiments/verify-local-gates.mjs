@@ -418,6 +418,22 @@ check('cleanroom-bootstrap-is-winget-free', () => {
   return { wingetFree: true };
 });
 
+// The codespace cleanroom witness (Actor Corroboration Grid, ADR-0014/ADR-0015) runs the SAME gate-suite as
+// the VM, so the committed standalone cleanroom/ubuntu-labview/lba/gate-suite.sh MUST stay byte-identical to
+// the copy the VM emits via the provision-lbabus-fromsource.sh `<<'GATESH'` heredoc -- one source of truth,
+// fail-closed on drift (so the VM path and the codespace witness cannot diverge without CI catching it).
+check('cleanroom-gate-suite-shared-in-sync', () => {
+  const prov = readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'provision-lbabus-fromsource.sh'), 'utf8');
+  const lines = prov.split('\n');
+  const start = lines.findIndex((l) => l.endsWith("<<'GATESH'"));
+  const end = lines.findIndex((l, i) => i > start && l === 'GATESH');
+  assert(start >= 0 && end > start, 'the GATESH heredoc must be present in provision-lbabus-fromsource.sh');
+  const heredocBody = lines.slice(start + 1, end).join('\n') + '\n';
+  const shared = readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'lba', 'gate-suite.sh'), 'utf8');
+  assert(shared === heredocBody, 'cleanroom/ubuntu-labview/lba/gate-suite.sh drifted from the VM GATESH heredoc body');
+  return { bodyLines: end - start - 1 };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
