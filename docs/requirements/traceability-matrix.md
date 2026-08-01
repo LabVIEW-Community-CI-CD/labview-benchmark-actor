@@ -36,6 +36,6 @@
 | LBA-REQ-027 | Reviewer station + human sign-off | Planned | §3.9 Corroboration-grid | ADR-0018 | T-027 | 1 |
 | LBA-REQ-028 | Mesh verdict beacon | Planned | §3.9 Corroboration-grid | ADR-0019 | T-028 | 1 |
 | LBA-REQ-029 | MCP orchestration surface | Planned | §3.9 Corroboration-grid | ADR-0020 | T-029 | 1 |
-| LBA-REQ-030 | Pull requests target develop | Planned | §3.8 Configuration-management & assurance | ADR-0021 | T-030 | 1 |
+| LBA-REQ-030 | Pull requests target develop | Proven | §3.8 Configuration-management & assurance | ADR-0021 | T-030 | 5 |
 
 _Generated for 30 requirements._
