@@ -533,15 +533,21 @@ try {
   mkdirSync(captureRunDir, { recursive: true });
   writeFileSync(join(captureRunDir, 'capture.json'), JSON.stringify({
     frameCount: 2,
+    counterKeys: ['cpuTotalPct', 'memAvailableMb'],
     frames: [
-      { index: 0, tMs: 0, cpuPct: 10, ramMb: 2000, diskPct: 1, image: 'frame-00000.png' },
-      { index: 1, tMs: 83, cpuPct: 12, ramMb: 2010, diskPct: 2, image: 'frame-00001.png' },
+      { index: 0, tMs: 0, cpuPct: 10, ramMb: 2000, diskPct: 1, counters: { cpuTotalPct: 10, memAvailableMb: 4000 }, image: 'frame-00000.png' },
+      { index: 1, tMs: 83, cpuPct: 12, ramMb: 2010, diskPct: 2, counters: { cpuTotalPct: 12, memAvailableMb: 3990 }, image: 'frame-00001.png' },
     ],
   }));
   const panelsBeforeCorrelator = panels.length;
   await registered.find((r) => r.id === 'labviewBenchmarkActor.openFrameCorrelator').handler();
   assert(panels.length === panelsBeforeCorrelator + 1, 'openFrameCorrelator renders a webview panel from the latest capture on disk');
   assert(/fc-root|Content-Security-Policy/.test(panels[panels.length - 1].webview.html), 'the frame-correlator webview HTML is built from the capture record');
+  // v2: the capture's per-frame counters{} flow through openCorrelatorForCapture into the webview model island.
+  {
+    const island = JSON.parse(panels[panels.length - 1].webview.html.match(/<script id="fc-model"[^>]*>([\s\S]*?)<\/script>/)[1].replace(/\\u003c/g, '<'));
+    assert(island.frames[0].counters && island.frames[0].counters.cpuTotalPct === 10, 'the correlator passes the capture v2 counters{} through to the webview');
+  }
   // a CLICK marker posted by the webview is persisted into the capture metadata ("mouse click -> label in
   // metadata"); unrelated / empty messages are ignored; reopening the correlator seeds the persisted markers.
   const corrPanel = panels[panels.length - 1];

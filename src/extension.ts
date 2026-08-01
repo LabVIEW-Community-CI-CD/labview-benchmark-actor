@@ -628,6 +628,9 @@ async function openCorrelatorForCapture(
     cpuPct: f.cpuPct,
     ramMb: f.ramMb,
     diskPct: f.diskPct,
+    // v2: pass the frame's performance-counter catalog through when the capture carries it (the correlator plots
+    // the counter curves; a legacy flat capture falls back to CPU/RAM/disk).
+    counters: f.counters,
     imageSrc: panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString(),
   }));
   const existingMarkers = Array.isArray(record.markers) ? record.markers : [];
