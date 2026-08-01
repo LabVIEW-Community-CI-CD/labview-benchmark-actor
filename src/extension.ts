@@ -154,6 +154,19 @@ function loadBenchmarkJson(extensionUri: vscode.Uri, file: string): Record<strin
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
 
+// The mesh-stress calibration ANALYSIS VIEW builder (overview.md §3.6 / VW-1, LBA-REQ-032): a self-contained,
+// script-free ESM module staged to media/, loaded natively like the other pure builders.
+interface MeshViewBuilder {
+  buildMeshCalibrationHtml(receipt: unknown, opts: { cspSource: string }): string;
+}
+let meshViewBuilderPromise: Promise<MeshViewBuilder> | undefined;
+function loadMeshViewBuilder(extensionUri: vscode.Uri): Promise<MeshViewBuilder> {
+  if (!meshViewBuilderPromise) {
+    meshViewBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'meshCalibrationView.mjs')) as unknown as Promise<MeshViewBuilder>;
+  }
+  return meshViewBuilderPromise;
+}
+
 function makeBenchmarkPanel(
   context: vscode.ExtensionContext,
   id: string,
@@ -230,6 +243,20 @@ async function openCrossPlaneResourceCommand(context: vscode.ExtensionContext, o
   }
 }
 
+// The mesh-stress calibration ANALYSIS VIEW panel (overview.md §3.6 / VW-1, LBA-REQ-032): renders the staged
+// live-ladder receipt with the script-free mesh view builder. Feeds the panel's own cspSource so the
+// (image-free) CSP is host-correct.
+async function openMeshCalibrationCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const view = await loadMeshViewBuilder(context.extensionUri);
+    const receipt = loadBenchmarkJson(context.extensionUri, 'mesh-live-ladder-receipt.json');
+    const panel = makeBenchmarkPanel(context, 'lbaMeshCalibration', 'Mesh-Stress Calibration', false);
+    panel.webview.html = view.buildMeshCalibrationHtml(receipt, { cspSource: panel.webview.cspSource });
+  } catch (err) {
+    reportUiError(output, 'Open Mesh-Stress Calibration', err);
+  }
+}
+
 // --- Language Model Tools (Copilot agent mode) --------------------------------------------------------------
 // So a Copilot AGENT can DRIVE the extension from a prompt (open a benchmark panel; summarize the captured
 // numbers). The tools reuse the SAME panel command handlers + staged fixtures the human UI uses. Guarded: a
@@ -259,6 +286,7 @@ const BENCHMARK_PANEL_OPENERS: Record<string, { title: string; open: PanelOpener
   crossPlaneTrend: { title: 'Cross-Plane Benchmark Trend', open: openCrossPlaneTrendCommand },
   resourceProfile: { title: 'Benchmark Resource Profile', open: openResourceProfileCommand },
   crossPlaneResource: { title: 'Cross-Plane Resource Agreement', open: openCrossPlaneResourceCommand },
+  meshCalibration: { title: 'Mesh-Stress Calibration', open: openMeshCalibrationCommand },
 };
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -321,7 +349,7 @@ function benchmarkSummaryText(context: vscode.ExtensionContext): string {
     );
   }
   lines.push(
-    'Open a panel to see these visually — call lba-open-benchmark-panel with panel = run | trend | frameCorrelator | crossPlaneTrend | resourceProfile | crossPlaneResource, or run the "LabVIEW Benchmark Actor: Open ..." commands.'
+    'Open a panel to see these visually — call lba-open-benchmark-panel with panel = run | trend | frameCorrelator | crossPlaneTrend | resourceProfile | crossPlaneResource | meshCalibration, or run the "LabVIEW Benchmark Actor: Open ..." commands.'
   );
   return lines.join('\n');
 }
@@ -1063,6 +1091,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.openCrossPlaneResource', () =>
       openCrossPlaneResourceCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.openMeshCalibration', () =>
+      openMeshCalibrationCommand(context, output)
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.captureLaunch', () =>
       captureLaunchCommand(context, output)

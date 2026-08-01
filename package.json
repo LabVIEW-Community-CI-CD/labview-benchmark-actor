@@ -88,6 +88,10 @@
         "title": "LabVIEW Benchmark Actor: Open Cross-Plane Resource Agreement"
       },
       {
+        "command": "labviewBenchmarkActor.openMeshCalibration",
+        "title": "LabVIEW Benchmark Actor: Open Mesh-Stress Calibration"
+      },
+      {
         "command": "labviewBenchmarkActor.captureLaunch",
         "title": "LabVIEW Benchmark Actor: Capture LabVIEW Launch"
       },
