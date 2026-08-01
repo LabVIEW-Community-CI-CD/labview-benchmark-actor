@@ -148,7 +148,7 @@ multi-VM / Codespace topology.
   requirement → view → decision → test view stays current by construction
   (LBA-REQ-022, ADR-0013).
 
-### 3.9 Corroboration-grid view — addresses LBA-REQ-023
+### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026
 
 The Actor Corroboration Grid (ADR-0014) corroborates a component release across
 independent, heterogeneous witnesses. Each witness — initially a Codespace-Linux node,
@@ -158,7 +158,10 @@ viewer, and emits a signed receipt bundle. A majority (≥2 of 3) must agree on 
 OS-independent anchors (viewer `seriesHash`, `lbabus` version + `sourceCommit`,
 gate-suite `verdict`) — the Linux subset additionally on the pinned `pngSha256` and the
 Ubuntu codename — for the quorum to permit the release; a sub-majority blocks it and
-opens a divergence issue (LBA-REQ-023, ADR-0014).
+opens a divergence issue (LBA-REQ-023, ADR-0014). The quorum arithmetic (a graded majority
+over tiered anchors, LBA-REQ-024, ADR-0015), the signed provenance chain verified before
+consumption (LBA-REQ-025, ADR-0016), and the enforced witness independence (distinct enrolled
+environments, LBA-REQ-026, ADR-0017) refine this view.
 
 ## 4. Architecture decisions (42010 §5.7)
 
@@ -186,6 +189,9 @@ opens a divergence issue (LBA-REQ-023, ADR-0014).
 | AD-20 | Enforce a 42010 correspondence graph as fail-closed CI gates | Traceability that cannot silently rot (ADR-0013) | LBA-REQ-021 |
 | AD-21 | Generate the requirement traceability matrix from the canonical sources rather than hand-maintaining it | A single derived, gated view that cannot drift from the SRS / RTM / architecture / ADRs (ADR-0013) | LBA-REQ-022 |
 | AD-22 | Corroborate each component release via a multi-witness quorum (the Actor Corroboration Grid) | Independent cross-environment agreement raises release confidence and resists forgery (ADR-0014) | LBA-REQ-023 |
+| AD-23 | Score the corroboration quorum as a graded majority over tiered anchors | Heterogeneous witnesses compose; one outage tolerated; divergence is actionable (ADR-0015) | LBA-REQ-024 |
+| AD-24 | Sign and verify the whole corroboration provenance chain before consumption | No unattested release is installable; tamper-evidence is external (ADR-0016) | LBA-REQ-025 |
+| AD-25 | Require distinct enrolled environments for a valid quorum | Agreement cannot be forged by cloning one environment (ADR-0017) | LBA-REQ-026 |
 
 ## 5. Risks and open questions
 
@@ -222,6 +228,9 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0012](adr/ADR-0012-mcp-server-agent-tool-surface.md) | The actor's tools exposed to agents via a Model Context Protocol server | LINUX |
 | [ADR-0013](adr/ADR-0013-enforced-42010-correspondence-graph.md) | Enforced ISO/IEC/IEEE 42010 correspondence graph as the traceability architecture | LINUX |
 | [ADR-0014](adr/ADR-0014-actor-corroboration-grid.md) | Actor Corroboration Grid: multi-witness release corroboration | LINUX |
+| [ADR-0015](adr/ADR-0015-corroboration-quorum-confidence.md) | Corroboration quorum + graded confidence | LINUX |
+| [ADR-0016](adr/ADR-0016-provenance-attestation.md) | Provenance and attestation for the corroboration grid | LINUX |
+| [ADR-0017](adr/ADR-0017-witness-independence.md) | Witness independence for the corroboration grid | LINUX |
 
 Remaining open items: the picture-capture *source*/cadence (storage itself is
 resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded

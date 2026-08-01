@@ -51,6 +51,9 @@ progressively.
 | LBA-REQ-021 | The system shall reject any governed test file that does not correspond to at least one requirement in the traceability register. | A test that maps to no requirement is either an untraceable capability or dead weight; enforcing the test-to-requirement correspondence as a fail-closed gate keeps the 29119 test suite tied to the 29148 requirements and seeds the ISO/IEC/IEEE 42010 correspondence graph (ADR-0013) that later rules extend. | `verify-correspondences.mjs` enumerates the governed test set (`test/*.mjs`, `experiments/**/verify-*.mjs`, `*.selftest.mjs`, `*.playwright.{mjs,cjs}`, `playwright/*.mjs`, `tools/**/verify-*`) from the working tree and exits 1 listing any file absent from every RTM CodeRef (rule TR-1); it also enforces the ADR-to-requirement (AD-1) and requirement-to-view (VW-1) correspondence rules fail-closed after the ADR-0013 register reconciliation. | Run `node experiments/reqs-coverage/verify-correspondences.mjs`; gated in `verify-local-gates`. |
 | LBA-REQ-022 | The system shall generate the requirement traceability matrix from the governed requirement, test, and decision sources. | Hand-maintaining the requirement-to-view-to-decision-to-test cross-references invites drift, so deriving one matrix from the canonical SRS, RTM, architecture description, and ADR register keeps the traceability view honest and current by construction (ADR-0013 correspondence graph, Stage 3). | `generate-traceability.mjs` reads the requirement ids and titles from `docs/requirements/srs.md`, the status / TestID / CodeRef count from `docs/requirements/rtm.csv`, the addressing architecture view from `docs/architecture/overview.md`, and the decisions from the ADR index, then writes `docs/requirements/traceability-matrix.md`; `--check` exits non-zero when the committed matrix is stale. | Run `node experiments/reqs-coverage/generate-traceability.mjs --check`; gated by `traceability-matrix-current` in `verify-local-gates`. |
 | LBA-REQ-023 | The system shall gate each governed component release on an on-demand corroboration quorum in which a majority of independent witnesses across distinct environments agree on the release's deterministic anchors. | A single cleanroom is an unwitnessed single point of trust; requiring a majority of independent, distinct-environment witnesses to agree on the deterministic anchors raises release confidence and makes a drifted or forged witness detectable as a quorum divergence rather than a silent pass. | The Actor Corroboration Grid (ADR-0014) collects a signed receipt bundle from at least two of three heterogeneous witnesses (Codespace-Linux, VirtualBox-Linux, Windows) and passes only when a majority agree on the OS-independent anchors (viewer `seriesHash`, `lbabus` version + `sourceCommit`, gate-suite `verdict`); a sub-majority blocks the release and opens a divergence issue. | Recorded in ADR-0014; the quorum engine and its per-phase sub-requirements land design-first, each gated in `verify-local-gates` as delivered. |
+| LBA-REQ-024 | The system shall pass the release corroboration quorum only when a majority of participating witnesses agree on their applicable OS-independent anchors and the graded anchor-agreement fraction meets the configured threshold. | A single witness is an unwitnessed point of trust; grading agreement across a majority of heterogeneous witnesses tolerates one outage while still requiring genuine cross-environment corroboration (ADR-0015). | The quorum verdict is the fraction `matched / applicable` anchor dimensions under the tiered model; it passes on a >=2-of-3 majority meeting the threshold, and a sub-majority or below-threshold result blocks the release and opens a divergence issue naming the dissenting witness and anchor. | Recorded in ADR-0015; the quorum engine lands in Phase 2 and is gated in `verify-local-gates` as delivered. |
+| LBA-REQ-025 | The system shall block consumption of a release artifact until its corroboration attestation chain verifies. | An unattested or tampered artifact must not be installed on the strength of a verdict alone; verifying the signed chain before consumption closes that gap (ADR-0016). | Each witness signs its receipt bundle (sigstore keyless where an OIDC identity exists, an enrolled key otherwise); the aggregated verdict, the release artifacts, and the human sign-off are attested and stored on the Release, in the repo, in a transparency log, and on the mesh ledger; a standalone verify tool and the reviewer-workstation install both verify the chain before install. | Recorded in ADR-0016; the signing and verify tooling land in Phase 3 and are gated as delivered. |
+| LBA-REQ-026 | The system shall reject a corroboration quorum whose witnesses do not span distinct enrolled environments. | N identical nodes are not N independent witnesses; requiring distinct enrolled environments prevents one actor from forging agreement with look-alike witnesses (ADR-0017). | A valid quorum spans distinct enrolled environments; a non-enrolled witness or one that duplicates an already-counted environment does not count toward the majority, and each counted witness's identity is recorded in the provenance. | Recorded in ADR-0017; the enrollment and diversity checks land in Phase 3 and are gated as delivered. |
 
 ---
 
@@ -688,6 +691,62 @@ progressively.
   as each ships. Authored under the `repo-standards-review` singular-requirement
   directive (one `shall`).
 
+### LBA-REQ-024: Corroboration quorum + graded confidence
+
+- Status: Planned
+- Area: Assurance / release corroboration (ADR-0015)
+- Statement: The system shall pass the release corroboration quorum only when a majority
+  of participating witnesses agree on their applicable OS-independent anchors and the
+  graded anchor-agreement fraction meets the configured threshold.
+- Rationale: A single witness is an unwitnessed point of trust. Grading agreement across a
+  majority of heterogeneous witnesses tolerates one outage while still requiring genuine
+  cross-environment corroboration.
+- Acceptance Criteria:
+  - The verdict is the fraction `matched / applicable` anchor dimensions under the tiered
+    model (OS-independent anchors across all witnesses; Linux-only across the Linux subset).
+  - It passes on a >=2-of-3 majority meeting the threshold.
+  - A sub-majority or below-threshold result blocks the release and opens a divergence
+    issue naming the dissenting witness and anchor.
+- Change Guidance: Sub-requirement of LBA-REQ-023 (ADR-0015); flips to Proven when the
+  Phase-2 quorum engine ships. Authored under the `repo-standards-review`
+  singular-requirement directive (one `shall`).
+
+### LBA-REQ-025: Corroboration provenance + attestation
+
+- Status: Planned
+- Area: Assurance / supply-chain provenance (ADR-0016)
+- Statement: The system shall block consumption of a release artifact until its
+  corroboration attestation chain verifies.
+- Rationale: An unattested or tampered artifact must not be installed on the strength of a
+  verdict alone; verifying the signed chain before consumption closes that gap.
+- Acceptance Criteria:
+  - Each witness signs its receipt bundle (sigstore keyless where an OIDC identity exists,
+    an enrolled key otherwise); the verdict, artifacts, and human sign-off are attested.
+  - Provenance is stored on the Release, in the repo, in a transparency log, and on the
+    mesh ledger.
+  - A standalone verify tool and the reviewer-workstation install both verify the chain
+    before install.
+- Change Guidance: Sub-requirement of LBA-REQ-023 (ADR-0016); flips to Proven when the
+  Phase-3 signing/verify tooling ships. Authored under the `repo-standards-review`
+  singular-requirement directive (one `shall`).
+
+### LBA-REQ-026: Witness independence
+
+- Status: Planned
+- Area: Assurance / anti-forgery (ADR-0017)
+- Statement: The system shall reject a corroboration quorum whose witnesses do not span
+  distinct enrolled environments.
+- Rationale: N identical nodes are not N independent witnesses; requiring distinct enrolled
+  environments prevents one actor from forging agreement with look-alike witnesses.
+- Acceptance Criteria:
+  - A valid quorum spans distinct enrolled environments.
+  - A non-enrolled witness, or one that duplicates an already-counted environment, does not
+    count toward the majority.
+  - Each counted witness's identity is recorded in the provenance.
+- Change Guidance: Sub-requirement of LBA-REQ-023 (ADR-0017); flips to Proven when the
+  Phase-3 enrollment/diversity checks ship. Authored under the `repo-standards-review`
+  singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -717,3 +776,6 @@ progressively.
 | LBA-REQ-021 | Assurance (test-to-requirement correspondence) | T-021 |
 | LBA-REQ-022 | Assurance (generated traceability matrix) | T-022 |
 | LBA-REQ-023 | Corroboration grid (multi-witness release) | T-023 |
+| LBA-REQ-024 | Corroboration grid (quorum + confidence) | T-024 |
+| LBA-REQ-025 | Corroboration grid (provenance + attestation) | T-025 |
+| LBA-REQ-026 | Corroboration grid (witness independence) | T-026 |

@@ -22,6 +22,9 @@
 | [ADR-0012](ADR-0012-mcp-server-agent-tool-surface.md) | The benchmark actor exposes its tools to agents through a Model Context Protocol server | LINUX | Accepted | LBA-REQ-019 |
 | [ADR-0013](ADR-0013-enforced-42010-correspondence-graph.md) | Adopt an enforced ISO/IEC/IEEE 42010 correspondence graph as the traceability architecture | LINUX | Accepted | LBA-REQ-008, LBA-REQ-021, LBA-REQ-022 |
 | [ADR-0014](ADR-0014-actor-corroboration-grid.md) | Actor Corroboration Grid: multi-witness release corroboration | LINUX | Accepted | LBA-REQ-023 |
+| [ADR-0015](ADR-0015-corroboration-quorum-confidence.md) | Corroboration quorum + graded confidence | LINUX | Accepted | LBA-REQ-024 |
+| [ADR-0016](ADR-0016-provenance-attestation.md) | Provenance and attestation for the corroboration grid | LINUX | Accepted | LBA-REQ-025 |
+| [ADR-0017](ADR-0017-witness-independence.md) | Witness independence for the corroboration grid | LINUX | Accepted | LBA-REQ-026 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
-LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014). Add new ADRs by extending your own range.
+LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017). Add new ADRs by extending your own range.
