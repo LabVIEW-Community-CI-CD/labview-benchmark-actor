@@ -56,7 +56,7 @@ progressively.
 | LBA-REQ-026 | The system shall reject a corroboration quorum whose witnesses do not span distinct enrolled environments. | N identical nodes are not N independent witnesses; requiring distinct enrolled environments prevents one actor from forging agreement with look-alike witnesses (ADR-0017). | A valid quorum spans distinct enrolled environments; a non-enrolled witness or one that duplicates an already-counted environment does not count toward the majority, and each counted witness's identity is recorded in the provenance. | The witness-independence engine (`experiments/acg-independence/independence.mjs`, self-test 9/9) counts a witness only if its plane/os environment is enrolled, its identity is recorded, and it does not duplicate an already-counted environment; gated by `acg-independence-quorum`, and the committed live grid is independent with recorded identities, re-derived by `acg-independence-live`. |
 | LBA-REQ-027 | The system shall block a corroborated release from publishing until a recorded human sign-off accompanies the machine quorum verdict. | Machine corroboration establishes reproducibility, but a human still judges whether the result looks correct; requiring a recorded sign-off alongside the quorum keeps that judgment explicit and un-skippable (ADR-0018). | The human visual gate runs on either the Windows reviewer VM or a zero-install Linux browser codespace; a release publishes only when the machine quorum passes and the signed human sign-off is recorded, and the sign-off does not substitute for the quorum. | Recorded in ADR-0018; the sign-off capture lands in Phase 4 and is gated as delivered. |
 | LBA-REQ-028 | The system shall beacon each witness's corroboration verdict over the lbabus coordination mesh. | Verdicts already travel the bus via the gate-suite beacon, so collecting each witness's outcome over the existing mesh gives a live, distributed view without a new transport (ADR-0019). | Each witness joins the lbabus mesh and beacons its verdict (reusing the gate-suite verdict beacon and the mesh topology); a mesh ledger records the beaconed verdicts and feeds the provenance store. | The mesh verdict beacon (`experiments/acg-mesh/verdict-beacon.mjs`, self-test 8/8 incl. a real bus-msg@1 wire round-trip) builds a comms-only verdict NOTE + a tamper-evident MeshLedger and resolves beaconed witnesses to the quorum; gated by `acg-mesh-verdict-beacon`, with the live loopback proof (real {codespace, host} verdicts beaconed over 127.0.0.1 TCP -> ledger -> quorum pass) re-derived by `acg-mesh-loopback-evidence`. |
-| LBA-REQ-029 | The system shall expose the corroboration grid's operations to agents through the Model Context Protocol tool surface. | Agents already consume actor tools through the MCP server (ADR-0012), so exposing the grid's operations on the same surface lets an agent orchestrate corroboration directly rather than through bespoke commands (ADR-0020). | The ADR-0012 MCP surface gains grid tools (`spin_up_witness`, `run_quorum`, `get_confidence`, `verify_attestation`, `teardown`); the surface is designed now and implemented in a later phase. | Recorded in ADR-0020; the tool implementations land in Phase 4 and are gated as delivered. |
+| LBA-REQ-029 | The system shall expose the corroboration grid's operations to agents through the Model Context Protocol tool surface. | Agents already consume actor tools through the MCP server (ADR-0012), so exposing the grid's operations on the same surface lets an agent orchestrate corroboration directly rather than through bespoke commands (ADR-0020). | The ADR-0012 MCP surface gains grid tools (`spin_up_witness`, `run_quorum`, `get_confidence`, `verify_attestation`, `teardown`); the surface is designed now and implemented in a later phase. | The ACG MCP surface (`experiments/acg-mcp/grid-tools.mjs` + `server.mjs`) exposes the grid tools over the same dependency-free JSON-RPC 2.0 contract as the ADR-0012 server; run_quorum/get_confidence/verify_attestation/check_independence/assemble_witness compose the engines and spin_up_witness/teardown return provisioning plans. Self-test 10/10 incl. a spawned stdio round-trip (initialize/tools/list/tools/call), gated by `acg-mcp-grid-surface`. |
 | LBA-REQ-030 | The system shall require every non-release pull request to target the develop integration branch. | GitFlow makes develop the integration branch (ADR-0010), but stale main-based pull requests (#211 / #215 / #217) dumped integration content onto the release branch because no rule stated where feature work targets; codifying the base-branch rule prevents that class of error (ADR-0021). | Every non-release pull request targets develop; main receives only release/hotfix merges via a no-fast-forward merge; a pull request found on the wrong base is re-targeted or closed rather than merged. | The base-branch guard (`experiments/acg-governance/pr-base-branch-guard.mjs`, self-test 11/11) blocks any non-release head targeting main (develop and feature/authoring included), and the `.github/workflows/pr-base-branch-guard.yml` workflow enforces it on PRs targeting main; gated by `acg-governance-pr-base-branch` and `acg-governance-pr-base-branch-workflow-wired`. |
 
 ---
@@ -810,7 +810,7 @@ progressively.
 
 ### LBA-REQ-029: MCP orchestration surface
 
-- Status: Planned
+- Status: Proven
 - Area: Agentic infrastructure (ADR-0020, extends ADR-0012)
 - Statement: The system shall expose the corroboration grid's operations to agents through
   the Model Context Protocol tool surface.
@@ -821,9 +821,14 @@ progressively.
   - The ADR-0012 MCP surface gains grid tools: `spin_up_witness`, `run_quorum`,
     `get_confidence`, `verify_attestation`, `teardown`.
   - The surface is designed now and implemented in a later phase.
-- Change Guidance: Sub-requirement of LBA-REQ-023 (ADR-0020); flips to Proven when the Phase-4
-  tool implementations ship. Authored under the `repo-standards-review`
-  singular-requirement directive (one `shall`).
+- Change Guidance: Sub-requirement of LBA-REQ-023 (ADR-0020). DELIVERED as
+  `experiments/acg-mcp/grid-tools.mjs` + `server.mjs` -- the grid tools (`spin_up_witness`,
+  `run_quorum`, `get_confidence`, `verify_attestation`, `teardown`, plus `check_independence`
+  + `assemble_witness`) over the same dependency-free JSON-RPC 2.0 MCP contract as the ADR-0012
+  server, composing the engines; self-test 10/10 incl. a spawned stdio round-trip, gated by
+  `acg-mcp-grid-surface`. spin_up_witness/teardown return provisioning plans (live execution is
+  the operator step); folding the surface into the single extension server binary is a packaging
+  follow-up. Authored under the `repo-standards-review` singular-requirement directive (one `shall`).
 
 ### LBA-REQ-030: Pull requests target develop
 

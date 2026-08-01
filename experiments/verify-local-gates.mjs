@@ -611,6 +611,14 @@ check('acg-mesh-loopback-evidence', () => {
   return { quorum: out.quorum.verdict, resolved: out.resolved, ledgerHash: out.ledgerHash.slice(0, 12) };
 });
 
+// ACG MCP orchestration surface (ADR-0020, LBA-REQ-029): the grid tools must be discoverable + invocable over the
+// JSON-RPC 2.0 MCP contract (initialize / tools/list / tools/call) composing the engines, and the stdio server must
+// answer a real spawned round-trip -- run its dependency-free self-test as a subprocess.
+check('acg-mcp-grid-surface', () => {
+  execFileSync(process.execPath, [join(here, 'acg-mcp', 'grid-tools.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'grid-tools 10/10' };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
