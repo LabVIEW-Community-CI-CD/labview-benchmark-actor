@@ -219,6 +219,14 @@ check('adr-index-integrity', () => {
   return { adrFiles: files.length, indexed: linked.length };
 });
 
+// 6b. Test<->requirement correspondence (ISO/IEC/IEEE 42010 correspondence graph, ADR-0013): every governed
+//     test file corresponds to >=1 requirement (rule TR-1, fail-closed); the engine also prints the advisory
+//     ADR<->requirement (AD-1) and requirement<->view (VW-1) census. Fails iff a fail-closed rule is broken.
+check('test-requirement-correspondence', () => {
+  execFileSync(process.execPath, [join(here, 'reqs-coverage', 'verify-correspondences.mjs')], { stdio: 'pipe' });
+  return { engine: 'reqs-coverage/verify-correspondences.mjs' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
