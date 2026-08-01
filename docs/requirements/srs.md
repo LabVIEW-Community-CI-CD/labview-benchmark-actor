@@ -846,8 +846,12 @@ progressively.
   ADR-0022) over the same dependency-free JSON-RPC 2.0 MCP contract as the ADR-0012
   server, composing the engines; self-test 13/13 incl. a spawned stdio round-trip, gated by
   `acg-mcp-grid-surface`. spin_up_witness/teardown return provisioning plans (live execution is
-  the operator step); folding the surface into the single extension server binary is a packaging
-  follow-up. Authored under the `repo-standards-review` singular-requirement directive (one `shall`).
+  the operator step). The surface is now FOLDED into the single extension MCP server binary:
+  `scripts/stage-acg-mcp.mjs` bundles the grid-tools closure into `out/acg-mcp-bundle/` (shipped in the
+  `.vsix`), and `src/mcp/runBenchmarkActorMcpServer.ts` dynamically imports it so the one shipped server's
+  `tools/list` publishes all 13 tools (4 core + 9 grid); the folded stdio surface is asserted by the
+  `mcp-server` test and `docs/mcp-tools.md` is gated to 13 tools. Authored under the `repo-standards-review`
+  singular-requirement directive (one `shall`).
 
 ### LBA-REQ-030: Pull requests target develop
 
