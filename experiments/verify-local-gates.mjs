@@ -496,16 +496,17 @@ check('collab-cli-embeds-canonical-requirements', () => {
 });
 
 // 17c. GitFlow branch governance (LBA-REQ-016) is documented so the authoritative repo-standards-review CM
-//      gate stays PASS: the CM plan must state all three branch rules (the 9 GitFlow signals) and ADR-0010
-//      must record the decision. Dep-free static guard against governance regression.
+//      gate stays PASS: the CM plan must state all three branch rules (the 9 GitFlow signals), the merge
+//      method by branch type, and ADR-0010 must record the decision. Dep-free static guard against regression.
 check('gitflow-branch-governance-documented', () => {
   const cm = readFileSync(join(pkgRoot, 'docs', 'cm', 'cm-plan.md'), 'utf8');
   assert(/feature branches.*from\s+`?develop`?/i.test(cm) && /feature branches.*(into|target)\s+`?develop`?/i.test(cm), 'CM plan must state feature branches from + back into develop');
   assert(/release branches.*from\s+`?develop`?/i.test(cm) && /release branches.*(into|to)\s+`?main`?/i.test(cm) && /release branches.*(into|to)\s+`?develop`?/i.test(cm), 'CM plan must state release branches from develop to main + develop');
   assert(/delete .*release.*(after|until).*(both|required) merges complete/i.test(cm), 'CM plan must state release-branch deletion after both merges complete');
   assert(/hotfix branches.*from\s+`?main`?/i.test(cm) && /hotfix branches.*(into|to)\s+`?main`?/i.test(cm), 'CM plan must state hotfix branches from + into main');
+  assert(/merge method/i.test(cm) && /squash/i.test(cm) && /--no-ff|merge commit/i.test(cm), 'CM plan must document the merge method by branch type (squash for feature; --no-ff merge commit for release/hotfix back-merges)');
   assert(existsSync(join(pkgRoot, 'docs', 'architecture', 'adr', 'ADR-0010-gitflow-branch-governance.md')), 'ADR-0010 must record the GitFlow decision');
-  return { rules: ['feature', 'release', 'hotfix'], adr: 'ADR-0010' };
+  return { rules: ['feature', 'release', 'hotfix', 'merge-method'], adr: 'ADR-0010' };
 });
 
 // 17d. Coverage gate (LBA-REQ-016 CM / ISO-IEC-IEEE 29119): the committed Cobertura coverage artifact meets
