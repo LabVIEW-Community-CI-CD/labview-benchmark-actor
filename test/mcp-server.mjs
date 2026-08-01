@@ -88,6 +88,17 @@ assert(badArg.error && badArg.error.code === -32602, 'missing required arg -> -3
 const unknownMethod = await core.handleBenchmarkActorMcpMessage({ id: 6, method: 'foo/bar' }, deps);
 assert(unknownMethod.error && unknownMethod.error.code === -32601, 'unknown method -> -32601 method not found');
 
+// A genuine tool-execution fault (a dep that THROWS a non-argument error) is NOT masked as -32602: it
+// propagates out of the handler so the transport layer logs it, rather than being silently swallowed.
+const throwingDeps = { ...deps, getHostCapabilities: async () => { throw new Error('tool exploded'); } };
+let rethrew = null;
+try {
+  await core.handleBenchmarkActorMcpMessage({ id: 60, method: 'tools/call', params: { name: 'get_host_capabilities' } }, throwingDeps);
+} catch (e) {
+  rethrew = e;
+}
+assert(rethrew instanceof Error && /tool exploded/.test(rethrew.message), 'a non-argument tool failure propagates (rethrown), not masked as an invalid-params error');
+
 // Remaining handler branches, all via the INJECTED fake deps (deterministic, no real CLI, no side effects):
 const ping = await core.handleBenchmarkActorMcpMessage({ id: 7, method: 'ping' }, deps);
 assert(ping.result && typeof ping.result === 'object', 'ping -> empty success result');
@@ -285,6 +296,94 @@ await new Promise((resolve, reject) => {
   send({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get_host_capabilities' } });
 });
 console.log('mcp-stdio: PASS -- spawned server round-trips initialize + tools/list + tools/call over stdio');
+
+// ---- 3b. STDIO lifecycle: the poll + post coordination-bus tools exercise the runLbabus arrows, and a FINAL
+//          line WITHOUT a trailing newline proves the stream-end leftover-buffer flush. lbabus is deliberately
+//          off-PATH so `post` degrades to a soft ENOENT and NEVER writes to the live coordination bus. ----
+await new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [serverPath], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, PATH: '/nonexistent-lba-path' }
+  });
+  let buf = '';
+  let ended = false;
+  const got = new Map();
+  const timer = setTimeout(() => {
+    child.kill();
+    reject(new Error('stdio lifecycle timed out'));
+  }, 15000);
+
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => {
+    buf += chunk;
+    let i = buf.indexOf('\n');
+    while (i >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (line) {
+        const m = JSON.parse(line);
+        if (m.id !== undefined && m.id !== null) got.set(m.id, m);
+      }
+      i = buf.indexOf('\n');
+    }
+    if (got.has(20) && got.has(21) && !ended) {
+      // poll(20) + post(21) answered; end the stream to flush the trailing no-newline line 22.
+      ended = true;
+      child.stdin.end();
+      return;
+    }
+    if (!got.has(22)) return;
+    clearTimeout(timer);
+    try {
+      assert(
+        got.get(20).result && Array.isArray(got.get(20).result.content),
+        '[stdio-life] poll_coordination_bus returns a content result (runLbabus soft ENOENT off-PATH)'
+      );
+      assert(
+        got.get(21).result && Array.isArray(got.get(21).result.content),
+        '[stdio-life] post_coordination_note returns a content result (soft ENOENT -- never touches the live bus)'
+      );
+      assert(
+        got.get(22).result && got.get(22).result.protocolVersion === '2025-06-18',
+        '[stdio-life] a final line WITHOUT a trailing newline is still dispatched on stream end (leftover-buffer flush)'
+      );
+    } catch (e) {
+      child.kill();
+      reject(e);
+      return;
+    }
+    child.on('close', () => resolve());
+  });
+  child.stderr.on('data', () => {}); // ready banner + diagnostics; ignore
+  child.on('error', reject);
+
+  const send = (o) => child.stdin.write(`${JSON.stringify(o)}\n`);
+  send({ jsonrpc: '2.0', id: 20, method: 'tools/call', params: { name: 'poll_coordination_bus', arguments: { tail: 3 } } });
+  send({ jsonrpc: '2.0', id: 21, method: 'tools/call', params: { name: 'post_coordination_note', arguments: { message: 'lifecycle probe (off-PATH, discarded)' } } });
+  child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 22, method: 'initialize' })); // NO trailing newline -> flushed on end
+});
+console.log('mcp-stdio-life: PASS -- poll/post coordination-bus arrows + stream-end leftover-buffer flush');
+
+// ---- 3c. CORRUPT/RELOCATED install fault paths, unit-driven in-process on the REAL entrypoint module so the
+//          graceful-degradation branches are proven (and instrumented): a missing package.json makes
+//          readServerVersion fall back to 'unknown', and a missing bundled series makes getBenchmarkSeries a
+//          soft isError. errorText folds non-Error throwables to a string. ----
+const server = require(serverPath);
+assert(
+  server.readServerVersion('/nonexistent-lba-root') === 'unknown',
+  'readServerVersion falls back to "unknown" when package.json is unreadable'
+);
+assert(server.readServerVersion().length > 0, 'readServerVersion reads the real bundled version by default');
+const seriesFault = await server.getBenchmarkSeries('/nonexistent-lba-root');
+assert(
+  seriesFault.isError === true && /unavailable/i.test(seriesFault.content[0].text),
+  `getBenchmarkSeries degrades to a soft isError when the bundled series is missing, got: ${JSON.stringify(seriesFault)}`
+);
+const seriesOk = await server.getBenchmarkSeries();
+assert(!seriesOk.isError && /benchmark-series@v1/.test(seriesOk.content[0].text), 'getBenchmarkSeries reads the real bundled series by default');
+assert(server.errorText('a bare string') === 'a bare string', 'errorText passes a non-Error throwable through as a string');
+assert(server.errorText(new Error('boom')) === 'boom', 'errorText unwraps an Error to its message');
+console.log('mcp-stdio-corrupt: PASS -- version=unknown fallback + soft series isError + errorText folding (graceful)');
 
 // ---- 4. STDIO with lbabus ABSENT (broken PATH): get_host_capabilities degrades to a SOFT ENOENT isError,
 //         not a transport crash -- the graceful-degradation path for an agent on a host without lbabus. ----

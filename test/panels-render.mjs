@@ -254,6 +254,12 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(withMs.fps === 24, 'a valid fps is kept');
   assert(withMs.frames[0].cpuPct === 30 && withMs.frames[1].cpuPct === 40, `each frame takes its nearest-in-time sample (NaN-ms sample filtered), got ${withMs.frames[0].cpuPct}/${withMs.frames[1].cpuPct}`);
   assert(withMs.frames[0].tMs === 0 && withMs.frames[1].tMs === 100, 'tMs is measured from t0');
+
+  // D. an empty (or absent) frames[] fails closed -- buildLaunchCapture refuses to assemble a record with no
+  //    captured frame rather than emitting a degenerate one.
+  let emptyThrew = false;
+  try { buildLaunchCapture({ frames: [] }); } catch { emptyThrew = true; }
+  assert(emptyThrew, 'buildLaunchCapture throws on an empty frames[] (a capture with no frame is not assembled)');
 }
 
 // --- 4. DEGENERATE / ALTERNATIVE branch fixtures: prove the builders render their FALLBACK markup for the

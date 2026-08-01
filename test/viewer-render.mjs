@@ -116,6 +116,23 @@ svg.dispatchEvent(new window.MouseEvent('pointerup', { clientX: 400, bubbles: tr
 key('Home');
 assert(/sample 1\/8\b/.test(readout()), 'the viewer survives a releasePointerCapture failure on pointerup and still responds to keys');
 
+// 4d: pointerdown capture is BEST-EFFORT too -- if setPointerCapture throws, the pointerdown handler swallows
+//     it (the try/catch around the capture acquire) and STILL selects, so the viewer works where the host DOM
+//     lacks pointer capture.
+svg.setPointerCapture = () => { throw new Error('pointer capture unsupported'); };
+svg.dispatchEvent(new window.MouseEvent('pointerdown', { clientX: 780, bubbles: true }));
+assert(/sample 8\/8\b/.test(readout()), 'the viewer survives a setPointerCapture failure on pointerdown and still selects');
+svg.setPointerCapture = () => {};
+
+// 4e: the shipped viewerCursor core fails CLOSED on malformed host input (its assert guard) -- an empty axis, a
+//     non-monotonic axis, and an unknown jump target all throw rather than silently selecting out of bounds.
+const vc = await import(pathToFileURL(join(here, '..', 'media', 'viewerCursor.mjs')).href);
+let cursorGuardThrows = 0;
+for (const bad of [() => vc.createCursor([]), () => vc.createCursor([5, 3, 4]), () => vc.jump(vc.createCursor([0, 1]), 'middle')]) {
+  try { bad(); } catch { cursorGuardThrows += 1; }
+}
+assert(cursorGuardThrows === 3, 'viewerCursor rejects an empty axis, a non-monotonic axis, and an unknown jump target (fails closed)');
+
 // 5: MPR counter feature (opt-in) -- with a #lba-mpr-counter present, the viewer ticks a monotonic plain-digit
 //    counter (the exact known-digit-reader glyphs) into it and posts each {counter,caseId} to the host as the
 //    deterministic-record correlation ground truth. Invoke the captured interval callback to tick it.
