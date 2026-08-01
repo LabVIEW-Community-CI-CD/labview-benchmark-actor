@@ -423,13 +423,17 @@ check('cleanroom-bootstrap-is-winget-free', () => {
 // the copy the VM emits via the provision-lbabus-fromsource.sh `<<'GATESH'` heredoc -- one source of truth,
 // fail-closed on drift (so the VM path and the codespace witness cannot diverge without CI catching it).
 check('cleanroom-gate-suite-shared-in-sync', () => {
-  const prov = readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'provision-lbabus-fromsource.sh'), 'utf8');
+  // Line-ending-tolerant: git may check these out CRLF on Windows, which is a checkout artifact, not real
+  // drift -- normalize to LF before parsing the heredoc markers + comparing (the identity that matters is
+  // content, not the EOL). Without this, a trailing `\r` breaks the `<<'GATESH'` / `GATESH` line matches.
+  const norm = (s) => s.replace(/\r\n/g, '\n');
+  const prov = norm(readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'provision-lbabus-fromsource.sh'), 'utf8'));
   const lines = prov.split('\n');
   const start = lines.findIndex((l) => l.endsWith("<<'GATESH'"));
   const end = lines.findIndex((l, i) => i > start && l === 'GATESH');
   assert(start >= 0 && end > start, 'the GATESH heredoc must be present in provision-lbabus-fromsource.sh');
   const heredocBody = lines.slice(start + 1, end).join('\n') + '\n';
-  const shared = readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'lba', 'gate-suite.sh'), 'utf8');
+  const shared = norm(readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'lba', 'gate-suite.sh'), 'utf8'));
   assert(shared === heredocBody, 'cleanroom/ubuntu-labview/lba/gate-suite.sh drifted from the VM GATESH heredoc body');
   return { bodyLines: end - start - 1 };
 });
