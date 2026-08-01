@@ -1,0 +1,14 @@
+{
+  "schema": "labview-benchmark-actor/acg-witness-attestation-v1",
+  "subject": {
+    "digest": "537517089da19fa2e85d447bf3313b4fc3d0618586fe6af6b62034fa80f38764",
+    "plane": "CODESPACE",
+    "os": "linux",
+    "sourceCommit": "4df41092d2682379ec4c0ba2ed58246066788315"
+  },
+  "witnessIdentity": "acg-witness:codespace",
+  "algorithm": "ed25519",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAuPNswvpQO4N0ZhOrHLigg4KW2+YpIehvA+2/PYyCPko=\n-----END PUBLIC KEY-----\n",
+  "signature": "bFudAdM42xYe8vkEPWAj553Ji/p2NKKz/07ZXKyog9tCAgmnD8K3MijvefZ2g0PlTXjJXk3yfayNw61sws0UBw==",
+  "signedAt": "2026-08-01T10:48:36.994Z"
+}
