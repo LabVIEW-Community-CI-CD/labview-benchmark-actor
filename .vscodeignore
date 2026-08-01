@@ -26,3 +26,6 @@ package-lock.json
 *.vsix
 AGENT-TOOLING-SNAGS.md
 playwright/**
+coverage/**
+.c8rc.json
+coverage-thresholds.json
