@@ -25,6 +25,10 @@
 | [ADR-0015](ADR-0015-corroboration-quorum-confidence.md) | Corroboration quorum + graded confidence | LINUX | Accepted | LBA-REQ-024 |
 | [ADR-0016](ADR-0016-provenance-attestation.md) | Provenance and attestation for the corroboration grid | LINUX | Accepted | LBA-REQ-025 |
 | [ADR-0017](ADR-0017-witness-independence.md) | Witness independence for the corroboration grid | LINUX | Accepted | LBA-REQ-026 |
+| [ADR-0018](ADR-0018-reviewer-station.md) | Reviewer station for the corroboration grid | LINUX | Accepted | LBA-REQ-027 |
+| [ADR-0019](ADR-0019-mesh-integration.md) | Mesh integration for the corroboration grid | LINUX | Accepted | LBA-REQ-028 |
+| [ADR-0020](ADR-0020-mcp-orchestration-surface.md) | MCP orchestration surface for the corroboration grid | LINUX | Accepted | LBA-REQ-029 |
+| [ADR-0021](ADR-0021-pull-requests-target-develop.md) | Pull requests target develop, not main | LINUX | Accepted | LBA-REQ-030 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
-LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017). Add new ADRs by extending your own range.
+LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021). Add new ADRs by extending your own range.

@@ -54,6 +54,10 @@ progressively.
 | LBA-REQ-024 | The system shall pass the release corroboration quorum only when a majority of participating witnesses agree on their applicable OS-independent anchors and the graded anchor-agreement fraction meets the configured threshold. | A single witness is an unwitnessed point of trust; grading agreement across a majority of heterogeneous witnesses tolerates one outage while still requiring genuine cross-environment corroboration (ADR-0015). | The quorum verdict is the fraction `matched / applicable` anchor dimensions under the tiered model; it passes on a >=2-of-3 majority meeting the threshold, and a sub-majority or below-threshold result blocks the release and opens a divergence issue naming the dissenting witness and anchor. | Recorded in ADR-0015; the quorum engine lands in Phase 2 and is gated in `verify-local-gates` as delivered. |
 | LBA-REQ-025 | The system shall block consumption of a release artifact until its corroboration attestation chain verifies. | An unattested or tampered artifact must not be installed on the strength of a verdict alone; verifying the signed chain before consumption closes that gap (ADR-0016). | Each witness signs its receipt bundle (sigstore keyless where an OIDC identity exists, an enrolled key otherwise); the aggregated verdict, the release artifacts, and the human sign-off are attested and stored on the Release, in the repo, in a transparency log, and on the mesh ledger; a standalone verify tool and the reviewer-workstation install both verify the chain before install. | Recorded in ADR-0016; the signing and verify tooling land in Phase 3 and are gated as delivered. |
 | LBA-REQ-026 | The system shall reject a corroboration quorum whose witnesses do not span distinct enrolled environments. | N identical nodes are not N independent witnesses; requiring distinct enrolled environments prevents one actor from forging agreement with look-alike witnesses (ADR-0017). | A valid quorum spans distinct enrolled environments; a non-enrolled witness or one that duplicates an already-counted environment does not count toward the majority, and each counted witness's identity is recorded in the provenance. | Recorded in ADR-0017; the enrollment and diversity checks land in Phase 3 and are gated as delivered. |
+| LBA-REQ-027 | The system shall block a corroborated release from publishing until a recorded human sign-off accompanies the machine quorum verdict. | Machine corroboration establishes reproducibility, but a human still judges whether the result looks correct; requiring a recorded sign-off alongside the quorum keeps that judgment explicit and un-skippable (ADR-0018). | The human visual gate runs on either the Windows reviewer VM or a zero-install Linux browser codespace; a release publishes only when the machine quorum passes and the signed human sign-off is recorded, and the sign-off does not substitute for the quorum. | Recorded in ADR-0018; the sign-off capture lands in Phase 4 and is gated as delivered. |
+| LBA-REQ-028 | The system shall beacon each witness's corroboration verdict over the lbabus coordination mesh. | Verdicts already travel the bus via the gate-suite beacon, so collecting each witness's outcome over the existing mesh gives a live, distributed view without a new transport (ADR-0019). | Each witness joins the lbabus mesh and beacons its verdict (reusing the gate-suite verdict beacon and the mesh topology); a mesh ledger records the beaconed verdicts and feeds the provenance store. | Recorded in ADR-0019; the mesh beacon and ledger land in Phase 4 and are gated as delivered. |
+| LBA-REQ-029 | The system shall expose the corroboration grid's operations to agents through the Model Context Protocol tool surface. | Agents already consume actor tools through the MCP server (ADR-0012), so exposing the grid's operations on the same surface lets an agent orchestrate corroboration directly rather than through bespoke commands (ADR-0020). | The ADR-0012 MCP surface gains grid tools (`spin_up_witness`, `run_quorum`, `get_confidence`, `verify_attestation`, `teardown`); the surface is designed now and implemented in a later phase. | Recorded in ADR-0020; the tool implementations land in Phase 4 and are gated as delivered. |
+| LBA-REQ-030 | The system shall require every non-release pull request to target the develop integration branch. | GitFlow makes develop the integration branch (ADR-0010), but stale main-based pull requests (#211 / #215 / #217) dumped integration content onto the release branch because no rule stated where feature work targets; codifying the base-branch rule prevents that class of error (ADR-0021). | Every non-release pull request targets develop; main receives only release/hotfix merges via a no-fast-forward merge; a pull request found on the wrong base is re-targeted or closed rather than merged. | Recorded in ADR-0021; the base-branch rule is documented governance and its automated check is future work. |
 
 ---
 
@@ -747,6 +751,77 @@ progressively.
   Phase-3 enrollment/diversity checks ship. Authored under the `repo-standards-review`
   singular-requirement directive (one `shall`).
 
+### LBA-REQ-027: Reviewer station + human sign-off
+
+- Status: Planned
+- Area: Assurance / human-in-the-loop (ADR-0018)
+- Statement: The system shall block a corroborated release from publishing until a recorded
+  human sign-off accompanies the machine quorum verdict.
+- Rationale: Machine corroboration establishes reproducibility, but a human still judges
+  whether the result looks correct; requiring a recorded sign-off alongside the quorum keeps
+  that judgment explicit and un-skippable.
+- Acceptance Criteria:
+  - The human visual gate runs on either the Windows reviewer VM or a zero-install Linux
+    browser codespace (reviewer's choice).
+  - A release publishes only when the machine quorum passes and the signed human sign-off is
+    recorded; the sign-off does not substitute for the quorum.
+  - Single reviewer now; architected for a multi-reviewer human quorum later.
+- Change Guidance: Sub-requirement of LBA-REQ-023 (ADR-0018); flips to Proven when the
+  Phase-4 sign-off capture ships. Authored under the `repo-standards-review`
+  singular-requirement directive (one `shall`).
+
+### LBA-REQ-028: Mesh verdict beacon
+
+- Status: Planned
+- Area: Assurance / distributed collection (ADR-0019)
+- Statement: The system shall beacon each witness's corroboration verdict over the lbabus
+  coordination mesh.
+- Rationale: Verdicts already travel the bus via the gate-suite beacon; collecting each
+  witness's outcome over the existing mesh gives a live, distributed view without a new
+  transport.
+- Acceptance Criteria:
+  - Each witness joins the lbabus mesh and beacons its verdict (reusing the gate-suite verdict
+    beacon and the mesh topology).
+  - A mesh ledger records the beaconed verdicts and feeds the provenance store (ADR-0016).
+  - No new transport: the mesh reuses the ADR-0003 coordination-bus wire format.
+- Change Guidance: Sub-requirement of LBA-REQ-023 (ADR-0019); flips to Proven when the Phase-4
+  mesh beacon and ledger ship. Authored under the `repo-standards-review`
+  singular-requirement directive (one `shall`).
+
+### LBA-REQ-029: MCP orchestration surface
+
+- Status: Planned
+- Area: Agentic infrastructure (ADR-0020, extends ADR-0012)
+- Statement: The system shall expose the corroboration grid's operations to agents through
+  the Model Context Protocol tool surface.
+- Rationale: Agents already consume actor tools through the MCP server (ADR-0012); exposing
+  the grid's operations on the same surface lets an agent orchestrate corroboration directly
+  rather than through bespoke commands.
+- Acceptance Criteria:
+  - The ADR-0012 MCP surface gains grid tools: `spin_up_witness`, `run_quorum`,
+    `get_confidence`, `verify_attestation`, `teardown`.
+  - The surface is designed now and implemented in a later phase.
+- Change Guidance: Sub-requirement of LBA-REQ-023 (ADR-0020); flips to Proven when the Phase-4
+  tool implementations ship. Authored under the `repo-standards-review`
+  singular-requirement directive (one `shall`).
+
+### LBA-REQ-030: Pull requests target develop
+
+- Status: Planned
+- Area: Configuration management / branch governance (ADR-0021, refines ADR-0010)
+- Statement: The system shall require every non-release pull request to target the develop
+  integration branch.
+- Rationale: GitFlow makes develop the integration branch (ADR-0010), but stale main-based
+  pull requests (#211 / #215 / #217) dumped integration content onto the release branch
+  because no rule stated where feature work targets.
+- Acceptance Criteria:
+  - Every non-release pull request targets develop.
+  - Main receives only release/hotfix merges via a no-fast-forward merge.
+  - A pull request found on the wrong base is re-targeted or closed rather than merged.
+- Change Guidance: Refines ADR-0010 (ADR-0021); flips to Proven when an automated PR-base
+  check ships. Authored under the `repo-standards-review` singular-requirement directive
+  (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -779,3 +854,7 @@ progressively.
 | LBA-REQ-024 | Corroboration grid (quorum + confidence) | T-024 |
 | LBA-REQ-025 | Corroboration grid (provenance + attestation) | T-025 |
 | LBA-REQ-026 | Corroboration grid (witness independence) | T-026 |
+| LBA-REQ-027 | Corroboration grid (reviewer + sign-off) | T-027 |
+| LBA-REQ-028 | Corroboration grid (mesh verdict beacon) | T-028 |
+| LBA-REQ-029 | Agentic infra (MCP grid surface) | T-029 |
+| LBA-REQ-030 | CM (PRs target develop) | T-030 |
