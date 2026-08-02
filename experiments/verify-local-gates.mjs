@@ -449,6 +449,18 @@ check('cross-plane-benchmark-grid', () => {
   return { standard: 'ADR-0031 cross-plane comparison (roadmap Phase 4)', selftest: 'verify-benchmark-grid 7/7 (2 benchmarks cross-plane-proven, fail-closed on determinism violation)' };
 });
 
+// 6v2. Benchmark Observatory (LBA-REQ-054, realizes ADR-0034): the suite-wide map ABOVE the grid -- it folds
+//      EVERY committed benchmark receipt (VI Analyzer, Mass Compile host+VM+Windows, the 2-actor icon-editor
+//      PPL build + LUnit test) into one benchmark-type x plane COVERAGE MATRIX, keeps the determinism ledger
+//      (identity must agree across a benchmark's planes), and exposes the empty cells as a data-driven
+//      frontier. The committed docs/benchmarks/benchmark-observatory.md surface is regenerated in the
+//      pipeline; this gate fails closed on a determinism VIOLATION, a coverage matrix that contradicts the
+//      receipts, a stale surface, a forged verdict, or a tampered digest.
+check('benchmark-observatory', () => {
+  execFileSync(process.execPath, [join(here, 'benchmark-observatory', 'verify-benchmark-observatory.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0034 benchmark observatory (roadmap Phase 2)', selftest: 'verify-benchmark-observatory 8/8 (4 benchmark types x 5 planes, 2 cross-plane-proven, fail-closed on determinism violation + matrix contradiction)' };
+});
+
 // 6w. First Win -- personal golden-VM onboarding umbrella (LBA-REQ-033, realizes ADR-0023 Phase 1): the
 //     roadmap's one-command First Win is COVERED by composing its already-Proven slices into the `lba init`
 //     flow -- provision Ubuntu 24.04 + LabVIEW CE + VIPM, hybrid activation, headless activation-receipt@1,
