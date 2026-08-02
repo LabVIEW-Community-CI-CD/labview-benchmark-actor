@@ -449,6 +449,17 @@ check('cross-plane-benchmark-grid', () => {
   return { standard: 'ADR-0031 cross-plane comparison (roadmap Phase 4)', selftest: 'verify-benchmark-grid 7/7 (2 benchmarks cross-plane-proven, fail-closed on determinism violation)' };
 });
 
+// 6w. First Win -- personal golden-VM onboarding umbrella (LBA-REQ-033, realizes ADR-0023 Phase 1): the
+//     roadmap's one-command First Win is COVERED by composing its already-Proven slices into the `lba init`
+//     flow -- provision Ubuntu 24.04 + LabVIEW CE + VIPM, hybrid activation, headless activation-receipt@1,
+//     then mint + register as a mesh actor. This gate proves every flow step resolves to a committed, gated
+//     realization and that activation was confirmed live on lba-golden; fail-closed on a missing realization,
+//     an unconfirmed activation, a forged completeness verdict, or a tampered digest.
+check('first-win-onboarding', () => {
+  execFileSync(process.execPath, [join(here, 'first-win', 'verify-first-win-onboarding.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (First Win)', selftest: 'verify-first-win-onboarding 7/7 (6-step lba init flow composed of Proven slices, activation confirmed live)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
