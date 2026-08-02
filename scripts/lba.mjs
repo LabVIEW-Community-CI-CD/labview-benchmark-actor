@@ -142,10 +142,12 @@ const SELFTEST = [
   ['next ADR id is well-formed and unused', () => /^ADR-\d{4}$/.test(nextAdrId()) && !existsSync(join(repoRoot, 'docs/architecture/adr', `${nextAdrId()}.md`))],
   ['govern-check confirms a modern fully-governed requirement across all surfaces', () => governCheck('LBA-REQ-034').ok],
   ['govern-check fails closed for a non-existent requirement', () => governCheck('LBA-REQ-999').ok === false],
-  ['partition splits every self-test into N disjoint shards that cover the workload', () => {
-    const tasks = execFileSync('rg', ['--files', 'experiments'], { cwd: repoRoot, encoding: 'utf8' }).split(/\r?\n/).filter((l) => /\.selftest\.mjs$/.test(l));
-    const shards = capacityWeightedPartition(tasks, Array.from({ length: 3 }, () => ({ weight: 1 })));
-    return new Set(shards.flat()).size === new Set(tasks).size && shards.reduce((a, s) => a + s.length, 0) === tasks.length;
+  ['capacity-weighted partition splits a task set disjointly, covers it, and honours weight', () => {
+    // rg-free (CI runners have no ripgrep): a synthetic task set exercises the pure partitioner.
+    const tasks = Array.from({ length: 20 }, (_, i) => `t${i}`);
+    const shards = capacityWeightedPartition(tasks, [{ weight: 3 }, { weight: 1 }]);
+    const covered = new Set(shards.flat()).size === tasks.length && shards.reduce((a, s) => a + s.length, 0) === tasks.length;
+    return covered && shards.length === 2 && shards[0].length > shards[1].length; // higher weight -> more tasks
   }],
 ];
 function runSelftest() {
