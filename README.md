@@ -9,7 +9,7 @@
 > was written to.
 >
 > **Roadmap:** the multi-year vision + near-term slice — the personal golden-VM
-> onboarding — live in [docs/roadmap.md](docs/roadmap.md).
+> onboarding — live in `docs/roadmap.md`.
 
 ## Purpose
 
