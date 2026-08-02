@@ -1,0 +1,17 @@
+{
+  "schema": "labview-benchmark-actor/activation-capture@1",
+  "probeVi": "/usr/local/natinst/share/nilvcli/Examples/AddTwoNumbers/AddTwoNumbers.vi",
+  "labviewPath": "/usr/local/natinst/LabVIEW-2026-64/labview",
+  "inputs": [
+    20,
+    22
+  ],
+  "expectedOutput": 42,
+  "exitCode": 0,
+  "wallMs": 710,
+  "output": "Warning:  XOpenIM failed;  no input method will be available.\nLabVIEWCLI started logging in file:  /tmp/lvtemporary_133942.log\nUsing LabVIEW: \"/usr/local/natinst/LabVIEW-2026-64/labview\"\nConnection established with LabVIEW at port number 3363.\n\nOperation output: \n42\nRunVI operation succeeded.",
+  "host": {
+    "os": "linux",
+    "hostname": "sergio-ThinkPad-P16-Gen-3"
+  }
+}

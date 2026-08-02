@@ -1,0 +1,27 @@
+{
+  "schema": "labview-benchmark-actor/activation-receipt@1",
+  "probe": {
+    "operation": "LabVIEWCLI -OperationName RunVI",
+    "viName": "AddTwoNumbers.vi",
+    "inputs": [
+      20,
+      22
+    ],
+    "expectedOutput": 42,
+    "knownAnswer": true
+  },
+  "result": {
+    "exitCode": 0,
+    "operationSucceeded": true,
+    "parsedOutput": 42
+  },
+  "host": {
+    "os": "linux",
+    "labviewVersion": "2026"
+  },
+  "verdict": {
+    "activated": true,
+    "reason": "RunVI executed the known-answer probe AddTwoNumbers.vi (20 + 22) and returned 42 with exit 0"
+  },
+  "digest": "60f878483fc25194c568586ff30dace87dcc9da6e384a14ec72fade62c2ea50c"
+}

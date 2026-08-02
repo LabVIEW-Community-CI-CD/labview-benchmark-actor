@@ -310,6 +310,16 @@ check('continuous-compliance-self-audit', () => {
   return { standard: 'repo-standards-review five-lens rubric', selftest: 'verify-compliance-posture 4/4 (25/25 conformant + fail-closed)' };
 });
 
+// 6i. LabVIEW activation confirmation (LBA-REQ-038, realizes ADR-0023 Phase 1): the first delivered slice of
+//     personal golden-VM onboarding. A headless KNOWN-ANSWER probe VI (LabVIEWCLI RunVI on the shipped
+//     AddTwoNumbers.vi) must return the expected sum for the install to count as activated; the committed
+//     REAL capture deterministically rebuilds the receipt offline (no LabVIEW in CI) and the confirmation
+//     FAILS CLOSED on a non-zero exit, a wrong value, a missing success line, or a tampered receipt.
+check('activation-receipt-confirms-activation', () => {
+  execFileSync(process.execPath, [join(here, 'activation', 'buildActivationReceipt.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1', selftest: 'buildActivationReceipt 5/5 (real replay + fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

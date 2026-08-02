@@ -65,6 +65,7 @@ progressively.
 | LBA-REQ-035 | The system shall generate the test report and configuration status-accounting record from the verification apparatus, so a fail-closed gate blocks the build when the committed record drifts from the gates, correspondence rules, requirements, and decisions it accounts for. | A deeper clause-level standards audit found the repo kept a test *plan* but no executed test *report* (ISO/IEC/IEEE 29119-3) and no *configuration status-accounting* record (ISO 10007); outcomes and controlled state were never governed information items. Generating them from the very apparatus CI enforces keeps them current by construction (ADR-0025). | `generate-test-report.mjs` derives the 29119-2 completion criteria, the fail-closed gate inventory, the correspondence rules, the coverage floors, and the requirement / ADR / test-item status accounting into `docs/testing/test-report.md`; `--check` fails closed on drift. | Run `node experiments/reqs-coverage/generate-test-report.selftest.mjs` (4/4); gated by `test-report-current` in `verify-local-gates`. |
 | LBA-REQ-036 | The system shall keep the ISO/IEC/IEEE 15289 release procedure resolvable and invariant-complete, so a fail-closed gate blocks the build when the procedure cites a workflow or script that does not resolve or omits a required release invariant. | A deeper clause-level audit found the repo had a 12207 move/transition procedure but no *release* procedure information item; the signed, corroborated release flow was scattered across the CM plan's branch governance and the corroboration-grid requirements. A procedure that could silently cite a renamed workflow would mislead a releaser, so it is gated to stay resolvable by construction (ADR-0026). | `docs/release/release-procedure.md` gives the step-by-step signed, corroborated release; `verify-release-procedure.mjs` asserts every cited workflow/script/action path resolves and every required release invariant is named, failing closed otherwise. | Run `node experiments/release/verify-release-procedure.selftest.mjs` (3/3); gated by `release-procedure-references-resolve` in `verify-local-gates`. |
 | LBA-REQ-037 | The system shall self-audit its five-lens standards posture at clause-evidence granularity, so a fail-closed gate blocks the build when any lens drops below its target score or a required information item, wired gate, or clause anchor is missing. | The standards audit's meta-finding (F4) was that non-gated conformance is where standards drift silently, and the coarse 25/25 was a point-in-time score rather than a continuously-verified guarantee. A generated, fail-closed self-audit that re-scores the repo against the repo-standards-review five-lens rubric on every change makes full compliance corroborated by construction (ADR-0027). | `verify-compliance-posture.mjs` encodes each lens's level-5 clause-evidence (real information items + wired gates + clause anchors) and scores REQ/ARCH/TEST/CM/DOC into `docs/compliance/compliance-posture.md`; `--check` fails closed below 25/25 or on scorecard drift. | Run `node experiments/compliance/verify-compliance-posture.selftest.mjs` (4/4); gated by `continuous-compliance-self-audit` in `verify-local-gates`. |
+| LBA-REQ-038 | The system shall confirm LabVIEW activation with a headless known-answer probe VI, so a fail-closed gate refuses an install whose activation receipt does not show the probe executed and returned the known answer. | ADR-0023's onboarding hinges on confirming activation before minting a personal golden VM, and license-file parsing is brittle for Community Edition; a functional probe (`LabVIEWCLI RunVI` on the shipped `AddTwoNumbers.vi`) that must return the known answer is the robust signal and doubles as the benchmark-execution path. First delivered slice of the Planned LBA-REQ-033 umbrella, proven live on the reference host's activated LabVIEW 2026. | `probe-activation.sh` runs `LabVIEWCLI RunVI` headless (Xvfb) on the known-answer probe; `buildActivationReceipt.mjs` builds a deterministic `activation-receipt@1` (digest over verdict-bearing fields), and validation denies activation on a non-zero exit, wrong value, missing success line, or tampered receipt. The committed REAL capture replays offline in CI. | Run `node experiments/activation/buildActivationReceipt.selftest.mjs` (5/5); gated by `activation-receipt-confirms-activation` in `verify-local-gates`. |
 
 ---
 
@@ -1121,6 +1122,40 @@ progressively.
 
 ---
 
+### LBA-REQ-038: LabVIEW activation confirmation via a headless known-answer probe
+
+- Status: Proven
+- Area: Deployment / onboarding (ADR-0023 Phase 1 — personal golden-VM activation confirmation)
+- Statement: The system shall confirm LabVIEW activation with a headless
+  known-answer probe VI, so a fail-closed gate refuses an install whose activation
+  receipt does not show the probe executed and returned the known answer.
+- Rationale: ADR-0023's onboarding hinges on confirming activation before minting
+  a personal golden VM, and license-file parsing is brittle for Community Edition.
+  A functional probe — `LabVIEWCLI RunVI` on the shipped, canonical
+  `AddTwoNumbers.vi` — that must return the known answer is the robust signal and
+  doubles as the benchmark-execution path. This is the first delivered slice of
+  the Planned LBA-REQ-033 umbrella, proven live on the reference host's activated
+  LabVIEW 2026.
+- Acceptance Criteria:
+  - `experiments/activation/probe-activation.sh` runs `LabVIEWCLI -OperationName
+    RunVI` headless (Xvfb) on the known-answer probe VI and captures a raw result.
+  - `buildActivationReceipt.mjs` produces a deterministic `activation-receipt@1`
+    whose digest covers only the verdict-bearing fields (inputs, expected + parsed
+    output, exit code, success, VI name, LabVIEW version), so a committed real
+    capture replays offline byte-stably.
+  - Activation is confirmed only when the probe exits cleanly, reports success,
+    and returns the expected sum; the checker FAILS CLOSED on a non-zero exit, a
+    wrong value, a missing success line, a tampered digest, or a contradicted
+    verdict.
+  - A committed REAL capture + receipt (LabVIEW 2026, 20 + 22 = 42) is the live
+    evidence; CI replays it deterministically without LabVIEW.
+- Change Guidance: The builder/validator `experiments/activation/buildActivationReceipt.mjs`
+  plus its self-test are gated by `activation-receipt-confirms-activation` in
+  `verify-local-gates` and mapped in the RTM. Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1162,3 +1197,4 @@ progressively.
 | LBA-REQ-035 | Assurance (generated test report + status accounting) | T-035 |
 | LBA-REQ-036 | CM (release procedure) | T-036 |
 | LBA-REQ-037 | Assurance (continuous compliance self-audit) | T-037 |
+| LBA-REQ-038 | Deployment (LabVIEW activation confirmation) | T-038 |
