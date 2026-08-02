@@ -339,6 +339,16 @@ check('agent-tooling-selftest', () => {
   return { tool: 'scripts/lba.mjs', note: 'iteratively-refined agent governance + verification helper' };
 });
 
+// 6l. Distributed parallel workload across an N-instance pool (LBA-REQ-040, ADR-0028): the committed receipt
+//     of a real run -- this host + N codespace/VM workers each ran a DISJOINT, capacity-weighted shard of the
+//     self-test workload CONCURRENTLY, every instance ripgrep-only -- must validate: the capacity-weighted
+//     split re-derived from the recorded weights reproduces the shards, they are disjoint + cover every task,
+//     the instances are distinct, and every task passed. Offline replay of the committed real receipt.
+check('distributed-parallel-workload', () => {
+  execFileSync(process.execPath, [join(here, 'parallel', 'verify-parallel-workload.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0028 distributed workload', selftest: 'verify-parallel-workload 4/4 (N instances, capacity-weighted, disjoint, rg-only)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

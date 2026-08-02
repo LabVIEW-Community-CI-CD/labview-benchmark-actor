@@ -31,8 +31,9 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import { capacityWeightedPartition } from '../experiments/parallel/parallelWorkload.mjs';
 
-export const ITERATION = 1; // bump when you refine this tool (see the banner above)
+export const ITERATION = 2; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -115,6 +116,15 @@ export const COMMANDS = {
     desc: 'print the next free requirement id and ADR id',
     run: () => { console.log(`next requirement: ${nextRequirementId()}`); console.log(`next ADR:         ${nextAdrId()}`); },
   },
+  partition: {
+    desc: 'deterministically split the self-test workload into N shards (for parallel/distributed runs)',
+    run: (args) => {
+      const n = Math.max(2, Number(args[0] || 2));
+      const tasks = execFileSync('rg', ['--files', 'experiments'], { cwd: repoRoot, encoding: 'utf8' }).split(/\r?\n/).filter((l) => /\.selftest\.mjs$/.test(l));
+      capacityWeightedPartition(tasks, Array.from({ length: n }, () => ({ weight: 1 }))).forEach((s, i) => console.log(`shard ${i}: ${s.length} tasks`));
+      console.log(`(${tasks.length} self-tests over ${n} shards — run with experiments/parallel/runParallel.mjs)`);
+    },
+  },
   selftest: {
     desc: 'self-check this tool (run by the agent-tooling-selftest gate)',
     run: () => runSelftest(),
@@ -132,6 +142,11 @@ const SELFTEST = [
   ['next ADR id is well-formed and unused', () => /^ADR-\d{4}$/.test(nextAdrId()) && !existsSync(join(repoRoot, 'docs/architecture/adr', `${nextAdrId()}.md`))],
   ['govern-check confirms a modern fully-governed requirement across all surfaces', () => governCheck('LBA-REQ-034').ok],
   ['govern-check fails closed for a non-existent requirement', () => governCheck('LBA-REQ-999').ok === false],
+  ['partition splits every self-test into N disjoint shards that cover the workload', () => {
+    const tasks = execFileSync('rg', ['--files', 'experiments'], { cwd: repoRoot, encoding: 'utf8' }).split(/\r?\n/).filter((l) => /\.selftest\.mjs$/.test(l));
+    const shards = capacityWeightedPartition(tasks, Array.from({ length: 3 }, () => ({ weight: 1 })));
+    return new Set(shards.flat()).size === new Set(tasks).size && shards.reduce((a, s) => a + s.length, 0) === tasks.length;
+  }],
 ];
 function runSelftest() {
   let passed = 0;

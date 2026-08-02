@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -86,6 +86,12 @@ multi-VM / Codespace topology.
   `mesh-actors.csv` only after its activation receipt confirms activation — an
   unactivated or tampered receipt is refused and the registry is left untouched,
   so confirmation and enrollment are one fail-closed chain (ADR-0023).
+- **Distributed workload, delivered (LBA-REQ-040):** the executor spreads an
+  independent-task workload across a budget-capped, dynamically-discovered pool
+  (this host + codespaces + local VMs) proportional to each instance's capacity,
+  running disjoint shards concurrently — every instance searching with ripgrep
+  only. Proven live across three instances; a fail-closed gate replays the receipt
+  (ADR-0028), a step toward the North Star distributed benchmark mesh.
 
 ### 3.3 Actor / run-result view — addresses LBA-REQ-003, LBA-REQ-009
 - The agentic actor drives a run and emits a **schema-versioned run result**:
@@ -247,6 +253,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-33 | Generate the 29119-3 test report + ISO 10007 status accounting from the verification apparatus and gate it fail-closed on drift | The repo recorded a test plan but never the executed outcomes or controlled configuration state; generating them from the enforced apparatus keeps assurance current by construction (ADR-0025) | LBA-REQ-035 |
 | AD-34 | Make the signed, corroborated release procedure a first-class 15289 information item and gate its cited enforcement points + invariants fail-closed | The release flow was scattered across the CM plan and the grid requirements with no single procedure; gating it keeps the procedure resolvable and invariant-complete by construction (ADR-0026) | LBA-REQ-036 |
 | AD-35 | Self-audit the five-lens standards posture at clause-evidence granularity and gate 25/25 fail-closed | The 25/25 audit was a point-in-time score; a generated, fail-closed self-audit makes full compliance corroborated by construction and closes F4 (non-gated conformance) for all standards (ADR-0027) | LBA-REQ-037 |
+| AD-36 | Distribute the workload across an N-instance ripgrep-only pool (host + codespaces + VMs), dynamically discovered, capacity-weighted, and budget-capped | Spreading load off the host toward the North Star distributed mesh; a fail-closed gate replays a real 3-instance receipt (ADR-0028) | LBA-REQ-040 |
 
 ## 5. Risks and open questions
 
