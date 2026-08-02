@@ -1,0 +1,39 @@
+{
+  "schema": "labview-benchmark-actor/acg-grid-run-receipt-v1",
+  "note": "the REAL {codespace, host} grid corroborates the release through every MACHINE stage (independence + quorum + attestation + mesh); released=false only because no human sign-off is recorded (the reviewer judgement step, not fabricated). A 3rd witness (VBox) is the same mechanism scaled.",
+  "producedAt": "2026-08-01T12:16:58.223Z",
+  "result": {
+    "schema": "labview-benchmark-actor/acg-grid-run-v1",
+    "released": false,
+    "machineCorroborated": true,
+    "witnesses": 2,
+    "stages": {
+      "independence": {
+        "ok": true,
+        "environments": [
+          "CODESPACE/linux",
+          "LINUX/linux"
+        ]
+      },
+      "quorum": {
+        "ok": true,
+        "verdict": "pass",
+        "confidence": 0.9166666666666666
+      },
+      "attestation": {
+        "ok": true
+      },
+      "mesh": {
+        "ok": true,
+        "ledgerHash": "a307316d80085b7aa0fdf9ea3943614113d2d1c060955e92ac7fabbd778910c5"
+      },
+      "humanSignOff": {
+        "ok": false,
+        "approvals": []
+      }
+    },
+    "reasons": [
+      "human sign-off: need >= 1 distinct enrolled approving reviewer(s); have 0"
+    ]
+  }
+}

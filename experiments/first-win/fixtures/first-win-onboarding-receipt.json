@@ -1,0 +1,73 @@
+{
+  "schema": "labview-benchmark-actor/first-win-onboarding@1",
+  "requirement": "LBA-REQ-033",
+  "steps": [
+    {
+      "step": 1,
+      "criterion": "lba init detects the host + hypervisor and provisions a clean Ubuntu 24.04 (Noble) VM",
+      "realization": "cleanroom/ubuntu-labview/build-virtualbox.sh",
+      "provenReq": "LBA-REQ-033",
+      "gate": null,
+      "resolved": true
+    },
+    {
+      "step": 2,
+      "criterion": "the NI apt repo (committed GPG key) + ni-labview-2026-community + vipm install non-interactively",
+      "realization": "cleanroom/ubuntu-labview/provision-guest.sh",
+      "provenReq": "LBA-REQ-044",
+      "gate": "provisioner-installs-labview-and-vipm",
+      "resolved": true
+    },
+    {
+      "step": 3,
+      "criterion": "the provisioned VM is headless-LabVIEW ready (Xvfb + VI Server for both exe basenames + reboot)",
+      "realization": "experiments/provisioner-readiness/provisionerReadiness.mjs",
+      "provenReq": "LBA-REQ-049",
+      "gate": "provisioner-headless-readiness",
+      "resolved": true
+    },
+    {
+      "step": 4,
+      "criterion": "the member signs in to their NI account and activates LabVIEW CE + VIPM (the one hybrid human step)",
+      "realization": "docs/architecture/adr/ADR-0023-personal-golden-vm-onboarding.md",
+      "provenReq": "LBA-REQ-033",
+      "gate": null,
+      "human": true,
+      "resolved": true
+    },
+    {
+      "step": 5,
+      "criterion": "a headless LabVIEWCLI RunVI probe confirms activation and emits a signed activation-receipt@1",
+      "realization": "experiments/activation/probe-activation.sh",
+      "provenReq": "LBA-REQ-038",
+      "gate": "activation-receipt-confirms-activation",
+      "resolved": true
+    },
+    {
+      "step": 6,
+      "criterion": "on a confirmed receipt the golden VM is minted locally and registered as an actor in mesh-actors.csv",
+      "realization": "experiments/activation/registerMeshActor.mjs",
+      "provenReq": "LBA-REQ-039",
+      "gate": "mesh-actor-registration-requires-activation",
+      "resolved": true
+    }
+  ],
+  "missing": [],
+  "liveEvidence": {
+    "vm": "lba-golden",
+    "hypervisor": "virtualbox",
+    "ubuntu": "24.04",
+    "provisioned": true,
+    "labviewActivated": true,
+    "vipmActivated": true,
+    "activationConfirmed": true,
+    "activationProof": "LabVIEWCLI RunVI AddTwoNumbers 20 + 22 -> 42 (RunVI operation succeeded, VI Server 3363)",
+    "functionalProof": "VIPM (Community Edition) installed g-cli 3.0.1.98 + deps into vi.lib; LabVIEWCLI MassCompile of ni/labview-icon-editor resource/ (307 VIs, 0 bad) succeeded",
+    "note": "Real end-to-end First Win demonstrated on lba-golden: fresh Ubuntu 24.04 VM provisioned, LabVIEW 2026 CE + VIPM installed, operator activated via NI account, headless LabVIEWCLI RunVI probe returned 42 (activation confirmed), VIPM installed g-cli, and MassCompile of the icon-editor resource ran clean."
+  },
+  "verdict": {
+    "complete": true,
+    "reason": "all 6 First Win flow steps resolve to committed realizations and activation was confirmed live on lba-golden"
+  },
+  "digest": "f98ce9f1f9895595870a32541c55a4aae85cadc0dd6ae8a65a799b33f984e39a"
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "labview-benchmark-actor/acg-independence-verdict-v1",
+  "independent": true,
+  "quorumMin": 2,
+  "distinctEnrolledEnvironments": [
+    "CODESPACE/linux",
+    "LINUX/linux"
+  ],
+  "counted": [
+    {
+      "witness": "CODESPACE",
+      "environment": "CODESPACE/linux",
+      "identity": "acg-witness:codespace"
+    },
+    {
+      "witness": "LINUX",
+      "environment": "LINUX/linux",
+      "identity": "acg-witness:host-linux"
+    }
+  ],
+  "excluded": [],
+  "reasons": []
+}

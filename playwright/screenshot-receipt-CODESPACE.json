@@ -1,8 +1,8 @@
 {
   "schema": "labview-benchmark-actor/mprr-viewer-screenshot-receipt@v1",
-  "producedBy": "WIN",
+  "producedBy": "CODESPACE",
   "engine": "headless chromium (playwright)",
-  "producedAt": "2026-07-28T19:33:25.475Z",
+  "producedAt": "2026-08-01T10:20:27.785Z",
   "fixture": "experiments/mprr-ring/fixtures/short-packet-run.json",
   "metric": "cumulativeBytes",
   "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
@@ -13,9 +13,14 @@
     "height": 320
   },
   "deviceScaleFactor": 1,
-  "captureCount": 2,
+  "captureCount": 7,
+  "captureStability": {
+    "captures": 7,
+    "modeCount": 5,
+    "distinctHashes": 2
+  },
   "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
   "pngBytes": 7196,
   "repeatable": true,
-  "pngArtifact": "playwright/.artifacts/mprr-viewer-WIN.png"
+  "pngArtifact": "playwright/.artifacts/mprr-viewer-CODESPACE.png"
 }

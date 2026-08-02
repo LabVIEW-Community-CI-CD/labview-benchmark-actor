@@ -16,7 +16,7 @@ maintainer-held Windows + LabVIEW box (there is **no public LabVIEW box** — li
 
 | Provider | Host lane | Default box | Override |
 | --- | --- | --- | --- |
-| `virtualbox` | Linux/Ubuntu (LINUX lane; validated here) | `vihs/win11-labview2026` | `VIHS_REVIEWER_BOX` |
+| `virtualbox` | Linux/Ubuntu (LINUX lane; validated here) | `actor/win11-labview2026` | `VIHS_REVIEWER_BOX` |
 | `vmware_desktop` | Windows/VMware (WIN lane) | `vihs/labview-cleanroom` | `VIHS_REVIEWER_BOX_VMWARE` |
 
 Reviewers **without** a box build one per the golden-box docs (bring your own **licensed**
@@ -86,7 +86,7 @@ them without any menu hunting.
 | --- | --- | --- |
 | `LBA_VM_NAME` | `actor` | VM name shown in VirtualBox / VMware. Set a unique value to run **multiple** reviewer instances side by side. |
 | `LBA_VM_HOSTNAME` | = `LBA_VM_NAME` | Guest Windows hostname, sanitized to NetBIOS rules (`<=15` chars, `[A-Za-z0-9-]`). |
-| `VIHS_REVIEWER_BOX` | `vihs/win11-labview2026` | VirtualBox box name. |
+| `VIHS_REVIEWER_BOX` | `actor/win11-labview2026` | VirtualBox box name. |
 | `VIHS_REVIEWER_BOX_VMWARE` | `vihs/labview-cleanroom` | VMware box name. |
 | `VIHS_REVIEWER_MEM` | `8192` | Guest memory (MB). |
 | `VIHS_REVIEWER_CPUS` | `4` | Guest vCPUs. |

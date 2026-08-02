@@ -1,0 +1,36 @@
+{
+  "schema": "labview-benchmark-actor/cross-plane-liveness@1",
+  "workload": "labview activation probe (AddTwoNumbers known-answer 7+5=12)",
+  "planeCount": 2,
+  "planes": [
+    {
+      "instance": "host",
+      "hostname": "sergio-ThinkPad-P16-Gen-3",
+      "os": "linux",
+      "labviewVersion": "2026",
+      "inputs": [
+        7,
+        5
+      ],
+      "expectedOutput": 12,
+      "parsedOutput": 12,
+      "operationSucceeded": true,
+      "activated": true
+    },
+    {
+      "instance": "vm:lba-ubuntu2404-labview2026-scratch",
+      "hostname": "actor",
+      "os": "linux",
+      "labviewVersion": "2026",
+      "inputs": [
+        7,
+        5
+      ],
+      "expectedOutput": 12,
+      "parsedOutput": 12,
+      "operationSucceeded": true,
+      "activated": true
+    }
+  ],
+  "allActivated": true
+}

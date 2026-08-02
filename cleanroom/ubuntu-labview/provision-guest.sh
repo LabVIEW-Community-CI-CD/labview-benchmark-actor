@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared, provider-agnostic guest provisioner: installs LabVIEW 2026 Community for Linux (UNACTIVATED)
+# Shared, provider-agnostic guest provisioner: installs LabVIEW 2026 Community + VIPM for Linux (UNACTIVATED)
 # on a fresh Ubuntu 24.04 guest. Run this IN the guest after the unattended OS install, on BOTH the
 # VirtualBox (LINUX plane) and VMware (WIN plane) VMs — the SAME script, so the LabVIEW layer is
 # byte-for-byte parity across the two hypervisors.
@@ -23,11 +23,13 @@ if [ -r /etc/os-release ]; then
   [ "${VERSION_ID:-}" = "24.04" ] || log "[warn] expected Ubuntu 24.04, found ${PRETTY_NAME:-unknown} — continuing."
 fi
 
-# 1) Base tooling + the runtime libs LabVIEW's installer + IDE expect on a minimal Ubuntu.
-log 'apt update + base packages...'
+# 1) Base tooling + the runtime libs LabVIEW's installer + IDE expect on a minimal Ubuntu, plus Xvfb —
+#    a headless X display is REQUIRED for `LabVIEWCLI` (RunVI / MassCompile / RunVIAnalyzer) to run over
+#    SSH with no desktop session (`xvfb-run -a LabVIEWCLI ...`); without it the CLI cannot open a display.
+log 'apt update + base packages (incl. Xvfb for headless LabVIEWCLI)...'
 apt-get update -y
 apt-get install -y --no-install-recommends \
-  ca-certificates curl gnupg apt-transport-https \
+  ca-certificates curl gnupg apt-transport-https xvfb \
   libglu1-mesa libxinerama1 libxrandr2 libxcursor1 libxi6 libgl1
 
 # 1b) Passwordless sudo for the primary 'actor' user (cross-plane identity parity with the Windows
@@ -65,5 +67,58 @@ printf 'deb [signed-by=%s] %s noble %s\n' "$NI_KEYRING_DST" "$NI_REPO" "$NI_SUIT
 apt-get update -y
 apt-get install -y "$LABVIEW_PKG"
 
+# 2b) VI Package Manager (VIPM) -- the official LabVIEW add-on manager (JKI). It is NOT in the NI apt repo;
+#     JKI ships a direct Debian package (application/vnd.debian.binary-package). Override VIPM_DEB_URL if JKI
+#     moves it. Idempotent: skips if vipm is already installed. `apt-get install -f` resolves its deps.
+VIPM_DEB_URL="${VIPM_DEB_URL:-https://packages.jki.net/vipm/preview/vipm_latest_preview_amd64.deb}"
+if dpkg -s vipm >/dev/null 2>&1; then
+  log "VIPM already installed ($(dpkg-query -W -f='${Version}' vipm 2>/dev/null)); skipping."
+else
+  log "downloading + installing VIPM (JKI) from $VIPM_DEB_URL ..."
+  apt-get install -y --no-install-recommends wget
+  wget -qO /tmp/vipm.deb "$VIPM_DEB_URL"
+  dpkg -i /tmp/vipm.deb || apt-get install -f -y
+  rm -f /tmp/vipm.deb
+  log "VIPM installed ($(dpkg-query -W -f='${Version}' vipm 2>/dev/null || echo unknown))."
+fi
+
+# 2c) Headless LabVIEWCLI readiness — VI Server (TCP :3363) configuration.
+#     A headless `LabVIEWCLI` (and VIPM's own connect) reaches LabVIEW over the VI Server TCP port; without
+#     it every operation fails with error -350000. TWO subtleties, both learned the hard way on a fresh VM:
+#       (1) LabVIEW derives its config FILENAME from the launched EXE BASENAME. The CLI's -LabVIEWPath is
+#           the `labview` symlink -> it reads labview.conf; VIPM launches the real `labviewcommunity`
+#           binary -> it reads labviewcommunity.conf. BOTH must enable VI Server or one path stays broken.
+#       (2) The access lists MUST be quoted or LabVIEW silently ignores them (still -350000).
+#     VI Server config is per-user, so this is written for $PRIMARY_USER; a fresh VM has no prior config.
+if id "$PRIMARY_USER" >/dev/null 2>&1; then
+  USER_HOME="$(getent passwd "$PRIMARY_USER" | cut -d: -f6)"
+  LV_CONF_DIR="${USER_HOME}/natinst/.config/LabVIEW-2026"
+  log "writing VI Server config (TCP :3363) for '$PRIMARY_USER' — labview.conf + labviewcommunity.conf..."
+  mkdir -p "$LV_CONF_DIR"
+  for base in labview labviewcommunity; do
+    cat > "${LV_CONF_DIR}/${base}.conf" <<'LVCONF'
+[LabVIEW]
+server.tcp.enabled=TRUE
+server.tcp.port=3363
+server.tcp.serviceName=""
+server.tcp.access="+127.0.0.1:+localhost:+*"
+server.vi.access="+*"
+LVCONF
+  done
+  chown -R "$PRIMARY_USER:$PRIMARY_USER" "${USER_HOME}/natinst"
+else
+  log "[warn] primary user '$PRIMARY_USER' absent — skipping VI Server config."
+fi
+
 log 'LabVIEW 2026 Community installed but NOT activated.'
-log 'OPERATOR: activate LabVIEW Community (NI-account sign-in), then snapshot "labview2026-activated-ready".'
+log 'Xvfb + VI Server (:3363, labview.conf + labviewcommunity.conf) configured for headless LabVIEWCLI.'
+# 2d) Post-install reboot — REQUIRED once. On a fresh install the VI Server does not bind :3363 until after
+#     a reboot even with the config in place (proven live: pre-reboot -350000, post-reboot connected first
+#     try). Default: print the instruction; set PROVISION_REBOOT=1 to make the provision truly one-command.
+log 'REBOOT REQUIRED once before the first headless probe: VI Server binds :3363 only after a post-install reboot.'
+log 'OPERATOR: reboot, activate LabVIEW Community (NI-account sign-in), then snapshot "labview2026-activated-ready".'
+PROVISION_REBOOT="${PROVISION_REBOOT:-0}"
+if [ "$PROVISION_REBOOT" = 1 ]; then
+  log 'PROVISION_REBOOT=1 — rebooting now so VI Server binds :3363...'
+  systemctl reboot
+fi

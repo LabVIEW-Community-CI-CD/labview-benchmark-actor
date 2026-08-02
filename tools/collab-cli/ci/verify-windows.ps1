@@ -13,7 +13,7 @@
                         Windows check; the same gate the Linux harness runs, LBABUS #15/#18).
     - ci-agents       : `lbabus agents` embed round-trips (--out then --check exit 0) and drift is
                         detected (--check non-zero) -- "same version => same base instructions".
-    - ci-docs         : same embed round-trip + drift detection for `lbabus docs`.
+    - ci-docs         : embed round-trip + drift detection for the `lbabus docs` bundle (guide + srs + rtm).
     - ci-harness      : the in-container GitHub mock + declarative case runner (cases/*.json). Ripgrep
                         is absent here, so requiresRipgrep cases SKIP (the ci-no-rg equivalent) while
                         the mock-requiring version-guard / defect cases RUN.
@@ -88,6 +88,14 @@ Assert-Gate 'ci-docs (embed round-trip + drift detection)' {
   if ((Invoke-Dotnet @($cli, 'docs', '--check', $f)) -ne 0) { throw 'docs --check (clean) should pass' }
   Add-Content -Path $f -Value "`ndrift line"
   if ((Invoke-Dotnet @($cli, 'docs', '--check', $f)) -eq 0) { throw 'docs --check did NOT detect drift' }
+  # requirements bundle (srs markdown + rtm csv): each embeds, round-trips, and drift is detected.
+  foreach ($id in @('srs', 'rtm')) {
+    $g = Join-Path $tmp "docs-$id.out"
+    if ((Invoke-Dotnet @($cli, 'docs', 'show', $id, '--out', $g)) -ne 0) { throw "docs show $id --out failed" }
+    if ((Invoke-Dotnet @($cli, 'docs', 'show', $id, '--check', $g)) -ne 0) { throw "docs show $id --check (clean) should pass" }
+    Add-Content -Path $g -Value "`ndrift line"
+    if ((Invoke-Dotnet @($cli, 'docs', 'show', $id, '--check', $g)) -eq 0) { throw "docs show $id --check did NOT detect drift" }
+  }
 }
 
 Assert-Gate 'ci-harness (GitHub mock + declarative case runner)' {

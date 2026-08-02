@@ -81,8 +81,8 @@ const numOrNull = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null
  * @param {object} input
  * @param {Array<{index?:number, ms?:number, imageFile:string, imageBytes?:number, dhashHex?:string}>} input.frames
  *   the captured frames IN ORDER (imageFile = VM-local path/name of the PNG long-packet payload).
- * @param {Array<{ms:number, cpuPct?:number, ramMb?:number, diskPct?:number}>} [input.resourceSamples]
- *   CPU/RAM/disk samples (any cadence); each frame takes its nearest-in-time sample.
+ * @param {Array<{ms:number, cpuPct?:number, ramMb?:number, diskPct?:number, counters?:object}>} [input.resourceSamples]
+ *   CPU/RAM/disk (and/or a v2 counters{} object) samples at any cadence; each frame takes its nearest-in-time sample.
  * @param {number} [input.startMs] epoch ms of frame 0 (defaults to frames[0].ms or 0).
  * @param {number} [input.fps=12] capture frame rate.
  * @param {number} [input.capacityBytes=Infinity] mprr ring capacity bound for the dual-packet policy.
@@ -107,7 +107,7 @@ export function buildLaunchCapture(input) {
     const ms = Number.isFinite(f.ms) ? f.ms : t0 + i * intervalMs;
     const tMs = Math.round(ms - t0);
     const rs = nearest(ms);
-    return {
+    const frame = {
       index: i,
       tMs,
       timingTicks64: (BigInt(Math.max(0, tMs)) * TICKS_PER_MS).toString(),
@@ -118,7 +118,15 @@ export function buildLaunchCapture(input) {
       imageBytes: Number.isFinite(f.imageBytes) ? f.imageBytes | 0 : 0,
       dhashHex: typeof f.dhashHex === 'string' ? f.dhashHex : null,
     };
+    // v2: carry the nearest sample's full performance-counter catalog when present (backward compatible).
+    if (rs && rs.counters && typeof rs.counters === 'object') {
+      frame.counters = rs.counters;
+    }
+    return frame;
   });
+
+  // union of v2 counter keys across frames (present only when a sampler emitted counters{}).
+  const counterKeys = [...new Set(outFrames.flatMap((f) => (f.counters ? Object.keys(f.counters) : [])))].sort();
 
   // mprr dual-packet correlation: short (timing+metrics) always present; long (image) admitted while it fits.
   const dualFrames = outFrames.map((f) => ({
@@ -131,7 +139,7 @@ export function buildLaunchCapture(input) {
   });
 
   const meta = input.meta || {};
-  return {
+  const record = {
     schema: LAUNCH_CAPTURE_SCHEMA,
     workload: meta.workload || 'labview-launch',
     plane: meta.plane || null,
@@ -151,4 +159,7 @@ export function buildLaunchCapture(input) {
     dualPacket, // mprr dual-packet receipt: authoritative when every frame's long payload was admitted.
     meta,
   };
+  // v2: expose the captured performance-counter catalog when a sampler emitted counters{} (else omitted).
+  if (counterKeys.length) { record.counterKeys = counterKeys; }
+  return record;
 }

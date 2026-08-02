@@ -36,3 +36,94 @@ Post a NOTE to the cross-plane coordination bus via lbabus post.
 **Arguments:**
 
 - `message` (string, required) — ASCII coordination note body.
+
+---
+
+## Corroboration grid tools (folded)
+
+The same single server also folds in the Actor Corroboration Grid tools (ADR-0020 / LBA-REQ-029), so an agent can orchestrate release corroboration directly. Signing and recording stay operator/CI steps.
+
+### `spin_up_witness`
+
+Return the provisioning plan for a corroboration-grid witness of a given plane (CODESPACE|VBOX|WIN). Live execution is the operator step.
+
+**Arguments:**
+
+- `plane` (string, required) —
+
+### `run_quorum`
+
+Run the corroboration quorum (ADR-0015) over a set of witness bundles and return the graded-majority verdict.
+
+**Arguments:**
+
+- `bundles` (array, required) —
+- `threshold` (number, optional) —
+
+### `get_confidence`
+
+Return just the quorum verdict + graded confidence for a set of witness bundles.
+
+**Arguments:**
+
+- `bundles` (array, required) —
+- `threshold` (number, optional) —
+
+### `verify_attestation`
+
+Verify-before-consume (ADR-0016): given attested witnesses + an enrolled allowlist, decide whether the release is consumable.
+
+**Arguments:**
+
+- `witnesses` (array, required) —
+- `allowlist` (object, optional) —
+
+### `check_independence`
+
+Assess witness independence (ADR-0017): whether the witnesses span distinct enrolled environments with recorded identities.
+
+**Arguments:**
+
+- `witnesses` (array, required) —
+- `enrollment` (object, optional) —
+
+### `assemble_witness`
+
+Assemble a witness bundle (ADR-0014) from its gate/screenshot/capability receipts, failing closed on a missing anchor.
+
+**Arguments:**
+
+- `plane` (string, required) —
+- `gate` (object, required) —
+- `screenshot` (object, required) —
+- `capability` (object, optional) —
+- `os` (string, optional) —
+- `ubuntu` (string, optional) —
+
+### `verify_inclusion`
+
+Transparency-log inclusion (ADR-0022): verify a witness attestation is included in the Ed25519-signed Merkle transparency log, reconstructing the signed root from the inclusion proof.
+
+**Arguments:**
+
+- `attestation` (object, required) —
+- `inclusion` (object, required) —
+- `signedTreeHead` (object, required) —
+- `logPublicKeyPem` (string, optional) —
+
+### `verify_before_install`
+
+Verify-before-install (ADR-0022, LBA-REQ-031): given a release-provenance bundle, decide whether the release is installable -- at least quorumMin witnesses each enrolled-signed AND included in the signed transparency log.
+
+**Arguments:**
+
+- `provenance` (object, required) —
+
+### `teardown`
+
+Return the teardown plan for a corroboration-grid witness of a given plane. Live execution is the operator step.
+
+**Arguments:**
+
+- `plane` (string, required) —
+- `id` (string, optional) —

@@ -1,0 +1,7 @@
+{
+  "_comment": "c8 static config (include/exclude/reports-dir). Coverage THRESHOLDS are parametrized in coverage-thresholds.json and applied by scripts/coverage.mjs (npm run test:coverage), which ratchets them up gradually.",
+  "src": ["out"],
+  "include": ["out/**", "media/**"],
+  "exclude": ["**/*.test.*", "test/**", "coverage/**", "out/acg-mcp-bundle/**"],
+  "reports-dir": "coverage"
+}

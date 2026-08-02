@@ -5,7 +5,7 @@
  * VS Code by registering an MCP server definition provider, so Copilot agent mode can launch it and call
  * its tools (host capabilities, the deterministic benchmark series, the coordination bus). The definition
  * launches the bundled entrypoint with the editor's own Node runtime (`process.execPath`), per the VS Code
- * MCP API guidance. Adapted from the vi-history-suite provider, minus the pinned dev-tools machinery — this
+ * MCP API guidance. It follows a standard MCP definition-provider pattern, minus any pinned dev-tools machinery — this
  * extension only ever launches its bundled server.
  */
 import * as path from 'node:path';

@@ -1,7 +1,7 @@
 # Vagrant reviewer workstation -- a Windows 11 + LabVIEW 2026 VM where an expert human reviewer
 # operates the labview-benchmark-actor VS Code extension + the embedded AGENTS.md. Tracking: #108.
 #
-# REPURPOSES the vi-history-suite GOLDEN BOX `vihs/win11-labview2026` (Windows 11 + LabVIEW 2026 +
+# USES the labview-benchmark-actor GOLDEN BOX `actor/win11-labview2026` (Windows 11 + LabVIEW 2026 +
 # VS Code + Node + git + LabVIEW fixtures + boot-time WinRM self-heal). We add ONLY the
 # labview-benchmark-actor bits: the extension .vsix (from the gated `ext-v*` Release), the lbabus
 # CLI, and a scratch workspace. See README.md for obtaining/registering the box.
@@ -11,7 +11,7 @@
 #   VAGRANT_CWD=reviewer-workstation vagrant up --provider vmware_desktop  # Windows/VMware (WIN lane)
 #
 # Box per provider (both are maintainer-held Win+LabVIEW boxes; no public LabVIEW box by design):
-#   virtualbox     -> vihs/win11-labview2026  (vi-history-suite golden box; override VIHS_REVIEWER_BOX)
+#   virtualbox     -> actor/win11-labview2026  (labview-benchmark-actor golden box; override VIHS_REVIEWER_BOX)
 #   vmware_desktop -> vihs/labview-cleanroom   (labview-benchmark-actor cleanroom box; override VIHS_REVIEWER_BOX_VMWARE)
 # Reviewers without a box build one per the docs (BYO), including their OWN licensed LabVIEW for TC-09.
 
@@ -25,11 +25,17 @@ Vagrant.configure("2") do |config|
                        .gsub(/[^A-Za-z0-9-]/, "-")[0, 15].sub(/-+$/, "")
   lba_vm_hostname = "actor" if lba_vm_hostname.empty?
 
-  # Default: the vi-history-suite golden box (VirtualBox). Overridden per-provider below.
-  config.vm.box = ENV.fetch("VIHS_REVIEWER_BOX", "vihs/win11-labview2026")
+  # Default: the labview-benchmark-actor golden box (VirtualBox). Overridden per-provider below.
+  config.vm.box = ENV.fetch("VIHS_REVIEWER_BOX", "actor/win11-labview2026")
 
   config.vm.hostname = lba_vm_hostname
   config.vm.communicator = "winrm"
+  # WinRM credentials. Default to the box's own embedded creds (do NOT set them here unless overridden,
+  # so the golden box's packaged Vagrantfile keeps supplying them). A BYO / repackaged box that does NOT
+  # embed creds (e.g. actor/win11) supplies them via env: VIHS_REVIEWER_WINRM_USER / _PASSWORD / _TRANSPORT.
+  config.winrm.username  = ENV["VIHS_REVIEWER_WINRM_USER"] if ENV["VIHS_REVIEWER_WINRM_USER"]
+  config.winrm.password  = ENV["VIHS_REVIEWER_WINRM_PASSWORD"] if ENV["VIHS_REVIEWER_WINRM_PASSWORD"]
+  config.winrm.transport = ENV["VIHS_REVIEWER_WINRM_TRANSPORT"].to_sym if ENV["VIHS_REVIEWER_WINRM_TRANSPORT"]
   config.winrm.timeout = 1800
 
   # No host folder sync needed: provisioning pulls the .vsix from the GitHub Release.
@@ -76,4 +82,29 @@ Vagrant.configure("2") do |config|
       "VIHS_REVIEWER_REPO"       => ENV.fetch("VIHS_REVIEWER_REPO", "LabVIEW-Community-CI-CD/labview-benchmark-actor"),
       "VIHS_REVIEWER_LBABUS_TAG" => ENV.fetch("VIHS_REVIEWER_LBABUS_TAG", "latest"),
     }
+
+  # On-demand reviewer smoke-check (NEVER auto-runs -- invoke explicitly with
+  #   vagrant provision --provision-with reviewer-smoke
+  # ). Confirms the SCRIPTABLE reviewer test cases over the same WinRM channel: TC-00 (the extension is
+  # installed), TC-07 (the lbabus CLI landed on PATH), and a lightweight TC-10 (the folded MCP server
+  # shipped inside the installed .vsix). The GUI/LabVIEW cases (TC-01/02/03/06/08/09) stay a human step.
+  config.vm.provision "reviewer-smoke", type: "shell", run: "never", privileged: true, inline: <<-'PS1'
+    $ErrorActionPreference = 'Continue'
+    Write-Host "[smoke] TC-00 -- installed extension(s) matching 'labview':"
+    code --list-extensions --show-versions | Select-String -Pattern 'labview' | ForEach-Object { Write-Host "  $_" }
+    Write-Host "[smoke] TC-07 -- lbabus CLI:"
+    $lbabus = 'C:\lba-bin\lbabus.exe'
+    if (Test-Path $lbabus) {
+      try { $v = (& $lbabus --version 2>&1 | Select-Object -First 1); Write-Host "  present: $v" }
+      catch { Write-Host "  present (version check skipped)" }
+    } else { Write-Host "  MISSING" }
+    Write-Host "[smoke] TC-10 -- folded MCP server inside the installed extension:"
+    $ext = Get-ChildItem "$env:USERPROFILE\.vscode\extensions" -Directory -Filter 'labview-community-ci-cd.labview-benchmark-actor-*' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($ext) {
+      $mcp = Join-Path $ext.FullName 'out\acg-mcp-bundle\acg-mcp\grid-tools.mjs'
+      Write-Host "  extension dir: $($ext.Name)"
+      Write-Host ("  folded MCP grid-tools present: {0}" -f (Test-Path $mcp))
+    } else { Write-Host "  extension dir NOT FOUND under the reviewer profile" }
+    Write-Host "[smoke] DONE"
+  PS1
 end

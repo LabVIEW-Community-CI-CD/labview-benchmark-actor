@@ -6,7 +6,7 @@
 // Needs `npm run compile` first (loads the compiled core). Wired into `npm test`, which compiles.
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,6 +20,14 @@ if (!existsSync(corePath)) {
 }
 const { BENCHMARK_ACTOR_MCP_TOOLS, BENCHMARK_ACTOR_MCP_PROTOCOL_VERSION, BENCHMARK_ACTOR_MCP_SERVER_NAME } =
   require(corePath);
+
+// Fold in the ACG corroboration-grid tools staged into the bundle (out/acg-mcp-bundle/), so the generated
+// reference matches what the SINGLE server's tools/list actually publishes (LBA-REQ-029).
+const gridBundle = join(root, 'out', 'acg-mcp-bundle', 'acg-mcp', 'grid-tools.mjs');
+let ACG_GRID_TOOLS = [];
+if (existsSync(gridBundle)) {
+  ({ ACG_GRID_TOOLS } = await import(pathToFileURL(gridBundle).href));
+}
 
 function renderArgs(inputSchema) {
   const props = inputSchema.properties ?? {};
@@ -68,6 +76,27 @@ function render() {
     lines.push(renderArgs(tool.inputSchema));
     lines.push('');
   }
+  if (ACG_GRID_TOOLS.length > 0) {
+    lines.push('---');
+    lines.push('');
+    lines.push('## Corroboration grid tools (folded)');
+    lines.push('');
+    lines.push(
+      'The same single server also folds in the Actor Corroboration Grid tools (ADR-0020 / LBA-REQ-029), so an ' +
+        'agent can orchestrate release corroboration directly. Signing and recording stay operator/CI steps.'
+    );
+    lines.push('');
+    for (const tool of ACG_GRID_TOOLS) {
+      lines.push(`### \`${tool.name}\``);
+      lines.push('');
+      lines.push(tool.description);
+      lines.push('');
+      lines.push('**Arguments:**');
+      lines.push('');
+      lines.push(renderArgs(tool.inputSchema));
+      lines.push('');
+    }
+  }
   // Canonical: LF, single trailing newline, no trailing whitespace.
   return lines.join('\n').replace(/[ \t]+$/gm, '').replace(/\n*$/, '\n');
 }
@@ -84,10 +113,10 @@ if (mode === '--check') {
     console.error(`mcp-tool-doc: DRIFT -- ${target} does not match the tool registry. Regenerate with --write.`);
     process.exit(3);
   }
-  console.log(`mcp-tool-doc: PASS -- ${target} matches the ${BENCHMARK_ACTOR_MCP_TOOLS.length}-tool registry.`);
+  console.log(`mcp-tool-doc: PASS -- ${target} matches the ${BENCHMARK_ACTOR_MCP_TOOLS.length + ACG_GRID_TOOLS.length}-tool registry.`);
 } else if (mode === '--write') {
   writeFileSync(target, generated);
-  console.log(`mcp-tool-doc: wrote ${target} (${BENCHMARK_ACTOR_MCP_TOOLS.length} tools).`);
+  console.log(`mcp-tool-doc: wrote ${target} (${BENCHMARK_ACTOR_MCP_TOOLS.length + ACG_GRID_TOOLS.length} tools).`);
 } else {
   process.stdout.write(generated);
 }

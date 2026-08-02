@@ -1,0 +1,30 @@
+{
+  "schema": "labview-benchmark-actor/mass-compile-benchmark@1",
+  "vm": "win-VITLT-SERGIO",
+  "labview": {
+    "version": "2026",
+    "bitness": 32,
+    "edition": "Full"
+  },
+  "source": {
+    "repo": "ni/labview-icon-editor",
+    "repoHead": "9545c483f2b947c71de68c7f70aedefaedadabf7",
+    "directory": "resource"
+  },
+  "operation": "LabVIEWCLI -OperationName MassCompile",
+  "visInDirectory": 307,
+  "badViCount": 0,
+  "badVis": [],
+  "operationSucceeded": true,
+  "timing": {
+    "compileSeconds": 211,
+    "cliElapsedMs": 214397
+  },
+  "resultHash": "bf722123ba07ac4611e41eadf605cf45b20d398d3229b2b837d3f5115d0a7966",
+  "note": "Real MassCompile of the ni/labview-icon-editor resource/ core source (307 VIs/CTLs) on the Windows plane win-VITLT-SERGIO via LabVIEWCLI -OperationName MassCompile against LabVIEW 2026 Q3 (26.3.0, Full, 32-bit) with VI Server on port 3363. LabVIEW reported MassCompile operation succeeded with 0 bad VIs; report Start(9:07:53 PM)->Finish(9:11:24 PM) = 211s, CLI wall = 214.4s. This is the Windows OS axis of the cross-plane grid: same source (repoHead 9545c483, resource/, 307 VIs) as the Linux host + lba-golden runs. resultHash is over the machine-independent result (directory + 307 VIs + 0 bad + succeeded) so it is expected to equal the Linux resultHash bf722123... proving Win-vs-Linux OS-axis determinism; timing (211s) is the perf metric and is not in the hash. Note: LabVIEW 2026 64-bit on this plane hit the same -350000 VI-Server-init wall LINUX described; the 32-bit instance bound VI Server on 3363 and ran headless. Edition/bitness are descriptive metadata and do not affect resultHash.",
+  "verdict": {
+    "benchmarkOk": true,
+    "reason": "MassCompile of resource (307 VIs/CTLs, 0 bad) succeeded"
+  },
+  "digest": "25370b38ea184c9f51bc22f6212690084b79558421ff50052ca193c20d934043"
+}

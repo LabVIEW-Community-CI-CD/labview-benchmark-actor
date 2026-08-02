@@ -1,0 +1,25 @@
+{
+  "schema": "labview-benchmark-actor/acg-keyless-attest-evidence-v1",
+  "note": "LIVE evidence (LBA-REQ-025 / ADR-0016) that the sigstore-KEYLESS + public-rekor tier works end to end AND the provenance is stored on an immutable Release. The acg-keyless-attest workflow ran in GitHub Actions (OIDC), and cosign keyless-signed the committed release-provenance bundle: a short-lived Fulcio certificate bound to the workflow identity, with the signature recorded in the PUBLIC rekor transparency log; the resulting .sigstore bundle is attached to an immutable prerelease. Publicly verifiable at the rekor logIndex + release below -- cited evidence (rekor + the release are networked, not re-derivable offline).",
+  "workflow": "acg-keyless-attest.yml",
+  "event": "workflow_dispatch",
+  "ref": "develop",
+  "headSha": "dcd8fc6b458107d7b13109dbf272b74bc5807a9e",
+  "runId": 30703064254,
+  "runUrl": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/actions/runs/30703064254",
+  "conclusion": "success",
+  "ranAt": "2026-08-01T14:05:51Z",
+  "signedBundle": "experiments/acg-transparency/release-provenance-bundle.json",
+  "signedBundleSha256": "65b14e94d535ed22b64accfc88264987d8aac7fce241f41bd4cdfe2b3b706617",
+  "signingTool": "cosign sign-blob --yes (keyless, ambient GitHub Actions OIDC -> Fulcio)",
+  "rekorLogIndex": 2312189991,
+  "rekorSearchUrl": "https://search.sigstore.dev/?logIndex=2312189991",
+  "release": {
+    "tag": "acg-attest-v0.0.2",
+    "url": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/releases/tag/acg-attest-v0.0.2",
+    "prerelease": true,
+    "immutable": true,
+    "assets": ["release-provenance.sigstore", "release-provenance.pem", "release-provenance.sig"],
+    "note": "the keyless-signed provenance is STORED ON THE RELEASE: the .sigstore bundle (Fulcio cert + rekor SET + inclusion proof), certificate, and signature are attached AT CREATION. The org enforces immutable releases, so assets are provided atomically at creation -- an earlier post-hoc upload returned HTTP 422, and a burned immutable tag cannot be reused (hence v0.0.2). This closes LBA-REQ-025's last clause."
+  }
+}

@@ -17,9 +17,10 @@
 //   node experiments/verify-local-gates.mjs [--json] [--out <path>]
 // Exit code 0 when every check passes, 1 otherwise.
 
-import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { corroborationConfidence, REAL_READBACK_CASES, validateColonOcrFidelity } from './corroboration-confidence-reference.mjs';
 import { ingestShortPackets, MPRR_RING_SCHEMA, TICKS_PER_MS, DEFAULT_BLOCK_DURATION_MS, DEFAULT_BLOCK_DURATION_TICKS, ADMISSION_CAPACITY_HEADROOM, AUTHORITATIVE_BOUNDARY_VARIATION_PCT, NORMAL_LOAD_BOUNDARY_VARIATION_PCT, createShortRing, CLI_DEFAULT_CAPACITY_BYTES } from './mprr-ring/mprrRing.mjs';
 import { projectViewerSeries, seriesHash } from './mprr-ring/mprrViewerSeries.mjs';
@@ -51,9 +52,18 @@ import { buildLaunchCapture } from './mprr-capture-ring/launch-capture.mjs';
 import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
+import { verifyDepManifest } from './labview-authoring/verify-dep-manifest.mjs';
 import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-plane.mjs';
 import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs';
 import { execFileSync } from 'node:child_process';
+import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
+import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
+import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/independence.mjs';
+import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/verdict-beacon.mjs';
+import { bundleDigest } from './acg-provenance/attest.mjs';
+import { gateReleasePublish } from './acg-reviewer/sign-off.mjs';
+import { runGrid } from './acg-grid/grid.mjs';
+import { verifySignedTreeHead, verifyReleaseInclusion } from './acg-transparency/transparency-log.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..'); // experiments/ -> package root
@@ -219,6 +229,284 @@ check('adr-index-integrity', () => {
   return { adrFiles: files.length, indexed: linked.length };
 });
 
+// 6b. Test<->requirement correspondence (ISO/IEC/IEEE 42010 correspondence graph, ADR-0013): every governed
+//     test file corresponds to >=1 requirement (rule TR-1, fail-closed); the engine also prints the advisory
+//     ADR<->requirement (AD-1) and requirement<->view (VW-1) census. Fails iff a fail-closed rule is broken.
+check('test-requirement-correspondence', () => {
+  execFileSync(process.execPath, [join(here, 'reqs-coverage', 'verify-correspondences.mjs')], { stdio: 'pipe' });
+  return { engine: 'reqs-coverage/verify-correspondences.mjs' };
+});
+
+// 6c. Requirements quality (ISO/IEC/IEEE 29148:2018): every governed requirement-register row in
+//     docs/requirements/srs.md states exactly ONE `shall` (§5.2.5 Singular) and avoids ambiguous `and/or`
+//     logic (§5.2.7). Dependency-free local mirror of repo-standards-review's requirements_quality_check.py
+//     (singular-shall), scoped to the governed 5-column table so the 3-column traceability rows are skipped.
+check('requirements-quality-29148', () => {
+  const srs = readFileSync(join(pkgRoot, 'docs', 'requirements', 'srs.md'), 'utf8');
+  const violations = [];
+  let governedRows = 0;
+  for (const line of srs.split(/\r?\n/)) {
+    if (!line.trim().startsWith('|')) continue;
+    const cells = line.split('|').slice(1, -1).map((c) => c.trim());
+    if (cells.length < 5) continue;                       // skip 3-column traceability rows
+    if (!/^[A-Z0-9-]*REQ-\d+$/.test(cells[0])) continue;  // skip header / separator / non-ID rows
+    const [id, statement] = cells;
+    governedRows++;
+    const shallCount = (statement.match(/\bshall\b/gi) || []).length;
+    if (shallCount !== 1) violations.push(`${id}: ${shallCount}x shall (29148 §5.2.5 Singular requires exactly one)`);
+    if (/\band\s*\/\s*or\b/i.test(statement)) violations.push(`${id}: contains "and/or" (29148 §5.2.7 — split into multiple requirements)`);
+  }
+  assert(governedRows > 0, 'no governed requirement rows found in docs/requirements/srs.md');
+  assert(violations.length === 0, `requirements-quality violations:\n    - ${violations.join('\n    - ')}`);
+  return { governedRows };
+});
+
+// 6d. Traceability matrix is generated + current (LBA-REQ-022, ADR-0013 Stage 3): the derived requirement <->
+//     view <-> decision <-> test matrix must match its canonical sources. Fails closed if the committed
+//     docs/requirements/traceability-matrix.md drifts (run generate-traceability.mjs to refresh + commit).
+check('traceability-matrix-current', () => {
+  execFileSync(process.execPath, [join(here, 'reqs-coverage', 'generate-traceability.mjs'), '--check'], { stdio: 'pipe' });
+  return { generator: 'reqs-coverage/generate-traceability.mjs' };
+});
+
+// 6e. Information for users (ISO/IEC/IEEE 26514:2022, LBA-REQ-034): the bounded information PRODUCT set is
+//     COMPLETE -- every required item present + non-trivial, the command reference covers EVERY contributed VS
+//     Code command, the conformance boundary is stated, and the navigation hub indexes the set. Fail-closed:
+//     the selftest also proves an empty set flags every missing item + any uncovered command.
+check('information-for-users-26514', () => {
+  execFileSync(process.execPath, [join(here, 'information-for-users', 'verify-information-for-users.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ISO/IEC/IEEE 26514:2022', selftest: 'verify-information-for-users 2/2 (committed conformant + fail-closed)' };
+});
+
+// 6f. Test & assurance report is generated + current (ISO/IEC/IEEE 29119-3 test report + ISO 10007 status
+//     accounting, LBA-REQ-035): the executed-verification-evidence + configuration-status-accounting record
+//     must match the apparatus it describes (gate inventory + correspondence rules + coverage floors + RTM +
+//     ADRs). Fails closed if docs/testing/test-report.md drifts. The selftest also proves currency,
+//     deterministic rendering, and that the drift compare fails closed on any mutation.
+check('test-report-current', () => {
+  execFileSync(process.execPath, [join(here, 'reqs-coverage', 'generate-test-report.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ISO/IEC/IEEE 29119-3 + ISO 10007', selftest: 'generate-test-report 4/4 (current + deterministic + fail-closed)' };
+});
+
+// 6g. Release procedure references resolve (ISO/IEC/IEEE 15289 procedure + 12207/10007 release process,
+//     LBA-REQ-036): the step-by-step release procedure (docs/release/release-procedure.md) must stay honest --
+//     every workflow/script/action path it cites resolves on disk and every required release invariant
+//     (SemVer tag on main, bidirectional agreement, keyless signing, transparency-log inclusion,
+//     verify-before-install) is named. Fail-closed via the selftest (committed conformant + a missing
+//     cited file or a dropped invariant is rejected).
+check('release-procedure-references-resolve', () => {
+  execFileSync(process.execPath, [join(here, 'release', 'verify-release-procedure.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ISO/IEC/IEEE 15289 + 12207', selftest: 'verify-release-procedure 3/3 (conformant + fail-closed)' };
+});
+
+// 6h. Continuous compliance self-audit (CAPSTONE, LBA-REQ-037): score THIS repo against the
+//     repo-standards-review five-lens rubric (REQ/ARCH/TEST/CM/DOC) at clause-evidence granularity and
+//     assert 25/25 at target. Fails closed if any lens drops below target -- deleting an information item,
+//     unwiring a gate, or dropping a clause anchor turns the build red. Closes audit finding F4 (non-gated
+//     conformance) for ALL standards: full compliance is verified continuously, not just present. The
+//     selftest also proves the scoring fails closed on any single missing clause-evidence item.
+check('continuous-compliance-self-audit', () => {
+  execFileSync(process.execPath, [join(here, 'compliance', 'verify-compliance-posture.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'repo-standards-review five-lens rubric', selftest: 'verify-compliance-posture 4/4 (25/25 conformant + fail-closed)' };
+});
+
+// 6i. LabVIEW activation confirmation (LBA-REQ-038, realizes ADR-0023 Phase 1): the first delivered slice of
+//     personal golden-VM onboarding. A headless KNOWN-ANSWER probe VI (LabVIEWCLI RunVI on the shipped
+//     AddTwoNumbers.vi) must return the expected sum for the install to count as activated; the committed
+//     REAL capture deterministically rebuilds the receipt offline (no LabVIEW in CI) and the confirmation
+//     FAILS CLOSED on a non-zero exit, a wrong value, a missing success line, or a tampered receipt.
+check('activation-receipt-confirms-activation', () => {
+  execFileSync(process.execPath, [join(here, 'activation', 'buildActivationReceipt.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1', selftest: 'buildActivationReceipt 5/5 (real replay + fail-closed)' };
+});
+
+// 6j. Mesh-actor registration gated on activation (LBA-REQ-039, realizes ADR-0023 Phase 1): a golden VM is
+//     enrolled in mesh-actors.csv ONLY after its activation-receipt@1 confirms activation. An unactivated or
+//     tampered receipt is refused and the registry is left untouched; registration is idempotent by
+//     role+actor_id. This binds confirmation and enrollment into one fail-closed chain.
+check('mesh-actor-registration-requires-activation', () => {
+  execFileSync(process.execPath, [join(here, 'activation', 'registerMeshActor.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1', selftest: 'registerMeshActor 4/4 (activated registers + fail-closed refusal)' };
+});
+
+// 6k. Agent tooling selftest (scripts/lba.mjs): the agent-facing governance + verification helper is
+//     DESIGNED TO BE ITERATIVELY REFINED by each agent. This gate keeps it working across refinements --
+//     pipeline scripts + governance-surface files resolve, the id helpers advance, and govern-check both
+//     confirms a fully-governed requirement and fails closed on a missing one. Extend the tool freely;
+//     the gate catches regressions.
+check('agent-tooling-selftest', () => {
+  execFileSync(process.execPath, [join(pkgRoot, 'scripts', 'lba.mjs'), 'selftest'], { stdio: 'pipe' });
+  return { tool: 'scripts/lba.mjs', note: 'iteratively-refined agent governance + verification helper' };
+});
+
+// 6l. Distributed parallel workload across an N-instance pool (LBA-REQ-040, ADR-0028): the committed receipt
+//     of a real run -- this host + N codespace/VM workers each ran a DISJOINT, capacity-weighted shard of the
+//     self-test workload CONCURRENTLY, every instance ripgrep-only -- must validate: the capacity-weighted
+//     split re-derived from the recorded weights reproduces the shards, they are disjoint + cover every task,
+//     the instances are distinct, and every task passed. Offline replay of the committed real receipt.
+check('distributed-parallel-workload', () => {
+  execFileSync(process.execPath, [join(here, 'parallel', 'verify-parallel-workload.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0028 distributed workload', selftest: 'verify-parallel-workload 4/4 (N instances, capacity-weighted, disjoint, rg-only)' };
+});
+
+// 6m. Capability-aware routing (LBA-REQ-041, ADR-0029): extends the distributed executor so each task runs
+//     ONLY on an instance with the capability it requires -- a real LabVIEW task (LabVIEWCLI RunVI) is routed
+//     to the LabVIEW-capable host, node tasks spread across the pool, every instance ripgrep-only. The
+//     committed real receipt must validate: capability-correct placement, deterministic re-route, disjoint +
+//     full coverage, distinct instances, all passed. Offline replay + fail-closed selftest.
+check('capability-aware-routing', () => {
+  execFileSync(process.execPath, [join(here, 'parallel', 'verify-capability-routing.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0029 capability routing', selftest: 'verify-capability-routing 5/5 (LabVIEW->host, fail-closed)' };
+});
+
+// 6n. Cross-plane LabVIEW liveness (LBA-REQ-042, ADR-0030): the fleet has >= 2 independent, activated,
+//     operational LabVIEW planes -- this host + a LabVIEW VM (the Phase 1 golden VM) each ran the
+//     known-answer activation probe (LabVIEWCLI RunVI) concurrently and returned the answer. The committed
+//     real receipt must validate: >= 2 distinct planes, each returned its known answer + is activated, all
+//     live. Offline replay + fail-closed selftest.
+check('cross-plane-labview-liveness', () => {
+  execFileSync(process.execPath, [join(here, 'activation', 'verify-cross-plane-liveness.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0030 cross-plane liveness', selftest: 'verify-cross-plane-liveness 4/4 (2 activated LabVIEW planes)' };
+});
+
+// 6o. Cross-plane VI Analyzer determinism (LBA-REQ-043, ADR-0031): the SAME VI Analyzer config run on >= 2
+//     independent LabVIEW planes (this host + a LabVIEW VM) produces the SAME deterministic resultHash --
+//     real, reproducible cross-plane benchmark equivalence (the North Star). The committed real receipt must
+//     validate: >= 2 distinct planes, each with a resultHash, ALL identical (consensus). Offline replay.
+check('cross-plane-vi-analyzer-determinism', () => {
+  execFileSync(process.execPath, [join(here, 'vi-analyzer', 'verify-cross-plane-comparison.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0031 cross-plane determinism', selftest: 'verify-cross-plane-comparison 4/4 (matching resultHash across planes)' };
+});
+
+// 6p. Provisioner installs LabVIEW + VIPM (LBA-REQ-044, ADR-0023 Phase 1): the from-scratch Ubuntu golden-VM
+//     provisioner (cleanroom/ubuntu-labview/provision-guest.sh) must install BOTH LabVIEW 2026 Community (NI
+//     apt repo, committed key) AND VIPM (the JKI .deb, idempotent + deps resolved). The committed live
+//     receipt confirms VIPM was installed on the real scratch VM. Fail-closed if either install is missing.
+check('provisioner-installs-labview-and-vipm', () => {
+  execFileSync(process.execPath, [join(here, 'provisioner', 'verify-provisioner-labview-vipm.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1', selftest: 'verify-provisioner-labview-vipm 4/4 (LabVIEW + VIPM)' };
+});
+
+// 6q. Human-assisted VM bridge (LBA-REQ-045, ADR-0032): the shared-tmux bridge (tools/vm-bridge/vm-bridge.sh)
+//     lets an automation agent drive the golden VM's interactive shell while a HUMAN types any password/token
+//     directly on the VM -- credentials never transit the agent or the model. Fail-closed if the bridge could
+//     ingest a secret, or if the live receipt shows the agent answered a credential prompt.
+check('vm-bridge-human-assisted-secret-safety', () => {
+  execFileSync(process.execPath, [join(here, 'vm-bridge', 'verify-vm-bridge.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0032 human-in-the-loop secret safety', selftest: 'verify-vm-bridge 4/4 (agent drives VM; human types secrets)' };
+});
+
+// 6r. VIPM functionally installs a community package (LBA-REQ-046, ADR-0023 Phase 1): on the from-scratch
+//     golden VM, VIPM (Community Edition) installs the operator-designated self-test package g-cli
+//     (wiresmith_technology_lib_g_cli) plus its dependency closure into LabVIEW's vi.lib. The committed
+//     receipt records each package's files-installed manifest + the vi.lib file growth; fail-closed if any
+//     package did not install cleanly or no files landed in vi.lib.
+check('vipm-functional-package-install', () => {
+  execFileSync(process.execPath, [join(here, 'vipm-install', 'verify-vipm-package-install.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (functional VIPM)', selftest: 'verify-vipm-package-install 8/8 (g-cli + deps installed into vi.lib)' };
+});
+
+// 6s. Live golden-VM status + idle-time analysis (LBA-REQ-047, ADR-0023 Phase 1): the live monitor
+//     (tools/experiments/vm-live-status/vm-live-status.sh, not gated) streams the VM's CPU busy% over the
+//     bridge so no long stretch of "dead time" is invisible; this gate proves the committed REAL timeline
+//     receipt's idle-time analysis (idle vs busy spans, idle%, longest idle run) re-derives exactly from its
+//     samples. Fail-closed on a stale/tampered analysis, tampered digest, or a degenerate series.
+check('vm-live-status-idle-analysis', () => {
+  execFileSync(process.execPath, [join(here, 'vm-live-status', 'verify-vm-live-status.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (live VM visibility)', selftest: 'verify-vm-live-status 7/7 (real idle-time analysis, fail-closed)' };
+});
+
+// 6t. Golden-VM Mass Compile benchmark (LBA-REQ-048, ADR-0023 Phase 1; replaces the deferred VI Analyzer
+//     benchmark): LabVIEWCLI MassCompile over the pinned public ni/labview-icon-editor source is the
+//     golden-VM benchmark; the committed receipt's machine-independent resultHash (directory + VI count +
+//     bad count + success) is cross-plane comparable and the digest seals the verdict. Fail-closed on a
+//     stale/tampered resultHash, forged verdict, inconsistent bad-VI list, or tampered digest.
+check('mass-compile-benchmark', () => {
+  execFileSync(process.execPath, [join(here, 'mass-compile', 'verify-mass-compile-benchmark.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (golden-VM benchmark)', selftest: 'verify-mass-compile-benchmark 7/7 (icon-editor MassCompile, cross-plane resultHash)' };
+});
+
+// 6u. Golden-VM provisioner headless-LabVIEW readiness (LBA-REQ-049, ADR-0023 Phase 1): the one-command
+//     provisioner (cleanroom/ubuntu-labview/provision-guest.sh) must install EVERY prerequisite a fresh VM
+//     needs to run headless LabVIEWCLI benchmarks without manual fixes -- Xvfb, VI Server (:3363) config for
+//     BOTH exe basenames (labview.conf + labviewcommunity.conf), quoted access lists, and the post-install
+//     reboot. The committed receipt validates against the ACTUAL script text; fail-closed if the provisioner
+//     drops any step, a ready verdict is forged, or the digest is tampered.
+check('provisioner-headless-readiness', () => {
+  execFileSync(process.execPath, [join(here, 'provisioner-readiness', 'verify-provisioner-readiness.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (one-command golden VM)', selftest: 'verify-provisioner-readiness 7/7 (provisioner installs all headless prerequisites, fail-closed)' };
+});
+
+// 6v. Cross-plane benchmark grid (LBA-REQ-050, realizes ADR-0023 / ADR-0031, roadmap Phase 4): the golden-VM
+//     LabVIEW benchmarks are unified into one grid that, for every benchmark, records the machine-independent
+//     IDENTITY (resultHash) per plane -- proof LabVIEW reproduces across planes -- plus the PERFORMANCE
+//     metric. Proven Linux-first: VI Analyzer (host + scratch VM) and Mass Compile (host + lba-golden) each
+//     agree on identity across two planes. The committed docs/benchmarks/benchmark-grid.md surface is
+//     regenerated in the pipeline; this gate fails closed on a determinism VIOLATION (planes disagreeing),
+//     a forged agreement/verdict, or a tampered digest.
+check('cross-plane-benchmark-grid', () => {
+  execFileSync(process.execPath, [join(here, 'benchmark-grid', 'verify-benchmark-grid.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0031 cross-plane comparison (roadmap Phase 4)', selftest: 'verify-benchmark-grid 7/7 (2 benchmarks cross-plane-proven, fail-closed on determinism violation)' };
+});
+
+// 6v2. Benchmark Observatory (LBA-REQ-054, realizes ADR-0034): the suite-wide map ABOVE the grid -- it folds
+//      EVERY committed benchmark receipt (VI Analyzer, Mass Compile host+VM+Windows, the 2-actor icon-editor
+//      PPL build + LUnit test) into one benchmark-type x plane COVERAGE MATRIX, keeps the determinism ledger
+//      (identity must agree across a benchmark's planes), and exposes the empty cells as a data-driven
+//      frontier. The committed docs/benchmarks/benchmark-observatory.md surface is regenerated in the
+//      pipeline; this gate fails closed on a determinism VIOLATION, a coverage matrix that contradicts the
+//      receipts, a stale surface, a forged verdict, or a tampered digest.
+check('benchmark-observatory', () => {
+  execFileSync(process.execPath, [join(here, 'benchmark-observatory', 'verify-benchmark-observatory.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0034 benchmark observatory (roadmap Phase 2)', selftest: 'verify-benchmark-observatory 8/8 (4 benchmark types x 5 planes, 2 cross-plane-proven, fail-closed on determinism violation + matrix contradiction)' };
+});
+
+// 6w. First Win -- personal golden-VM onboarding umbrella (LBA-REQ-033, realizes ADR-0023 Phase 1): the
+//     roadmap's one-command First Win is COVERED by composing its already-Proven slices into the `lba init`
+//     flow -- provision Ubuntu 24.04 + LabVIEW CE + VIPM, hybrid activation, headless activation-receipt@1,
+//     then mint + register as a mesh actor. This gate proves every flow step resolves to a committed, gated
+//     realization and that activation was confirmed live on lba-golden; fail-closed on a missing realization,
+//     an unconfirmed activation, a forged completeness verdict, or a tampered digest.
+check('first-win-onboarding', () => {
+  execFileSync(process.execPath, [join(here, 'first-win', 'verify-first-win-onboarding.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (First Win)', selftest: 'verify-first-win-onboarding 7/7 (6-step lba init flow composed of Proven slices, activation confirmed live)' };
+});
+
+// 6x. Icon-editor Packed Library build -- the BUILDER actor of the 2-actor icon-editor grid (LBA-REQ-051,
+//     ADR-0033): LabVIEWCLI ExecuteBuildSpec of the ni/labview-icon-editor "Editor Packed Library" spec runs
+//     inside the NI LabVIEW container (nationalinstruments/labview:2026q1-linux) and emits lv_icon.lvlibp.
+//     The committed receipt's machine-independent resultHash (project + target + build spec + generated
+//     artifact + success) is cross-plane comparable; fail-closed on a stale/tampered resultHash, a forged
+//     verdict, a build with no artifact, or a tampered digest.
+check('ppl-build-benchmark', () => {
+  execFileSync(process.execPath, [join(here, 'ppl-build', 'verify-ppl-build-benchmark.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0033 icon-editor container benchmarks', selftest: 'verify-ppl-build-benchmark 7/7 (Editor Packed Library built in the NI container, fail-closed)' };
+});
+
+// 6y. g-cli Linux launcher built from Rust source + proven on host LabVIEW -- the enabler for the TESTER
+//     actor of the 2-actor icon-editor grid (LBA-REQ-052, ADR-0033). On Linux g-cli ships no prebuilt
+//     binary: the launcher is the rust-proxy crate (G-CLI/G-CLI), built with cargo, that opens a TCP server,
+//     launches LabVIEW on the target VI, and streams args / output / exit code back. The committed receipt's
+//     machine-independent resultHash (tool + version + source commit + operation + args in + echoed text +
+//     exit code + LabVIEW version/bitness) is cross-plane comparable; fail-closed on a stale/tampered
+//     resultHash, a forged verdict, an echo that does not match the args sent, or a tampered digest.
+check('g-cli-proxy-proof', () => {
+  execFileSync(process.execPath, [join(here, 'g-cli-proxy', 'verify-g-cli-proxy-proof.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0033 icon-editor container benchmarks (g-cli launcher)', selftest: 'verify-g-cli-proxy-proof 7/7 (g-cli built from Rust, full host LabVIEW round-trip, fail-closed)' };
+});
+
+// 6z. Icon-editor LUnit suite run via g-cli -- the TESTER actor of the 2-actor icon-editor grid (LBA-REQ-053,
+//     ADR-0033), completing the grid (builder = LBA-REQ-051). The Rust-built g-cli (LBA-REQ-052) runs
+//     `g-cli lunit -- -r <report> lv_icon_editor.lvproj` with the LUnit framework from the CORRECT
+//     icon-editor-developer.vipc (NOT the CI-runner runner_dependencies.vipc). The committed receipt's
+//     machine-independent resultHash is the TEST INVENTORY (sorted class/case set + suite structure), stable
+//     across planes even when pass/fail outcomes differ by environment; fail-closed on a stale/tampered
+//     resultHash, a forged verdict, an inventory that disagrees with the reported total, or a tampered digest.
+check('lunit-test-benchmark', () => {
+  execFileSync(process.execPath, [join(here, 'lunit-test', 'verify-lunit-test-benchmark.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0033 icon-editor container benchmarks (LUnit tester)', selftest: 'verify-lunit-test-benchmark 7/7 (g-cli lunit ran the icon-editor suite, inventory identity, fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
@@ -377,6 +665,528 @@ check('cleanroom-bootstrap-is-winget-free', () => {
   return { wingetFree: true };
 });
 
+// The codespace cleanroom witness (Actor Corroboration Grid, ADR-0014/ADR-0015) runs the SAME gate-suite as
+// the VM, so the committed standalone cleanroom/ubuntu-labview/lba/gate-suite.sh MUST stay byte-identical to
+// the copy the VM emits via the provision-lbabus-fromsource.sh `<<'GATESH'` heredoc -- one source of truth,
+// fail-closed on drift (so the VM path and the codespace witness cannot diverge without CI catching it).
+check('cleanroom-gate-suite-shared-in-sync', () => {
+  // Line-ending-tolerant: git may check these out CRLF on Windows, which is a checkout artifact, not real
+  // drift -- normalize to LF before parsing the heredoc markers + comparing (the identity that matters is
+  // content, not the EOL). Without this, a trailing `\r` breaks the `<<'GATESH'` / `GATESH` line matches.
+  const norm = (s) => s.replace(/\r\n/g, '\n');
+  const prov = norm(readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'provision-lbabus-fromsource.sh'), 'utf8'));
+  const lines = prov.split('\n');
+  const start = lines.findIndex((l) => l.endsWith("<<'GATESH'"));
+  const end = lines.findIndex((l, i) => i > start && l === 'GATESH');
+  assert(start >= 0 && end > start, 'the GATESH heredoc must be present in provision-lbabus-fromsource.sh');
+  const heredocBody = lines.slice(start + 1, end).join('\n') + '\n';
+  const shared = norm(readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'lba', 'gate-suite.sh'), 'utf8'));
+  assert(shared === heredocBody, 'cleanroom/ubuntu-labview/lba/gate-suite.sh drifted from the VM GATESH heredoc body');
+  return { bodyLines: end - start - 1 };
+});
+
+// The Actor Corroboration Grid codespace witness (ADR-0014/ADR-0015): its devcontainer + bootstrap-validate must
+// stay well-formed -- noble base (parity with the VBox golden VM), postCreate runs bootstrap-validate, and the
+// bootstrap builds lbabus from source AND runs the SHARED gate-suite (not a private copy). Pure string/JSON
+// checks (Windows-safe -- no bash invocation, CRLF-tolerant substring matches).
+check('codespace-witness-bootstrap-valid', () => {
+  const dc = JSON.parse(readFileSync(join(pkgRoot, '.devcontainer', 'cleanroom-witness', 'devcontainer.json'), 'utf8'));
+  assert(String(dc.postCreateCommand || '').includes('bootstrap-validate.sh'), 'the witness devcontainer runs bootstrap-validate on postCreate');
+  assert(/ubuntu-24\.04/.test(String(dc.image || '')), 'the witness devcontainer is Ubuntu 24.04 (noble) to match the VBox golden VM');
+  const bs = readFileSync(join(pkgRoot, 'cleanroom', 'ubuntu-labview', 'codespace', 'bootstrap-validate.sh'), 'utf8');
+  assert(bs.startsWith('#!/usr/bin/env bash'), 'bootstrap-validate.sh has a bash shebang');
+  assert(bs.includes('set -euo pipefail'), 'bootstrap-validate.sh runs in strict mode');
+  assert(bs.includes('cleanroom/ubuntu-labview/lba/gate-suite.sh'), 'the witness runs the SHARED gate-suite (single source), not a copy');
+  assert(bs.includes('dotnet publish') && bs.includes('LbaBus.csproj'), 'the witness builds lbabus from source');
+  return { devcontainer: 'noble', runsSharedGateSuite: true };
+});
+
+// The ACG codespace-witness PREBUILD workflow (ADR-0014/ADR-0015): a REAL container build of the witness
+// devcontainer that runs bootstrap-validate (postCreate) and asserts the gate-suite receipt is `pass` -- the CI
+// reproducibility proof behind the codespace witness. Assert it stays wired to the witness devcontainer + bootstrap
+// and still validates the receipt verdict (CRLF-normalized: Windows checkout is CRLF; substring matches only).
+check('codespace-witness-prebuild-workflow-wired', () => {
+  const wf = readFileSync(join(pkgRoot, '.github', 'workflows', 'codespace-witness-prebuild.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(wf.includes('devcontainers/ci@'), 'the prebuild builds via the devcontainers/ci action');
+  assert(wf.includes('.devcontainer/cleanroom-witness/devcontainer.json'), 'the prebuild targets the cleanroom-witness devcontainer');
+  assert(wf.includes('cleanroom/ubuntu-labview/codespace'), 'the prebuild re-runs when the witness bootstrap changes');
+  assert(wf.includes('gate-suite-receipt.json') && wf.includes('verdict'), 'the prebuild validates the witness gate-suite receipt verdict');
+  assert(/verdict\s*!==\s*"pass"/.test(wf), 'the prebuild FAILS CLOSED unless the witness verdict is pass');
+  return { workflow: 'codespace-witness-prebuild', buildsWitnessContainer: true };
+});
+
+// The Actor Corroboration Grid quorum (ADR-0015, LBA-REQ-024): the tiered-anchor, graded-majority compare that
+// turns witness bundles into a corroboration verdict must hold -- run its dependency-free self-test as a subprocess.
+check('acg-quorum-compare-witnesses', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'compare-witnesses.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'compare-witnesses 7/7' };
+});
+
+// The ACG witness-bundle assembler (ADR-0014/ADR-0015, LBA-REQ-024): composing a witness's gate/render/capability
+// receipts into the canonical bundle the quorum ingests must FAIL CLOSED on any missing release-gating anchor and
+// corroborate end to end through the quorum -- run its dependency-free self-test as a subprocess.
+check('acg-quorum-assemble-witness', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'assemble-witness.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'assemble-witness 9/9' };
+});
+
+// Live corroboration evidence (ADR-0014/ADR-0015, LBA-REQ-024): the committed witness bundles from the REAL
+// {CODESPACE, LINUX} grid must still corroborate. Re-derive the verdict from the committed bundles and assert it
+// matches the committed corroboration receipt (tamper-evident: a doctored release anchor changes the verdict), and
+// that every OS-independent (release-critical) anchor -- plus the Linux render -- is identical across the witnesses.
+// The Ubuntu codename MAY differ (noble codespace vs the host's own Ubuntu) -- that divergence is graded, not fatal.
+check('acg-quorum-live-corroboration', () => {
+  const codespace = readJson('experiments/acg-quorum/witnesses/codespace.bundle.json');
+  const host = readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json');
+  const receipt = readJson('experiments/acg-quorum/corroboration-receipt.json');
+  const verdict = compareWitnesses([codespace, host]);
+  assert(verdict.verdict === 'pass', `live corroboration verdict is ${verdict.verdict}`);
+  assert(
+    verdict.verdict === receipt.verdict && verdict.confidence === receipt.confidence && verdict.consensusVerdict === receipt.consensusVerdict,
+    'the committed corroboration receipt must match the re-derived verdict'
+  );
+  assert(JSON.stringify(verdict.consensus) === JSON.stringify(receipt.consensus), 'the committed consensus anchors must match the re-derived ones');
+  assert(verdict.divergences.length === receipt.divergences.length, 'the committed divergences must match the re-derived ones');
+  // Every OS-independent (release-critical) anchor must corroborate -- never appear as a divergence -- and so must the Linux render.
+  for (const k of ['version', 'sourceCommit', 'verdict', 'seriesHash', 'pngSha256']) {
+    assert(verdict.consensus[k] != null, `consensus is missing the ${k} anchor`);
+    assert(verdict.divergences.every((d) => d.anchor !== k), `the ${k} anchor must corroborate across the witnesses`);
+  }
+  return { verdict: verdict.verdict, confidence: +verdict.confidence.toFixed(4), witnesses: verdict.witnesses, tolerated: verdict.divergences.map((d) => d.anchor) };
+});
+
+// ACG provenance + attestation engine (ADR-0016, LBA-REQ-025): the enforceable "verify before consume" core --
+// Ed25519 enrolled-key witness attestations that fail closed on tamper / un-enrolled identity / rogue key / bad
+// signature, and a consume decision that blocks unless every attestation verifies, the witnesses are distinct
+// enrolled identities (ADR-0017), and the re-computed quorum passes -- run its dependency-free self-test.
+check('acg-provenance-attest', () => {
+  execFileSync(process.execPath, [join(here, 'acg-provenance', 'attest.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'attest 10/10' };
+});
+
+// LBA-REQ-011 (extended): click-to-marker on the raw benchmark data with a +/-200 ms image-grab tolerance.
+// A pointer CLICK resolves to an epoch-ms instant, writes a marker into the launch metadata, and post-processing
+// grabs the captured frame image nearest that instant ONLY within the tolerance (never a wrong-frame image).
+// Also drift-guards the all-performance-counter correlation schema (>= 20 counters cataloged, 200 ms tolerance).
+check('frame-markers-image-grab', () => {
+  execFileSync(process.execPath, [join(here, 'resource-usage-correlation', 'frameMarkers.selftest.mjs')], { stdio: 'pipe' });
+  const schema = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'performance-counter-schema.json'), 'utf8'));
+  assert(schema.markers && schema.markers.toleranceMs === 200, 'performance-counter schema marker tolerance must be 200 ms');
+  const counters = Object.values(schema.counterCatalog || {}).reduce((a, c) => a + c.length, 0);
+  assert(counters >= 20, `performance-counter schema must catalog the broad counter set (got ${counters})`);
+  return { selftest: 'frameMarkers 12/12', counters };
+});
+
+// LBA-REQ-011 (extended, cross-platform + EXACTLY 12 FPS): the full-counter correlation engine + the deterministic
+// frame-locked Linux /proc sampler, proven on REAL data (the exact-12-FPS Linux capture + the real LINUX & WIN
+// launch fixtures). Drift-guards the committed capture being EXACTLY 12 FPS (1:1 with the 12 FPS long packets).
+check('performance-counter-correlation-real', () => {
+  execFileSync(process.execPath, [join(here, 'resource-usage-correlation', 'performanceCounterCorrelation.selftest.mjs')], { stdio: 'pipe' });
+  const cap = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'fixtures', 'linux-proc-12fps-capture.json'), 'utf8'));
+  assert(cap.measured && cap.measured.exactly12fps === true, 'the committed Linux capture must be EXACTLY 12 FPS');
+  assert(Math.abs(cap.frameIntervalMs - 1000 / 12) < 1e-6, 'frame interval must be exactly 1000/12 ms');
+  assert(cap.measured.maxPhaseErrorMs <= 5, `frame-lock phase error must be tight (<=5 ms), got ${cap.measured.maxPhaseErrorMs}`);
+  return { selftest: 'performanceCounterCorrelation 4/4 (REAL data)', effectiveFps: cap.measured.effectiveFps };
+});
+
+// LBA-REQ-011 (extended, LIVE end-to-end): the capture->correlate driver proven on a committed REAL receipt -- an
+// EXACTLY-12-FPS /proc capture with a REAL CPU+disk burst fired at the trigger frame -- must show the correlation
+// SURFACING the trigger (an expected counter rose past its detection threshold) with the frame-lock held at the median.
+check('performance-counter-correlation-live-trigger', () => {
+  execFileSync(process.execPath, [join(here, 'resource-usage-correlation', 'captureAndCorrelate.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'fixtures', 'linux-proc-12fps-correlated-trigger.json'), 'utf8'));
+  assert(r.capture.measured.exactly12fps === true, 'the live capture must be EXACTLY 12 FPS');
+  assert(Math.abs(r.capture.frameIntervalMs - 1000 / 12) < 1e-6, 'frame interval must be exactly 1000/12 ms');
+  assert(r.capture.measured.medianPhaseErrorMs <= 5, `median frame-lock error must stay tight under load (<=5 ms), got ${r.capture.measured.medianPhaseErrorMs}`);
+  assert(r.detection.triggerDetected === true && Array.isArray(r.detection.detectedBy) && r.detection.detectedBy.length >= 1, 'the real burst must be detected across the trigger');
+  return { detectedBy: r.detection.detectedBy.map((d) => d.key), effectiveFps: r.capture.measured.effectiveFps };
+});
+
+// LBA-REQ-011 (extended, LIVE end-to-end INTEGRATION): the REAL Linux sampler -> buildLaunchCapture -> v2
+// correlator chain, proven on a committed receipt captured on this host -- the exact-12-FPS /proc counters survive
+// the shipped capture assembler onto EVERY frame and reach the shipped correlator webview model.
+check('live-v2-capture-real', () => {
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'liveV2Capture.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'live-v2-capture-receipt.json'), 'utf8'));
+  assert(r.measured && r.measured.exactly12fps === true, 'the real sampler locked to EXACTLY 12 FPS');
+  assert(r.recordSchema === 'labview-benchmark-actor/launch-capture@1', 'the assembler produced a launch-capture@1 record');
+  assert(r.everyFrameHasCounters === true && r.correlatorRendersCounters === true, 'counters survive sampler -> assembler -> correlator');
+  assert(Array.isArray(r.counterKeys) && r.counterKeys.length >= 12, `the full Linux counter catalog reached the record (${r.counterKeys && r.counterKeys.length})`);
+  return { chain: 'linuxProcSampler -> buildLaunchCapture -> frame-correlator', counters: r.counterKeys.length, frames: r.frameCount };
+});
+
+// LBA-REQ-011 (extended, mesh-stress-signature@v1): the performance-SIGNATURE extractor -- per-counter features
+// + across-repeat stability (signature vs noise by coefficient-of-variation) + MAD outliers + cross-counter
+// outlier co-occurrence (+/-200 ms) + autocorrelation periodicity -- proven on synthetic cases + the REAL
+// exact-12-FPS Linux /proc capture split into repeats. Pure, dependency-free; the foundation of the mesh ladder.
+check('mesh-stress-signature-extractor', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'signatureExtractor.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'signatureExtractor 5/5', schema: 'mesh-stress-signature@v1' };
+});
+
+// LBA-REQ-011 (extended, mesh-stress-signature@v1): the CALIBRATION-CURVE fitter -- fit stressRung -> expected +
+// tolerance band per counter-feature from the per-rung signatures, score the monotone/separable/repeatable design
+// invariants, and the inverse read (observed signature -> inferred rung). Proven on a synthetic idle..saturate ladder.
+check('mesh-stress-signature-calibrator', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'calibrationCurveFitter.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'calibrationCurveFitter 4/4', schema: 'mesh-stress-calibration@v1' };
+});
+
+// LBA-REQ-011 (extended, mesh-stress-signature@v1): the stress ORCHESTRATOR -- the COMMANDED side of the ladder:
+// monotone levels (cap down, workload up) + per-actor VirtualBox throttle (--cpuexecutioncap / --bandwidthctl) +
+// guest/host stress-ng commands + a ladder plan pinning each actor to a DIFFERENT level (a horizontal slice).
+check('mesh-stress-orchestrator', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'stressOrchestrator.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'stressOrchestrator 5/5', schema: 'mesh-stress-orchestrator@v1' };
+});
+
+// LBA-REQ-011 (extended): the in-guest Linux /proc sampler emits the v2 counters{} catalog (key-for-key at PARITY
+// with the host linuxProcSampler), so a Linux actor produces the same performance-counter-correlation@v2 shape a
+// Windows PDH actor does. Replays a committed REAL live capture from in-guest-resource-sampler.py.
+check('in-guest-sampler-v2', () => {
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'inGuestSamplerV2.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'inGuestSamplerV2 2/2 (REAL)', schema: 'in-guest-resource-sampler@v2' };
+});
+
+// LBA-REQ-011 (extended, cross-platform + EXACTLY 12 FPS): the WINDOWS PDH sampler (System.Diagnostics.Performance-
+// Counter, WALL-CLOCK frame-locked -- Get-Counter/typeperf floor at 1 Hz), proven on a committed REAL capture from
+// the golden Windows VM: EXACTLY 12 FPS + the v2 counters{} catalog + cross-plane parity with linuxProcSampler on
+// the shared keys + the series flows through the v2 correlation engine.
+check('win-pdh-sampler-12fps', () => {
+  execFileSync(process.execPath, [join(here, 'resource-usage-correlation', 'winPdhSampler.selftest.mjs')], { stdio: 'pipe' });
+  const cap = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'fixtures', 'win-pdh-12fps-capture.json'), 'utf8'));
+  assert(cap.plane === 'WIN' && cap.measured.exactly12fps === true, 'the committed Windows PDH capture must be EXACTLY 12 FPS');
+  assert(Array.isArray(cap.counterKeys) && cap.counterKeys.length >= 12, `the Windows PDH catalog (${cap.counterKeys && cap.counterKeys.length} keys)`);
+  return { selftest: 'winPdhSampler 4/4 (REAL)', plane: 'WIN', effectiveFps: cap.measured.effectiveFps, keys: cap.counterKeys.length };
+});
+
+// LBA-REQ-032 (mesh-stress-signature@v1, LIVE): the full stress ladder calibrated END TO END on REAL data -- each
+// rung applied REAL scaled CPU load, linuxProcSampler captured a REAL exact-12-FPS series, the extractor built the
+// per-rung signatures, and the fitter fit the ladder with the monotone/separable/repeatable invariants HOLDING +
+// a held-out rung inverse-reading back to itself. Replays the committed live receipt.
+check('mesh-live-ladder-real', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'liveLadderRun.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mesh-stress-signature', 'fixtures', 'mesh-live-ladder-receipt.json'), 'utf8'));
+  assert(r.invariants.monotone === 1 && r.invariants.separable === true && r.invariants.repeatable === true, 'the live ladder design invariants must hold on real data');
+  assert(r.inverseRead.heldOutRung === r.inverseRead.inferredRung, 'a held-out rung must inverse-read back to itself');
+  return { rungs: r.ladder.levels.length, salient: r.salientDimensions.length, cpuCurve: (r.cpuTotalPctMeanCurve || []).map((c) => c.expected) };
+});
+
+// LBA-REQ-032 (overview.md §3.6 / VW-1): the mesh-stress calibration ANALYSIS VIEW renders the committed live
+// ladder receipt into an inert (script-free) HTML surface -- the commanded ladder, the cpuTotalPct calibration
+// curve + tolerance band, the monotone/separable/repeatable invariants, the separability, and the inverse read.
+check('mesh-calibration-view', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'meshCalibrationView.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'meshCalibrationView 6/6', surface: 'script-free HTML' };
+});
+
+// LBA-REQ-032 (mesh-stress-signature@v1, LIVE + CONCURRENT): the SIMULTANEOUS mesh -- 5 actors, each pinned to a
+// disjoint core pool and commanded to a DIFFERENT rung AT ONCE, are each sampled on their own exact-12-FPS /proc
+// series, and every actor is inverse-read back to its OWN rung. Replays the committed concurrent receipt.
+check('mesh-concurrent-actors-real', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'concurrentMeshRun.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mesh-stress-signature', 'fixtures', 'mesh-concurrent-actors-receipt.json'), 'utf8'));
+  assert(r.measured.exactly12fps === true && r.concurrency.allActorsSampledEveryFrame === true, 'the actors must be sampled simultaneously at exactly 12 FPS');
+  assert(r.allActorsRecovered === true && r.perActorInverseRead.every((x) => x.correct), 'every concurrently-stressed actor must inverse-read back to its own rung');
+  return { actors: r.perActorInverseRead.length, recovered: r.allActorsRecovered, cpuMeans: r.actors.map((a) => a.cpuPoolPctMean) };
+});
+
+// LBA-REQ-032 (mesh-stress-signature@v1, LIVE + WINDOWS VM): a REAL golden-box Win11 VM calibrated as a mesh
+// actor -- winMeshActorCapture.ps1 drove the running VM through busy=0..4 via VBoxManage guestcontrol (each an
+// exact-12-FPS PDH capture), and runWinVmLadder builds the per-rung signatures + fits + inverse-reads every rung.
+// Recomputes from the committed real captures (offline, no VM).
+check('win-vm-mesh-ladder-real', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'winVmLadderRun.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mesh-stress-signature', 'fixtures', 'win-vm-ladder-receipt.json'), 'utf8'));
+  assert(r.invariants.monotone === 1 && r.invariants.separable === true && r.invariants.repeatable === true, 'the golden VM ladder invariants must hold on real data');
+  assert(r.allRungsRecovered === true, 'every rung must inverse-read back to itself on the real VM');
+  return { plane: r.vm.plane, cpuCurve: (r.cpuTotalPctMeanCurve || []).map((c) => c.expected), salient: r.salientDimensions.length };
+});
+
+// LBA-REQ-032 (mesh-stress-signature@v1, LIVE + CONCURRENT WINDOWS VMs): two real Win11 VMs (golden + a linked
+// clone) stressed SIMULTANEOUSLY at different rungs, each PDH-sampled on its own exact-12-FPS series; the
+// golden-VM calibration correctly ORDERS which VM is more stressed in every concurrent pairing. Recomputes from
+// the committed real captures (offline, no VM).
+check('win-vm-concurrent-mesh-real', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'concurrentVmMesh.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mesh-stress-signature', 'fixtures', 'win-vm-concurrent-receipt.json'), 'utf8'));
+  assert(r.allPairingsSimultaneous === true, 'the VM pairings must be captured simultaneously');
+  assert(r.allPairingsRankedCorrectly === true, 'every concurrent pairing must correctly order which VM is more stressed');
+  return { pairings: r.pairings.length, ranked: r.allPairingsRankedCorrectly, exact: `${r.exactRungMatches}/${r.totalReadings}` };
+});
+
+// LBA-REQ-032 (overview.md §3.6 / VW-1): the concurrent mesh BOARD renders a committed concurrent-actors
+// receipt into an inert (script-free) HTML surface -- one tile per simultaneous actor with its stress bar +
+// inverse-read rung + recovered mark, plus the simultaneity/invariant badges.
+check('mesh-board-view', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'meshBoardView.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'meshBoardView 6/6', surface: 'script-free HTML board' };
+});
+
+// Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
+// real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
+// bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
+// evident: doctoring a bundle breaks its signature, and a non-enrolled key or a doctored allowlist blocks consume.
+check('acg-provenance-verify-before-consume', () => {
+  const allowlist = readJson('experiments/acg-provenance/enrollment/allowlist.json');
+  const witnesses = [
+    { bundle: readJson('experiments/acg-quorum/witnesses/codespace.bundle.json'), attestation: readJson('experiments/acg-provenance/attestations/codespace.attestation.json') },
+    { bundle: readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json'), attestation: readJson('experiments/acg-provenance/attestations/host-linux.attestation.json') },
+  ];
+  const receipt = readJson('experiments/acg-provenance/consume-decision-receipt.json');
+  const decision = verifyBeforeConsume({ witnesses, allowlist });
+  assert(decision.consume === true, `verify-before-consume blocked: ${decision.reasons.join('; ')}`);
+  assert(decision.consume === receipt.consume && JSON.stringify(decision.reasons) === JSON.stringify(receipt.reasons), 'the committed consume decision must match the re-derived one');
+  assert(decision.witnesses.length >= 2 && decision.witnesses.every((w) => w.ok), 'every enrolled witness attestation must verify');
+  assert(new Set(decision.witnesses.map((w) => w.identity)).size === decision.witnesses.length, 'the witness identities must be distinct');
+  return { consume: decision.consume, witnesses: decision.witnesses.map((w) => w.identity) };
+});
+
+// ACG witness-independence engine (ADR-0017, LBA-REQ-026): a quorum is independent only when it spans >= quorumMin
+// DISTINCT ENROLLED environments each with a recorded identity; non-enrolled, duplicate-environment, and
+// identity-less witnesses do not count -- run its dependency-free self-test as a subprocess.
+check('acg-independence-quorum', () => {
+  execFileSync(process.execPath, [join(here, 'acg-independence', 'independence.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'independence 9/9' };
+});
+
+// Live witness-independence evidence (ADR-0017, LBA-REQ-026): the committed {CODESPACE, LINUX} grid must span
+// distinct enrolled environments, each with the identity recorded in its provenance (ADR-0016 attestation).
+// Re-assess independence over the committed bundles + attestation identities + enrolled-environments and assert
+// it matches the committed independence receipt (tamper-evident: a duplicate/non-enrolled environment fails closed).
+check('acg-independence-live', () => {
+  const enrollment = readJson('experiments/acg-independence/enrolled-environments.json');
+  const witnesses = [
+    { bundle: readJson('experiments/acg-quorum/witnesses/codespace.bundle.json'), identity: readJson('experiments/acg-provenance/attestations/codespace.attestation.json').witnessIdentity },
+    { bundle: readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json'), identity: readJson('experiments/acg-provenance/attestations/host-linux.attestation.json').witnessIdentity },
+  ];
+  const receipt = readJson('experiments/acg-independence/independence-receipt.json');
+  const verdict = assessIndependence(witnesses, { enrolledEnvironments: enrolledEnvironmentSet(enrollment) });
+  assert(verdict.independent === true, `the live grid is not independent: ${verdict.reasons.join('; ')}`);
+  assert(JSON.stringify(verdict) === JSON.stringify(receipt), 'the committed independence receipt must match the re-derived verdict');
+  assert(verdict.counted.length >= 2 && verdict.counted.every((c) => c.identity), 'every counted witness must have a recorded identity');
+  return { independent: verdict.independent, environments: verdict.distinctEnrolledEnvironments };
+});
+
+// ACG governance: PRs target develop, not main (ADR-0021, LBA-REQ-030). The base-branch policy -- non-release
+// heads may not target main; only release/* and hotfix/* do (main never takes develop directly) -- must hold.
+check('acg-governance-pr-base-branch', () => {
+  execFileSync(process.execPath, [join(here, 'acg-governance', 'pr-base-branch-guard.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'pr-base-branch-guard 11/11' };
+});
+
+// The base-branch guard WORKFLOW (ADR-0021, LBA-REQ-030) must stay wired: it runs on pull requests targeting main
+// and invokes the guard script, so a mis-based PR onto main fails closed (CRLF-normalized; substring checks only).
+check('acg-governance-pr-base-branch-workflow-wired', () => {
+  const wf = readFileSync(join(pkgRoot, '.github', 'workflows', 'pr-base-branch-guard.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/pull_request:/.test(wf) && /branches:\s*\[\s*main\s*\]/.test(wf), 'the guard triggers on pull requests targeting main');
+  assert(wf.includes('experiments/acg-governance/pr-base-branch-guard.mjs'), 'the workflow invokes the base-branch guard script');
+  assert(wf.includes('github.base_ref') && wf.includes('github.head_ref'), 'the workflow passes the PR base/head refs to the guard');
+  return { workflow: 'pr-base-branch-guard', guardsMain: true };
+});
+
+// ACG mesh verdict beacon + ledger (ADR-0019, LBA-REQ-028): a witness verdict must beacon as a valid bus-msg@1
+// NOTE, survive the real 4-byte-framed wire, fail closed on malformed frames, and the ledger must dedup + feed the
+// quorum -- run its dependency-free self-test as a subprocess.
+check('acg-mesh-verdict-beacon', () => {
+  execFileSync(process.execPath, [join(here, 'acg-mesh', 'verdict-beacon.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'verdict-beacon 8/8' };
+});
+
+// Live mesh loopback evidence (ADR-0019, LBA-REQ-028): the committed loopback receipt -- the real {codespace, host}
+// verdicts beaconed over bus-msg@1 and collected in the ledger -- must re-derive deterministically from the
+// committed bundles (tamper-evident: the ledgerHash + mesh quorum are recomputed from the same beacons/bundles).
+check('acg-mesh-loopback-evidence', () => {
+  const codespace = readJson('experiments/acg-quorum/witnesses/codespace.bundle.json');
+  const host = readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json');
+  const receipt = readJson('experiments/acg-mesh/mesh-loopback-receipt.json');
+  const notice = (id, b) => ({ identity: id, plane: b.plane, os: b.os, verdict: b.gate.verdict, digest: bundleDigest(b), seriesHash: b.screenshot.seriesHash, sourceCommit: b.gate.lbabus.sourceCommit });
+  const led = new MeshLedger();
+  led.record(buildVerdictBeacon(notice('acg-witness:codespace', codespace), { seq: 1 }));
+  led.record(buildVerdictBeacon(notice('acg-witness:host-linux', host), { seq: 2 }));
+  const out = quorumFromLedger(led, { bundlesByDigest: { [bundleDigest(codespace)]: codespace, [bundleDigest(host)]: host } });
+  assert(out.quorum.verdict === 'pass', `mesh quorum is ${out.quorum.verdict}`);
+  assert(out.resolved === 2 && out.missing.length === 0 && out.mismatched.length === 0, 'both beaconed witnesses must resolve to their bundles');
+  assert(out.ledgerHash === receipt.ledgerHash, 'the committed mesh ledgerHash must match the re-derived one');
+  assert(out.quorum.verdict === receipt.meshQuorum.quorum.verdict && out.resolved === receipt.meshQuorum.resolved, 'the committed mesh receipt must match the re-derived verdict');
+  return { quorum: out.quorum.verdict, resolved: out.resolved, ledgerHash: out.ledgerHash.slice(0, 12) };
+});
+
+// ACG MCP orchestration surface (ADR-0020, LBA-REQ-029): the grid tools must be discoverable + invocable over the
+// JSON-RPC 2.0 MCP contract (initialize / tools/list / tools/call) composing the engines, and the stdio server must
+// answer a real spawned round-trip -- run its dependency-free self-test as a subprocess.
+check('acg-mcp-grid-surface', () => {
+  execFileSync(process.execPath, [join(here, 'acg-mcp', 'grid-tools.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'grid-tools 10/10' };
+});
+
+// ACG reviewer station + human sign-off (ADR-0018, LBA-REQ-027): a corroborated release must be blocked from
+// publishing until a recorded, enrolled, approving human sign-off accompanies the exact machine-quorum verdict --
+// and the sign-off must not substitute for the quorum -- run its dependency-free self-test as a subprocess.
+check('acg-reviewer-sign-off', () => {
+  execFileSync(process.execPath, [join(here, 'acg-reviewer', 'sign-off.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'sign-off 10/10' };
+});
+
+// Live release-decision evidence (ADR-0018, LBA-REQ-027): the real corroborated release must be BLOCKED pending a
+// human sign-off. Re-derive the LBA-REQ-027 gate over the committed machine-quorum verdict with no sign-off and
+// assert the machine quorum passed but publish is blocked -- matching the committed release-decision receipt.
+check('acg-reviewer-release-decision', () => {
+  const quorumVerdict = readJson('experiments/acg-quorum/corroboration-receipt.json');
+  const receipt = readJson('experiments/acg-reviewer/release-decision-receipt.json');
+  const decision = gateReleasePublish({ quorumVerdict, signOffs: [] });
+  assert(decision.quorumPass === true, 'the committed corroboration must pass the machine quorum');
+  assert(decision.publish === false, 'publish must be blocked with no recorded human sign-off');
+  assert(decision.publish === receipt.decision.publish && decision.quorumPass === receipt.decision.quorumPass, 'the committed release decision must match the re-derived one');
+  return { publish: decision.publish, quorumPass: decision.quorumPass };
+});
+
+// The Actor Corroboration Grid END-TO-END (ADR-0014, LBA-REQ-023, the umbrella): the whole gate -- independence +
+// quorum + attestation + mesh + human sign-off composed into one release decision -- must hold and fail closed on
+// any failing stage. Run its dependency-free self-test as a subprocess.
+check('acg-grid-e2e', () => {
+  execFileSync(process.execPath, [join(here, 'acg-grid', 'grid.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'grid 6/6' };
+});
+
+// Live end-to-end grid evidence (ADR-0014, LBA-REQ-023): the REAL {codespace, host} grid must corroborate the
+// release through every MACHINE stage (independence + quorum + attestation + mesh) and be held only at the human
+// sign-off gate. Re-derive runGrid over the committed witnesses + attestations + enrollment and assert
+// machineCorroborated with released blocked pending sign-off -- matching the committed grid-run receipt.
+check('acg-grid-run-live', () => {
+  const witnesses = [
+    { bundle: readJson('experiments/acg-quorum/witnesses/codespace.bundle.json'), attestation: readJson('experiments/acg-provenance/attestations/codespace.attestation.json') },
+    { bundle: readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json'), attestation: readJson('experiments/acg-provenance/attestations/host-linux.attestation.json') },
+  ];
+  const result = runGrid({ witnesses, allowlist: readJson('experiments/acg-provenance/enrollment/allowlist.json'), enrollment: readJson('experiments/acg-independence/enrolled-environments.json'), signOffs: [] });
+  const receipt = readJson('experiments/acg-grid/grid-run-receipt.json');
+  assert(result.machineCorroborated === true, 'the real grid must corroborate through every machine stage');
+  for (const s of ['independence', 'quorum', 'attestation', 'mesh']) assert(result.stages[s].ok === true, `machine stage ${s} must pass`);
+  assert(result.released === false, 'released must be blocked pending a human sign-off');
+  assert(result.machineCorroborated === receipt.result.machineCorroborated && result.released === receipt.result.released, 'the committed grid-run receipt must match the re-derived run');
+  return { machineCorroborated: result.machineCorroborated, released: result.released };
+});
+
+// The Merkle TRANSPARENCY LOG (ADR-0022, LBA-REQ-031, the rekor analogue): RFC 6962 domain-separated hashing,
+// inclusion + append-only consistency proofs, and Ed25519 signed tree heads -- the machine core of
+// verify-before-install. Run its dependency-free self-test as a subprocess.
+check('acg-transparency-log', () => {
+  execFileSync(process.execPath, [join(here, 'acg-transparency', 'transparency-log.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'transparency-log 26/26' };
+});
+
+// Live transparency-log evidence (ADR-0022, LBA-REQ-031): the REAL {codespace, host} attestations must be
+// INCLUDED in the Ed25519-signed Merkle transparency log, and verify-before-install must admit each. Re-derive
+// every inclusion against the committed signed root, verify the signed tree head against the enrolled log key,
+// and match the committed verify-before-install decision -- fully offline.
+check('acg-transparency-log-live', () => {
+  const attestations = [
+    readJson('experiments/acg-provenance/attestations/codespace.attestation.json'),
+    readJson('experiments/acg-provenance/attestations/host-linux.attestation.json'),
+  ];
+  const proof = readJson('experiments/acg-transparency/release-transparency-receipt.json');
+  const allowlist = readJson('experiments/acg-transparency/enrollment/log-allowlist.json');
+  const decisionReceipt = readJson('experiments/acg-transparency/inclusion-decision-receipt.json');
+  const logPublicKeyPem = allowlist[proof.signedTreeHead.logIdentity];
+  assert(!!logPublicKeyPem, 'the signing log identity must be enrolled in the log allowlist');
+  assert(verifySignedTreeHead(proof.signedTreeHead, { publicKeyPem: logPublicKeyPem }), 'the signed tree head must verify against the enrolled log key');
+  const decisions = attestations.map((attestation, i) => verifyReleaseInclusion({ attestation, inclusion: proof.inclusions[i], signedTreeHead: proof.signedTreeHead, logPublicKeyPem }));
+  for (const d of decisions) assert(d.included === true, `attestation must be included in the transparency log (${d.reason || ''})`);
+  assert(decisionReceipt.allIncluded === true && decisions.length === decisionReceipt.decisions.length, 'the committed verify-before-install decision must match the re-derived one');
+  return { size: proof.signedTreeHead.size, allIncluded: decisions.every((d) => d.included) };
+});
+
+// Verify-before-install end-to-end (ADR-0022, LBA-REQ-031): the reviewer-workstation verifier must ADMIT the
+// real release-provenance bundle (>= quorumMin witnesses attested + logged) and BLOCK a tampered one. Spawn it
+// exactly as the reviewer box would.
+check('acg-transparency-verify-before-install', () => {
+  const cli = join(here, 'acg-transparency', 'verify-release-inclusion.mjs');
+  const provPath = join(here, 'acg-transparency', 'release-provenance-bundle.json');
+  execFileSync(process.execPath, [cli, '--provenance', provPath], { stdio: 'pipe' }); // exit 0 = admit
+  const bundle = readJson('experiments/acg-transparency/release-provenance-bundle.json');
+  bundle.witnesses[0].inclusion.leaf = '0'.repeat(64);
+  const tampered = join(tmpdir(), `acg-tampered-prov-${process.pid}.json`);
+  writeFileSync(tampered, JSON.stringify(bundle));
+  let blocked = false;
+  try {
+    execFileSync(process.execPath, [cli, '--provenance', tampered], { stdio: 'pipe' });
+  } catch {
+    blocked = true;
+  } finally {
+    rmSync(tampered, { force: true });
+  }
+  assert(blocked, 'verify-before-install must BLOCK a tampered provenance bundle');
+  return { admit: true, tamperBlocked: blocked };
+});
+
+// The reviewer-workstation provisioner must WIRE verify-before-install (ADR-0022, LBA-REQ-031): it verifies the
+// release corroboration provenance and BLOCKS the .vsix install on failure. Drift gate over provision.ps1
+// (CRLF-normalized substring checks; fail-closed).
+check('acg-transparency-verify-before-install-wired', () => {
+  const norm = readFileSync(join(pkgRoot, 'reviewer-workstation', 'provision.ps1'), 'utf8').replace(/\r\n/g, '\n');
+  assert(norm.includes('verify-release-inclusion.mjs'), 'provision.ps1 must invoke the verify-before-install verifier');
+  const guardAt = norm.indexOf('Assert-ReleaseProvenance -ExtTag');
+  const installAt = norm.indexOf('Install-ExtensionForInteractiveUser $vsix');
+  assert(guardAt > 0 && installAt > 0 && guardAt < installAt, 'verify-before-install must run BEFORE the .vsix install');
+  assert(norm.includes('verify-before-install BLOCKED'), 'provision.ps1 must fail closed (block) when the provenance does not verify');
+  return { wired: true };
+});
+
+// LBA-REQ-025 sigstore-KEYLESS + public-rekor tier (ADR-0016): the keyless-attest workflow must be wired to
+// keyless-sign the release-provenance bundle with cosign under an Actions OIDC identity (a short-lived Fulcio
+// certificate + an entry in the public rekor log). Drift gate over the workflow (CRLF-normalized substring
+// checks; fail-closed). The LIVE Fulcio/rekor signature is the CI step (needs OIDC + network), demonstrated by
+// dispatching the workflow -- it cannot be re-derived offline, unlike the self-hosted transparency log.
+check('acg-keyless-attest-workflow-wired', () => {
+  const wf = readFileSync(join(pkgRoot, '.github', 'workflows', 'acg-keyless-attest.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/id-token:\s*write/.test(wf), 'the workflow must request the OIDC id-token (keyless signing)');
+  assert(/sigstore\/cosign-installer/.test(wf), 'the workflow must install cosign');
+  assert(/cosign sign-blob/.test(wf), 'the workflow must keyless-sign the provenance bundle with cosign');
+  assert(/release-provenance-bundle\.json/.test(wf), 'the workflow must sign the release-provenance bundle');
+  assert(/--bundle release-provenance\.sigstore/.test(wf), 'the workflow must emit the sigstore bundle (Fulcio cert + rekor entry)');
+  assert(/gh release create/.test(wf), 'the workflow must CREATE the release with the provenance assets attached (immutable-release-safe)');
+  return { wired: true };
+});
+
+// LBA-REQ-025 / ADR-0016: the REAL release lanes must keyless-attest their artifacts. A shared composite action
+// keyless-signs each staged artifact (cosign, Actions OIDC -> Fulcio cert + public rekor), and both release
+// workflows invoke it under `id-token: write` before creating the release (assets attached at creation,
+// immutable-safe). Drift gate over the action + both workflows (CRLF-normalized substring checks; fail-closed).
+check('release-lanes-keyless-attested', () => {
+  const action = readFileSync(join(pkgRoot, '.github', 'actions', 'keyless-attest', 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/using:\s*composite/.test(action), 'the keyless-attest action must be a composite action');
+  assert(/sigstore\/cosign-installer/.test(action), 'the keyless-attest action must install cosign');
+  assert(/cosign sign-blob/.test(action), 'the keyless-attest action must keyless-sign the artifacts with cosign');
+  for (const wf of ['extension-release.yml', 'collab-cli-release.yml']) {
+    const text = readFileSync(join(pkgRoot, '.github', 'workflows', wf), 'utf8').replace(/\r\n/g, '\n');
+    assert(/id-token:\s*write/.test(text), `${wf} must grant the OIDC id-token for keyless signing`);
+    assert(/uses:\s*\.\/\.github\/actions\/keyless-attest/.test(text), `${wf} must invoke the keyless-attest action before creating the release`);
+  }
+  // The extension lane's live path under the org tag-creation ruleset: workflow_dispatch builds + keyless-signs
+  // and UPLOADS the signed .vsix as a run artifact (a maintainer then cuts the immutable release locally with a
+  // bypass token). Drift-guard both so the ruleset-safe lane cannot silently regress to the dead push-tag path.
+  const extWf = readFileSync(join(pkgRoot, '.github', 'workflows', 'extension-release.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/workflow_dispatch:/.test(extWf), 'extension-release.yml must expose workflow_dispatch (the org-ruleset-safe live release path)');
+  assert(/uses:\s*actions\/upload-artifact/.test(extWf), 'extension-release.yml must upload the keyless-signed .vsix as a run artifact so the maintainer can cut the immutable release');
+  return { lanes: ['extension-release', 'collab-cli-release'], attested: true };
+});
+
+// LBA-REQ-025 / ADR-0016: the reviewer-workstation must cosign-VERIFY the .vsix's keyless signature (a Fulcio
+// certificate whose identity is pinned to the extension-release workflow + the GitHub Actions OIDC issuer + a
+// public rekor entry) BEFORE installing it. Network-gated on the reviewer box; drift gate over provision.ps1
+// (CRLF-normalized substring checks; fail-closed) asserts the verify runs before the install.
+check('reviewer-workstation-keyless-verify-wired', () => {
+  const norm = readFileSync(join(pkgRoot, 'reviewer-workstation', 'provision.ps1'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/cosign verify-blob/.test(norm), 'provision.ps1 must cosign verify-blob the .vsix keyless signature');
+  assert(/certificate-identity-regexp/.test(norm) && /extension-release/.test(norm), 'the cosign verify must pin the extension-release workflow certificate identity');
+  assert(/token\.actions\.githubusercontent\.com/.test(norm), 'the cosign verify must pin the GitHub Actions OIDC issuer');
+  const verifyAt = norm.indexOf('Assert-VsixKeylessSignature -ExtTag');
+  const installAt = norm.indexOf('Install-ExtensionForInteractiveUser $vsix');
+  assert(verifyAt > 0 && installAt > 0 && verifyAt < installAt, 'the cosign keyless verify must run BEFORE the .vsix install');
+  assert(/keyless verify-before-install BLOCKED/.test(norm), 'provision.ps1 must fail closed (block) when the keyless signature does not verify');
+  return { wired: true };
+});
+
 // 15. Host-concentration core receipt is green and the concentrated corpus preserves per-actor isolation
 //     (LBA-REQ-010, T-010). The deterministic core is proven here; the live host-side ollama comparison
 //     over a real multi-VM concentrated corpus stays the maintainer/VM step.
@@ -436,6 +1246,61 @@ check('docs-stamp-and-no-id-renumbering', () => {
     assert(ids[i] === i + 1, `requirement ids must be contiguous 1..N; expected ${i + 1}, got ${ids[i]}`);
   }
   return { ids: ids.length, lanes: ['architecture', 'cm', 'requirements', 'testing'] };
+});
+
+// 17b. The collab-cli CLI embeds the CANONICAL requirements (SRS + RTM) BY REFERENCE, so `lbabus docs
+//      show srs|rtm` surfaces the exact requirements THIS build carries and they stay aligned with the
+//      build. Static wiring guard (dep-free, no dotnet): the embed cannot silently regress; the embed
+//      round-trip itself is the ci-docs / verify-linux gate.
+check('collab-cli-embeds-canonical-requirements', () => {
+  const csproj = readFileSync(join(pkgRoot, 'tools', 'collab-cli', 'LbaBus.csproj'), 'utf8');
+  for (const [inc, logical] of [
+    ['../../docs/requirements/srs.md', 'docs.requirements.srs.md'],
+    ['../../docs/requirements/rtm.csv', 'docs.requirements.rtm.csv'],
+  ]) {
+    assert(csproj.includes(`Include="${inc}"`), `csproj must embed ${inc} by reference`);
+    assert(csproj.includes(`<LogicalName>${logical}</LogicalName>`), `csproj must pin the ${logical} manifest name`);
+  }
+  // The canonical sources the CLI embeds must exist on disk.
+  for (const rel of ['srs.md', 'rtm.csv']) {
+    assert(existsSync(join(pkgRoot, 'docs', 'requirements', rel)), `docs/requirements/${rel} must exist`);
+  }
+  // The docs command registry must key both requirement docs so `docs show srs|rtm` resolves.
+  const docs = readFileSync(join(pkgRoot, 'tools', 'collab-cli', 'Docs.cs'), 'utf8');
+  for (const id of ['"srs"', '"rtm"', '"guide"']) {
+    assert(docs.includes(id), `Docs.cs registry must define the ${id} doc`);
+  }
+  return { embedded: ['srs', 'rtm'], surfacedBy: 'lbabus docs show <id>' };
+});
+
+// 17c. GitFlow branch governance (LBA-REQ-016) is documented so the authoritative repo-standards-review CM
+//      gate stays PASS: the CM plan must state all three branch rules (the 9 GitFlow signals), the merge
+//      method by branch type, and ADR-0010 must record the decision. Dep-free static guard against regression.
+check('gitflow-branch-governance-documented', () => {
+  const cm = readFileSync(join(pkgRoot, 'docs', 'cm', 'cm-plan.md'), 'utf8');
+  assert(/feature branches.*from\s+`?develop`?/i.test(cm) && /feature branches.*(into|target)\s+`?develop`?/i.test(cm), 'CM plan must state feature branches from + back into develop');
+  assert(/release branches.*from\s+`?develop`?/i.test(cm) && /release branches.*(into|to)\s+`?main`?/i.test(cm) && /release branches.*(into|to)\s+`?develop`?/i.test(cm), 'CM plan must state release branches from develop to main + develop');
+  assert(/delete .*release.*(after|until).*(both|required) merges complete/i.test(cm), 'CM plan must state release-branch deletion after both merges complete');
+  assert(/hotfix branches.*from\s+`?main`?/i.test(cm) && /hotfix branches.*(into|to)\s+`?main`?/i.test(cm), 'CM plan must state hotfix branches from + into main');
+  assert(/merge method/i.test(cm) && /squash/i.test(cm) && /--no-ff|merge commit/i.test(cm), 'CM plan must document the merge method by branch type (squash for feature; --no-ff merge commit for release/hotfix back-merges)');
+  assert(existsSync(join(pkgRoot, 'docs', 'architecture', 'adr', 'ADR-0010-gitflow-branch-governance.md')), 'ADR-0010 must record the GitFlow decision');
+  return { rules: ['feature', 'release', 'hotfix', 'merge-method'], adr: 'ADR-0010' };
+});
+
+// 17d. Coverage gate (LBA-REQ-016 CM / ISO-IEC-IEEE 29119): the committed Cobertura coverage artifact meets
+//      the parametrized floor in coverage-thresholds.json (the PR Coverage Gate workflow enforces it live and
+//      `npm run coverage:bump` ratchets the floor up gradually). Dep-free static check.
+check('coverage-artifact-meets-floor', () => {
+  const floor = readJson('coverage-thresholds.json').floor;
+  const xml = readFileSync(join(pkgRoot, 'coverage', 'cobertura-coverage.xml'), 'utf8');
+  const m = xml.match(/line-rate="([0-9.]+)"/);
+  assert(m, 'coverage/cobertura-coverage.xml must carry a line-rate');
+  const linePct = Number(m[1]) * 100;
+  assert(linePct >= floor.lines, `coverage line-rate ${linePct.toFixed(2)}% must meet the parametrized floor ${floor.lines}%`);
+  const wf = join(pkgRoot, '.github', 'workflows', 'coverage.yml');
+  assert(existsSync(wf), 'the PR Coverage Gate workflow (.github/workflows/coverage.yml) must exist');
+  assert(/name:\s*PR Coverage Gate/.test(readFileSync(wf, 'utf8')), 'workflow must publish the "PR Coverage Gate / coverage" context');
+  return { linePct: +linePct.toFixed(2), floor: floor.lines };
 });
 
 // 18. Viewer time-cursor logic receipt is green: pointer + keyboard map to an in-bounds sample and no
@@ -1371,9 +2236,35 @@ check('capture-ring-frame-correlator', () => {
   const model = { title: 'gate', fps: cap.fps, selectedIndex: 0, frames: cap.frames.map((f) => ({ index: f.index, tMs: f.tMs, cpuPct: f.cpuPct, ramMb: f.ramMb, diskPct: f.diskPct, imageSrc: 'vscode-webview://x/frame' })) };
   const html = buildFrameCorrelatorHtml(model, 'g', 'vscode-webview://x');
   assert(html.includes("script-src 'nonce-g'") && html.includes('img-src vscode-webview://x data:'), 'correlator is a nonce-scoped doc that only loads VM-local webview images');
-  assert(html.includes('#ff3b30') && html.includes("key: 'cpuPct'") && html.includes("key: 'ramMb'") && html.includes("key: 'diskPct'"), 'correlator draws the red line + the CPU/RAM/disk curves');
+  assert(html.includes('#ff3b30') && html.includes("'cpuPct'") && html.includes("'ramMb'") && html.includes("'diskPct'"), 'correlator draws the red line + the legacy CPU/RAM/disk fallback metrics');
+  // v2: frames carrying a counters{} object plot the performance-counter curves. Source the REAL exact-12-FPS
+  // Linux /proc capture (one sample per 12 FPS frame) and assert the catalog + selected keys reach the webview.
+  const v2cap = JSON.parse(readFileSync(join(here, 'resource-usage-correlation', 'fixtures', 'linux-proc-12fps-capture.json'), 'utf8'));
+  const v2frames = v2cap.samples.slice(0, 24).map((s, i) => ({ index: i, tMs: s.epochMs - v2cap.epochMsAtFrameZero, counters: s.counters, imageSrc: 'vscode-webview://x/f' }));
+  const v2html = buildFrameCorrelatorHtml({ title: 'v2', fps: 12, selectedIndex: 0, frames: v2frames, counterKeys: ['cpuTotalPct', 'memAvailableMb', 'diskWriteBytesPerSec'] }, 'g', 'vscode-webview://x');
+  assert(v2html.includes('valueOf') && v2html.includes('useCounters'), 'the shipped correlator runtime is v2-counter capable');
+  const v2island = JSON.parse(v2html.match(/<script id="fc-model"[^>]*>([\s\S]*?)<\/script>/)[1].replace(/\\u003c/g, '<'));
+  assert(v2island.frames[0].counters && typeof v2island.frames[0].counters.cpuTotalPct === 'number', 'real exact-12-FPS counters are carried into the correlator model');
+  assert(Array.isArray(v2island.counterKeys) && v2island.counterKeys.length === 3, 'the selected counterKeys are carried into the runtime');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-launch-capture.mjs')], { stdio: 'pipe' });
-  return { record: 'launch-capture@1', frames: N, dualPacket: cap.dualPacket.outcome, suite: 'verify-launch-capture subprocess' };
+  return { record: 'launch-capture@1', frames: N, v2Counters: v2island.counterKeys.length, dualPacket: cap.dualPacket.outcome, suite: 'verify-launch-capture subprocess' };
+});
+
+// LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
+// embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
+// runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops
+// exactly one marker, grabs the nearest frame image within tolerance, and posts it to the host, while a real DRAG
+// scrubs the selected frame and drops NO marker.
+check('frame-correlator-click-marker', () => {
+  execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'frameCorrelatorMarkers.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mprr-capture-ring', 'fixtures', 'frame-correlator-markers-playwright-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/frame-correlator-markers-receipt@v1' && r.requirement === 'LBA-REQ-011', 'committed marker receipt shape');
+  assert(r.pass === true, 'the committed real-pointer marker proof must pass');
+  const byName = Object.fromEntries((r.checks || []).map((c) => [c.name, c.pass]));
+  for (const name of ['click drops exactly one marker', 'click marker image admitted within tolerance', 'click posts a frame-marker to the host', 'drag scrubs the selected frame', 'drag drops no new marker', 'no page errors']) {
+    assert(byName[name] === true, `real-pointer proof: ${name}`);
+  }
+  return { selftest: 'frameCorrelatorMarkers 4/4', playwright: `${(r.checks || []).filter((c) => c.pass).length}/${(r.checks || []).length} real-pointer checks` };
 });
 
 // CROSS-PLANE TREND-OF-TRENDS receipt: the WIN launchMs trend vs the LINUX launchMs trend (both REAL, both on
@@ -1443,6 +2334,22 @@ check('capture-ring-resource-cross-plane', () => {
   const committed = fx('resource-cross-plane-receipt.json');
   assert(JSON.stringify(committed) === JSON.stringify(receipt), 'the committed resource cross-plane receipt matches a fresh recompute (no rot)');
   return { launchDeltaMs: receipt.launchDeltaMs, ramWin: receipt.metrics.ram.win.deltaMean, ramLinux: receipt.metrics.ram.linux.deltaMean, ramAgree: receipt.metrics.ram.agreementDelta };
+});
+
+// Authoring dependency manifest (LBA-REQ-017): the pinned external-dependency manifest for the LabVIEW-authoring
+// + lvkit static self-test track (experiments/labview-authoring/) must validate through its dependency-free,
+// OFFLINE, fail-closed verifier, and a malformed pin must fail closed. Subprocess-runs the verifier's own
+// self-test. Authoring-namespaced + kept out of the benchmark/0.3.0 code+fixtures per the scope guard, but run
+// by the one shared per-PR gate runner (so CI actually invokes verify-dep-manifest).
+check('authoring-dep-manifest', () => {
+  const manifest = JSON.parse(readFileSync(join(here, 'labview-authoring', 'dep-manifest.json'), 'utf8'));
+  const r = verifyDepManifest(manifest);
+  assert(r.ok, `the committed dep-manifest must validate: ${r.errors.join('; ')}`);
+  assert(r.summary.gitRepos >= 2 && r.summary.pipTools >= 1 && r.summary.vipmPackages >= 1, 'the manifest carries the three pinned sections');
+  const bad = JSON.parse(JSON.stringify(manifest)); bad.gitRepos[0].pin = 'bad pin!';
+  assert(!verifyDepManifest(bad).ok, 'a malformed pin fails closed');
+  execFileSync(process.execPath, [join(here, 'labview-authoring', 'verify-dep-manifest.selftest.mjs')], { stdio: 'pipe' });
+  return { resolved: r.summary.resolved, tbd: r.summary.tbd, sections: `${r.summary.gitRepos} git / ${r.summary.pipTools} pip / ${r.summary.vipmPackages} vipm` };
 });
 
 // README stays Marketplace-safe: repo-relative links 404 on the listing page.
@@ -1518,6 +2425,76 @@ check('ephemeral-mesh-2node-receipt-green', () => {
   }
   assert(rejected === 2, 'validator must reject missing-DONE / type-not-honored both<->both receipts');
   return { meshMode: summary.meshMode, boths: summary.boths };
+});
+
+// Provider-delegation harness (experiments/provider-delegation): AI providers on cleanrooms delegated uplift/
+// doc tasks over the lbabus bus. Each verify is a dependency-free deterministic self-test (mock provider, no
+// GPU / no network / no npm install); running them as subprocesses gates the whole harness under this
+// authoritative suite -- the provider seam + the CLAIM/ACK/DONE dispatch + the worker pool + the objective
+// coverage-lift gate (measured from raw V8 coverage, so it needs no c8).
+check('provider-delegation-harness', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-provider-delegation.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-provider-delegation 13/13 (task-spec + provider seam + acceptance gate + receipt)' };
+});
+check('provider-delegation-claim-tasking', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-claim-tasking.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-claim-tasking 7/7 (CLAIM dispatch -> worker ACK -> DONE over bus-msg@1)' };
+});
+check('provider-delegation-worker-pool', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-worker-pool.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-worker-pool 7/7 (M concurrent claims bounded to N, queued + drained, persistent)' };
+});
+check('provider-delegation-coverage-lift', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-coverage-lift.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-coverage-lift 8/8 (provider-proposed test gated on measured V8 function coverage)' };
+});
+check('provider-delegation-risky-test', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-risky-test.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-risky-test 9/9 (tool-gated: present+pass, absent->skip, present+fail)' };
+});
+check('provider-delegation-evidence', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-evidence.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-evidence 8/8 (gather + validate receipts + grounded-summary gate)' };
+});
+check('provider-delegation-quality-gate', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-quality-gate.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-quality-gate 14/14 (faithfulness pre-gate short-circuits weak drafts; reuses ollama-comparison scorer)' };
+});
+check('provider-delegation-registry', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-registry.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-registry 9/9 (capability + liveness routing + load-balance across a multi-worker pool)' };
+});
+check('provider-delegation-vipm-gate', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-vipm-gate.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-vipm-gate 36/36 (credential-from-file activate/login, redaction=no secret leak, Community-only-in-public-repo licensing)' };
+});
+check('provider-delegation-vipm-routing', () => {
+  execFileSync(process.execPath, [join(here, 'provider-delegation', 'verify-vipm-routing.mjs')], { stdio: 'pipe' });
+  return { suite: 'verify-vipm-routing 15/15 (VIPM-capability routing: edition-aware, Community-only-in-public-repo)' };
+});
+
+// DoD Gate (ISO/IEC/IEEE 29119-2 exit/completion criteria; 12207 process outcomes): the release-readiness
+// Definition of Done is DEFINED, standards-grounded, and WIRED to an enforcing status context. This keeps the
+// "DoD Gate / dod" contract from silently drifting or disappearing. Standards are referenced by identifier only
+// (the licensed PDFs stay local, never committed). Dep-free static check.
+check('dod-definition-present', () => {
+  const doc = join(pkgRoot, 'docs', 'dod', 'definition-of-done.md');
+  assert(existsSync(doc), 'the Definition of Done (docs/dod/definition-of-done.md) must exist');
+  const text = readFileSync(doc, 'utf8');
+  assert(/DoD Gate\s*\/\s*dod/.test(text), 'the DoD doc must carry the "DoD Gate / dod" context marker');
+  for (const section of [/##\s*Standards basis/i, /##\s*Entry criteria/i, /##\s*Exit criteria/i]) {
+    assert(section.test(text), `the DoD doc must define ${section}`);
+  }
+  // The exit criteria must trace to REAL, enforceable gates (objective, not aspirational).
+  for (const gate of ['verify-local-gates', 'PR Coverage Gate / coverage', 'reqs-coverage']) {
+    assert(text.includes(gate), `the DoD exit criteria must reference the enforcing gate "${gate}"`);
+  }
+  const wf = join(pkgRoot, '.github', 'workflows', 'dod.yml');
+  assert(existsSync(wf), 'the DoD Gate workflow (.github/workflows/dod.yml) must exist');
+  const wfText = readFileSync(wf, 'utf8');
+  assert(/name:\s*DoD Gate/.test(wfText), 'workflow must publish the "DoD Gate / dod" context (name: DoD Gate + job dod)');
+  assert(/job|dod:/.test(wfText) && /verify-local-gates\.mjs/.test(wfText), 'the DoD Gate job must enforce the DoD by running the local gate suite');
+  return { doc: 'docs/dod/definition-of-done.md', context: 'DoD Gate / dod', exitCriteria: 7 };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

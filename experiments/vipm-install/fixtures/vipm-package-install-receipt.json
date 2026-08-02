@@ -1,0 +1,73 @@
+{
+  "schema": "labview-benchmark-actor/vipm-package-install@1",
+  "vm": "lba-golden",
+  "os": "Ubuntu 24.04 (Noble)",
+  "labview": {
+    "version": "2026",
+    "bitness": 64,
+    "edition": "Community",
+    "dir": "/usr/local/natinst/LabVIEW-2026-64"
+  },
+  "vipm": {
+    "version": "26.3.1-4000",
+    "edition": "Community",
+    "method": "VIPM Desktop GUI"
+  },
+  "source": {
+    "selfTestPackage": "wiresmith_technology_lib_g_cli",
+    "referencedPackage": "wiresmith_technology_lib_g_cli",
+    "feed": "VIPM Community",
+    "context": "from-scratch golden VM for ni/labview-icon-editor",
+    "repo": "ni/labview-icon-editor",
+    "repoHead": "9545c483f2b947c71de68c7f70aedefaedadabf7"
+  },
+  "packages": [
+    {
+      "name": "wiresmith_technology_lib_g_cli",
+      "version": "3.0.1.98",
+      "vip": "wiresmith_technology_lib_g_cli-3.0.1.98.vip",
+      "action": "installed",
+      "status": "No Errors",
+      "filesInstalled": 70
+    },
+    {
+      "name": "astemes_lib_lunit",
+      "version": "2.0.13.6",
+      "vip": "astemes_lib_lunit-2.0.13.6.vip",
+      "action": "installed",
+      "status": "No Errors",
+      "filesInstalled": 371
+    },
+    {
+      "name": "sas_workshops_lib_lunit_for_g_cli",
+      "version": "1.2.1.85",
+      "vip": "sas_workshops_lib_lunit_for_g_cli-1.2.1.85.vip",
+      "action": "installed",
+      "status": "No Errors",
+      "filesInstalled": 2
+    },
+    {
+      "name": "felipefoz_lib_lv_rainbow_terminal",
+      "version": "1.1.1.5",
+      "vip": "felipefoz_lib_lv_rainbow_terminal-1.1.1.5.vip",
+      "action": "installed",
+      "status": "No Errors",
+      "filesInstalled": 5
+    }
+  ],
+  "viLib": {
+    "path": "/usr/local/natinst/LabVIEW-2026-64/vi.lib",
+    "fileCount": 279,
+    "companyDirs": [
+      "Wiresmith Technology",
+      "Astemes",
+      "SAS Workshops"
+    ]
+  },
+  "note": "VIPM (Community Edition 26.3.1-4000) installed the operator-designated self-test package g-cli (wiresmith_technology_lib_g_cli 3.0.1.98) via the VIPM Desktop GUI on the from-scratch golden VM lba-golden, resolving its dependency closure (LUnit, LUnit-for-G-CLI, Rainbow Terminal). Each package left a files-installed manifest in the VIPM package DB and VIs under vi.lib (279 files across the three company dirs). Realizes ADR-0023 Phase 1 (personal golden VM: Ubuntu + LabVIEW + VIPM, functional).",
+  "verdict": {
+    "installed": true,
+    "reason": "VIPM 26.3.1-4000 installed wiresmith_technology_lib_g_cli 3.0.1.98 + astemes_lib_lunit 2.0.13.6 + sas_workshops_lib_lunit_for_g_cli 1.2.1.85 + felipefoz_lib_lv_rainbow_terminal 1.1.1.5 (No Errors) -> 279 files under /usr/local/natinst/LabVIEW-2026-64/vi.lib"
+  },
+  "digest": "47ab17891235801d9377623f621da9d363d40042630f91fa8959aaafeb00c5b1"
+}

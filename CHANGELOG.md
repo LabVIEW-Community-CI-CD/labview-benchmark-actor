@@ -6,6 +6,57 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-02
+
+### Added
+- **Mesh-Stress Calibration** and **Concurrent Mesh Board** commands — two
+  strict-CSP, script-free webview analysis views. The calibration view renders a
+  stress-ladder *curve* (each rung's expected performance-counter band, the
+  monotone / separable / repeatable invariants, and an inverse-read of an
+  observed signature to its stress level); the board renders a live *snapshot* of
+  N simultaneously-stressed actors, each tile showing its measured stress and the
+  rung the calibration inferred. Both are also openable by an agent through the
+  `lba-open-benchmark-panel` language-model tool (`panel=meshCalibration` /
+  `panel=meshBoard`).
+- **Exact-12-FPS performance-counter correlation** — a cross-platform sampler
+  pair (Linux `/proc`, Windows PDH) captures the v2 performance-counter catalog
+  frame-locked to the 12-FPS benchmark clock; the frame correlator plots the
+  counter curves and supports click-to-marker annotations persisted into the
+  capture metadata.
+
+### Changed
+- The frame correlator now renders the full v2 performance-counter catalog, with
+  a backward-compatible fall back to the legacy CPU / RAM / disk fields.
+- The reviewer-workstation tool install is resilient to broken `winget` sources
+  (best-effort winget, then a direct-download fall back).
+
+### Docs
+- **Roadmap** (`docs/roadmap.md`) and **ADR-0023** — the multi-year vision and the
+  near-term personal-golden-VM onboarding slice (`LBA-REQ-033`).
+- Formalized the **mesh-stress performance-signature calibration** requirement
+  (`LBA-REQ-032`), proven four ways on real data: a host sequential ladder, a
+  host concurrent 5-actor mesh, a real Windows VM actor, and two simultaneous
+  real Windows VMs.
+- Decoupled the reviewer / authoring documentation from the `vi-history-suite`
+  prototype.
+
+## [0.4.0] - 2026-08-01
+
+### Added
+- **Run Corroboration Grid** and **Verify Release Provenance** commands — run the
+  Actor Corroboration Grid end-to-end and the verify-before-install provenance check
+  from the Command Palette.
+- The bundled **MCP server now folds in the corroboration-grid tools** — its `tools/list`
+  publishes 13 tools (the 4 core plus `run_quorum`, `get_confidence`, `verify_attestation`,
+  `check_independence`, `assemble_witness`, `verify_inclusion`, `verify_before_install`,
+  `spin_up_witness`, `teardown`) from the single shipped extension server, so an agent can
+  orchestrate release corroboration directly.
+
+### Security
+- The release `.vsix` is keyless-signed with cosign / sigstore (a Fulcio certificate + a
+  public rekor entry) at release creation, and the reviewer-workstation verifies that
+  signature before installing.
+
 ## [0.3.0] - 2026-07-31
 
 ### Added

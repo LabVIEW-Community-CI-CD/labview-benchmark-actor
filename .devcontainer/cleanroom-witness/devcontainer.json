@@ -1,0 +1,13 @@
+{
+  "name": "acg-cleanroom-witness",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": { "version": "8.0" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/sshd:1": {}
+  },
+  "postCreateCommand": "bash cleanroom/ubuntu-labview/codespace/bootstrap-validate.sh",
+  "customizations": {
+    "vscode": { "extensions": ["ms-dotnettools.csharp"] }
+  }
+}

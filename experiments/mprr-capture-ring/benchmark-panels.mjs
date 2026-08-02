@@ -161,12 +161,8 @@ function panelDoc(title, nonce, bodyHtml) {
 // --- 1. single benchmark record -------------------------------------------
 
 /** The launchMs (or first) span of a boot-benchmark-v1 record. */
-function primarySpan(record, preferredId) {
+function primarySpan(record) {
   const spans = Array.isArray(record?.spans) ? record.spans : [];
-  if (preferredId) {
-    const hit = spans.find((s) => s && s.id === preferredId);
-    if (hit) return hit;
-  }
   return spans.find((s) => s && s.id === 'launchMs') || spans[0] || null;
 }
 

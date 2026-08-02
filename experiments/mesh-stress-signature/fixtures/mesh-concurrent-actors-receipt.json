@@ -1,0 +1,150 @@
+{
+  "schema": "labview-benchmark-actor/mesh-concurrent-actors@1",
+  "capturedAtIso": "2026-08-01T22:08:36.228Z",
+  "host": {
+    "platform": "linux",
+    "cpus": 24,
+    "hostname": "sergio-ThinkPad-P16-Gen-3",
+    "poolSize": 4,
+    "actors": 5
+  },
+  "config": {
+    "poolSize": 4,
+    "repeats": 3,
+    "samplesPerRepeat": 16,
+    "frameRateHz": 12,
+    "coresUsed": 20
+  },
+  "frameRateHz": 12,
+  "measured": {
+    "effectiveFps": 12,
+    "exactly12fps": true,
+    "medianPhaseErrorMs": 0.33,
+    "maxPhaseErrorMs": 1.67
+  },
+  "actors": [
+    {
+      "actor": "actor-0",
+      "rung": "idle",
+      "busyCount": 0,
+      "cores": "0,1,2,3",
+      "cpuPoolPctMean": 0
+    },
+    {
+      "actor": "actor-1",
+      "rung": "light",
+      "busyCount": 1,
+      "cores": "4,5,6,7",
+      "cpuPoolPctMean": 25
+    },
+    {
+      "actor": "actor-2",
+      "rung": "medium",
+      "busyCount": 2,
+      "cores": "8,9,10,11",
+      "cpuPoolPctMean": 49.9
+    },
+    {
+      "actor": "actor-3",
+      "rung": "heavy",
+      "busyCount": 3,
+      "cores": "12,13,14,15",
+      "cpuPoolPctMean": 75
+    },
+    {
+      "actor": "actor-4",
+      "rung": "saturate",
+      "busyCount": 4,
+      "cores": "16,17,18,19",
+      "cpuPoolPctMean": 99.3
+    }
+  ],
+  "counterKeys": [
+    "cpuPoolPct",
+    "threadCount"
+  ],
+  "salientDimensions": [
+    "cpuPoolPct.max",
+    "cpuPoolPct.mean",
+    "cpuPoolPct.min",
+    "cpuPoolPct.p50",
+    "cpuPoolPct.p95",
+    "cpuPoolPct.p99",
+    "threadCount.max",
+    "threadCount.mean",
+    "threadCount.min",
+    "threadCount.p50",
+    "threadCount.p95",
+    "threadCount.p99"
+  ],
+  "invariants": {
+    "monotone": 1,
+    "separable": true,
+    "repeatable": true
+  },
+  "separability": [
+    {
+      "from": "idle",
+      "to": "light",
+      "separableDims": 12
+    },
+    {
+      "from": "light",
+      "to": "medium",
+      "separableDims": 12
+    },
+    {
+      "from": "medium",
+      "to": "heavy",
+      "separableDims": 12
+    },
+    {
+      "from": "heavy",
+      "to": "saturate",
+      "separableDims": 12
+    }
+  ],
+  "perActorInverseRead": [
+    {
+      "actor": "actor-0",
+      "commandedRung": "idle",
+      "inferredRung": "idle",
+      "confidence": 1,
+      "correct": true
+    },
+    {
+      "actor": "actor-1",
+      "commandedRung": "light",
+      "inferredRung": "light",
+      "confidence": 1,
+      "correct": true
+    },
+    {
+      "actor": "actor-2",
+      "commandedRung": "medium",
+      "inferredRung": "medium",
+      "confidence": 1,
+      "correct": true
+    },
+    {
+      "actor": "actor-3",
+      "commandedRung": "heavy",
+      "inferredRung": "heavy",
+      "confidence": 1,
+      "correct": true
+    },
+    {
+      "actor": "actor-4",
+      "commandedRung": "saturate",
+      "inferredRung": "saturate",
+      "confidence": 1,
+      "correct": true
+    }
+  ],
+  "allActorsRecovered": true,
+  "concurrency": {
+    "simultaneousFrames": 48,
+    "actorsPerFrame": 5,
+    "allActorsSampledEveryFrame": true
+  }
+}

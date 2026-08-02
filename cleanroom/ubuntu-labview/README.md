@@ -124,8 +124,13 @@ the .NET SDK, bakes the **pinned** collab-cli source (`/opt/lba/src`) + a **vend
 (`/opt/lba/nuget`), and enables a first-boot `systemd` oneshot that publishes a self-contained single-file
 `lbabus` **fully offline** into `/usr/local/bin`. No binary is baked, so **every mesh clone rebuilds lbabus on
 its first boot** (`ConditionPathExists=!/usr/local/bin/lbabus`) and can then run `lbabus net beacon`/`listen`
-(TCP 7420 / UDP 7421). The `collab-cli-v*` release remains a tagged **source** snapshot for provenance; no
-consumer downloads its binary.
+(TCP 7420 / UDP 7421). Immediately after the build, **`lba-gate-suite.service`** self-certifies the freshly
+built binary with the offline, binary-only gate suite (the `verify-linux` subset: `version` + the
+`agents`/`docs` embed round-trip + drift-detection gates — no mock, port, extra build, or network) and writes
+**`/opt/lba/gate-suite-receipt.json`**, so every clean-room first boot is a self-certifying CI run whose
+verdict is durable evidence (and, when `LBA_GATE_BEACON_HOSTS` is set, is beaconed over the `lbabus` bus to a
+UDP observer). The `collab-cli-v*` release remains a tagged **source** snapshot for provenance; no consumer
+downloads its binary.
 
 Once the golden VM is activated, package it into a self-contained box and mesh N copies with the same
 pattern as [experiments/multi-vm-topology](../../experiments/multi-vm-topology) (there in its Windows form:

@@ -13,7 +13,7 @@ const execFileAsync = promisify(execFile);
 // The labview-benchmark-actor extension packages the standalone agentic infrastructure (LBA-REQ-001): it
 // surfaces the cross-plane coordination bus (`lbabus`) inside the VS Code host so an operator can observe
 // host capabilities, poll the coordination bus, and post a coordination note from the IDE. The extension
-// depends only on `vscode` + Node built-ins -- no `vi-history-suite`-private module on its graph.
+// depends only on `vscode` + Node built-ins -- no external prototype-private module on its graph.
 
 const CLI = 'lbabus';
 
@@ -154,6 +154,32 @@ function loadBenchmarkJson(extensionUri: vscode.Uri, file: string): Record<strin
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
 
+// The mesh-stress calibration ANALYSIS VIEW builder (overview.md §3.6 / VW-1, LBA-REQ-032): a self-contained,
+// script-free ESM module staged to media/, loaded natively like the other pure builders.
+interface MeshViewBuilder {
+  buildMeshCalibrationHtml(receipt: unknown, opts: { cspSource: string }): string;
+}
+let meshViewBuilderPromise: Promise<MeshViewBuilder> | undefined;
+function loadMeshViewBuilder(extensionUri: vscode.Uri): Promise<MeshViewBuilder> {
+  if (!meshViewBuilderPromise) {
+    meshViewBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'meshCalibrationView.mjs')) as unknown as Promise<MeshViewBuilder>;
+  }
+  return meshViewBuilderPromise;
+}
+
+// The concurrent mesh BOARD builder (overview.md §3.6 / VW-1, LBA-REQ-032): a self-contained, script-free ESM
+// module that renders a concurrent-actors receipt as a live mesh snapshot (one tile per simultaneous actor).
+interface MeshBoardBuilder {
+  buildMeshBoardHtml(receipt: unknown, opts: { cspSource: string }): string;
+}
+let meshBoardBuilderPromise: Promise<MeshBoardBuilder> | undefined;
+function loadMeshBoardBuilder(extensionUri: vscode.Uri): Promise<MeshBoardBuilder> {
+  if (!meshBoardBuilderPromise) {
+    meshBoardBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'meshBoardView.mjs')) as unknown as Promise<MeshBoardBuilder>;
+  }
+  return meshBoardBuilderPromise;
+}
+
 function makeBenchmarkPanel(
   context: vscode.ExtensionContext,
   id: string,
@@ -230,6 +256,33 @@ async function openCrossPlaneResourceCommand(context: vscode.ExtensionContext, o
   }
 }
 
+// The mesh-stress calibration ANALYSIS VIEW panel (overview.md §3.6 / VW-1, LBA-REQ-032): renders the staged
+// live-ladder receipt with the script-free mesh view builder. Feeds the panel's own cspSource so the
+// (image-free) CSP is host-correct.
+async function openMeshCalibrationCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const view = await loadMeshViewBuilder(context.extensionUri);
+    const receipt = loadBenchmarkJson(context.extensionUri, 'mesh-live-ladder-receipt.json');
+    const panel = makeBenchmarkPanel(context, 'lbaMeshCalibration', 'Mesh-Stress Calibration', false);
+    panel.webview.html = view.buildMeshCalibrationHtml(receipt, { cspSource: panel.webview.cspSource });
+  } catch (err) {
+    reportUiError(output, 'Open Mesh-Stress Calibration', err);
+  }
+}
+
+// The concurrent mesh BOARD panel (overview.md §3.6 / VW-1, LBA-REQ-032): renders the staged concurrent-actors
+// receipt with the script-free board builder -- a live snapshot of which actor is stressed and how much.
+async function openMeshBoardCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const view = await loadMeshBoardBuilder(context.extensionUri);
+    const receipt = loadBenchmarkJson(context.extensionUri, 'mesh-concurrent-actors-receipt.json');
+    const panel = makeBenchmarkPanel(context, 'lbaMeshBoard', 'Concurrent Mesh Board', false);
+    panel.webview.html = view.buildMeshBoardHtml(receipt, { cspSource: panel.webview.cspSource });
+  } catch (err) {
+    reportUiError(output, 'Open Concurrent Mesh Board', err);
+  }
+}
+
 // --- Language Model Tools (Copilot agent mode) --------------------------------------------------------------
 // So a Copilot AGENT can DRIVE the extension from a prompt (open a benchmark panel; summarize the captured
 // numbers). The tools reuse the SAME panel command handlers + staged fixtures the human UI uses. Guarded: a
@@ -259,6 +312,8 @@ const BENCHMARK_PANEL_OPENERS: Record<string, { title: string; open: PanelOpener
   crossPlaneTrend: { title: 'Cross-Plane Benchmark Trend', open: openCrossPlaneTrendCommand },
   resourceProfile: { title: 'Benchmark Resource Profile', open: openResourceProfileCommand },
   crossPlaneResource: { title: 'Cross-Plane Resource Agreement', open: openCrossPlaneResourceCommand },
+  meshCalibration: { title: 'Mesh-Stress Calibration', open: openMeshCalibrationCommand },
+  meshBoard: { title: 'Concurrent Mesh Board', open: openMeshBoardCommand },
 };
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -321,7 +376,7 @@ function benchmarkSummaryText(context: vscode.ExtensionContext): string {
     );
   }
   lines.push(
-    'Open a panel to see these visually — call lba-open-benchmark-panel with panel = run | trend | frameCorrelator | crossPlaneTrend | resourceProfile | crossPlaneResource, or run the "LabVIEW Benchmark Actor: Open ..." commands.'
+    'Open a panel to see these visually — call lba-open-benchmark-panel with panel = run | trend | frameCorrelator | crossPlaneTrend | resourceProfile | crossPlaneResource | meshCalibration | meshBoard, or run the "LabVIEW Benchmark Actor: Open ..." commands.'
   );
   return lines.join('\n');
 }
@@ -423,7 +478,7 @@ function resolveFfmpeg(): string {
 }
 
 // PowerShell CIM sampler: instant formatted counters (CPU/disk %) + OS memory -> JSONL every ~200 ms.
-function samplerScript(outFile: string): string {
+export function samplerScript(outFile: string): string {
   const out = outFile.replace(/'/g, "''");
   return [
     "$ErrorActionPreference='SilentlyContinue'",
@@ -564,6 +619,13 @@ async function stopCaptureCommand(context: vscode.ExtensionContext, output: vsco
 
 async function assembleCapture(context: vscode.ExtensionContext, dir: string): Promise<LaunchCaptureRecord> {
   const builder = await loadCaptureBuilder(context.extensionUri);
+  return assembleCaptureFromDir(dir, builder);
+}
+
+// Assemble the captured PNG frames + resource samples in `dir` into a launch-capture@1 record (mprr dual-packet)
+// and write capture.json. Split out from the cleanroom-gated ffmpeg CAPTURE that PRODUCES the frames, so this
+// pure file-assembly around the unit-tested builder is itself directly unit-testable with fixture frames.
+export function assembleCaptureFromDir(dir: string, builder: CaptureBuilder): LaunchCaptureRecord {
   const frameFiles = readdirSync(dir)
     .filter((f) => /^frame-\d+\.png$/.test(f))
     .sort();
@@ -621,10 +683,38 @@ async function openCorrelatorForCapture(
     cpuPct: f.cpuPct,
     ramMb: f.ramMb,
     diskPct: f.diskPct,
+    // v2: pass the frame's performance-counter catalog through when the capture carries it (the correlator plots
+    // the counter curves; a legacy flat capture falls back to CPU/RAM/disk).
+    counters: f.counters,
     imageSrc: panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString(),
   }));
-  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel };
+  const existingMarkers = Array.isArray(record.markers) ? record.markers : [];
+  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel, markers: existingMarkers };
   panel.webview.html = correlator.buildFrameCorrelatorHtml(model, getNonce(), panel.webview.cspSource);
+
+  // Persist a CLICK marker into the capture metadata ("mouse click -> label in metadata"): the webview posts
+  // { type:'frame-marker', marker } on each click; append it to capture.json so markers survive a reopen.
+  const capturePath = path.join(dir, 'capture.json');
+  panel.webview.onDidReceiveMessage(
+    (msg: { type?: string; marker?: unknown } | undefined) => {
+      if (!msg || msg.type !== 'frame-marker' || !msg.marker) {
+        return;
+      }
+      try {
+        const current = JSON.parse(readFileSync(capturePath, 'utf8')) as LaunchCaptureRecord;
+        const markers = Array.isArray(current.markers) ? current.markers : [];
+        markers.push(msg.marker);
+        current.markers = markers;
+        writeFileSync(capturePath, `${JSON.stringify(current, null, 2)}\n`);
+        const m = msg.marker as { frameIndex?: unknown };
+        output.appendLine(`persisted frame-marker @frame ${String(m.frameIndex)} (${markers.length} total) to ${capturePath}`);
+      } catch (err) {
+        output.appendLine(`failed to persist frame-marker: ${String(err)}`);
+      }
+    },
+    undefined,
+    context.subscriptions
+  );
   output.appendLine(`correlator opened for ${dir} (${framesModel.length} frames)`);
 }
 
@@ -814,6 +904,157 @@ async function checkAgentsCommand(context: vscode.ExtensionContext, output: vsco
   }
 }
 
+// Create a cleanroom WORKER VM for cross-machine routing (the distributed-CI north-star): drives the reusable
+// cloner experiments/multi-vm-topology/clone-cleanroom-worker.sh, which linked-clones the golden Ubuntu+LabVIEW
+// base VM from its snapshot, assigns distinct NAT ports, provisions it (Node + the provider-delegation harness),
+// and launches the worker as a PERSISTENT systemd unit -- so the host router can route capability-differentiated
+// tasks across REAL VMs (proven by experiments/provider-delegation/prove-2vm-routing.mjs). The script uses
+// VBoxManage + ssh + bash, so this is a Linux/macOS host operator tool; it runs in an integrated terminal so the
+// operator watches the VM come up (and can answer any prompt). Inputs are validated to a safe charset + quoted,
+// so nothing typed into the prompts can inject shell.
+function cleanroomPortValidator(v: string): string | undefined {
+  return /^\d{1,5}$/.test(v) && Number(v) > 0 && Number(v) < 65536 ? undefined : 'Enter a valid TCP port (1-65535)';
+}
+
+function cleanroomShellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+function resolveCloneScript(context: vscode.ExtensionContext): string | undefined {
+  const rel = path.join('experiments', 'multi-vm-topology', 'clone-cleanroom-worker.sh');
+  const candidates: string[] = [];
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    candidates.push(path.join(folder.uri.fsPath, rel));
+  }
+  candidates.push(path.join(context.extensionUri.fsPath, rel));
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+async function createCleanroomCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  if (process.platform === 'win32') {
+    void vscode.window.showErrorMessage(
+      'Create Cleanroom Worker VM is a Linux/macOS host tool (it drives VBoxManage + ssh via a bash script).'
+    );
+    return;
+  }
+  const script = resolveCloneScript(context);
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Cleanroom cloner not found (experiments/multi-vm-topology/clone-cleanroom-worker.sh). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  const cloneName = await vscode.window.showInputBox({
+    prompt: 'Cleanroom clone VM name',
+    value: 'lba-cleanroom-clone-01',
+    validateInput: (v) => (/^[A-Za-z0-9._-]+$/.test(v) ? undefined : 'Use letters, digits, dot, dash, underscore only'),
+  });
+  if (!cloneName) {
+    return;
+  }
+  const sshPort = await vscode.window.showInputBox({ prompt: 'Guest SSH host port', value: '2223', validateInput: cleanroomPortValidator });
+  if (!sshPort) {
+    return;
+  }
+  const workerPort = await vscode.window.showInputBox({ prompt: 'Worker host port', value: '7441', validateInput: cleanroomPortValidator });
+  if (!workerPort) {
+    return;
+  }
+  const actorId = await vscode.window.showInputBox({
+    prompt: 'Worker actor id',
+    value: 'cleanroom-clone',
+    validateInput: (v) => (/^[A-Za-z0-9._-]+$/.test(v) ? undefined : 'Use letters, digits, dot, dash, underscore only'),
+  });
+  if (!actorId) {
+    return;
+  }
+
+  output.appendLine(`[createCleanroom] cloning -> ${cloneName} (ssh ${sshPort}, worker ${workerPort}, actor ${actorId})`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: `LBA Create Cleanroom: ${cloneName}` });
+  terminal.show(true);
+  const args = [cloneName, sshPort, workerPort, actorId].map(cleanroomShellQuote).join(' ');
+  terminal.sendText(`bash ${cleanroomShellQuote(script)} ${args}`);
+}
+
+// Bootstrap the LabVIEW AUTHORING LANE (labview_assistant + its DQMH dependency + the .vipb VI-Package build).
+// WINDOWS ONLY: labview_assistant drives the LabVIEW IDE via ActiveX, so the lane runs on a Windows cleanroom,
+// not the Linux host. This surfaces the committed PowerShell bootstrap (experiments/authoring-lane/
+// bootstrap-authoring-lane.ps1) so it can be run against a Windows cleanroom that has LabVIEW + VIPM Community.
+function resolveAuthoringLaneScript(context: vscode.ExtensionContext): string | undefined {
+  const rel = path.join('experiments', 'authoring-lane', 'bootstrap-authoring-lane.ps1');
+  const candidates: string[] = [];
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    candidates.push(path.join(folder.uri.fsPath, rel));
+  }
+  candidates.push(path.join(context.extensionUri.fsPath, rel));
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+async function bootstrapAuthoringLaneCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const script = resolveAuthoringLaneScript(context);
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Authoring-lane bootstrap not found (experiments/authoring-lane/bootstrap-authoring-lane.ps1). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  void vscode.window.showInformationMessage(
+    'The LabVIEW authoring lane is Windows-only (labview_assistant drives LabVIEW via ActiveX). Run this on a Windows cleanroom with LabVIEW + VIPM Community activated.'
+  );
+  output.appendLine(`[bootstrapAuthoringLane] ${script} (Windows/pwsh: clones labview_assistant, installs DQMH, builds the .vipb)`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: 'LBA Authoring Lane Bootstrap' });
+  terminal.show(true);
+  terminal.sendText(`pwsh -NoProfile -File "${script}"`);
+}
+
+// Resolve a repo-relative file from the open workspace folder(s), falling back to the bundled extension copy.
+function resolveWorkspaceRepoFile(context: vscode.ExtensionContext, rel: string): string | undefined {
+  const candidates: string[] = [];
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    candidates.push(path.join(folder.uri.fsPath, rel));
+  }
+  candidates.push(path.join(context.extensionUri.fsPath, rel));
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+// Actor Corroboration Grid (ADR-0014, LBA-REQ-023): run the whole grid end-to-end over the committed witnesses
+// and print the release decision -- machine-corroborated across independence + quorum + attestation + mesh, then
+// held at the human sign-off gate. Cross-platform (Node); reads only committed evidence.
+async function runCorroborationGridCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const script = resolveWorkspaceRepoFile(context, path.join('experiments', 'acg-grid', 'grid-run-proof.mjs'));
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Corroboration grid runner not found (experiments/acg-grid/grid-run-proof.mjs). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  output.appendLine(`[runCorroborationGrid] node ${script}`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: 'LBA Corroboration Grid' });
+  terminal.show(true);
+  terminal.sendText(`node "${script}"`);
+}
+
+// Verify-before-install (ADR-0022, LBA-REQ-031): verify a release's corroboration provenance -- every witness
+// attestation must be enrolled-signed AND included in the signed transparency log -- running the same verifier
+// the reviewer workstation runs before installing the .vsix. Cross-platform (Node).
+async function verifyReleaseProvenanceCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const script = resolveWorkspaceRepoFile(context, path.join('experiments', 'acg-transparency', 'verify-release-inclusion.mjs'));
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Release-provenance verifier not found (experiments/acg-transparency/verify-release-inclusion.mjs). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  output.appendLine(`[verifyReleaseProvenance] node ${script}`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: 'LBA Verify Release Provenance' });
+  terminal.show(true);
+  terminal.sendText(`node "${script}"`);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const output = getOutput(context);
 
@@ -878,6 +1119,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('labviewBenchmarkActor.openCrossPlaneResource', () =>
       openCrossPlaneResourceCommand(context, output)
     ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.openMeshCalibration', () =>
+      openMeshCalibrationCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.openMeshBoard', () =>
+      openMeshBoardCommand(context, output)
+    ),
     vscode.commands.registerCommand('labviewBenchmarkActor.captureLaunch', () =>
       captureLaunchCommand(context, output)
     ),
@@ -894,6 +1141,25 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('labviewBenchmarkActor.writeAgents', () => writeAgentsCommand(context, output)),
     vscode.commands.registerCommand('labviewBenchmarkActor.showAgents', () => showAgentsCommand(context)),
     vscode.commands.registerCommand('labviewBenchmarkActor.checkAgents', () => checkAgentsCommand(context, output))
+  );
+
+  // Cross-machine cleanroom creation (distributed CI): clone a capability-differentiated worker VM from the
+  // golden snapshot and launch its bus worker, so the host router can route across REAL VMs.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.createCleanroom', () => createCleanroomCommand(context, output))
+  );
+
+  // LabVIEW authoring lane (Windows/ActiveX): bootstrap labview_assistant + its DQMH dependency + the .vipb
+  // VI-Package build so it can be tested on a Windows cleanroom.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.bootstrapAuthoringLane', () => bootstrapAuthoringLaneCommand(context, output))
+  );
+
+  // Actor Corroboration Grid (ADR-0014 / ADR-0022): surface the end-to-end grid run and the verify-before-install
+  // provenance check to the operator, running the same committed engines the local gates re-derive.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.runCorroborationGrid', () => runCorroborationGridCommand(context, output)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.verifyReleaseProvenance', () => verifyReleaseProvenanceCommand(context, output))
   );
 
   // Model Context Protocol surface (VS Code 1.101+): expose this extension's own tools (host capabilities,

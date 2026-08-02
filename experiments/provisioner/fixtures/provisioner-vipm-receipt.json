@@ -1,0 +1,21 @@
+{
+  "schema": "labview-benchmark-actor/provisioner-install@1",
+  "target": "ubuntu-24.04-labview-vipm",
+  "vm": "lba-ubuntu2404-labview2026-scratch",
+  "os": "Ubuntu 24.04 (Noble)",
+  "labview": {
+    "package": "ni-labview-2026-community",
+    "source": "NI apt repo (ni-labview-2026 noble, signed by the committed keyring)",
+    "version": "2026",
+    "activated": true
+  },
+  "vipm": {
+    "package": "vipm",
+    "version": "26.3.1-4000",
+    "source": "https://packages.jki.net/vipm/preview/vipm_latest_preview_amd64.deb",
+    "debSizeMb": 70,
+    "binary": "/usr/local/bin/vipm",
+    "installed": true
+  },
+  "note": "provision-guest.sh installs LabVIEW 2026 Community from the NI apt repo (committed key) and VIPM from the JKI .deb. Proven LIVE on the scratch VM: VIPM was absent, then the added VIPM step downloaded + installed vipm 26.3.1-4000."
+}

@@ -1,0 +1,213 @@
+{
+  "schema": "labview-benchmark-actor/win-vm-mesh-ladder@1",
+  "capturedAtIso": "2026-08-02T03:55:34.135Z",
+  "vm": {
+    "name": "actor-reviewer-golden",
+    "plane": "WIN",
+    "busyByRung": [
+      {
+        "rung": "idle",
+        "busyCores": 0
+      },
+      {
+        "rung": "light",
+        "busyCores": 1
+      },
+      {
+        "rung": "medium",
+        "busyCores": 2
+      },
+      {
+        "rung": "heavy",
+        "busyCores": 3
+      },
+      {
+        "rung": "saturate",
+        "busyCores": 4
+      }
+    ]
+  },
+  "ladder": {
+    "levels": [
+      "idle",
+      "light",
+      "medium",
+      "heavy",
+      "saturate"
+    ],
+    "repeats": 3,
+    "samplesPerRepeat": 20,
+    "frameRateHz": 12
+  },
+  "measuredFpsByRung": [
+    {
+      "rung": "idle",
+      "effectiveFps": 11.9689,
+      "exactly12fps": true
+    },
+    {
+      "rung": "light",
+      "effectiveFps": 11.9856,
+      "exactly12fps": true
+    },
+    {
+      "rung": "medium",
+      "effectiveFps": 11.9784,
+      "exactly12fps": true
+    },
+    {
+      "rung": "heavy",
+      "effectiveFps": 11.9928,
+      "exactly12fps": true
+    },
+    {
+      "rung": "saturate",
+      "effectiveFps": 11.9856,
+      "exactly12fps": true
+    }
+  ],
+  "counterKeys": [
+    "contextSwitchesPerSec",
+    "cpuPrivilegedPct",
+    "cpuTotalPct",
+    "cpuUserPct",
+    "diskAvgQueueLength",
+    "diskReadBytesPerSec",
+    "diskReadsPerSec",
+    "diskWriteBytesPerSec",
+    "diskWritesPerSec",
+    "memAvailableMb",
+    "memCommittedBytes",
+    "memCommittedInUsePct",
+    "processorQueueLength"
+  ],
+  "salientDimensions": [
+    "cpuTotalPct.max",
+    "cpuTotalPct.mean",
+    "cpuTotalPct.min",
+    "cpuTotalPct.p50",
+    "cpuTotalPct.p95",
+    "cpuTotalPct.p99",
+    "cpuUserPct.max",
+    "cpuUserPct.mean",
+    "cpuUserPct.min",
+    "cpuUserPct.p50",
+    "cpuUserPct.p95",
+    "cpuUserPct.p99",
+    "cpuUserPct.std",
+    "diskReadBytesPerSec.driftSlope",
+    "diskReadBytesPerSec.max",
+    "diskReadBytesPerSec.mean",
+    "diskReadBytesPerSec.outlierRate",
+    "diskReadBytesPerSec.p95",
+    "diskReadBytesPerSec.p99",
+    "diskReadBytesPerSec.std",
+    "diskReadsPerSec.driftSlope",
+    "diskReadsPerSec.max",
+    "diskReadsPerSec.mean",
+    "diskReadsPerSec.outlierRate",
+    "diskReadsPerSec.p95",
+    "diskReadsPerSec.p99",
+    "diskReadsPerSec.std",
+    "memCommittedBytes.max",
+    "memCommittedBytes.mean",
+    "memCommittedBytes.min",
+    "memCommittedBytes.p50",
+    "memCommittedBytes.p95",
+    "memCommittedBytes.p99",
+    "memCommittedInUsePct.max",
+    "memCommittedInUsePct.mean",
+    "memCommittedInUsePct.min",
+    "memCommittedInUsePct.p50",
+    "memCommittedInUsePct.p95",
+    "memCommittedInUsePct.p99",
+    "processorQueueLength.p50"
+  ],
+  "cpuTotalPctMeanCurve": [
+    {
+      "rung": "idle",
+      "expected": 9.7,
+      "tolerance": 2.19
+    },
+    {
+      "rung": "light",
+      "expected": 38,
+      "tolerance": 1.59
+    },
+    {
+      "rung": "medium",
+      "expected": 56.3,
+      "tolerance": 6.74
+    },
+    {
+      "rung": "heavy",
+      "expected": 77.5,
+      "tolerance": 1.4
+    },
+    {
+      "rung": "saturate",
+      "expected": 94,
+      "tolerance": 9.7
+    }
+  ],
+  "invariants": {
+    "monotone": 1,
+    "separable": true,
+    "repeatable": true
+  },
+  "separability": [
+    {
+      "from": "idle",
+      "to": "light",
+      "separableDims": 24
+    },
+    {
+      "from": "light",
+      "to": "medium",
+      "separableDims": 21
+    },
+    {
+      "from": "medium",
+      "to": "heavy",
+      "separableDims": 21
+    },
+    {
+      "from": "heavy",
+      "to": "saturate",
+      "separableDims": 22
+    }
+  ],
+  "perRungInverseRead": [
+    {
+      "rung": "idle",
+      "inferredRung": "idle",
+      "confidence": 1,
+      "correct": true
+    },
+    {
+      "rung": "light",
+      "inferredRung": "light",
+      "confidence": 1,
+      "correct": true
+    },
+    {
+      "rung": "medium",
+      "inferredRung": "medium",
+      "confidence": 1,
+      "correct": true
+    },
+    {
+      "rung": "heavy",
+      "inferredRung": "heavy",
+      "confidence": 1,
+      "correct": true
+    },
+    {
+      "rung": "saturate",
+      "inferredRung": "saturate",
+      "confidence": 1,
+      "correct": true
+    }
+  ],
+  "allRungsRecovered": true
+}

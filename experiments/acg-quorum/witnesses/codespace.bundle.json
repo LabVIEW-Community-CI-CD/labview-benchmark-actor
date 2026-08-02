@@ -1,0 +1,31 @@
+{
+  "schema": "labview-benchmark-actor/acg-witness-bundle-v1",
+  "plane": "CODESPACE",
+  "os": "linux",
+  "gate": {
+    "verdict": "pass",
+    "lbabus": {
+      "version": "0.13.0",
+      "sourceCommit": "4df41092d2682379ec4c0ba2ed58246066788315"
+    }
+  },
+  "screenshot": {
+    "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+    "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8"
+  },
+  "ubuntu": "noble",
+  "capability": {
+    "platform": "linux-x64",
+    "cpu": {
+      "model": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+      "logicalCores": 2,
+      "speedMHzMax": 3498
+    },
+    "memory": {
+      "totalGiB": 7.8,
+      "freeGiB": 6.5
+    },
+    "gpus": []
+  },
+  "assembledAt": "2026-08-01T10:20:53.743Z"
+}

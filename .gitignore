@@ -15,6 +15,10 @@ media/labview-launch-trend-win.json
 media/cross-plane-trend-receipt.json
 media/labview-launch-resource-correlation.json
 media/resource-cross-plane-receipt.json
+media/meshCalibrationView.mjs
+media/mesh-live-ladder-receipt.json
+media/meshBoardView.mjs
+media/mesh-concurrent-actors-receipt.json
 # deterministic-screenshot PNG artifacts (evidence; the small JSON receipt is committed, the PNG is not)
 playwright/.artifacts/
 # host-extracted NI LabVIEW offline feeds (licensed/community artifacts staged for the docker-windows mirror)
@@ -36,3 +40,11 @@ cleanroom/ubuntu-labview/mesh/.vagrant/
 
 # Agent-last-gate per-run verdict receipt (regenerated each run)
 experiments/agent-last-gate/receipt.json
+
+# Coverage: keep the retained artifact coverage/cobertura-coverage.xml; ignore raw V8 tmp + transient summary.
+coverage/tmp/
+coverage/coverage-summary.json
+.nyc_output/
+
+# .NET "runfile discovery" tooling cache the C# extension writes into the workspace root (codespace/cleanroom noise)
+/dotnet/

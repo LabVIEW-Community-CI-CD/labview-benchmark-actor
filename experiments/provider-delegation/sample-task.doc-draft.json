@@ -1,0 +1,10 @@
+{
+  "schema": "labview-benchmark-actor/lba-uplift-task@v1",
+  "domain": "doc-draft",
+  "id": "T-GATE-SUITE-NOTE",
+  "brief": "Draft a concise operator note describing the cleanroom first-boot gate suite: what lba-gate-suite.service runs after lbabus builds, that it self-certifies the binary offline (version + agents/docs embed round-trip + drift detection), that it writes /opt/lba/gate-suite-receipt.json as durable evidence, and that setting LBA_GATE_BEACON_HOSTS beacons the verdict over the lbabus bus.",
+  "requiredSections": ["Overview", "How it runs", "Evidence", "Distributed CI"],
+  "minChars": 400,
+  "provider": "ollama",
+  "model": "llama3.1:8b"
+}

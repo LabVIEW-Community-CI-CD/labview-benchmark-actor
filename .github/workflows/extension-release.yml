@@ -4,14 +4,28 @@ name: extension-release
 # GitHub Release asset. The reviewer-workstation Vagrant provisioning downloads the .vsix from this
 # Release and installs it into the guest (mirrors how the lbabus nupkg ships as a Release asset).
 #
-# Trigger: push a tag `ext-vX.Y.Z` whose X.Y.Z matches "version" in package.json.
-# The publish is fail-closed behind the bidirectional WIN <-> LINUX agreement gate (component:
-# extension) - neither plane may unilaterally ship the extension.
+# Trigger: workflow_dispatch (input: version X.Y.Z) is the live path -- it builds, agreement-gates,
+# keyless-signs, and uploads the signed .vsix as a run artifact; a maintainer then cuts the immutable
+# GitHub Release locally with an authorized bypass token (the org ruleset blocks `git push` of the tag,
+# so the retained `push: tags: ext-v*` trigger cannot fire for a new release). X.Y.Z must match "version"
+# in package.json. The publish is fail-closed behind the bidirectional WIN <-> LINUX agreement gate
+# (component: extension) - neither plane may unilaterally ship the extension.
 
 on:
   push:
     tags:
       - 'ext-v*.*.*'
+  # Under the org tag-creation ruleset a maintainer cannot `git push` an ext-v* tag, so the push trigger above
+  # cannot fire for a new release; workflow_dispatch is the live path. It builds, agreement-gates, keyless-signs,
+  # and UPLOADS the signed .vsix (+ .sigstore/.pem/.sig) as a run artifact; a maintainer then cuts the immutable
+  # release locally with an authorized bypass token (`gh release create ext-vX.Y.Z staging/*`), attaching the
+  # signed .vsix AT CREATION (immutable-safe). The push path is retained for if the ruleset is ever lifted.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Extension version X.Y.Z to build, keyless-sign, and stage as a signed artifact (must match package.json). Leave blank for a tag push.
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -45,11 +59,15 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Derive version from tag
+      - name: Derive version
         id: ver
         run: |
-          tag="${GITHUB_REF_NAME}"
-          echo "version=${tag#ext-v}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            tag="${GITHUB_REF_NAME}"; version="${tag#ext-v}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Verify bidirectional WIN <-> LINUX agreement (extension)
         run: node tools/collab-cli/verify-release-agreement.mjs --component extension "${{ steps.ver.outputs.version }}"
@@ -57,6 +75,9 @@ jobs:
   release:
     needs: [build, agreement]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release + attach assets
+      id-token: write # keyless-sign the artifacts with cosign (Fulcio OIDC -> public rekor)
     steps:
       - uses: actions/checkout@v5
 
@@ -64,13 +85,16 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Derive version from tag
+      - name: Derive version
         id: ver
         run: |
-          tag="${GITHUB_REF_NAME}"
-          version="${tag#ext-v}"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            tag="${GITHUB_REF_NAME}"; version="${tag#ext-v}"
+          fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Building extension ${version} from tag ${tag}"
+          echo "Building extension ${version}"
 
       - name: Verify tag matches package.json version
         run: |
@@ -125,15 +149,46 @@ jobs:
           cat "$notes_file"
           echo "path=${notes_file}" >> "$GITHUB_OUTPUT"
 
+      - name: Keyless-attest the release artifacts (Fulcio + public rekor)
+        # Sign the staged .vsix keylessly (cosign, Actions OIDC) so the release carries a Fulcio cert + a
+        # public rekor entry, attached AT CREATION with the .vsix (immutable-safe). LBA-REQ-025 / ADR-0016.
+        uses: ./.github/actions/keyless-attest
+        with:
+          artifacts-dir: ${{ github.workspace }}/staging
+
+      - name: Upload the keyless-signed release assets (immutable-release + org-ruleset safe)
+        # Under the org tag-creation ruleset the in-Actions github.token cannot create the ext-v* tag; only a
+        # maintainer's authorized bypass token can (via the releases API). So the reliable output of this job is
+        # the SIGNED staging set (.vsix + its .sigstore/.pem/.sig) as a run artifact. After the bidirectional
+        # agreement gate is green a maintainer downloads it and runs `gh release create ext-vX.Y.Z staging/*`,
+        # attaching the signed .vsix AT CREATION (immutable-safe). Mirrors how acg-attest-v0.0.2 was cut.
+        uses: actions/upload-artifact@v4
+        with:
+          name: ext-vsix-signed-${{ steps.ver.outputs.version }}
+          path: staging/*
+          if-no-files-found: error
+
       - name: Create GitHub Release
+        # Under the org tag-creation ruleset the maintainer cuts the release LOCALLY from the signed artifact
+        # with a bypass token; that `gh release create` also creates the ext-v* tag, which FIRES this push
+        # trigger. So on push the release usually ALREADY exists -- detect it and no-op (this run then serves as
+        # a post-cut re-validation of build + agreement + agent-last-gate at the tagged commit). Only if the
+        # release is somehow absent (e.g. a future world where the ruleset is lifted and the tag was pushed
+        # directly) do we create it from the freshly staged + signed assets.
+        if: ${{ github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "${GITHUB_REF_NAME}"
-          --repo "${GITHUB_REPOSITORY}"
-          --title "LabVIEW Benchmark Actor ${{ steps.ver.outputs.version }}"
-          --notes-file "${{ steps.notes.outputs.path }}"
-          staging/*
+        run: |
+          set -eu
+          if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists (cut locally from the signed artifact under the org tag ruleset) -- this push-triggered run re-validated build + agreement + agent-last-gate at the tag; nothing to create."
+            exit 0
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "LabVIEW Benchmark Actor ${{ steps.ver.outputs.version }}" \
+            --notes-file "${{ steps.notes.outputs.path }}" \
+            staging/*
 
       - name: Publish to VS Code Marketplace
         # Fork-safe: only the canonical repo publishes. Fail-OPEN on a missing PAT so the GitHub Release

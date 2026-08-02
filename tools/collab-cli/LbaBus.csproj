@@ -15,7 +15,7 @@
     <PackageId>LabViewBenchmarkActor.CollabBus</PackageId>
 
     <!-- SemVer: the single source of truth for `lbabus version` and the released package. -->
-    <Version>0.13.0</Version>
+    <Version>0.14.0</Version>
     <Authors>LabVIEW-Community-CI-CD</Authors>
     <Description>Shared cross-plane coordination bus CLI for labview-benchmark-actor (WIN &lt;-&gt; LINUX). One versioned binary, one deterministic protocol, pulled from an immutable SemVer release.</Description>
     <PackageProjectUrl>https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor</PackageProjectUrl>
@@ -68,5 +68,22 @@
   <Target Name="CopyDocsToOutput" AfterTargets="Build">
     <Copy SourceFiles="docs/DOCS.md" DestinationFiles="$(OutDir)DOCS.md" SkipUnchangedFiles="true" />
   </Target>
+
+  <!--
+    Version-pinned REQUIREMENTS bundle: the repo's CANONICAL software requirements spec (SRS) + traceability
+    matrix (RTM), embedded BY REFERENCE (single source of truth: docs/requirements/*) so THIS lbabus build
+    carries the exact requirements it was cut from. Surfaced by `lbabus docs show srs|rtm` and round-tripped
+    by the ci-docs harness stage, so "same version => same requirements" holds and the docs an agent reads
+    stay aligned with the build. Explicit LogicalName => a stable manifest resource name (default globbing
+    would mangle the ../.. path). The repo-root .dockerignore deliberately keeps docs/ in the build context.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="../../docs/requirements/srs.md">
+      <LogicalName>docs.requirements.srs.md</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="../../docs/requirements/rtm.csv">
+      <LogicalName>docs.requirements.rtm.csv</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 
 </Project>

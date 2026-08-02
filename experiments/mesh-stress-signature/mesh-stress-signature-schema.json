@@ -1,0 +1,77 @@
+{
+  "schema": "labview-benchmark-actor/mesh-stress-signature@v1",
+  "status": "design-spec (no live runs yet)",
+  "title": "Stressed-host actor-mesh performance-signature calibration (design + ladder plan)",
+  "purpose": "Re-verify the MAXIMUM ACHIEVABLE streaming-to-disk (the MPRR visual-ring frame->disk ceiling) under a STRESSED host while a MESH of actors each runs at a DIFFERENT stress level, with the full 42-counter performance schema instrumented PER ACTOR, to gather the initial metadata needed to design + calibrate a PERFORMANCE SIGNATURE calibrator for later LADDER testing.",
+  "buildsOn": [
+    "labview-benchmark-actor/performance-counter-correlation@v2 (the 42-counter schema + 12 FPS correlation + click markers)",
+    "MPRR visual ring (ADR-0005 image-storage ring buffer, ADR-0007 image-derived timing, ADR-0009 absorb-MPRR)",
+    "existing mesh infra: experiments/ephemeral-mesh, experiments/multi-vm-topology, experiments/mesh-runs, experiments/mprr-ring"
+  ],
+  "placement": {
+    "where": "ALL actors on THIS host (VMs) -- no separate WIN plane for this program",
+    "planes": "both a Windows actor mesh and a Linux actor mesh run here (Windows guests + Linux guests)",
+    "hostBudget": "recorded per run (this host ~ 60 GB RAM / 24 CPUs; ~24 GB free with 2 VMs up). Mesh size N is chosen so N actor VMs + the host stressor fit without host thrash; recorded in the receipt.",
+    "counterMappingNote": "the 42-counter catalog is Windows PDH. Linux actors sample the EQUIVALENT counters from /proc + /sys (cpu, mem, disk via /proc/diskstats, net via /proc/net/dev, per-process via /proc/<pid>/stat|io) mapped onto the same catalog keys; counters with no Linux analogue sample null and are skipped."
+  },
+  "maxDiskStreaming": {
+    "target": "MPRR visual-ring buffer sustained frame->disk write throughput -- the MAX ACHIEVABLE before the ring back-pressures or drops frames.",
+    "metric": {
+      "dropFreeCeilingFps": "highest sustained frames/sec the ring writes to disk with ZERO dropped frames",
+      "sustainedWriteMBps": "MB/sec written at the ceiling",
+      "backpressureOnsetEpochMs": "first epoch where ring occupancy hits the high-water mark"
+    },
+    "reverify": "Re-run the streaming benchmark while sampling ALL 42 counters per actor and correlating each sample to the 12 FPS frame timeline (performance-counter-correlation@v2). REFRESH the committed receipt as the posted evidence.",
+    "primaryDimensions": ["diskWriteBytesPerSec", "diskAvgSecPerWrite", "diskAvgQueueLength", "procIoWriteBytesPerSec", "memAvailableMb", "cpuPrivilegedPct"],
+    "note": "the ceiling is expected to MOVE as host + per-actor stress rises -- that movement vs stress is exactly the calibration signal."
+  },
+  "stress": {
+    "hostLoad": {
+      "tool": "stress-ng",
+      "dimensions": ["cpu", "mem (vm)", "io/hdd"],
+      "role": "background HOST pressure applied while the mesh acquires, so the actors measure themselves on a loaded host (not an idle one)"
+    },
+    "perActorLevel": {
+      "levels": ["idle", "light", "medium", "heavy", "saturate"],
+      "mechanisms": [
+        "WORKLOAD: a stress-ng / synthetic workload INSIDE the actor VM sized to the level",
+        "THROTTLE: bound the level with a VirtualBox CPU execution cap (VBoxManage modifyvm --cpuexecutioncap) + an IO bandwidth limit (--bandwidthctl) / Linux cgroup io.max"
+      ],
+      "intent": "in ONE acquisition each actor is pinned to a DIFFERENT level so a single mesh run spans the stress range (a horizontal slice across the ladder).",
+      "invariant": "the per-actor level is both COMMANDED (workload+throttle) and MEASURED (the 42-counter signature); calibration compares commanded vs measured."
+    }
+  },
+  "signature": {
+    "definition": "A performance SIGNATURE fingerprints 'this actor at this stress level on this host' as the REPETITIVE (structural/periodic) and OUTLIER (anomalous) patterns extracted from the per-actor 42-counter series across MULTIPLE REPEATED benchmarks. Repeatable structure that survives repeats is the signature; what varies across repeats is the noise floor. Outliers carry post-processing information (visual root-cause).",
+    "perCounterFeatures": ["mean", "std", "p50", "p95", "p99", "min", "max", "driftSlope", "dominantPeriodMs", "periodicityStrength", "outlierRate", "outlierEpochs"],
+    "crossCounterFeatures": ["counter pairs whose OUTLIERS co-occur within the +/-200 ms marker tolerance (a shared-cause signature)"],
+    "repetitionModel": "run R repeats per (actor, level); a feature is SIGNATURE if its across-repeat coefficient-of-variation <= stabilityThreshold, else it is NOISE. The signature is the vector of stable features + the characteristic outlier profile.",
+    "postProcessing": "each outlier epoch becomes a frameMarker (frame-marker@v2, +/-200 ms image grab) so the captured frame at the anomaly can be pulled for visual root-cause -- ties this program back to the click-marker mechanism."
+  },
+  "calibrator": {
+    "input": "signatures across the full LADDER of rungs (idle..saturate) x R repeats, per actor, per plane (Win/Linux).",
+    "output": {
+      "calibrationCurve": "per counter + per salient feature: stressRung -> expected value + tolerance band (from the across-repeat variance)",
+      "streamingCeilingCurve": "the max drop-free streaming ceiling vs stress rung",
+      "inverseRead": "map an OBSERVED signature back to an INFERRED stress level (the calibrated read) with a confidence from the band"
+    },
+    "fit": "monotone / piecewise-linear fit over the rungs; the across-repeat variance sets the band; NON-MONOTONE rungs are flagged as instrumentation artifacts (a counter that does not track stress is dropped from the signature).",
+    "designInvariants": [
+      "monotone: salient signature features move monotonically with the stress rung (else flagged)",
+      "separable: adjacent rungs' bands do not fully overlap for at least K signature dimensions (the ladder is resolvable)",
+      "repeatable: across-repeat CoV <= stabilityThreshold for the signature dimensions"
+    ]
+  },
+  "ladder": {
+    "definition": "LADDER testing = drive the mesh through INCREASING stress RUNGS to build a calibration curve, then later re-run the ladder and read each rung against the calibrated curve to detect drift/regression.",
+    "rungs": ["idle", "light", "medium", "heavy", "saturate"],
+    "repeatsPerRung": 5,
+    "product": "per-rung signatures = the calibration set -> the calibrator fits the curve. 'Later ladder testing' replays the ladder and scores each rung's signature vs the calibrated curve (pass = within band; fail = drift/regression)."
+  },
+  "evidence": {
+    "location": "experiments/mesh-stress-signature/ (README plan + receipt)",
+    "receipt": "will record: host budget, mesh size + per-actor commanded levels, the re-verified max drop-free streaming ceiling WITH all-42-counter correlation, the extracted per-(actor,level) signatures, the fitted calibration curve + ladder resolvability, and pass/fail vs the design invariants.",
+    "reverifyExisting": "the existing max-streaming evidence (ADR-0005/0007, self-test-conformance receipts) is re-verified under the expanded schema and the refreshed numbers are posted here."
+  },
+  "followUp": "This schema is DESIGN-ONLY. The implementation follow-up (its own requirement + gate): the in-guest 42-counter samplers (Win PDH + Linux /proc), the stress orchestrator (host stress-ng + per-actor workload/throttle), the live Win & Linux mesh ladder runs, the signature extractor, and the calibration-curve fitter -- each a dependency-free engine + self-test + gate + a real receipt."
+}
