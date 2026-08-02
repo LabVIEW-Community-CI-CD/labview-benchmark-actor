@@ -51,5 +51,6 @@
 | LBA-REQ-042 | Cross-plane LabVIEW liveness | Proven | §3.2 Deployment | ADR-0030 | T-042 | 5 |
 | LBA-REQ-043 | Cross-plane VI Analyzer determinism | Proven | §3.2 Deployment | ADR-0031 | T-043 | 5 |
 | LBA-REQ-044 | Provisioner installs LabVIEW and VIPM | Proven | §3.2 Deployment | ADR-0023 | T-044 | 5 |
+| LBA-REQ-045 | Human-assisted VM bridge | Proven | §3.2 Deployment | ADR-0032 | T-045 | 5 |
 
-_Generated for 44 requirements._
+_Generated for 45 requirements._

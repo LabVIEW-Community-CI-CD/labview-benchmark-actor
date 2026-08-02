@@ -72,6 +72,7 @@ progressively.
 | LBA-REQ-042 | The system shall confirm cross-plane LabVIEW liveness by running the known-answer activation probe on every LabVIEW plane, so a fail-closed gate proves at least two independent LabVIEW planes are activated and operational. | Real cross-plane comparison (the North Star) needs more than one activated LabVIEW plane; the capability router (ADR-0029) now reaches the host plus a LabVIEW VM (the Phase 1 golden VM, ADR-0023). Running the known-answer probe on each plane and asserting the answer proves independent, activated, operational planes to compare across (ADR-0030). | `runCrossPlaneLiveness.mjs` discovers LabVIEW planes (host + running VMs answering `ls LabVIEWCLI` over ssh), runs `LabVIEWCLI RunVI` on each concurrently; `validateLiveness` fails closed unless >= 2 distinct planes each returned the known answer and are activated. | Run `node experiments/activation/verify-cross-plane-liveness.selftest.mjs` (4/4); gated by `cross-plane-labview-liveness` in `verify-local-gates`. Live: host + Ubuntu golden VM, both LabVIEW 2026, 7+5=12. |
 | LBA-REQ-043 | The system shall verify cross-plane benchmark determinism by comparing the same VI Analyzer config's deterministic resultHash across every LabVIEW plane, so a fail-closed gate proves the planes agree. | Cross-plane liveness (ADR-0030) proved >= 2 activated planes; the North Star is objective, reproducible cross-plane COMPARISON. LBA-REQ-015's resultHash is machine-independent, so running the same config on each plane and matching the hashes proves benchmark equivalence, not a subjective claim (ADR-0031). | `runCrossPlaneViAnalyzer.mjs` runs the shipped LabVIEWCLIExampleProject on each LabVIEW plane concurrently, computes each resultHash via `summarizeViAnalyzerReport` (LBA-REQ-015); `validateComparison` fails closed unless >= 2 distinct planes carry an identical resultHash. | Run `node experiments/vi-analyzer/verify-cross-plane-comparison.selftest.mjs` (4/4); gated by `cross-plane-vi-analyzer-determinism`. Live: host + Ubuntu golden VM, 69 tests, byte-identical resultHash. |
 | LBA-REQ-044 | The system shall provision the from-scratch Ubuntu golden VM with both LabVIEW 2026 Community and VIPM, so a fail-closed gate blocks the build when the provisioner omits either install. | ADR-0023's golden VM is Ubuntu + LabVIEW + VIPM, but the provisioner installed only LabVIEW (NI apt repo); VIPM is a standalone JKI .deb, not in the NI repo. Adding the VIPM install completes the golden-VM automation and a gate keeps both present (advances ADR-0023 Phase 1). | `provision-guest.sh` installs `ni-labview-2026-community` (NI apt, committed key) + VIPM from `packages.jki.net` (dpkg -i + apt-get install -f, idempotent via a `dpkg -s vipm` guard); `checkProvisioner` fails closed unless both steps are present and the live receipt confirms VIPM. | Run `node experiments/provisioner/verify-provisioner-labview-vipm.selftest.mjs` (4/4); gated by `provisioner-installs-labview-and-vipm`. Live: VIPM 26.3.1-4000 installed on the scratch VM. |
+| LBA-REQ-045 | The system shall provide a human-assisted terminal bridge to the golden VM that lets an automation agent drive the VM's interactive shell while a human types any password or token directly on the VM, so a fail-closed gate proves credentials never transit the agent. | Agent-driven golden-VM onboarding (ADR-0023) needs secrets -- LabVIEW and VIPM activation, sudo -- that must never pass through the agent or the model; a shared tmux session on the VM lets the agent drive while the human supplies credentials in-band, at the prompt (ADR-0032). | `tools/vm-bridge/vm-bridge.sh` is a shared tmux session on the VM; the agent drives via tmux send-keys/capture-pane over ssh (run/send/keys/read), `secret?` detects a credential prompt to hand off, `attach` prints the human's one-line attach; `checkVmBridge` fails closed unless the bridge is secret-safe (no --password/read -s/sshpass) and the receipt shows the agent detected but never answered a prompt. | Run `node experiments/vm-bridge/verify-vm-bridge.selftest.mjs` (4/4); gated by `vm-bridge-human-assisted-secret-safety`. Live: agent drove the scratch VM; a real `password:` prompt was detected (exit 42) + handed off, never answered. |
 
 ---
 
@@ -1343,6 +1344,35 @@ progressively.
 
 ---
 
+### LBA-REQ-045: Human-assisted VM bridge
+
+- Status: Proven
+- Area: Deployment / onboarding (ADR-0032 -- human-in-the-loop secret safety)
+- Statement: The system shall provide a human-assisted terminal bridge to the golden
+  VM that lets an automation agent drive the VM's interactive shell while a human
+  types any password or token directly on the VM, so a fail-closed gate proves
+  credentials never transit the agent.
+- Rationale: Agent-driven golden-VM onboarding (ADR-0023) needs secrets -- LabVIEW
+  and VIPM activation, sudo passwords -- that must never pass through the automation
+  agent or the LLM. A shared tmux session that lives on the VM lets the agent drive
+  every non-secret step while the human supplies a credential in-band, exactly at the
+  prompt (ADR-0032).
+- Acceptance Criteria:
+  - `tools/vm-bridge/vm-bridge.sh` drives the VM's shell over ssh via tmux
+    `send-keys`/`capture-pane` (run/send/keys/read) and offers a human `attach`.
+  - `secret?` detects a credential prompt so the agent hands off instead of answering.
+  - The bridge is secret-safe: no `--password`/`--token` flag, no `read -s`, no
+    `sshpass`, no credential env var. `checkVmBridge` fails closed on any of these.
+  - Live evidence: the agent drove the scratch VM and a real `password:` prompt was
+    detected (agent exit 42) + handed off to the human, never answered; the receipt
+    records it.
+- Change Guidance: The checker `experiments/vm-bridge/checkVmBridge.mjs` plus its
+  self-test are gated by `vm-bridge-human-assisted-secret-safety` in
+  `verify-local-gates` and mapped in the RTM. Authored under the singular-requirement
+  directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1391,3 +1421,4 @@ progressively.
 | LBA-REQ-042 | Deployment (cross-plane LabVIEW liveness) | T-042 |
 | LBA-REQ-043 | Deployment (cross-plane VI Analyzer determinism) | T-043 |
 | LBA-REQ-044 | Deployment (provisioner installs LabVIEW + VIPM) | T-044 |
+| LBA-REQ-045 | Deployment (human-assisted VM bridge) | T-045 |

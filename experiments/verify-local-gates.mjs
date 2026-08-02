@@ -387,6 +387,15 @@ check('provisioner-installs-labview-and-vipm', () => {
   return { standard: 'ADR-0023 Phase 1', selftest: 'verify-provisioner-labview-vipm 4/4 (LabVIEW + VIPM)' };
 });
 
+// 6q. Human-assisted VM bridge (LBA-REQ-045, ADR-0032): the shared-tmux bridge (tools/vm-bridge/vm-bridge.sh)
+//     lets an automation agent drive the golden VM's interactive shell while a HUMAN types any password/token
+//     directly on the VM -- credentials never transit the agent or the model. Fail-closed if the bridge could
+//     ingest a secret, or if the live receipt shows the agent answered a credential prompt.
+check('vm-bridge-human-assisted-secret-safety', () => {
+  execFileSync(process.execPath, [join(here, 'vm-bridge', 'verify-vm-bridge.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0032 human-in-the-loop secret safety', selftest: 'verify-vm-bridge 4/4 (agent drives VM; human types secrets)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
