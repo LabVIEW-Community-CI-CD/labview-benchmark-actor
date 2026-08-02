@@ -49,5 +49,6 @@
 | LBA-REQ-040 | Distributed capacity-weighted parallel workload | Proven | §3.2 Deployment | ADR-0028 | T-040 | 5 |
 | LBA-REQ-041 | Capability-aware distributed task routing | Proven | §3.2 Deployment | ADR-0029 | T-041 | 5 |
 | LBA-REQ-042 | Cross-plane LabVIEW liveness | Proven | §3.2 Deployment | ADR-0030 | T-042 | 5 |
+| LBA-REQ-043 | Cross-plane VI Analyzer determinism | Proven | §3.2 Deployment | ADR-0031 | T-043 | 5 |
 
-_Generated for 42 requirements._
+_Generated for 43 requirements._

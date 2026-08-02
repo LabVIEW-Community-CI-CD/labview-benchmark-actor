@@ -369,6 +369,15 @@ check('cross-plane-labview-liveness', () => {
   return { standard: 'ADR-0030 cross-plane liveness', selftest: 'verify-cross-plane-liveness 4/4 (2 activated LabVIEW planes)' };
 });
 
+// 6o. Cross-plane VI Analyzer determinism (LBA-REQ-043, ADR-0031): the SAME VI Analyzer config run on >= 2
+//     independent LabVIEW planes (this host + a LabVIEW VM) produces the SAME deterministic resultHash --
+//     real, reproducible cross-plane benchmark equivalence (the North Star). The committed real receipt must
+//     validate: >= 2 distinct planes, each with a resultHash, ALL identical (consensus). Offline replay.
+check('cross-plane-vi-analyzer-determinism', () => {
+  execFileSync(process.execPath, [join(here, 'vi-analyzer', 'verify-cross-plane-comparison.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0031 cross-plane determinism', selftest: 'verify-cross-plane-comparison 4/4 (matching resultHash across planes)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

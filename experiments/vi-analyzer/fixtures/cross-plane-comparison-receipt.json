@@ -1,0 +1,29 @@
+{
+  "schema": "labview-benchmark-actor/cross-plane-comparison@1",
+  "benchmark": "vi-analyzer LabVIEWCLIExampleProject",
+  "planeCount": 2,
+  "planes": [
+    {
+      "instance": "host",
+      "hostname": "sergio-ThinkPad-P16-Gen-3",
+      "os": "linux",
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+      "totalTests": 69,
+      "passedTests": 69,
+      "totalFindings": 0,
+      "pass": true
+    },
+    {
+      "instance": "vm:lba-ubuntu2404-labview2026-scratch",
+      "hostname": "actor",
+      "os": "linux",
+      "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+      "totalTests": 69,
+      "passedTests": 69,
+      "totalFindings": 0,
+      "pass": true
+    }
+  ],
+  "resultHashesMatch": true,
+  "consensusHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12"
+}
