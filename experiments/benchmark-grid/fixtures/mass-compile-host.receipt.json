@@ -1,0 +1,30 @@
+{
+  "schema": "labview-benchmark-actor/mass-compile-benchmark@1",
+  "vm": "host",
+  "labview": {
+    "version": "2026",
+    "bitness": 64,
+    "edition": "Community"
+  },
+  "source": {
+    "repo": "ni/labview-icon-editor",
+    "repoHead": "9545c483f2b947c71de68c7f70aedefaedadabf7",
+    "directory": "resource"
+  },
+  "operation": "LabVIEWCLI -OperationName MassCompile",
+  "visInDirectory": 307,
+  "badViCount": 0,
+  "badVis": [],
+  "operationSucceeded": true,
+  "timing": {
+    "compileSeconds": 39,
+    "cliElapsedMs": null
+  },
+  "resultHash": "bf722123ba07ac4611e41eadf605cf45b20d398d3229b2b837d3f5115d0a7966",
+  "note": "Real MassCompile of the ni/labview-icon-editor resource/ core source (307 VIs/CTLs) on the bare-metal host (sergio-ThinkPad-P16-Gen-3) via LabVIEWCLI -OperationName MassCompile connecting to the running VI Server on 3363. LabVIEW reported MassCompile operation succeeded with 0 bad VIs; report Start->Finish = 39s (09:48:21->09:49:00). resultHash is over the machine-independent result (directory + 307 VIs + 0 bad + succeeded) so it is comparable cross-plane with the lba-golden VM run; the 39s vs 24s is the performance delta (host run was cold, no warm-up).",
+  "verdict": {
+    "benchmarkOk": true,
+    "reason": "MassCompile of resource (307 VIs/CTLs, 0 bad) succeeded"
+  },
+  "digest": "25370b38ea184c9f51bc22f6212690084b79558421ff50052ca193c20d934043"
+}

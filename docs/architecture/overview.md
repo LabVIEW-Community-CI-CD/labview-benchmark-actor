@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -287,6 +287,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-41 | Stream the golden VM live status (CPU busy%, LabVIEW/vipm/Xvfb) over the bridge and analyze captured timelines for idle spans, so no long stretch of "dead time" is invisible to human or agent | Human-assisted onboarding has long silent waits (LabVIEW idle while VIPM connects); live visibility plus a deterministic idle-time analysis surface and quantify the dead time to drive it out (ADR-0023) | LBA-REQ-047 |
 | AD-42 | Benchmark the golden VM by mass-compiling a pinned public LabVIEW source (ni/labview-icon-editor) with LabVIEWCLI, recording a timing-invariant result identity plus the compile time | A MassCompile of a pinned public source is a real, reproducible LabVIEW workload; a machine-independent result hash makes it cross-plane comparable (the North Star) while the compile time is the performance metric (ADR-0023) | LBA-REQ-048 |
 | AD-43 | Gate the golden-VM provisioner's headless-LabVIEW readiness by statically verifying (against the actual script text) that it installs Xvfb + dual-basename VI Server config + quoted access + reboot | A fresh provision was not headless-ready without three manual fixes; binding a fail-closed receipt to the provisioner text keeps the one-command First Win from silently regressing (ADR-0023) | LBA-REQ-049 |
+| AD-44 | Unify the per-benchmark cross-plane receipts into one generated benchmark grid (identity per plane + performance), gated fail-closed on any determinism violation | The North Star is a reproducible cross-plane comparison; a single generated grid is the artifact that comparison is for, and a fail-closed gate makes an identity divergence impossible to merge (ADR-0031, roadmap Phase 4) | LBA-REQ-050 |
 
 ## 5. Risks and open questions
 

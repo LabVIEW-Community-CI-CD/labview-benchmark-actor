@@ -39,3 +39,8 @@ This is requirement **LBA-REQ-043**.
   *agree* on a benchmark, and a divergence fails the gate.
 - The mechanism generalizes: a Windows LabVIEW plane (OS cross-axis) or a heavier
   benchmark VI slots into the same resultHash comparison.
+- **The grid (LBA-REQ-050)** unifies the per-benchmark cross-plane receipts into one
+  generated, fail-closed surface (`docs/benchmarks/benchmark-grid.md`): each benchmark's
+  identity must agree across its planes and its performance is recorded alongside. Proven
+  Linux-first -- VI Analyzer (host + scratch VM) and Mass Compile (host + lba-golden) each
+  agree across two planes -- this is the first slice of the roadmap Phase 4 benchmark grid.
