@@ -1,0 +1,25 @@
+{
+  "schema": "labview-benchmark-actor/vm-bridge-session@1",
+  "description": "Live evidence that the human-assisted VM bridge (LBA-REQ-045, ADR-0032) works: an automation agent drives the golden VM's interactive shell through a shared tmux session, and a real credential prompt is detected + handed off to the human WITHOUT the agent ever typing the secret.",
+  "capturedAt": "2026-08-02T00:00:00Z",
+  "tool": "tools/vm-bridge/vm-bridge.sh",
+  "vm": "lba-ubuntu2404-labview2026-scratch",
+  "session": "vmbridge",
+  "tmuxLocation": "vm",
+  "ssh": { "host": "127.0.0.1", "port": 2222, "user": "actor", "auth": "key" },
+  "agentDroveShell": {
+    "command": "echo host=$(hostname) user=$(whoami); echo labviewcli=$(command -v LabVIEWCLI)",
+    "observedOutput": "host=actor user=actor\nlabviewcli=/usr/local/bin/LabVIEWCLI",
+    "exit": 0
+  },
+  "secretHandoff": {
+    "triggeredPrompt": "actor@localhost's password:",
+    "detectedByAgent": true,
+    "agentExitCode": 42,
+    "answeredByAgent": false,
+    "cancelledWithoutSecret": true,
+    "humanAttachCommand": "ssh -t -i ~/.ssh/lba_scratch -p 2222 actor@127.0.0.1 tmux attach -t vmbridge"
+  },
+  "secretSafe": true,
+  "notes": "The bridge session lives on the VM (tmuxLocation=vm), so no host tmux/sudo is needed; actor has passwordless sudo on the VM to install tmux. Credentials are typed by the human in the attached pane and never transit the agent or the model."
+}

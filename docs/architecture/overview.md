@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -112,6 +112,12 @@ multi-VM / Codespace topology.
   and VIPM (the JKI .deb), so the golden VM is complete. A fail-closed gate keeps
   both installs present (ADR-0023); proven live — VIPM 26.3.1 installed on the
   scratch VM from JKI.
+- **Human-assisted VM bridge (LBA-REQ-045):** a shared tmux session on the golden VM
+  lets an automation agent drive the VM's interactive shell (`send-keys`/`capture-pane`
+  over ssh) while a human attaches to type any password or token directly on the VM —
+  credentials never transit the agent or the model. A fail-closed gate proves the
+  bridge is secret-safe (ADR-0032); proven live — the agent detected a real
+  `password:` prompt (exit 42) and handed off without answering.
 
 ### 3.3 Actor / run-result view — addresses LBA-REQ-003, LBA-REQ-009
 - The agentic actor drives a run and emits a **schema-versioned run result**:
@@ -277,6 +283,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-37 | Route each distributed task only to an instance advertising the capability it requires (LabVIEW to LabVIEW-capable instances, node work anywhere) | LabVIEW lives only on capable instances; capability routing makes the heterogeneous fleet do real cross-plane work correctly (ADR-0029) | LBA-REQ-041 |
 | AD-38 | Prove cross-plane LabVIEW liveness by running the known-answer probe on every LabVIEW plane (host + LabVIEW VMs), requiring >= 2 activated planes | Real cross-plane comparison needs more than one activated LabVIEW plane; the golden VM (ADR-0023) becomes a proven second plane (ADR-0030) | LBA-REQ-042 |
 | AD-39 | Verify cross-plane benchmark determinism by matching the same VI Analyzer config's resultHash across LabVIEW planes | Turns liveness into objective, reproducible comparison (the North Star); a divergent resultHash fails the gate (ADR-0031, LBA-REQ-015) | LBA-REQ-043 |
+| AD-40 | Provide a human-assisted shared-tmux bridge to the golden VM — the agent drives the interactive shell while the human types secrets directly on the VM | Agent-driven onboarding needs credentials (LabVIEW/VIPM activation, sudo) that must never transit the agent; a secret-safe bridge keeps the human in the loop for secrets only (ADR-0032) | LBA-REQ-045 |
 
 ## 5. Risks and open questions
 
