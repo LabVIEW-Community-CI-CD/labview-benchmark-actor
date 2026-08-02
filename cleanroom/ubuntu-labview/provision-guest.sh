@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared, provider-agnostic guest provisioner: installs LabVIEW 2026 Community for Linux (UNACTIVATED)
+# Shared, provider-agnostic guest provisioner: installs LabVIEW 2026 Community + VIPM for Linux (UNACTIVATED)
 # on a fresh Ubuntu 24.04 guest. Run this IN the guest after the unattended OS install, on BOTH the
 # VirtualBox (LINUX plane) and VMware (WIN plane) VMs — the SAME script, so the LabVIEW layer is
 # byte-for-byte parity across the two hypervisors.
@@ -64,6 +64,21 @@ install -m 0644 "$NI_KEYRING_SRC" "$NI_KEYRING_DST"
 printf 'deb [signed-by=%s] %s noble %s\n' "$NI_KEYRING_DST" "$NI_REPO" "$NI_SUITE" > "$NI_LIST"
 apt-get update -y
 apt-get install -y "$LABVIEW_PKG"
+
+# 2b) VI Package Manager (VIPM) -- the official LabVIEW add-on manager (JKI). It is NOT in the NI apt repo;
+#     JKI ships a direct Debian package (application/vnd.debian.binary-package). Override VIPM_DEB_URL if JKI
+#     moves it. Idempotent: skips if vipm is already installed. `apt-get install -f` resolves its deps.
+VIPM_DEB_URL="${VIPM_DEB_URL:-https://packages.jki.net/vipm/preview/vipm_latest_preview_amd64.deb}"
+if dpkg -s vipm >/dev/null 2>&1; then
+  log "VIPM already installed ($(dpkg-query -W -f='${Version}' vipm 2>/dev/null)); skipping."
+else
+  log "downloading + installing VIPM (JKI) from $VIPM_DEB_URL ..."
+  apt-get install -y --no-install-recommends wget
+  wget -qO /tmp/vipm.deb "$VIPM_DEB_URL"
+  dpkg -i /tmp/vipm.deb || apt-get install -f -y
+  rm -f /tmp/vipm.deb
+  log "VIPM installed ($(dpkg-query -W -f='${Version}' vipm 2>/dev/null || echo unknown))."
+fi
 
 log 'LabVIEW 2026 Community installed but NOT activated.'
 log 'OPERATOR: activate LabVIEW Community (NI-account sign-in), then snapshot "labview2026-activated-ready".'
