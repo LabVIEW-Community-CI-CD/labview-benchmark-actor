@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-02
 - Deciders: operator directive (2026-08, "make a grid of 2 actors that one builds the ppl and the other tests over lunit; research how the icon editor does it on linux") + agent
-- Relates to: LBA-REQ-051, LBA-REQ-052, ADR-0031 (cross-plane comparison / benchmark grid), docs/roadmap.md (Phase 2 — the real benchmark suite), ni/labview-icon-editor CI
+- Relates to: LBA-REQ-051, LBA-REQ-052, LBA-REQ-053, ADR-0031 (cross-plane comparison / benchmark grid), docs/roadmap.md (Phase 2 — the real benchmark suite), ni/labview-icon-editor CI
 
 ## Context
 
@@ -35,10 +35,17 @@ interactive activation needed, unlike the Windows plane). The base image ships
   identity (project + target + build spec + generated artifact + success) so the same build
   is cross-plane comparable; the build time (and `.lvlibp` byte size) are performance
   metrics, not in the hash. Gated fail-closed by `ppl-build-benchmark`.
-- **Tester actor** (next slice): run the LUnit suite with `g-cli … lunit`. This requires the
-  g-cli launcher, which on Linux is the **Rust proxy built from source** (no prebuilt binary
-  ships; the `.vip` installs only the LabVIEW VIs) plus the `sas_workshops_lib_lunit_for_g_cli`
-  glue and the `runner_dependencies.vipc` closure.
+- **Tester actor** (**LBA-REQ-053**): run the LUnit suite with
+  `g-cli … lunit -- -r <report> lv_icon_editor.lvproj`. This uses the g-cli launcher (the Rust
+  proxy of LBA-REQ-052) and the LUnit test framework installed via the project's
+  **`icon-editor-developer.vipc`** — the correct developer/test dependency. It does **not** use
+  the CI-runner `runner_dependencies.vipc`, which additionally bundles the g-cli VIPM package
+  (unneeded — the launcher is built from Rust) and the PowerShell-automation glue; the
+  `g-cli lunit` tool VI (`vi.lib/G CLI Tools/lunit.vi`) comes from the LUnit CLI packages that
+  `icon-editor-developer.vipc` pulls in. `lunit-test-benchmark@1` records the machine-independent
+  test inventory (sorted class/case set + suite structure), so the same suite is cross-plane
+  comparable; the pass/fail/error outcomes are environment-dependent and recorded but not hashed.
+  Gated fail-closed by `lunit-test-benchmark`.
 
 Both actors' receipts slot into the cross-plane benchmark grid (ADR-0031).
 
@@ -48,10 +55,11 @@ Both actors' receipts slot into the cross-plane benchmark grid (ADR-0031).
   pinned icon-editor project (`9545c483`) in ~59s, `ExecuteBuildSpec operation succeeded`,
   with no g-cli, no dependency-vipc apply, and no dev-mode setup — the icon-editor `resource/`
   source loads and builds clean in the NI image.
-- **The tester actor is the next increment**: g-cli's Linux launcher is now proven — the
-  `rust-proxy` crate builds with cargo (~7s) and drives host LabVIEW 2026 through a full TCP
-  round-trip (**LBA-REQ-052**: `g-cli` launched `Echo Parameters.vi`, which echoed the args
-  back and exited 0). The remaining piece for the tester actor is the LUnit tool VIs
-  (`g-cli ... lunit` plus the `runner_dependencies.vipc` closure) installed into the container.
-- A well-known community project's **actual CI build** is now a governed, fail-closed,
+- **The tester actor is proven**: the Rust-built g-cli (static musl, LBA-REQ-052) ran
+  `g-cli lunit` against `lv_icon_editor.lvproj` on the golden VM `lba-golden` and produced a
+  well-formed JUnit report — 4 LUnit classes / 25 cases discovered + executed (10 passed,
+  2 failed, 8 errored, 5 setup/helper). The 8 errors are the window-geometry / INI-settings
+  tests that need a real editor window, unavailable under headless xvfb — an environment
+  property, not a tester-actor defect. The **2-actor icon-editor grid is complete** (build + test).
+- A well-known community project's **actual CI build + test** is now a governed, fail-closed,
   cross-plane-comparable benchmark, advancing roadmap Phase 2 (the real benchmark suite).

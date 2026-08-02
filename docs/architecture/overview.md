@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051, LBA-REQ-052
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051, LBA-REQ-052, LBA-REQ-053
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -291,6 +291,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-45 | Cover the First Win umbrella (LBA-REQ-033) by composing its Proven slices into one `lba init` flow, gated by `first-win-onboarding` on step-realization resolution + a confirmed live activation | The one-command golden-VM onboarding is realized by the provision + headless-readiness + activation-receipt + mesh-registration slices; composing them into a single gated flow proves the end-to-end First Win without re-implementing it (ADR-0023 Phase 1) | LBA-REQ-033 |
 | AD-46 | Reproduce the icon-editor's real CI as a 2-actor benchmark grid in the NI LabVIEW container -- the builder actor builds the Editor Packed Library with native LabVIEWCLI ExecuteBuildSpec (no g-cli) | A well-known community project's own CI (build PPL + LUnit test) becomes a governed, cross-plane-comparable benchmark; LabVIEW runs licensed + headless in the NI container, so ExecuteBuildSpec builds the PPL directly (ADR-0033, roadmap Phase 2) | LBA-REQ-051 |
 | AD-47 | Build the Linux g-cli launcher from its Rust source (rust-proxy crate) and prove it end-to-end on host LabVIEW -- the enabler for the grid's LUnit tester actor | g-cli has no prebuilt Linux binary; building the rust-proxy with cargo and driving a real LabVIEW round-trip (launch VI -> echo args over TCP -> exit 0) proves g-cli works on this plane before wiring `g-cli ... lunit` (ADR-0033, roadmap Phase 2) | LBA-REQ-052 |
+| AD-48 | Complete the 2-actor icon-editor grid with the LUnit tester -- run `g-cli lunit` on the project with the LUnit framework from the correct `icon-editor-developer.vipc` (not the CI-runner `runner_dependencies.vipc`) | The Rust-built g-cli (AD-47) drives the icon-editor's real unit-test suite; the benchmark's machine-independent identity is the test inventory (cross-plane comparable) while pass/fail outcomes are environment-dependent (ADR-0033, roadmap Phase 2) | LBA-REQ-053 |
 
 ## 5. Risks and open questions
 

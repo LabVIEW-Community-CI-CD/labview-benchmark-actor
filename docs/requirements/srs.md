@@ -80,6 +80,7 @@ progressively.
 | LBA-REQ-050 | The system shall unify the golden-VM LabVIEW benchmarks into a cross-plane grid that records, per benchmark, the machine-independent identity on each plane and the performance metric, so a fail-closed gate proves identities agree across planes and no determinism violation is admitted. | The golden VM exists to enable objective, reproducible cross-plane comparison (the North Star); a single generated grid that shows every benchmark's identity agreement across planes plus its performance is the artifact that comparison is for, and gating it fail-closed makes a cross-plane determinism violation impossible to merge. | `benchmarkGrid.mjs` assembles the committed per-benchmark cross-plane receipts into `cross-plane-benchmark-grid@1`, deriving per-benchmark identity agreement + consensus and rendering `docs/benchmarks/benchmark-grid.md`; `validateBenchmarkGrid` fails closed on a benchmark whose planes disagree, a forged agreement/verdict, or a tampered digest. | Run `node experiments/benchmark-grid/verify-benchmark-grid.selftest.mjs` (7/7); gated by `cross-plane-benchmark-grid`. Live: VI Analyzer (host + scratch VM) resultHash 0419a449; Mass Compile icon-editor resource/ resultHash bf722123 agrees across the OS axis -- host + lba-golden VM (Linux) + win-VITLT-SERGIO (Windows LabVIEW 2026), 3/3 planes; compile 39s host / 24s VM / 211s Windows. |
 | LBA-REQ-051 | The system shall build the ni/labview-icon-editor Editor Packed Library inside the NI LabVIEW container as a benchmark, so a fail-closed gate proves the committed build result is correctly derived and cross-plane comparable. | The operator-directed 2-actor icon-editor grid reproduces the project's real CI (one actor builds the PPL, one runs the LUnit tests); the builder is the icon-editor's own Editor Packed Library build spec, which native LabVIEWCLI ExecuteBuildSpec runs in the NI LabVIEW container (nationalinstruments/labview:2026q1-linux) where LabVIEW is licensed + headless -- no g-cli required for the build. | `LabVIEWCLI -OperationName ExecuteBuildSpec` builds the Editor Packed Library from lv_icon_editor.lvproj -> lv_icon.lvlibp; `pplBuildBenchmark.mjs` records the machine-independent build identity + build time; `validatePplReceipt` fails closed unless the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/ppl-build/verify-ppl-build-benchmark.selftest.mjs` (7/7); gated by `ppl-build-benchmark`. Live: the NI container built lv_icon.lvlibp (2.9 MB) from icon-editor @9545c48 in 59s, succeeded. |
 | LBA-REQ-052 | The system shall build the g-cli launcher from its Rust source and prove it on this host, so a fail-closed gate confirms the committed round-trip is correctly derived and cross-plane comparable. | The 2-actor icon-editor grid's TESTER actor drives LUnit via g-cli; on Linux g-cli ships no prebuilt binary -- its launcher is the rust-proxy crate (G-CLI/G-CLI) that opens a TCP server, launches LabVIEW on the target VI, and streams args/output/exit code back. Building it from source and proving a real LabVIEW round-trip is the enabler for that actor. | `cargo build --release` builds the `g-cli` binary; `gcliProxyBenchmark.mjs` records the machine-independent proof identity (tool + version + source commit + operation + args in + echoed text + exit code + LabVIEW version/bitness); `validateGcliReceipt` fails closed unless the echo matches the args sent, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/g-cli-proxy/verify-g-cli-proxy-proof.selftest.mjs` (7/7); gated by `g-cli-proxy-proof`. Live: g-cli 3.0.1 built from Rust in 6.7s, then drove host LabVIEW 2026 (headless) to echo hello/from/host and exit 0. |
+| LBA-REQ-053 | The system shall run the ni/labview-icon-editor LUnit suite via g-cli as a benchmark, so a fail-closed gate proves the committed test inventory is correctly derived and cross-plane comparable. | This is the TESTER actor of the 2-actor icon-editor grid (companion to the builder, LBA-REQ-051): the Rust-built g-cli (LBA-REQ-052) runs the project's real unit tests, with the LUnit framework from the CORRECT icon-editor-developer.vipc (NOT the CI-runner runner_dependencies.vipc). | `g-cli --lv-ver 2026 --arch 64 lunit -- -r <report.xml> lv_icon_editor.lvproj` discovers + runs the project's LUnit classes and emits a JUnit report; `lunitTestBenchmark.mjs` records the machine-independent test inventory (sorted class/case set + suite structure); `validateLunitReceipt` fails closed unless the inventory matches the total, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/lunit-test/verify-lunit-test-benchmark.selftest.mjs` (7/7); gated by `lunit-test-benchmark`. Live: g-cli lunit ran the suite on lba-golden -- 4 classes / 25 cases (10 passed, 2 failed, 8 errored headless, 5 setup), well-formed report. |
 
 ---
 
@@ -1587,8 +1588,43 @@ progressively.
     (headless) to run `Echo Parameters.vi`, which echoed `hello/from/host` and exited 0.
 - Change Guidance: The builder + validator `experiments/g-cli-proxy/gcliProxyBenchmark.mjs`
   plus its self-test are gated by `g-cli-proxy-proof` in `verify-local-gates` and mapped in
-  the RTM. With the launcher proven, the remaining tester-actor slice is the LUnit tool VIs
-  (`g-cli ... lunit` + the `runner_dependencies.vipc` closure). Authored under the
+  the RTM. With the launcher proven, the tester-actor slice is realized by LBA-REQ-053
+  (`g-cli lunit` with the LUnit framework from `icon-editor-developer.vipc`, not
+  `runner_dependencies.vipc`). Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-053: Icon-editor LUnit test benchmark
+
+- Status: Proven
+- Area: Deployment / benchmark (ADR-0033 -- the 2-actor icon-editor grid, tester actor)
+- Statement: The system shall run the ni/labview-icon-editor LUnit suite via g-cli as a
+  benchmark, so a fail-closed gate proves the committed test inventory is correctly derived
+  and cross-plane comparable.
+- Rationale: This is the TESTER actor of the operator-directed 2-actor icon-editor grid
+  (companion to the builder, LBA-REQ-051). The Rust-built g-cli (LBA-REQ-052) runs the
+  project's real unit tests via `g-cli lunit`. The LUnit framework is installed from the
+  project's CORRECT `icon-editor-developer.vipc` (the developer/test dependency) -- NOT the
+  CI-runner `runner_dependencies.vipc`, which needlessly bundles the g-cli VIPM package
+  (the launcher is built from Rust) and the PowerShell-automation glue.
+- Acceptance Criteria:
+  - `g-cli --lv-ver 2026 --arch 64 lunit -- -r <report.xml> lv_icon_editor.lvproj` discovers
+    the project's LUnit test classes, runs them, and emits a JUnit report.
+  - `lunitTestBenchmark.mjs` records the machine-independent test inventory (sorted
+    `class/case` set + suite structure) plus the observed outcomes (passed/failed/errored).
+  - `validateLunitReceipt` fails closed unless the inventory length matches the total, the
+    `resultHash` re-derives, the verdict matches the rule, and the digest is intact.
+  - Live evidence: g-cli lunit ran the suite on `lba-golden` -- 4 LUnit classes / 25 cases
+    (10 passed, 2 failed, 8 errored, 5 setup/helper), a well-formed 14.7 KB JUnit report in
+    5.4 s. The 8 errors are window-geometry / INI tests that need a real editor window,
+    unavailable under headless xvfb.
+- Change Guidance: The tester `experiments/lunit-test/lunitTestBenchmark.mjs` plus its
+  self-test are gated by `lunit-test-benchmark` in `verify-local-gates` and mapped in the
+  RTM. The benchmark asserts the tester actor EXECUTED the suite + produced a well-formed
+  report matching its inventory (the machine-independent identity), not that the icon-editor
+  tests are all green (outcomes are environment-dependent). With builder (LBA-REQ-051) +
+  tester proven, the 2-actor icon-editor grid is complete. Authored under the
   singular-requirement directive (one `shall`).
 
 ---
@@ -1649,3 +1685,4 @@ progressively.
 | LBA-REQ-050 | Deployment (cross-plane benchmark grid) | T-050 |
 | LBA-REQ-051 | Deployment (icon-editor Packed Library build) | T-051 |
 | LBA-REQ-052 | Deployment (g-cli launcher built from Rust) | T-052 |
+| LBA-REQ-053 | Deployment (icon-editor LUnit test) | T-053 |
