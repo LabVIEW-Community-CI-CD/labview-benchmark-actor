@@ -67,6 +67,7 @@ progressively.
 | LBA-REQ-037 | The system shall self-audit its five-lens standards posture at clause-evidence granularity, so a fail-closed gate blocks the build when any lens drops below its target score or a required information item, wired gate, or clause anchor is missing. | The standards audit's meta-finding (F4) was that non-gated conformance is where standards drift silently, and the coarse 25/25 was a point-in-time score rather than a continuously-verified guarantee. A generated, fail-closed self-audit that re-scores the repo against the repo-standards-review five-lens rubric on every change makes full compliance corroborated by construction (ADR-0027). | `verify-compliance-posture.mjs` encodes each lens's level-5 clause-evidence (real information items + wired gates + clause anchors) and scores REQ/ARCH/TEST/CM/DOC into `docs/compliance/compliance-posture.md`; `--check` fails closed below 25/25 or on scorecard drift. | Run `node experiments/compliance/verify-compliance-posture.selftest.mjs` (4/4); gated by `continuous-compliance-self-audit` in `verify-local-gates`. |
 | LBA-REQ-038 | The system shall confirm LabVIEW activation with a headless known-answer probe VI, so a fail-closed gate refuses an install whose activation receipt does not show the probe executed and returned the known answer. | ADR-0023's onboarding hinges on confirming activation before minting a personal golden VM, and license-file parsing is brittle for Community Edition; a functional probe (`LabVIEWCLI RunVI` on the shipped `AddTwoNumbers.vi`) that must return the known answer is the robust signal and doubles as the benchmark-execution path. First delivered slice of the Planned LBA-REQ-033 umbrella, proven live on the reference host's activated LabVIEW 2026. | `probe-activation.sh` runs `LabVIEWCLI RunVI` headless (Xvfb) on the known-answer probe; `buildActivationReceipt.mjs` builds a deterministic `activation-receipt@1` (digest over verdict-bearing fields), and validation denies activation on a non-zero exit, wrong value, missing success line, or tampered receipt. The committed REAL capture replays offline in CI. | Run `node experiments/activation/buildActivationReceipt.selftest.mjs` (5/5); gated by `activation-receipt-confirms-activation` in `verify-local-gates`. |
 | LBA-REQ-039 | The system shall register a golden VM as a mesh actor only after its activation receipt confirms LabVIEW is activated, so a fail-closed gate refuses registration for an unconfirmed or tampered receipt. | ADR-0023's onboarding invariant is that activation is confirmed before a VM joins the mesh; binding registration to the LBA-REQ-038 activation receipt enforces that an unactivated box cannot be enrolled as a benchmark actor — confirmation and enrollment are one fail-closed chain. | `registerGoldenActor` validates the `activation-receipt@1` (schema, digest, verdict) and only then composes the golden `mesh-actors.csv` row (idempotent by role+actor_id); an unactivated or tampered receipt is refused and the registry is left untouched. | Run `node experiments/activation/registerMeshActor.selftest.mjs` (4/4); gated by `mesh-actor-registration-requires-activation` in `verify-local-gates`. |
+| LBA-REQ-040 | The system shall distribute an independent-task workload across a budget-capped pool of ripgrep-only instances proportional to each instance's capacity, so a fail-closed gate proves the shards ran disjointly on distinct instances with every task passing. | The North Star is on-demand distributed benchmark runs across planes with no central aggregation (docs/roadmap.md); a capacity-weighted executor that dynamically discovers a budget-capped pool (host + codespaces + local VMs) and runs disjoint shards concurrently — every instance searching with ripgrep only — is the first distributed-execution primitive and spreads load off the host (ADR-0028). | `discoverPool` enumerates host + codespaces + running VMs up to a conservative budget (default host + 2 remote); `capacityWeightedPartition` splits proportional to static per-type weights; per-type SSH adapters run the shards concurrently; `validateReceipt` fails closed unless the split re-derives disjoint distinct-instance rg-only shards with every task passing. | Run `node experiments/parallel/verify-parallel-workload.selftest.mjs` (4/4); gated by `distributed-parallel-workload` in `verify-local-gates`. Live: 42 self-tests split 25/9/8 across three instances. |
 
 ---
 
@@ -1183,6 +1184,42 @@ progressively.
 
 ---
 
+### LBA-REQ-040: Distributed capacity-weighted parallel workload
+
+- Status: Proven
+- Area: Deployment / distributed execution (ADR-0028; docs/roadmap.md North Star mesh)
+- Statement: The system shall distribute an independent-task workload across a
+  budget-capped pool of ripgrep-only instances proportional to each instance's
+  capacity, so a fail-closed gate proves the shards ran disjointly on distinct
+  instances with every task passing.
+- Rationale: The North Star is on-demand distributed benchmark runs across planes
+  with no central aggregation (docs/roadmap.md). A capacity-weighted executor that
+  dynamically discovers a budget-capped pool (this host + codespaces + local VMs),
+  splits the workload proportionally, and runs the shards concurrently — every
+  instance searching with ripgrep only — is the first distributed-execution
+  primitive and spreads load off the host, the only instance with LabVIEW
+  (ADR-0028). Deliberately not two-instance-specific: N heterogeneous instances.
+- Acceptance Criteria:
+  - `discoverPool` enumerates the host (always) + labview-benchmark-actor
+    codespaces + running VMs up to a conservative budget (default host + 2
+    remote), concurrency = pool size; stopped instances may be resumed up to the
+    cap.
+  - `capacityWeightedPartition` splits the task list proportional to static
+    per-type weights (host fastest); the split is deterministic given the weights.
+  - Per-type SSH adapters (local / `gh codespace ssh` / `vagrant ssh`) run the
+    shards concurrently; every instance attests ripgrep-only search.
+  - `validateReceipt` fails closed unless the capacity split re-derived from the
+    recorded weights reproduces the disjoint shards, the instances are distinct,
+    all searched with ripgrep, and every task passed.
+  - Live evidence: 42 self-tests split host 25 / codespace 9 / codespace 8 across
+    three instances, all passed concurrently; the receipt replays offline in CI.
+- Change Guidance: The executor `experiments/parallel/parallelWorkload.mjs` +
+  `runParallel.mjs` and the self-test are gated by `distributed-parallel-workload`
+  in `verify-local-gates` and mapped in the RTM. Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1226,3 +1263,4 @@ progressively.
 | LBA-REQ-037 | Assurance (continuous compliance self-audit) | T-037 |
 | LBA-REQ-038 | Deployment (LabVIEW activation confirmation) | T-038 |
 | LBA-REQ-039 | Deployment (mesh-actor registration) | T-039 |
+| LBA-REQ-040 | Deployment (distributed parallel workload) | T-040 |
