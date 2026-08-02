@@ -92,6 +92,10 @@
         "title": "LabVIEW Benchmark Actor: Open Mesh-Stress Calibration"
       },
       {
+        "command": "labviewBenchmarkActor.openMeshBoard",
+        "title": "LabVIEW Benchmark Actor: Open Concurrent Mesh Board"
+      },
+      {
         "command": "labviewBenchmarkActor.captureLaunch",
         "title": "LabVIEW Benchmark Actor: Capture LabVIEW Launch"
       },

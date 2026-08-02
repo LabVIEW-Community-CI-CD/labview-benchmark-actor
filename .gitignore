@@ -17,6 +17,8 @@ media/labview-launch-resource-correlation.json
 media/resource-cross-plane-receipt.json
 media/meshCalibrationView.mjs
 media/mesh-live-ladder-receipt.json
+media/meshBoardView.mjs
+media/mesh-concurrent-actors-receipt.json
 # deterministic-screenshot PNG artifacts (evidence; the small JSON receipt is committed, the PNG is not)
 playwright/.artifacts/
 # host-extracted NI LabVIEW offline feeds (licensed/community artifacts staged for the docker-windows mirror)

@@ -167,6 +167,19 @@ function loadMeshViewBuilder(extensionUri: vscode.Uri): Promise<MeshViewBuilder>
   return meshViewBuilderPromise;
 }
 
+// The concurrent mesh BOARD builder (overview.md §3.6 / VW-1, LBA-REQ-032): a self-contained, script-free ESM
+// module that renders a concurrent-actors receipt as a live mesh snapshot (one tile per simultaneous actor).
+interface MeshBoardBuilder {
+  buildMeshBoardHtml(receipt: unknown, opts: { cspSource: string }): string;
+}
+let meshBoardBuilderPromise: Promise<MeshBoardBuilder> | undefined;
+function loadMeshBoardBuilder(extensionUri: vscode.Uri): Promise<MeshBoardBuilder> {
+  if (!meshBoardBuilderPromise) {
+    meshBoardBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'meshBoardView.mjs')) as unknown as Promise<MeshBoardBuilder>;
+  }
+  return meshBoardBuilderPromise;
+}
+
 function makeBenchmarkPanel(
   context: vscode.ExtensionContext,
   id: string,
@@ -257,6 +270,19 @@ async function openMeshCalibrationCommand(context: vscode.ExtensionContext, outp
   }
 }
 
+// The concurrent mesh BOARD panel (overview.md §3.6 / VW-1, LBA-REQ-032): renders the staged concurrent-actors
+// receipt with the script-free board builder -- a live snapshot of which actor is stressed and how much.
+async function openMeshBoardCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const view = await loadMeshBoardBuilder(context.extensionUri);
+    const receipt = loadBenchmarkJson(context.extensionUri, 'mesh-concurrent-actors-receipt.json');
+    const panel = makeBenchmarkPanel(context, 'lbaMeshBoard', 'Concurrent Mesh Board', false);
+    panel.webview.html = view.buildMeshBoardHtml(receipt, { cspSource: panel.webview.cspSource });
+  } catch (err) {
+    reportUiError(output, 'Open Concurrent Mesh Board', err);
+  }
+}
+
 // --- Language Model Tools (Copilot agent mode) --------------------------------------------------------------
 // So a Copilot AGENT can DRIVE the extension from a prompt (open a benchmark panel; summarize the captured
 // numbers). The tools reuse the SAME panel command handlers + staged fixtures the human UI uses. Guarded: a
@@ -287,6 +313,7 @@ const BENCHMARK_PANEL_OPENERS: Record<string, { title: string; open: PanelOpener
   resourceProfile: { title: 'Benchmark Resource Profile', open: openResourceProfileCommand },
   crossPlaneResource: { title: 'Cross-Plane Resource Agreement', open: openCrossPlaneResourceCommand },
   meshCalibration: { title: 'Mesh-Stress Calibration', open: openMeshCalibrationCommand },
+  meshBoard: { title: 'Concurrent Mesh Board', open: openMeshBoardCommand },
 };
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -349,7 +376,7 @@ function benchmarkSummaryText(context: vscode.ExtensionContext): string {
     );
   }
   lines.push(
-    'Open a panel to see these visually — call lba-open-benchmark-panel with panel = run | trend | frameCorrelator | crossPlaneTrend | resourceProfile | crossPlaneResource | meshCalibration, or run the "LabVIEW Benchmark Actor: Open ..." commands.'
+    'Open a panel to see these visually — call lba-open-benchmark-panel with panel = run | trend | frameCorrelator | crossPlaneTrend | resourceProfile | crossPlaneResource | meshCalibration | meshBoard, or run the "LabVIEW Benchmark Actor: Open ..." commands.'
   );
   return lines.join('\n');
 }
@@ -1094,6 +1121,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.openMeshCalibration', () =>
       openMeshCalibrationCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.openMeshBoard', () =>
+      openMeshBoardCommand(context, output)
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.captureLaunch', () =>
       captureLaunchCommand(context, output)
