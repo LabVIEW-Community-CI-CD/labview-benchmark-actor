@@ -10,6 +10,20 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-08-02
+
+### Changed
+
+- **Re-snapshot of the version-pinned documentation + requirements bundle.** No CLI behaviour
+  change; this release re-cuts the embedded, by-reference bundle so `lbabus` carries the repo's
+  CURRENT canonical requirements. Since `0.13.0` the software requirements spec
+  (`docs/requirements/srs.md`, +~1.3k lines) and the traceability matrix
+  (`docs/requirements/rtm.csv`) grew substantially — the 2-actor icon-editor grid (native PPL
+  build + LUnit test via a Rust-built g-cli) and the Benchmark Observatory
+  (`LBA-REQ-048`…`LBA-REQ-054`, ADR-0033 / ADR-0034) — and the base agent instructions
+  (`AGENTS.md`) were refreshed. Surfaced by `lbabus docs show srs|rtm` and `lbabus agents`, so
+  “same version =&gt; same requirements” holds against the current repo.
+
 ## [0.13.0] — 2026-07-31
 
 ### Added
