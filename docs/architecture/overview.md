@@ -65,10 +65,16 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
+- **Personal golden-VM onboarding (LBA-REQ-033):** a one-command `lba init`
+  provisions a from-scratch Ubuntu 24.04 (Noble) VM, installs LabVIEW 2026
+  Community Edition + VIPM from the NI apt repo, has the member activate
+  interactively, then **confirms activation with a headless probe VI**
+  (`LabVIEWCLI`) and mints a **local** personal golden VM registered as a mesh
+  actor (ADR-0023). `LabVIEWCLI -Headless` is the actor runtime.
 
 ### 3.3 Actor / run-result view — addresses LBA-REQ-003, LBA-REQ-009
 - The agentic actor drives a run and emits a **schema-versioned run result**:
@@ -206,6 +212,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-28 | Extend the MCP tool surface with grid-orchestration tools | One discoverable agent surface drives the grid (ADR-0020, ADR-0012) | LBA-REQ-029 |
 | AD-29 | Non-release pull requests target develop, not main | Prevents the stale main-based pull-request class from dumping integration onto the release branch (ADR-0021, ADR-0010) | LBA-REQ-030 |
 | AD-30 | Publish corroboration provenance to a signed Merkle transparency log and verify inclusion before install | Append-only, offline-verifiable provenance; no unattested or un-logged release is installable (ADR-0022, ADR-0016) | LBA-REQ-031 |
+| AD-31 | One-command `lba init` provisions an Ubuntu 24.04 golden VM with LabVIEW 2026 CE + VIPM; a headless probe VI confirms activation; the VM is minted locally and registered as a mesh actor | From-scratch, reproducible Linux onboarding unlocks the OS comparison axis without a shared box registry (ADR-0023) | LBA-REQ-033 |
 
 ## 5. Risks and open questions
 
@@ -250,6 +257,7 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0020](adr/ADR-0020-mcp-orchestration-surface.md) | MCP orchestration surface for the corroboration grid | LINUX |
 | [ADR-0021](adr/ADR-0021-pull-requests-target-develop.md) | Pull requests target develop, not main | LINUX |
 | [ADR-0022](adr/ADR-0022-transparency-log-inclusion.md) | Signed Merkle transparency log + verify-before-install | LINUX |
+| [ADR-0023](adr/ADR-0023-personal-golden-vm-onboarding.md) | Personal golden-VM onboarding (Ubuntu + LabVIEW CE) for the community | LINUX |
 
 Remaining open items: the picture-capture *source*/cadence (storage itself is
 resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded

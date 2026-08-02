@@ -60,6 +60,7 @@ progressively.
 | LBA-REQ-030 | The system shall require every non-release pull request to target the develop integration branch. | GitFlow makes develop the integration branch (ADR-0010), but stale main-based pull requests (#211 / #215 / #217) dumped integration content onto the release branch because no rule stated where feature work targets; codifying the base-branch rule prevents that class of error (ADR-0021). | Every non-release pull request targets develop; main receives only release/hotfix merges via a no-fast-forward merge; a pull request found on the wrong base is re-targeted or closed rather than merged. | The base-branch guard (`experiments/acg-governance/pr-base-branch-guard.mjs`, self-test 11/11) blocks any non-release head targeting main (develop and feature/authoring included), and the `.github/workflows/pr-base-branch-guard.yml` workflow enforces it on PRs targeting main; gated by `acg-governance-pr-base-branch` and `acg-governance-pr-base-branch-workflow-wired`. |
 | LBA-REQ-031 | The system shall admit a component release for installation only after its corroboration attestation is proven included in the signed transparency log. | Provenance that lives only beside a verdict can be silently dropped or forged; recording each witness attestation in an append-only, Ed25519-signed Merkle transparency log makes an unattested or un-logged release refusable before install, with tamper-evident inclusion proofs (ADR-0022, extends ADR-0016). | Each witness attestation is a leaf in a signed Merkle log using RFC 6962 domain-separated hashing; the reviewer-workstation install plus a standalone verifier admit a release only when at least the quorum minimum of enrolled-witness attestations each carry an inclusion proof against the signed tree head; any missing or tampered proof blocks the install. | The transparency log `experiments/acg-transparency/transparency-log.mjs` (RFC 6962 inclusion + consistency + Ed25519 signed tree heads, self-test 26/26, gated by `acg-transparency-log`) records the real {codespace, host} attestations under one signed head (`acg-transparency-log-live`); the verifier `experiments/acg-transparency/verify-release-inclusion.mjs` admits the real bundle plus blocks a tampered one (`acg-transparency-verify-before-install`), wired fail-closed into `reviewer-workstation/provision.ps1` before the .vsix install (`acg-transparency-verify-before-install-wired`). |
 | LBA-REQ-032 | The system shall calibrate a stress-ladder performance-signature curve from repeated per-rung benchmark signatures so an observed signature maps to an inferred stress level within the calibrated tolerance band. | The mesh-stress program re-verifies the maximum drop-free streaming ceiling under a stressed actor mesh (mesh-stress-signature@v1); calibrating each actor's 42-counter performance signature across a stress ladder turns raw per-actor counters into a monotone, separable, repeatable stress read for later ladder testing (design #272, builds on performance-counter-correlation@v2). | The signature extractor derives per-counter features (mean/std/percentiles/drift/periodicity) plus across-repeat stability (signature vs noise) plus MAD outliers plus cross-counter outlier co-occurrence from repeated runs; the calibration-curve fitter maps each per-rung signature to an expected value plus tolerance band, scores the monotone/separable/repeatable invariants, drops non-tracking features, and inverse-reads an observed signature to an inferred rung with a confidence; the stress orchestrator emits the monotone commanded ladder (per-actor VirtualBox throttle plus host/guest stress-ng) pinning each actor to a distinct level. | Run `node experiments/mesh-stress-signature/signatureExtractor.selftest.mjs` (5/5), `calibrationCurveFitter.selftest.mjs` (4/4), and `stressOrchestrator.selftest.mjs` (5/5); gated by `mesh-stress-signature-extractor` / `mesh-stress-signature-calibrator` / `mesh-stress-orchestrator` in `verify-local-gates`. |
+| LBA-REQ-033 | The system shall provision a from-scratch Ubuntu 24.04 golden VM with activated LabVIEW 2026 Community Edition plus VIPM, confirming the activation with a headless probe VI before registering the VM as a mesh actor. | The single biggest gap is that a community member cannot yet get a reproducible LabVIEW benchmark environment from scratch; a one-command Ubuntu provisioner with functional activation confirmation and a locally-minted personal golden VM unlocks the Linux plane and community onboarding (ADR-0023, builds on the Windows golden box). | `lba init` provisions Ubuntu 24.04 Noble, installs `ni-labview-2026-community` plus `vipm` from the NI apt repo, and after the interactive activation a headless `LabVIEWCLI` `RunVI` probe emits an `activation-receipt@1` whose success gates minting the local golden VM plus its `mesh-actors.csv` registration; the confirmation is deterministically replayable offline from a committed receipt. | (Planned, Phase 1) The provisioner, probe VI, and activation-receipt validator ship under `experiments/` with a self-test gated in `verify-local-gates`; tracked as T-033. |
 
 ---
 
@@ -950,6 +951,42 @@ progressively.
 
 ---
 
+### LBA-REQ-033: Personal golden-VM onboarding for the LabVIEW community
+
+- Status: Planned
+- Area: Deployment / onboarding (personal golden VM, Ubuntu + LabVIEW CE)
+- Statement: The system shall provision a from-scratch Ubuntu 24.04 golden VM
+  with activated LabVIEW 2026 Community Edition plus VIPM, confirming the
+  activation with a headless probe VI before registering the VM as a mesh actor.
+- Rationale: The single most valuable missing capability (maintainer interview,
+  2026-08) is fully-automated, from-scratch provisioning of a Ubuntu VM with
+  LabVIEW Community Edition + VIPM, so that once the member activates them the
+  tool confirms activation and mints their personal golden VM. The proven golden
+  box today is Windows-only, which excludes the Linux community and blocks the OS
+  axis of cross-plane comparison. On-host inspection confirms the concrete spine:
+  LabVIEW 2026 CE for Linux installs from the NI apt repo, ships `LabVIEWCLI`
+  headless operations, and installs VIPM; activation is interactive (ADR-0023).
+- Acceptance Criteria:
+  - `lba init` detects the host (Windows / Linux) and hypervisor (VirtualBox +
+    Vagrant, or Hyper-V/WSL2 on Windows) and provisions a clean Ubuntu 24.04
+    (Noble) VM.
+  - The NI apt repo is added with the committed GPG key and
+    `ni-labview-2026-community` plus `vipm` install non-interactively.
+  - Activation is a hybrid step: the member signs in to their NI account and
+    activates; automation handles everything before and after.
+  - Activation is confirmed functionally by a headless `LabVIEWCLI -OperationName
+    RunVI ... -Headless` probe VI that emits a signed `activation-receipt@1`; a
+    functional probe is chosen over parsing NI license files.
+  - On a confirmed receipt the personal golden VM is minted locally (a
+    re-importable box, no shared registry) and registered as an actor in
+    `mesh-actors.csv`.
+- Change Guidance: Delivered incrementally under `experiments/` and
+  `cleanroom/ubuntu-labview/` per the Phase 1 slice in `docs/roadmap.md`; each
+  increment ships a self-test gated in `verify-local-gates` and an RTM CodeRef.
+  Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -986,3 +1023,4 @@ progressively.
 | LBA-REQ-030 | CM (PRs target develop) | T-030 |
 | LBA-REQ-031 | Corroboration grid (transparency log + verify-before-install) | T-031 |
 | LBA-REQ-032 | Analysis (mesh-stress signature) | T-032 |
+| LBA-REQ-033 | Deployment (personal golden-VM onboarding) | T-033 |
