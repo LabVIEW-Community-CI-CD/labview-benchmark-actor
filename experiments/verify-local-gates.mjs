@@ -416,6 +416,16 @@ check('vm-live-status-idle-analysis', () => {
   return { standard: 'ADR-0023 Phase 1 (live VM visibility)', selftest: 'verify-vm-live-status 7/7 (real idle-time analysis, fail-closed)' };
 });
 
+// 6t. Golden-VM Mass Compile benchmark (LBA-REQ-048, ADR-0023 Phase 1; replaces the deferred VI Analyzer
+//     benchmark): LabVIEWCLI MassCompile over the pinned public ni/labview-icon-editor source is the
+//     golden-VM benchmark; the committed receipt's machine-independent resultHash (directory + VI count +
+//     bad count + success) is cross-plane comparable and the digest seals the verdict. Fail-closed on a
+//     stale/tampered resultHash, forged verdict, inconsistent bad-VI list, or tampered digest.
+check('mass-compile-benchmark', () => {
+  execFileSync(process.execPath, [join(here, 'mass-compile', 'verify-mass-compile-benchmark.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (golden-VM benchmark)', selftest: 'verify-mass-compile-benchmark 7/7 (icon-editor MassCompile, cross-plane resultHash)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
