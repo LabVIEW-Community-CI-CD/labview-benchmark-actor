@@ -141,7 +141,7 @@ multi-VM / Codespace topology.
   poll / post) to a coding agent through a Model Context Protocol server
   (LBA-REQ-019, ADR-0012).
 
-### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022, LBA-REQ-030, LBA-REQ-034
+### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022, LBA-REQ-030, LBA-REQ-034, LBA-REQ-035
 - GitFlow branch governance (`main` protected + `develop` integration;
   feature / release / hotfix; SemVer tags on main; coverage retained on the
   release path) satisfies the repo-standards-review CM gate without weakening the
@@ -162,6 +162,11 @@ multi-VM / Codespace topology.
   is generated from the canonical sources rather than hand-maintained, so the
   requirement → view → decision → test view stays current by construction
   (LBA-REQ-022, ADR-0013).
+- The executed **test report** (ISO/IEC/IEEE 29119-3) and the **configuration
+  status accounting** record (ISO 10007 / ISO/IEC/IEEE 12207) are generated from
+  the verification apparatus into `docs/testing/test-report.md`, so the recorded
+  outcomes and controlled state cannot drift from the gates, correspondence rules,
+  requirements, and decisions they describe (LBA-REQ-035, ADR-0025).
 
 ### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026, LBA-REQ-027, LBA-REQ-028, LBA-REQ-029, LBA-REQ-031
 
@@ -218,6 +223,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-30 | Publish corroboration provenance to a signed Merkle transparency log and verify inclusion before install | Append-only, offline-verifiable provenance; no unattested or un-logged release is installable (ADR-0022, ADR-0016) | LBA-REQ-031 |
 | AD-31 | One-command `lba init` provisions an Ubuntu 24.04 golden VM with LabVIEW 2026 CE + VIPM; a headless probe VI confirms activation; the VM is minted locally and registered as a mesh actor | From-scratch, reproducible Linux onboarding unlocks the OS comparison axis without a shared box registry (ADR-0023) | LBA-REQ-033 |
 | AD-32 | Govern the bounded ISO/IEC/IEEE 26514 information-for-users set with a fail-closed completeness + command-coverage gate | Non-gated documentation drifts from the product; enforcing the bounded product set keeps user information current by construction (ADR-0024) | LBA-REQ-034 |
+| AD-33 | Generate the 29119-3 test report + ISO 10007 status accounting from the verification apparatus and gate it fail-closed on drift | The repo recorded a test plan but never the executed outcomes or controlled configuration state; generating them from the enforced apparatus keeps assurance current by construction (ADR-0025) | LBA-REQ-035 |
 
 ## 5. Risks and open questions
 

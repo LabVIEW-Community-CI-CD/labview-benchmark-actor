@@ -41,5 +41,6 @@
 | LBA-REQ-032 | Mesh-stress performance-signature calibration | Proven | §3.6 Analysis | — | T-032 | 28 |
 | LBA-REQ-033 | Personal golden-VM onboarding for the LabVIEW community | Planned | §3.2 Deployment | ADR-0023 | T-033 | 3 |
 | LBA-REQ-034 | Governed 26514 information for users | Proven | §3.8 Configuration-management & assurance | ADR-0024 | T-034 | 12 |
+| LBA-REQ-035 | Generated test report and configuration status accounting | Proven | §3.8 Configuration-management & assurance | ADR-0025 | T-035 | 4 |
 
-_Generated for 34 requirements._
+_Generated for 35 requirements._

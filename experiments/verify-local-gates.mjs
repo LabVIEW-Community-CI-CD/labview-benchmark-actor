@@ -278,6 +278,16 @@ check('information-for-users-26514', () => {
   return { standard: 'ISO/IEC/IEEE 26514:2022', selftest: 'verify-information-for-users 2/2 (committed conformant + fail-closed)' };
 });
 
+// 6f. Test & assurance report is generated + current (ISO/IEC/IEEE 29119-3 test report + ISO 10007 status
+//     accounting, LBA-REQ-035): the executed-verification-evidence + configuration-status-accounting record
+//     must match the apparatus it describes (gate inventory + correspondence rules + coverage floors + RTM +
+//     ADRs). Fails closed if docs/testing/test-report.md drifts. The selftest also proves currency,
+//     deterministic rendering, and that the drift compare fails closed on any mutation.
+check('test-report-current', () => {
+  execFileSync(process.execPath, [join(here, 'reqs-coverage', 'generate-test-report.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ISO/IEC/IEEE 29119-3 + ISO 10007', selftest: 'generate-test-report 4/4 (current + deterministic + fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
