@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -289,6 +289,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-43 | Gate the golden-VM provisioner's headless-LabVIEW readiness by statically verifying (against the actual script text) that it installs Xvfb + dual-basename VI Server config + quoted access + reboot | A fresh provision was not headless-ready without three manual fixes; binding a fail-closed receipt to the provisioner text keeps the one-command First Win from silently regressing (ADR-0023) | LBA-REQ-049 |
 | AD-44 | Unify the per-benchmark cross-plane receipts into one generated benchmark grid (identity per plane + performance), gated fail-closed on any determinism violation | The North Star is a reproducible cross-plane comparison; a single generated grid is the artifact that comparison is for, and a fail-closed gate makes an identity divergence impossible to merge (ADR-0031, roadmap Phase 4) | LBA-REQ-050 |
 | AD-45 | Cover the First Win umbrella (LBA-REQ-033) by composing its Proven slices into one `lba init` flow, gated by `first-win-onboarding` on step-realization resolution + a confirmed live activation | The one-command golden-VM onboarding is realized by the provision + headless-readiness + activation-receipt + mesh-registration slices; composing them into a single gated flow proves the end-to-end First Win without re-implementing it (ADR-0023 Phase 1) | LBA-REQ-033 |
+| AD-46 | Reproduce the icon-editor's real CI as a 2-actor benchmark grid in the NI LabVIEW container -- the builder actor builds the Editor Packed Library with native LabVIEWCLI ExecuteBuildSpec (no g-cli) | A well-known community project's own CI (build PPL + LUnit test) becomes a governed, cross-plane-comparable benchmark; LabVIEW runs licensed + headless in the NI container, so ExecuteBuildSpec builds the PPL directly (ADR-0033, roadmap Phase 2) | LBA-REQ-051 |
 
 ## 5. Risks and open questions
 

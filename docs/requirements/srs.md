@@ -78,6 +78,7 @@ progressively.
 | LBA-REQ-048 | The system shall benchmark the golden VM by mass-compiling the public icon-editor source with LabVIEWCLI, so a fail-closed gate proves the committed benchmark result is correctly derived and cross-plane comparable. | The golden VM exists to run objective, reproducible benchmarks (the North Star cross-plane comparison); a MassCompile of a pinned public source (ni/labview-icon-editor) is a real LabVIEW workload whose machine-independent result (VI count + bad count + success) is comparable across planes, with the compile time as the performance metric. Replaces the deferred VI Analyzer benchmark. | `LabVIEWCLI -OperationName MassCompile` compiles the icon-editor `resource/` source headless-as-actor; `massCompileBenchmark.mjs` records the result + a timing-invariant resultHash; `validateMassCompileReceipt` fails closed unless the resultHash re-derives, the verdict matches, the bad-VI list is consistent, and the digest is intact. | Run `node experiments/mass-compile/verify-mass-compile-benchmark.selftest.mjs` (7/7); gated by `mass-compile-benchmark`. Live: MassCompile of icon-editor resource/ on lba-golden = 307 VIs/CTLs, 0 bad, succeeded, 24s. |
 | LBA-REQ-049 | The system shall verify the golden-VM provisioner installs every headless-LabVIEW prerequisite -- Xvfb, VI Server (TCP 3363) configuration for both LabVIEW executable basenames, quoted access lists, and the post-install reboot -- so a fail-closed gate proves a fresh one-command provision yields a headless-benchmark-ready VM. | The First Win is a one-command golden VM, but a fresh provision was NOT headless-ready until three fixes were applied by hand during bring-up (Xvfb, VI Server config for both `labview.conf` and `labviewcommunity.conf`, a post-install reboot); folding those into `provision-guest.sh` and gating the provisioner's completeness keeps that hard-won knowledge from silently regressing. | `provision-guest.sh` installs Xvfb, writes the VI Server config into both exe-basename config files with quoted access lists, and addresses the reboot; `provisionerReadiness.mjs` validates the committed receipt against the ACTUAL script text and fails closed if any prerequisite is missing, the ready verdict is forged, or the digest is tampered. | Run `node experiments/provisioner-readiness/verify-provisioner-readiness.selftest.mjs` (7/7); gated by `provisioner-headless-readiness`. Live: the hardened `provision-guest.sh` satisfies all 6 headless-readiness checks. |
 | LBA-REQ-050 | The system shall unify the golden-VM LabVIEW benchmarks into a cross-plane grid that records, per benchmark, the machine-independent identity on each plane and the performance metric, so a fail-closed gate proves identities agree across planes and no determinism violation is admitted. | The golden VM exists to enable objective, reproducible cross-plane comparison (the North Star); a single generated grid that shows every benchmark's identity agreement across planes plus its performance is the artifact that comparison is for, and gating it fail-closed makes a cross-plane determinism violation impossible to merge. | `benchmarkGrid.mjs` assembles the committed per-benchmark cross-plane receipts into `cross-plane-benchmark-grid@1`, deriving per-benchmark identity agreement + consensus and rendering `docs/benchmarks/benchmark-grid.md`; `validateBenchmarkGrid` fails closed on a benchmark whose planes disagree, a forged agreement/verdict, or a tampered digest. | Run `node experiments/benchmark-grid/verify-benchmark-grid.selftest.mjs` (7/7); gated by `cross-plane-benchmark-grid`. Live: VI Analyzer (host + scratch VM) resultHash 0419a449; Mass Compile icon-editor resource/ resultHash bf722123 agrees across the OS axis -- host + lba-golden VM (Linux) + win-VITLT-SERGIO (Windows LabVIEW 2026), 3/3 planes; compile 39s host / 24s VM / 211s Windows. |
+| LBA-REQ-051 | The system shall build the ni/labview-icon-editor Editor Packed Library inside the NI LabVIEW container as a benchmark, so a fail-closed gate proves the committed build result is correctly derived and cross-plane comparable. | The operator-directed 2-actor icon-editor grid reproduces the project's real CI (one actor builds the PPL, one runs the LUnit tests); the builder is the icon-editor's own Editor Packed Library build spec, which native LabVIEWCLI ExecuteBuildSpec runs in the NI LabVIEW container (nationalinstruments/labview:2026q1-linux) where LabVIEW is licensed + headless -- no g-cli required for the build. | `LabVIEWCLI -OperationName ExecuteBuildSpec` builds the Editor Packed Library from lv_icon_editor.lvproj -> lv_icon.lvlibp; `pplBuildBenchmark.mjs` records the machine-independent build identity + build time; `validatePplReceipt` fails closed unless the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/ppl-build/verify-ppl-build-benchmark.selftest.mjs` (7/7); gated by `ppl-build-benchmark`. Live: the NI container built lv_icon.lvlibp (2.9 MB) from icon-editor @9545c48 in 59s, succeeded. |
 
 ---
 
@@ -1532,6 +1533,35 @@ progressively.
 
 ---
 
+### LBA-REQ-051: Icon-editor Packed Library build benchmark
+
+- Status: Proven
+- Area: Deployment / benchmark (ADR-0033 -- the 2-actor icon-editor grid, builder actor)
+- Statement: The system shall build the ni/labview-icon-editor Editor Packed Library inside
+  the NI LabVIEW container as a benchmark, so a fail-closed gate proves the committed build
+  result is correctly derived and cross-plane comparable.
+- Rationale: The operator-directed 2-actor icon-editor grid reproduces the project's real CI
+  -- one actor builds the Packed Project Library (PPL), one runs the LUnit tests. The builder
+  is the icon-editor's own "Editor Packed Library" build spec, which native `LabVIEWCLI
+  ExecuteBuildSpec` runs in the NI LabVIEW container (`nationalinstruments/labview:2026q1-linux`)
+  where LabVIEW is licensed + headless (RunVI known-answer confirmed) -- no g-cli required for
+  the build.
+- Acceptance Criteria:
+  - `LabVIEWCLI -OperationName ExecuteBuildSpec` builds the "Editor Packed Library" spec of
+    `lv_icon_editor.lvproj` in the NI container and emits `lv_icon.lvlibp`.
+  - `pplBuildBenchmark.mjs` records the machine-independent build identity (project + target +
+    build spec + generated artifact + success) plus the build time (and byte size).
+  - `validatePplReceipt` fails closed unless the `resultHash` re-derives, the verdict matches
+    the rule, and the digest is intact.
+  - Live evidence: the NI container built `lv_icon.lvlibp` (2.9 MB) from the pinned icon-editor
+    (`9545c483`) in ~59s, `ExecuteBuildSpec operation succeeded`.
+- Change Guidance: The builder `experiments/ppl-build/pplBuildBenchmark.mjs` plus its
+  self-test are gated by `ppl-build-benchmark` in `verify-local-gates` and mapped in the RTM.
+  The companion TESTER actor (LUnit via g-cli) is the next slice per ADR-0033. Authored under
+  the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1586,3 +1616,4 @@ progressively.
 | LBA-REQ-048 | Deployment (golden-VM Mass Compile benchmark) | T-048 |
 | LBA-REQ-049 | Deployment (provisioner headless-LabVIEW readiness) | T-049 |
 | LBA-REQ-050 | Deployment (cross-plane benchmark grid) | T-050 |
+| LBA-REQ-051 | Deployment (icon-editor Packed Library build) | T-051 |
