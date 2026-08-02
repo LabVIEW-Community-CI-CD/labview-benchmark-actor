@@ -7,6 +7,9 @@
 > `labview-benchmark-actor` repository; the standards-release stamp travels
 > with it so the receiving repo can re-validate against the exact baseline it
 > was written to.
+>
+> **Roadmap:** the multi-year vision + near-term slice — the personal golden-VM
+> onboarding — live in `docs/roadmap.md`.
 
 ## Purpose
 

@@ -39,5 +39,6 @@
 | LBA-REQ-030 | Pull requests target develop | Proven | §3.8 Configuration-management & assurance | ADR-0021 | T-030 | 5 |
 | LBA-REQ-031 | Transparency-log inclusion + verify-before-install | Proven | §3.9 Corroboration-grid | ADR-0022 | T-031 | 11 |
 | LBA-REQ-032 | Mesh-stress performance-signature calibration | Proven | §3.6 Analysis | — | T-032 | 28 |
+| LBA-REQ-033 | Personal golden-VM onboarding for the LabVIEW community | Planned | §3.2 Deployment | ADR-0023 | T-033 | 3 |
 
-_Generated for 32 requirements._
+_Generated for 33 requirements._
