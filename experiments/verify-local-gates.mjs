@@ -460,6 +460,17 @@ check('first-win-onboarding', () => {
   return { standard: 'ADR-0023 Phase 1 (First Win)', selftest: 'verify-first-win-onboarding 7/7 (6-step lba init flow composed of Proven slices, activation confirmed live)' };
 });
 
+// 6x. Icon-editor Packed Library build -- the BUILDER actor of the 2-actor icon-editor grid (LBA-REQ-051,
+//     ADR-0033): LabVIEWCLI ExecuteBuildSpec of the ni/labview-icon-editor "Editor Packed Library" spec runs
+//     inside the NI LabVIEW container (nationalinstruments/labview:2026q1-linux) and emits lv_icon.lvlibp.
+//     The committed receipt's machine-independent resultHash (project + target + build spec + generated
+//     artifact + success) is cross-plane comparable; fail-closed on a stale/tampered resultHash, a forged
+//     verdict, a build with no artifact, or a tampered digest.
+check('ppl-build-benchmark', () => {
+  execFileSync(process.execPath, [join(here, 'ppl-build', 'verify-ppl-build-benchmark.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0033 icon-editor container benchmarks', selftest: 'verify-ppl-build-benchmark 7/7 (Editor Packed Library built in the NI container, fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

@@ -1,0 +1,33 @@
+{
+  "schema": "labview-benchmark-actor/ppl-build-benchmark@1",
+  "plane": "linux-container",
+  "container": "nationalinstruments/labview:2026q1-linux",
+  "labview": {
+    "version": "2026",
+    "bitness": 64,
+    "edition": "NI CI container"
+  },
+  "source": {
+    "repo": "ni/labview-icon-editor",
+    "repoHead": "9545c483f2b947c71de68c7f70aedefaedadabf7",
+    "project": "lv_icon_editor.lvproj"
+  },
+  "operation": "LabVIEWCLI -OperationName ExecuteBuildSpec",
+  "build": {
+    "target": "My Computer",
+    "buildSpec": "Editor Packed Library"
+  },
+  "generatedArtifact": "lv_icon.lvlibp",
+  "operationSucceeded": true,
+  "timing": {
+    "buildSeconds": 59
+  },
+  "artifactSizeBytes": 2948583,
+  "resultHash": "96f353b727659156d74e08661376ad206aa9998eeea9688648b6636b12fa9b2d",
+  "note": "Real build of the ni/labview-icon-editor Editor Packed Library (the projects own CI build spec) via LabVIEWCLI -OperationName ExecuteBuildSpec inside the NI LabVIEW container nationalinstruments/labview:2026q1-linux (licensed LabVIEW 2026 headless via xvfb, VI Server 3363). LabVIEW reported ExecuteBuildSpec operation succeeded and generated builds/lv_icon.lvlibp (2948583 bytes) in 59s. This is the BUILDER actor of the 2-actor icon-editor grid; native LabVIEWCLI ExecuteBuildSpec builds the PPL without g-cli. resultHash is over the machine-independent build identity (project + target + build spec + generated artifact + success); build time + byte size are performance/descriptive metrics, not in the hash.",
+  "verdict": {
+    "benchmarkOk": true,
+    "reason": "ExecuteBuildSpec of \"Editor Packed Library\" produced lv_icon.lvlibp"
+  },
+  "digest": "54bff218fc206640fe7de9d13b2e17548087f6bab128603601612e9b8585cf2e"
+}
