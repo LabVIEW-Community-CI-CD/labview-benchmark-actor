@@ -1,0 +1,85 @@
+{
+  "schema": "labview-benchmark-actor/win-vm-concurrent-mesh@1",
+  "capturedAtIso": "2026-08-02T04:38:32.573Z",
+  "vms": {
+    "a": {
+      "name": "actor-reviewer-golden",
+      "role": "golden VM"
+    },
+    "b": {
+      "name": "actor-mesh-b",
+      "role": "linked clone of the golden VM"
+    }
+  },
+  "calibration": {
+    "from": "win-vm-mesh-ladder (golden VM solo ladder)",
+    "frameRateHz": 12,
+    "salientDimensions": 40
+  },
+  "pairings": [
+    {
+      "pairing": 1,
+      "a": {
+        "vm": "actor-reviewer-golden",
+        "commandedRung": "saturate",
+        "commandedLevel": 4,
+        "inferredRung": "saturate",
+        "inferredLevel": 4,
+        "confidence": 0.21,
+        "cpuTotalPctMean": 76.1,
+        "windowStartMs": 1785645337727,
+        "windowEndMs": 1785645341642,
+        "exact": true
+      },
+      "b": {
+        "vm": "actor-mesh-b",
+        "commandedRung": "idle",
+        "commandedLevel": 0,
+        "inferredRung": "idle",
+        "inferredLevel": 0,
+        "confidence": 0.11,
+        "cpuTotalPctMean": 4.2,
+        "windowStartMs": 1785645334905,
+        "windowEndMs": 1785645338813,
+        "exact": true
+      },
+      "concurrentOverlapMs": 1086,
+      "simultaneous": true,
+      "rankingCorrect": true
+    },
+    {
+      "pairing": 2,
+      "a": {
+        "vm": "actor-reviewer-golden",
+        "commandedRung": "light",
+        "commandedLevel": 1,
+        "inferredRung": "medium",
+        "inferredLevel": 2,
+        "confidence": 0.22,
+        "cpuTotalPctMean": 31.2,
+        "windowStartMs": 1785645363443,
+        "windowEndMs": 1785645367362,
+        "exact": false
+      },
+      "b": {
+        "vm": "actor-mesh-b",
+        "commandedRung": "heavy",
+        "commandedLevel": 3,
+        "inferredRung": "saturate",
+        "inferredLevel": 4,
+        "confidence": 0.1,
+        "cpuTotalPctMean": 81.6,
+        "windowStartMs": 1785645361339,
+        "windowEndMs": 1785645365250,
+        "exact": false
+      },
+      "concurrentOverlapMs": 1807,
+      "simultaneous": true,
+      "rankingCorrect": true
+    }
+  ],
+  "allPairingsSimultaneous": true,
+  "allPairingsRankedCorrectly": true,
+  "exactRungMatches": 2,
+  "totalReadings": 4
+}

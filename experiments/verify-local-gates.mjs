@@ -665,6 +665,18 @@ check('win-vm-mesh-ladder-real', () => {
   return { plane: r.vm.plane, cpuCurve: (r.cpuTotalPctMeanCurve || []).map((c) => c.expected), salient: r.salientDimensions.length };
 });
 
+// LBA-REQ-032 (mesh-stress-signature@v1, LIVE + CONCURRENT WINDOWS VMs): two real Win11 VMs (golden + a linked
+// clone) stressed SIMULTANEOUSLY at different rungs, each PDH-sampled on its own exact-12-FPS series; the
+// golden-VM calibration correctly ORDERS which VM is more stressed in every concurrent pairing. Recomputes from
+// the committed real captures (offline, no VM).
+check('win-vm-concurrent-mesh-real', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'concurrentVmMesh.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mesh-stress-signature', 'fixtures', 'win-vm-concurrent-receipt.json'), 'utf8'));
+  assert(r.allPairingsSimultaneous === true, 'the VM pairings must be captured simultaneously');
+  assert(r.allPairingsRankedCorrectly === true, 'every concurrent pairing must correctly order which VM is more stressed');
+  return { pairings: r.pairings.length, ranked: r.allPairingsRankedCorrectly, exact: `${r.exactRungMatches}/${r.totalReadings}` };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
