@@ -22,6 +22,7 @@
 | User Guide | `docs/information-for-users/user-guide.md` | Maintainers | install route or benchmark-UI change | guide covers install, run, the time-cursor review workflow, multi-VM coordination, MCP tools, and release corroboration |
 | Requirements Traceability Matrix | `docs/requirements/rtm.csv` | Maintainers | requirement, test, or code-reference change | every `LBA-REQ` maps to a test + code refs; Proven rows resolve on disk (reqs-coverage) |
 | Generated Traceability Matrix | `docs/requirements/traceability-matrix.md` | Maintainers (generated) | any requirement / test / view / decision source change | regenerated from the sources; the `traceability-matrix-current` gate fails closed on drift |
+| Roadmap | `docs/roadmap.md` | Maintainers | North Star, phase, or near-term-slice change | the multi-year vision + near-term personal-golden-VM slice trace to `ADR-0023` / `LBA-REQ-033` |
 
 ## Notes
 
