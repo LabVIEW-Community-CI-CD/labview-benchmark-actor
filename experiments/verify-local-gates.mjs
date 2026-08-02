@@ -329,6 +329,16 @@ check('mesh-actor-registration-requires-activation', () => {
   return { standard: 'ADR-0023 Phase 1', selftest: 'registerMeshActor 4/4 (activated registers + fail-closed refusal)' };
 });
 
+// 6k. Agent tooling selftest (scripts/lba.mjs): the agent-facing governance + verification helper is
+//     DESIGNED TO BE ITERATIVELY REFINED by each agent. This gate keeps it working across refinements --
+//     pipeline scripts + governance-surface files resolve, the id helpers advance, and govern-check both
+//     confirms a fully-governed requirement and fails closed on a missing one. Extend the tool freely;
+//     the gate catches regressions.
+check('agent-tooling-selftest', () => {
+  execFileSync(process.execPath, [join(pkgRoot, 'scripts', 'lba.mjs'), 'selftest'], { stdio: 'pipe' });
+  return { tool: 'scripts/lba.mjs', note: 'iteratively-refined agent governance + verification helper' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
