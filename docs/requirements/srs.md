@@ -69,6 +69,7 @@ progressively.
 | LBA-REQ-039 | The system shall register a golden VM as a mesh actor only after its activation receipt confirms LabVIEW is activated, so a fail-closed gate refuses registration for an unconfirmed or tampered receipt. | ADR-0023's onboarding invariant is that activation is confirmed before a VM joins the mesh; binding registration to the LBA-REQ-038 activation receipt enforces that an unactivated box cannot be enrolled as a benchmark actor — confirmation and enrollment are one fail-closed chain. | `registerGoldenActor` validates the `activation-receipt@1` (schema, digest, verdict) and only then composes the golden `mesh-actors.csv` row (idempotent by role+actor_id); an unactivated or tampered receipt is refused and the registry is left untouched. | Run `node experiments/activation/registerMeshActor.selftest.mjs` (4/4); gated by `mesh-actor-registration-requires-activation` in `verify-local-gates`. |
 | LBA-REQ-040 | The system shall distribute an independent-task workload across a budget-capped pool of ripgrep-only instances proportional to each instance's capacity, so a fail-closed gate proves the shards ran disjointly on distinct instances with every task passing. | The North Star is on-demand distributed benchmark runs across planes with no central aggregation (docs/roadmap.md); a capacity-weighted executor that dynamically discovers a budget-capped pool (host + codespaces + local VMs) and runs disjoint shards concurrently — every instance searching with ripgrep only — is the first distributed-execution primitive and spreads load off the host (ADR-0028). | `discoverPool` enumerates host + codespaces + running VMs up to a conservative budget (default host + 2 remote); `capacityWeightedPartition` splits proportional to static per-type weights; per-type SSH adapters run the shards concurrently; `validateReceipt` fails closed unless the split re-derives disjoint distinct-instance rg-only shards with every task passing. | Run `node experiments/parallel/verify-parallel-workload.selftest.mjs` (4/4); gated by `distributed-parallel-workload` in `verify-local-gates`. Live: 42 self-tests split 25/9/8 across three instances. |
 | LBA-REQ-041 | The system shall route each distributed task only to an instance advertising the capability the task requires, so a fail-closed gate proves every task ran on a capability-matching instance. | The distributed executor (ADR-0028) is heterogeneous, but LabVIEW lives only on capable instances (the host and LabVIEW VMs) — a VI task sent to a node-only codespace would fail. Capability-aware routing sends each task only where it can run (ADR-0029, operator directive). | `routeByCapability` groups tasks by required capability and capacity-weight-splits each group across only the advertising instances (throws if none can); host advertises `labview` iff LabVIEWCLI present, codespaces `node` only; `validateRouting` fails closed unless every task ran capability-matched, the re-route reproduces the shards, disjoint + covered + distinct + rg-only + all passed. | Run `node experiments/parallel/verify-capability-routing.selftest.mjs` (5/5); gated by `capability-aware-routing` in `verify-local-gates`. Live: LabVIEW probe -> host, 43 node tasks across 3 instances. |
+| LBA-REQ-042 | The system shall confirm cross-plane LabVIEW liveness by running the known-answer activation probe on every LabVIEW plane, so a fail-closed gate proves at least two independent LabVIEW planes are activated and operational. | Real cross-plane comparison (the North Star) needs more than one activated LabVIEW plane; the capability router (ADR-0029) now reaches the host plus a LabVIEW VM (the Phase 1 golden VM, ADR-0023). Running the known-answer probe on each plane and asserting the answer proves independent, activated, operational planes to compare across (ADR-0030). | `runCrossPlaneLiveness.mjs` discovers LabVIEW planes (host + running VMs answering `ls LabVIEWCLI` over ssh), runs `LabVIEWCLI RunVI` on each concurrently; `validateLiveness` fails closed unless >= 2 distinct planes each returned the known answer and are activated. | Run `node experiments/activation/verify-cross-plane-liveness.selftest.mjs` (4/4); gated by `cross-plane-labview-liveness` in `verify-local-gates`. Live: host + Ubuntu golden VM, both LabVIEW 2026, 7+5=12. |
 
 ---
 
@@ -1254,6 +1255,36 @@ progressively.
 
 ---
 
+### LBA-REQ-042: Cross-plane LabVIEW liveness
+
+- Status: Proven
+- Area: Deployment / cross-plane (ADR-0030; extends ADR-0029; advances ADR-0023 Phase 1)
+- Statement: The system shall confirm cross-plane LabVIEW liveness by running the
+  known-answer activation probe on every LabVIEW plane, so a fail-closed gate
+  proves at least two independent LabVIEW planes are activated and operational.
+- Rationale: Real cross-plane comparison (the North Star) needs more than one
+  activated LabVIEW plane. The capability router (ADR-0029) now reaches the host
+  plus a LabVIEW VM (the Phase 1 golden VM, ADR-0023). Running the known-answer
+  probe on each plane concurrently and asserting each returns the answer proves the
+  fleet has independent, activated, operational LabVIEW planes to compare across
+  (ADR-0030).
+- Acceptance Criteria:
+  - `runCrossPlaneLiveness.mjs` discovers every LabVIEW plane (the host if
+    LabVIEWCLI is present + running VirtualBox VMs answering `ls LabVIEWCLI` over
+    their ssh forward) and runs `LabVIEWCLI RunVI` on the shipped `AddTwoNumbers.vi`
+    on each concurrently.
+  - `validateLiveness` fails closed unless >= 2 distinct planes each returned the
+    known answer (`7 + 5 = 12`), reported RunVI success, and are activated.
+  - Live evidence: this host + the Ubuntu 24.04 golden VM
+    (`lba-ubuntu2404-labview2026-scratch`), both LabVIEW 2026 activated, both
+    returning 12; the receipt replays offline in CI.
+- Change Guidance: The core `experiments/activation/crossPlaneLiveness.mjs` +
+  `runCrossPlaneLiveness.mjs` and the self-test are gated by
+  `cross-plane-labview-liveness` in `verify-local-gates` and mapped in the RTM.
+  Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1299,3 +1330,4 @@ progressively.
 | LBA-REQ-039 | Deployment (mesh-actor registration) | T-039 |
 | LBA-REQ-040 | Deployment (distributed parallel workload) | T-040 |
 | LBA-REQ-041 | Deployment (capability-aware routing) | T-041 |
+| LBA-REQ-042 | Deployment (cross-plane LabVIEW liveness) | T-042 |

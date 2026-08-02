@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -97,6 +97,11 @@ multi-VM / Codespace topology.
   is routed to the LabVIEW-capable host while node tasks spread across the pool. A
   fail-closed gate proves capability-correct placement (ADR-0029); the substrate
   for cross-plane distribution once a second LabVIEW instance joins.
+- **Cross-plane LabVIEW liveness (LBA-REQ-042):** the fleet has two independent,
+  activated LabVIEW planes — this host and the Ubuntu golden VM — each proven live
+  by running the known-answer activation probe concurrently. A fail-closed gate
+  requires >= 2 activated planes (ADR-0030); the substrate for cross-plane
+  benchmark comparison, and Phase 1 (ADR-0023) proven operational.
 
 ### 3.3 Actor / run-result view — addresses LBA-REQ-003, LBA-REQ-009
 - The agentic actor drives a run and emits a **schema-versioned run result**:
@@ -260,6 +265,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-35 | Self-audit the five-lens standards posture at clause-evidence granularity and gate 25/25 fail-closed | The 25/25 audit was a point-in-time score; a generated, fail-closed self-audit makes full compliance corroborated by construction and closes F4 (non-gated conformance) for all standards (ADR-0027) | LBA-REQ-037 |
 | AD-36 | Distribute the workload across an N-instance ripgrep-only pool (host + codespaces + VMs), dynamically discovered, capacity-weighted, and budget-capped | Spreading load off the host toward the North Star distributed mesh; a fail-closed gate replays a real 3-instance receipt (ADR-0028) | LBA-REQ-040 |
 | AD-37 | Route each distributed task only to an instance advertising the capability it requires (LabVIEW to LabVIEW-capable instances, node work anywhere) | LabVIEW lives only on capable instances; capability routing makes the heterogeneous fleet do real cross-plane work correctly (ADR-0029) | LBA-REQ-041 |
+| AD-38 | Prove cross-plane LabVIEW liveness by running the known-answer probe on every LabVIEW plane (host + LabVIEW VMs), requiring >= 2 activated planes | Real cross-plane comparison needs more than one activated LabVIEW plane; the golden VM (ADR-0023) becomes a proven second plane (ADR-0030) | LBA-REQ-042 |
 
 ## 5. Risks and open questions
 

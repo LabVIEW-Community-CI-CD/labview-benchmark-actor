@@ -359,6 +359,16 @@ check('capability-aware-routing', () => {
   return { standard: 'ADR-0029 capability routing', selftest: 'verify-capability-routing 5/5 (LabVIEW->host, fail-closed)' };
 });
 
+// 6n. Cross-plane LabVIEW liveness (LBA-REQ-042, ADR-0030): the fleet has >= 2 independent, activated,
+//     operational LabVIEW planes -- this host + a LabVIEW VM (the Phase 1 golden VM) each ran the
+//     known-answer activation probe (LabVIEWCLI RunVI) concurrently and returned the answer. The committed
+//     real receipt must validate: >= 2 distinct planes, each returned its known answer + is activated, all
+//     live. Offline replay + fail-closed selftest.
+check('cross-plane-labview-liveness', () => {
+  execFileSync(process.execPath, [join(here, 'activation', 'verify-cross-plane-liveness.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0030 cross-plane liveness', selftest: 'verify-cross-plane-liveness 4/4 (2 activated LabVIEW planes)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
