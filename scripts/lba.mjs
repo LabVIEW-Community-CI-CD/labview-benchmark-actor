@@ -43,6 +43,7 @@ const read = (rel) => (existsSync(join(repoRoot, rel)) ? readFileSync(join(repoR
 export const PIPELINE = [
   ['regen traceability matrix', 'experiments/reqs-coverage/generate-traceability.mjs'],
   ['regen test & assurance report', 'experiments/reqs-coverage/generate-test-report.mjs'],
+  ['regen benchmark grid', 'experiments/benchmark-grid/generate-benchmark-grid.mjs'],
   ['regen compliance scorecard', 'experiments/compliance/verify-compliance-posture.mjs'],
   ['verify correspondences', 'experiments/reqs-coverage/verify-correspondences.mjs'],
   ['verify local gates', 'experiments/verify-local-gates.mjs'],

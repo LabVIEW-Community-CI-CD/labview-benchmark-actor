@@ -437,6 +437,18 @@ check('provisioner-headless-readiness', () => {
   return { standard: 'ADR-0023 Phase 1 (one-command golden VM)', selftest: 'verify-provisioner-readiness 7/7 (provisioner installs all headless prerequisites, fail-closed)' };
 });
 
+// 6v. Cross-plane benchmark grid (LBA-REQ-050, realizes ADR-0023 / ADR-0031, roadmap Phase 4): the golden-VM
+//     LabVIEW benchmarks are unified into one grid that, for every benchmark, records the machine-independent
+//     IDENTITY (resultHash) per plane -- proof LabVIEW reproduces across planes -- plus the PERFORMANCE
+//     metric. Proven Linux-first: VI Analyzer (host + scratch VM) and Mass Compile (host + lba-golden) each
+//     agree on identity across two planes. The committed docs/benchmarks/benchmark-grid.md surface is
+//     regenerated in the pipeline; this gate fails closed on a determinism VIOLATION (planes disagreeing),
+//     a forged agreement/verdict, or a tampered digest.
+check('cross-plane-benchmark-grid', () => {
+  execFileSync(process.execPath, [join(here, 'benchmark-grid', 'verify-benchmark-grid.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0031 cross-plane comparison (roadmap Phase 4)', selftest: 'verify-benchmark-grid 7/7 (2 benchmarks cross-plane-proven, fail-closed on determinism violation)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
