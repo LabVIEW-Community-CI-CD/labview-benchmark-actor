@@ -25,6 +25,7 @@
 //   regen                        (re)write the generated views only (traceability, test report, scorecard)
 //   govern-check <LBA-REQ-NNN>   report which governance surfaces already contain a requirement id
 //   next-ids                     print the next free requirement id and ADR id
+//   init                         plan (or --run) the one-command First Win golden-VM onboarding (LBA-REQ-033)
 //   selftest                     self-check this tool (run by the `agent-tooling-selftest` gate)
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
@@ -32,8 +33,9 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { capacityWeightedPartition } from '../experiments/parallel/parallelWorkload.mjs';
+import { describeFlow, analyzeFlow } from '../experiments/first-win/firstWinOnboarding.mjs';
 
-export const ITERATION = 3; // bump when you refine this tool (see the banner above)
+export const ITERATION = 4; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -142,6 +144,21 @@ export const COMMANDS = {
     desc: 'self-check this tool (run by the agent-tooling-selftest gate)',
     run: () => runSelftest(),
   },
+  init: {
+    desc: 'plan (or --run) the one-command First Win: personal golden-VM onboarding (LBA-REQ-033)',
+    run: (args) => {
+      const exists = (rel) => existsSync(join(repoRoot, rel));
+      console.log(describeFlow(exists));
+      const a = analyzeFlow(exists);
+      if (!a.allResolved) { console.error(`\n\u2717 missing realizations: ${a.missing.join(', ')}`); process.exit(1); }
+      if (!args.includes('--run')) { console.log('\n(plan only \u2014 re-run with `lba init --run` to provision; set ISO / VM_NAME / BASEFOLDER first)'); return; }
+      console.log('\n\u25b6 provisioning the golden VM (cleanroom/ubuntu-labview/build-virtualbox.sh --run)\u2026');
+      execFileSync('bash', [join(repoRoot, 'cleanroom/ubuntu-labview/build-virtualbox.sh'), '--run'], { stdio: 'inherit' });
+      console.log('\nNEXT (hybrid \u2014 the one human step): activate LabVIEW CE + VIPM in the VM, then confirm + register:');
+      console.log('  bash experiments/activation/probe-activation.sh      # headless RunVI probe -> activation-receipt@1');
+      console.log('  node experiments/activation/registerMeshActor.mjs    # mint + register the VM as a mesh actor');
+    },
+  },
 };
 
 // ---- selftest (extend me) -----------------------------------------------------------------------
@@ -163,6 +180,7 @@ const SELFTEST = [
     return covered && shards.length === 2 && shards[0].length > shards[1].length; // higher weight -> more tasks
   }],
   ['host capabilities always include node (labview iff LabVIEWCLI present)', () => hostCapabilities().includes('node')],
+  ['first-win onboarding flow: every step realization resolves on disk (LBA-REQ-033)', () => analyzeFlow((rel) => existsSync(join(repoRoot, rel))).allResolved],
 ];
 function runSelftest() {
   let passed = 0;

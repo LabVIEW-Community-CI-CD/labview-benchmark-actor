@@ -39,7 +39,7 @@
 | LBA-REQ-030 | Pull requests target develop | Proven | §3.8 Configuration-management & assurance | ADR-0021 | T-030 | 5 |
 | LBA-REQ-031 | Transparency-log inclusion + verify-before-install | Proven | §3.9 Corroboration-grid | ADR-0022 | T-031 | 11 |
 | LBA-REQ-032 | Mesh-stress performance-signature calibration | Proven | §3.6 Analysis | — | T-032 | 28 |
-| LBA-REQ-033 | Personal golden-VM onboarding for the LabVIEW community | Planned | §3.2 Deployment | ADR-0023 | T-033 | 3 |
+| LBA-REQ-033 | Personal golden-VM onboarding for the LabVIEW community | Proven | §3.2 Deployment | ADR-0023 | T-033 | 9 |
 | LBA-REQ-034 | Governed 26514 information for users | Proven | §3.8 Configuration-management & assurance | ADR-0024 | T-034 | 12 |
 | LBA-REQ-035 | Generated test report and configuration status accounting | Proven | §3.8 Configuration-management & assurance | ADR-0025 | T-035 | 4 |
 | LBA-REQ-036 | Resolvable, invariant-complete release procedure | Proven | §3.8 Configuration-management & assurance | ADR-0026 | T-036 | 4 |
