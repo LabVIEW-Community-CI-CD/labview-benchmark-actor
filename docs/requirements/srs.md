@@ -64,6 +64,7 @@ progressively.
 | LBA-REQ-034 | The system shall keep the bounded ISO/IEC/IEEE 26514 information-for-users product set complete and command-covering, so a fail-closed gate blocks the build when a required user-information item is missing or a contributed command is undocumented. | The standards audit found user information was the repo's weakest, non-gated surface (a single user guide, no audience/task/navigation/reference), and non-gated conformance is where documentation drifts from the product; gating the bounded 26514 product set keeps user information current by construction (ADR-0024). | `verify-information-for-users.mjs` checks the 10 required items exist and are non-trivial, the command reference covers every `package.json` contributed command, the conformance boundary states a bounded product claim and disclaims full process conformance, and the navigation hub indexes the set; the self-test also proves an empty set fails closed. | Run `node experiments/information-for-users/verify-information-for-users.selftest.mjs` (2/2); gated by `information-for-users-26514` in `verify-local-gates`. |
 | LBA-REQ-035 | The system shall generate the test report and configuration status-accounting record from the verification apparatus, so a fail-closed gate blocks the build when the committed record drifts from the gates, correspondence rules, requirements, and decisions it accounts for. | A deeper clause-level standards audit found the repo kept a test *plan* but no executed test *report* (ISO/IEC/IEEE 29119-3) and no *configuration status-accounting* record (ISO 10007); outcomes and controlled state were never governed information items. Generating them from the very apparatus CI enforces keeps them current by construction (ADR-0025). | `generate-test-report.mjs` derives the 29119-2 completion criteria, the fail-closed gate inventory, the correspondence rules, the coverage floors, and the requirement / ADR / test-item status accounting into `docs/testing/test-report.md`; `--check` fails closed on drift. | Run `node experiments/reqs-coverage/generate-test-report.selftest.mjs` (4/4); gated by `test-report-current` in `verify-local-gates`. |
 | LBA-REQ-036 | The system shall keep the ISO/IEC/IEEE 15289 release procedure resolvable and invariant-complete, so a fail-closed gate blocks the build when the procedure cites a workflow or script that does not resolve or omits a required release invariant. | A deeper clause-level audit found the repo had a 12207 move/transition procedure but no *release* procedure information item; the signed, corroborated release flow was scattered across the CM plan's branch governance and the corroboration-grid requirements. A procedure that could silently cite a renamed workflow would mislead a releaser, so it is gated to stay resolvable by construction (ADR-0026). | `docs/release/release-procedure.md` gives the step-by-step signed, corroborated release; `verify-release-procedure.mjs` asserts every cited workflow/script/action path resolves and every required release invariant is named, failing closed otherwise. | Run `node experiments/release/verify-release-procedure.selftest.mjs` (3/3); gated by `release-procedure-references-resolve` in `verify-local-gates`. |
+| LBA-REQ-037 | The system shall self-audit its five-lens standards posture at clause-evidence granularity, so a fail-closed gate blocks the build when any lens drops below its target score or a required information item, wired gate, or clause anchor is missing. | The standards audit's meta-finding (F4) was that non-gated conformance is where standards drift silently, and the coarse 25/25 was a point-in-time score rather than a continuously-verified guarantee. A generated, fail-closed self-audit that re-scores the repo against the repo-standards-review five-lens rubric on every change makes full compliance corroborated by construction (ADR-0027). | `verify-compliance-posture.mjs` encodes each lens's level-5 clause-evidence (real information items + wired gates + clause anchors) and scores REQ/ARCH/TEST/CM/DOC into `docs/compliance/compliance-posture.md`; `--check` fails closed below 25/25 or on scorecard drift. | Run `node experiments/compliance/verify-compliance-posture.selftest.mjs` (4/4); gated by `continuous-compliance-self-audit` in `verify-local-gates`. |
 
 ---
 
@@ -1088,6 +1089,38 @@ progressively.
 
 ---
 
+### LBA-REQ-037: Continuous five-lens compliance self-audit
+
+- Status: Proven
+- Area: Assurance / configuration management (repo-standards-review five-lens rubric over 29148/42010/29119/10007/15289/26514)
+- Statement: The system shall self-audit its five-lens standards posture at
+  clause-evidence granularity, so a fail-closed gate blocks the build when any
+  lens drops below its target score or a required information item, wired gate, or
+  clause anchor is missing.
+- Rationale: The standards audit's meta-finding (F4) was that non-gated
+  conformance is where standards drift silently, and the coarse 25/25 was a
+  point-in-time score rather than a continuously-verified guarantee. A generated,
+  fail-closed self-audit that re-scores the repo against the repo-standards-review
+  five-lens rubric on every change makes full compliance corroborated by
+  construction rather than asserted (ADR-0027).
+- Acceptance Criteria:
+  - `experiments/compliance/verify-compliance-posture.mjs` encodes each lens's
+    level-5 clause-evidence — real information items, wired fail-closed gates, and
+    standard clause anchors — and scores REQ/ARCH/TEST/CM/DOC.
+  - `docs/compliance/compliance-posture.md` is generated and reports 25/25 with a
+    per-lens evidence checklist; `--check` fails closed if the posture is below
+    target or the scorecard drifts.
+  - The scoring fails closed on any single missing clause-evidence item (proven by
+    the self-test), and the deep-compliance artifacts (test report, release
+    procedure) are load-bearing across lenses.
+- Change Guidance: The checker `experiments/compliance/verify-compliance-posture.mjs`
+  plus its self-test are gated by `continuous-compliance-self-audit` in
+  `verify-local-gates` and mapped in the RTM; the scorecard is registered in the
+  15289 information item map. Authored under the singular-requirement directive
+  (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1128,3 +1161,4 @@ progressively.
 | LBA-REQ-034 | CM / assurance (26514 information for users) | T-034 |
 | LBA-REQ-035 | Assurance (generated test report + status accounting) | T-035 |
 | LBA-REQ-036 | CM (release procedure) | T-036 |
+| LBA-REQ-037 | Assurance (continuous compliance self-audit) | T-037 |

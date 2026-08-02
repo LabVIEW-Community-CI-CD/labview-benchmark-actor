@@ -43,5 +43,6 @@
 | LBA-REQ-034 | Governed 26514 information for users | Proven | §3.8 Configuration-management & assurance | ADR-0024 | T-034 | 12 |
 | LBA-REQ-035 | Generated test report and configuration status accounting | Proven | §3.8 Configuration-management & assurance | ADR-0025 | T-035 | 4 |
 | LBA-REQ-036 | Resolvable, invariant-complete release procedure | Proven | §3.8 Configuration-management & assurance | ADR-0026 | T-036 | 4 |
+| LBA-REQ-037 | Continuous five-lens compliance self-audit | Proven | §3.8 Configuration-management & assurance | ADR-0027 | T-037 | 4 |
 
-_Generated for 36 requirements._
+_Generated for 37 requirements._
