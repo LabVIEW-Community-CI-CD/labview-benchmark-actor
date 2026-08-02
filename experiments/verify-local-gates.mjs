@@ -406,6 +406,16 @@ check('vipm-functional-package-install', () => {
   return { standard: 'ADR-0023 Phase 1 (functional VIPM)', selftest: 'verify-vipm-package-install 8/8 (g-cli + deps installed into vi.lib)' };
 });
 
+// 6s. Live golden-VM status + idle-time analysis (LBA-REQ-047, ADR-0023 Phase 1): the live monitor
+//     (tools/experiments/vm-live-status/vm-live-status.sh, not gated) streams the VM's CPU busy% over the
+//     bridge so no long stretch of "dead time" is invisible; this gate proves the committed REAL timeline
+//     receipt's idle-time analysis (idle vs busy spans, idle%, longest idle run) re-derives exactly from its
+//     samples. Fail-closed on a stale/tampered analysis, tampered digest, or a degenerate series.
+check('vm-live-status-idle-analysis', () => {
+  execFileSync(process.execPath, [join(here, 'vm-live-status', 'verify-vm-live-status.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (live VM visibility)', selftest: 'verify-vm-live-status 7/7 (real idle-time analysis, fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

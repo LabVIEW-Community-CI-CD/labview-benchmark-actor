@@ -74,6 +74,7 @@ progressively.
 | LBA-REQ-044 | The system shall provision the from-scratch Ubuntu golden VM with both LabVIEW 2026 Community and VIPM, so a fail-closed gate blocks the build when the provisioner omits either install. | ADR-0023's golden VM is Ubuntu + LabVIEW + VIPM, but the provisioner installed only LabVIEW (NI apt repo); VIPM is a standalone JKI .deb, not in the NI repo. Adding the VIPM install completes the golden-VM automation and a gate keeps both present (advances ADR-0023 Phase 1). | `provision-guest.sh` installs `ni-labview-2026-community` (NI apt, committed key) + VIPM from `packages.jki.net` (dpkg -i + apt-get install -f, idempotent via a `dpkg -s vipm` guard); `checkProvisioner` fails closed unless both steps are present and the live receipt confirms VIPM. | Run `node experiments/provisioner/verify-provisioner-labview-vipm.selftest.mjs` (4/4); gated by `provisioner-installs-labview-and-vipm`. Live: VIPM 26.3.1-4000 installed on the scratch VM. |
 | LBA-REQ-045 | The system shall provide a human-assisted terminal bridge to the golden VM that lets an automation agent drive the VM's interactive shell while a human types any password or token directly on the VM, so a fail-closed gate proves credentials never transit the agent. | Agent-driven golden-VM onboarding (ADR-0023) needs secrets -- LabVIEW and VIPM activation, sudo -- that must never pass through the agent or the model; a shared tmux session on the VM lets the agent drive while the human supplies credentials in-band, at the prompt (ADR-0032). | `tools/vm-bridge/vm-bridge.sh` is a shared tmux session on the VM; the agent drives via tmux send-keys/capture-pane over ssh (run/send/keys/read), `secret?` detects a credential prompt to hand off, `attach` prints the human's one-line attach; `checkVmBridge` fails closed unless the bridge is secret-safe (no --password/read -s/sshpass) and the receipt shows the agent detected but never answered a prompt. | Run `node experiments/vm-bridge/verify-vm-bridge.selftest.mjs` (4/4); gated by `vm-bridge-human-assisted-secret-safety`. Live: agent drove the scratch VM; a real `password:` prompt was detected (exit 42) + handed off, never answered. |
 | LBA-REQ-046 | The system shall prove VIPM functionally installs a LabVIEW community package into the golden VM's LabVIEW package library, so a fail-closed gate blocks the claim unless the operator-designated self-test package installed cleanly with its files landing in vi.lib. | LBA-REQ-044 proves the provisioner installs the VIPM tool; the golden VM is "Ubuntu + LabVIEW + VIPM" (ADR-0023) only once VIPM WORKS to install a package. The operator designated g-cli (`wiresmith_technology_lib_g_cli`) as the VIPM self-test; installing it exercises real dependency resolution. | The operator installed g-cli via VIPM Desktop (Community Edition) on lba-golden; `validateVipmInstallReceipt` fails closed unless every package installed cleanly (No Errors, > 0 files), vi.lib gained files, the designated package is present, and the verdict-bearing digest is intact. | Run `node experiments/vipm-install/verify-vipm-package-install.selftest.mjs` (8/8); gated by `vipm-functional-package-install`. Live: VIPM 26.3.1-4000 installed g-cli 3.0.1.98 + deps -> 279 files in vi.lib. |
+| LBA-REQ-047 | The system shall stream the golden VM live status and analyze a captured timeline for idle spans, so a fail-closed gate proves the committed idle-time analysis is correctly derived from the samples. | The human-assisted golden-VM workflow has long stretches of "dead time" invisible to both human and agent (e.g. LabVIEW idle while VIPM silently waits to connect); a live monitor plus a deterministic idle-time analysis surface and quantify that dead time (advances ADR-0023 Phase 1). | `vm-live-status.sh` streams overall CPU busy% + LabVIEW cpu/mem + vipm/Xvfb over the bridge and captures NDJSON series; `vmStatusAnalysis.mjs` derives idle vs busy spans, idle%, longest idle run; `validateStatusTimelineReceipt` fails closed unless the committed analysis re-derives from the samples and the digest is intact. | Run `node experiments/vm-live-status/verify-vm-live-status.selftest.mjs` (7/7); gated by `vm-live-status-idle-analysis`. Live: 44s capture on lba-golden, 63.6% idle, longest idle run 18s. |
 
 ---
 
@@ -1403,6 +1404,33 @@ progressively.
 
 ---
 
+### LBA-REQ-047: Live golden-VM status and idle-time analysis
+
+- Status: Proven
+- Area: Deployment / onboarding (ADR-0023 Phase 1 -- live golden-VM visibility)
+- Statement: The system shall stream the golden VM live status and analyze a captured
+  timeline for idle spans, so a fail-closed gate proves the committed idle-time analysis
+  is correctly derived from the samples.
+- Rationale: The human-assisted golden-VM workflow has long stretches of "dead time"
+  invisible to both human and agent -- LabVIEW sitting idle while VIPM silently waits to
+  connect is the archetype. A live monitor that streams the VM's CPU busy% over the
+  bridge, plus a deterministic idle-time analysis of a captured timeline, surface and
+  quantify that dead time so it can be driven out (advances ADR-0023 Phase 1).
+- Acceptance Criteria:
+  - `experiments/vm-live-status/vm-live-status.sh` streams overall CPU busy% (plus
+    LabVIEW cpu/mem + vipm/Xvfb presence) over the bridge and can capture an NDJSON series.
+  - `vmStatusAnalysis.mjs` derives contiguous idle vs busy spans, idle %, and the longest
+    idle run from a sample series.
+  - `validateStatusTimelineReceipt` fails closed unless the committed analysis re-derives
+    exactly from the samples and the digest is intact.
+  - Live evidence: a real 44s capture on `lba-golden` (a mid-capture CPU burst) yielded
+    63.6% idle, two idle spans, longest idle run 18s; the receipt records it.
+- Change Guidance: The analyzer `experiments/vm-live-status/vmStatusAnalysis.mjs` plus its
+  self-test are gated by `vm-live-status-idle-analysis` in `verify-local-gates` and mapped
+  in the RTM. Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1453,3 +1481,4 @@ progressively.
 | LBA-REQ-044 | Deployment (provisioner installs LabVIEW + VIPM) | T-044 |
 | LBA-REQ-045 | Deployment (human-assisted VM bridge) | T-045 |
 | LBA-REQ-046 | Deployment (VIPM functionally installs a community package) | T-046 |
+| LBA-REQ-047 | Deployment (live VM status + idle-time analysis) | T-047 |

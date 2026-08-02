@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -284,6 +284,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-38 | Prove cross-plane LabVIEW liveness by running the known-answer probe on every LabVIEW plane (host + LabVIEW VMs), requiring >= 2 activated planes | Real cross-plane comparison needs more than one activated LabVIEW plane; the golden VM (ADR-0023) becomes a proven second plane (ADR-0030) | LBA-REQ-042 |
 | AD-39 | Verify cross-plane benchmark determinism by matching the same VI Analyzer config's resultHash across LabVIEW planes | Turns liveness into objective, reproducible comparison (the North Star); a divergent resultHash fails the gate (ADR-0031, LBA-REQ-015) | LBA-REQ-043 |
 | AD-40 | Provide a human-assisted shared-tmux bridge to the golden VM — the agent drives the interactive shell while the human types secrets directly on the VM | Agent-driven onboarding needs credentials (LabVIEW/VIPM activation, sudo) that must never transit the agent; a secret-safe bridge keeps the human in the loop for secrets only (ADR-0032) | LBA-REQ-045 |
+| AD-41 | Stream the golden VM live status (CPU busy%, LabVIEW/vipm/Xvfb) over the bridge and analyze captured timelines for idle spans, so no long stretch of "dead time" is invisible to human or agent | Human-assisted onboarding has long silent waits (LabVIEW idle while VIPM connects); live visibility plus a deterministic idle-time analysis surface and quantify the dead time to drive it out (ADR-0023) | LBA-REQ-047 |
 
 ## 5. Risks and open questions
 

@@ -59,6 +59,11 @@ VM, VIPM (Community Edition) installs the operator-designated self-test package 
 proven live on `lba-golden` -- so the golden VM is "Ubuntu + LabVIEW + VIPM" in the
 functional sense, not merely installed.
 
+Live golden-VM visibility is delivered as requirement **LBA-REQ-047**: a monitor streams
+the VM's CPU busy% (plus LabVIEW/vipm/Xvfb) over the bridge, and a deterministic idle-time
+analysis of a captured timeline surfaces the "dead time" (idle spans, idle %, longest idle
+run) so no long silent wait is invisible to human or agent.
+
 ## Consequences
 
 - The **Linux plane** becomes a first-class benchmark actor, unlocking the OS axis of cross-plane comparison
