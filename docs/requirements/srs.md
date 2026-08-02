@@ -66,6 +66,7 @@ progressively.
 | LBA-REQ-036 | The system shall keep the ISO/IEC/IEEE 15289 release procedure resolvable and invariant-complete, so a fail-closed gate blocks the build when the procedure cites a workflow or script that does not resolve or omits a required release invariant. | A deeper clause-level audit found the repo had a 12207 move/transition procedure but no *release* procedure information item; the signed, corroborated release flow was scattered across the CM plan's branch governance and the corroboration-grid requirements. A procedure that could silently cite a renamed workflow would mislead a releaser, so it is gated to stay resolvable by construction (ADR-0026). | `docs/release/release-procedure.md` gives the step-by-step signed, corroborated release; `verify-release-procedure.mjs` asserts every cited workflow/script/action path resolves and every required release invariant is named, failing closed otherwise. | Run `node experiments/release/verify-release-procedure.selftest.mjs` (3/3); gated by `release-procedure-references-resolve` in `verify-local-gates`. |
 | LBA-REQ-037 | The system shall self-audit its five-lens standards posture at clause-evidence granularity, so a fail-closed gate blocks the build when any lens drops below its target score or a required information item, wired gate, or clause anchor is missing. | The standards audit's meta-finding (F4) was that non-gated conformance is where standards drift silently, and the coarse 25/25 was a point-in-time score rather than a continuously-verified guarantee. A generated, fail-closed self-audit that re-scores the repo against the repo-standards-review five-lens rubric on every change makes full compliance corroborated by construction (ADR-0027). | `verify-compliance-posture.mjs` encodes each lens's level-5 clause-evidence (real information items + wired gates + clause anchors) and scores REQ/ARCH/TEST/CM/DOC into `docs/compliance/compliance-posture.md`; `--check` fails closed below 25/25 or on scorecard drift. | Run `node experiments/compliance/verify-compliance-posture.selftest.mjs` (4/4); gated by `continuous-compliance-self-audit` in `verify-local-gates`. |
 | LBA-REQ-038 | The system shall confirm LabVIEW activation with a headless known-answer probe VI, so a fail-closed gate refuses an install whose activation receipt does not show the probe executed and returned the known answer. | ADR-0023's onboarding hinges on confirming activation before minting a personal golden VM, and license-file parsing is brittle for Community Edition; a functional probe (`LabVIEWCLI RunVI` on the shipped `AddTwoNumbers.vi`) that must return the known answer is the robust signal and doubles as the benchmark-execution path. First delivered slice of the Planned LBA-REQ-033 umbrella, proven live on the reference host's activated LabVIEW 2026. | `probe-activation.sh` runs `LabVIEWCLI RunVI` headless (Xvfb) on the known-answer probe; `buildActivationReceipt.mjs` builds a deterministic `activation-receipt@1` (digest over verdict-bearing fields), and validation denies activation on a non-zero exit, wrong value, missing success line, or tampered receipt. The committed REAL capture replays offline in CI. | Run `node experiments/activation/buildActivationReceipt.selftest.mjs` (5/5); gated by `activation-receipt-confirms-activation` in `verify-local-gates`. |
+| LBA-REQ-039 | The system shall register a golden VM as a mesh actor only after its activation receipt confirms LabVIEW is activated, so a fail-closed gate refuses registration for an unconfirmed or tampered receipt. | ADR-0023's onboarding invariant is that activation is confirmed before a VM joins the mesh; binding registration to the LBA-REQ-038 activation receipt enforces that an unactivated box cannot be enrolled as a benchmark actor — confirmation and enrollment are one fail-closed chain. | `registerGoldenActor` validates the `activation-receipt@1` (schema, digest, verdict) and only then composes the golden `mesh-actors.csv` row (idempotent by role+actor_id); an unactivated or tampered receipt is refused and the registry is left untouched. | Run `node experiments/activation/registerMeshActor.selftest.mjs` (4/4); gated by `mesh-actor-registration-requires-activation` in `verify-local-gates`. |
 
 ---
 
@@ -1156,6 +1157,32 @@ progressively.
 
 ---
 
+### LBA-REQ-039: Mesh-actor registration gated on activation
+
+- Status: Proven
+- Area: Deployment / onboarding (ADR-0023 Phase 1 — register the golden VM as a mesh actor)
+- Statement: The system shall register a golden VM as a mesh actor only after its
+  activation receipt confirms LabVIEW is activated, so a fail-closed gate refuses
+  registration for an unconfirmed or tampered receipt.
+- Rationale: ADR-0023's onboarding invariant is that activation is confirmed
+  before a VM joins the mesh. Binding registration to the LBA-REQ-038 activation
+  receipt enforces that an unactivated or non-operational box cannot be enrolled
+  as a benchmark actor — the confirmation and the enrollment are one fail-closed
+  chain.
+- Acceptance Criteria:
+  - `registerGoldenActor` validates the `activation-receipt@1` (schema, digest,
+    verdict) and only then composes the golden `mesh-actors.csv` row.
+  - Registration is idempotent: re-registering the same role + actor_id replaces
+    the row and preserves existing mesh rows.
+  - An unactivated or tampered receipt is REFUSED and the registry is left
+    untouched (proven by the self-test).
+- Change Guidance: The registrar `experiments/activation/registerMeshActor.mjs`
+  plus its self-test are gated by `mesh-actor-registration-requires-activation` in
+  `verify-local-gates` and mapped in the RTM. Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1198,3 +1225,4 @@ progressively.
 | LBA-REQ-036 | CM (release procedure) | T-036 |
 | LBA-REQ-037 | Assurance (continuous compliance self-audit) | T-037 |
 | LBA-REQ-038 | Deployment (LabVIEW activation confirmation) | T-038 |
+| LBA-REQ-039 | Deployment (mesh-actor registration) | T-039 |

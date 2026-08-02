@@ -45,5 +45,6 @@
 | LBA-REQ-036 | Resolvable, invariant-complete release procedure | Proven | §3.8 Configuration-management & assurance | ADR-0026 | T-036 | 4 |
 | LBA-REQ-037 | Continuous five-lens compliance self-audit | Proven | §3.8 Configuration-management & assurance | ADR-0027 | T-037 | 4 |
 | LBA-REQ-038 | LabVIEW activation confirmation via a headless known-answer probe | Proven | §3.2 Deployment | ADR-0023 | T-038 | 6 |
+| LBA-REQ-039 | Mesh-actor registration gated on activation | Proven | §3.2 Deployment | ADR-0023 | T-039 | 4 |
 
-_Generated for 38 requirements._
+_Generated for 39 requirements._
