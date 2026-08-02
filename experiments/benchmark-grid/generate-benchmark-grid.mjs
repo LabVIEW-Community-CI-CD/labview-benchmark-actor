@@ -51,7 +51,7 @@ function main() {
   const outPath = join(repoRoot, OUT_REL);
   if (process.argv.includes('--check')) {
     let current = null;
-    try { current = readFileSync(outPath, 'utf8'); } catch { /* missing */ }
+    try { current = readFileSync(outPath, 'utf8').replace(/\r\n/g, '\n'); } catch { /* missing */ }
     if (current !== rendered) {
       console.error(`benchmark-grid: DRIFT -- ${OUT_REL} is stale. Regenerate with: node experiments/benchmark-grid/generate-benchmark-grid.mjs`);
       process.exit(3);
@@ -65,4 +65,4 @@ function main() {
 }
 
 // Only run when invoked directly (so the self-test can import the builders without triggering a write).
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

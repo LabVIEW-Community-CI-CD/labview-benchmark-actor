@@ -43,7 +43,7 @@ const ok = (m) => { n++; console.log(`ok ${n} - ${m}`); };
 
 // 2. the committed surface (docs/benchmarks/benchmark-grid.md) is CURRENT with the receipts
 {
-  const committed = readFileSync(join(repoRoot, 'docs/benchmarks/benchmark-grid.md'), 'utf8');
+  const committed = readFileSync(join(repoRoot, 'docs/benchmarks/benchmark-grid.md'), 'utf8').replace(/\r\n/g, '\n');
   assert.equal(renderCommittedGrid(), committed, 'benchmark-grid.md is stale -- regenerate with generate-benchmark-grid.mjs');
   ok('committed benchmark-grid.md surface is current with the source receipts');
 }
