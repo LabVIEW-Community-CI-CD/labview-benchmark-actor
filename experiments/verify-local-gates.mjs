@@ -471,6 +471,18 @@ check('ppl-build-benchmark', () => {
   return { standard: 'ADR-0033 icon-editor container benchmarks', selftest: 'verify-ppl-build-benchmark 7/7 (Editor Packed Library built in the NI container, fail-closed)' };
 });
 
+// 6y. g-cli Linux launcher built from Rust source + proven on host LabVIEW -- the enabler for the TESTER
+//     actor of the 2-actor icon-editor grid (LBA-REQ-052, ADR-0033). On Linux g-cli ships no prebuilt
+//     binary: the launcher is the rust-proxy crate (G-CLI/G-CLI), built with cargo, that opens a TCP server,
+//     launches LabVIEW on the target VI, and streams args / output / exit code back. The committed receipt's
+//     machine-independent resultHash (tool + version + source commit + operation + args in + echoed text +
+//     exit code + LabVIEW version/bitness) is cross-plane comparable; fail-closed on a stale/tampered
+//     resultHash, a forged verdict, an echo that does not match the args sent, or a tampered digest.
+check('g-cli-proxy-proof', () => {
+  execFileSync(process.execPath, [join(here, 'g-cli-proxy', 'verify-g-cli-proxy-proof.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0033 icon-editor container benchmarks (g-cli launcher)', selftest: 'verify-g-cli-proxy-proof 7/7 (g-cli built from Rust, full host LabVIEW round-trip, fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

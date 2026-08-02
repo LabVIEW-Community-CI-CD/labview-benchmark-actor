@@ -1,0 +1,47 @@
+{
+  "schema": "labview-benchmark-actor/g-cli-proxy-proof@1",
+  "plane": "linux-host",
+  "host": {
+    "os": "Ubuntu (bare-metal)",
+    "labviewEdition": "LabVIEW 2026 Community Edition"
+  },
+  "tool": "g-cli",
+  "version": "3.0.1",
+  "source": {
+    "repo": "https://github.com/G-CLI/G-CLI",
+    "commit": "662f75a78cef656359a2312910a85cd142b77bab",
+    "crate": "rust-proxy"
+  },
+  "toolchain": {
+    "rustc": "1.97.1",
+    "cargo": "1.97.1",
+    "profile": "release"
+  },
+  "operation": "round-trip-echo (g-cli launches LabVIEW on the target VI; the VI reads the args over TCP via the G CLI client library and echoes them back, tab-joined)",
+  "launchTargetVi": "LabVIEW Source/integration-tests/Echo Parameters.vi",
+  "labview": {
+    "version": "2026",
+    "bitness": "64",
+    "installPath": "/usr/local/natinst/LabVIEW-2026-64"
+  },
+  "detectedInstall": "2026, 64bit (/usr/local/natinst/LabVIEW-2026-64)",
+  "argsIn": [
+    "hello",
+    "from",
+    "host"
+  ],
+  "echoedText": "hello\tfrom\thost",
+  "roundTripEchoed": true,
+  "exitCode": 0,
+  "timing": {
+    "buildSeconds": 6.7,
+    "roundTripSeconds": 2
+  },
+  "resultHash": "30a4f9e45a09ec104b94eb6aed7b3636ca676ab1d22c385205ab3f24cdd339df",
+  "note": "g-cli has no prebuilt Linux binary; the launcher is the rust-proxy crate built with cargo. Built here in 6.7s, then drove host LabVIEW 2026 headless (xvfb) to echo the args and exit 0.",
+  "verdict": {
+    "proofOk": true,
+    "reason": "g-cli 3.0.1 (built from 662f75a) drove host LabVIEW 2026 to echo 3 args, exit 0"
+  },
+  "digest": "3efb925e6c0154505f91927dc718538ef1d77c52daa874e7ee8896201f0ecc99"
+}
