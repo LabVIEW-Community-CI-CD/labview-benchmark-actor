@@ -62,6 +62,7 @@ progressively.
 | LBA-REQ-032 | The system shall calibrate a stress-ladder performance-signature curve from repeated per-rung benchmark signatures so an observed signature maps to an inferred stress level within the calibrated tolerance band. | The mesh-stress program re-verifies the maximum drop-free streaming ceiling under a stressed actor mesh (mesh-stress-signature@v1); calibrating each actor's 42-counter performance signature across a stress ladder turns raw per-actor counters into a monotone, separable, repeatable stress read for later ladder testing (design #272, builds on performance-counter-correlation@v2). | The signature extractor derives per-counter features (mean/std/percentiles/drift/periodicity) plus across-repeat stability (signature vs noise) plus MAD outliers plus cross-counter outlier co-occurrence from repeated runs; the calibration-curve fitter maps each per-rung signature to an expected value plus tolerance band, scores the monotone/separable/repeatable invariants, drops non-tracking features, and inverse-reads an observed signature to an inferred rung with a confidence; the stress orchestrator emits the monotone commanded ladder (per-actor VirtualBox throttle plus host/guest stress-ng) pinning each actor to a distinct level. | Run `node experiments/mesh-stress-signature/signatureExtractor.selftest.mjs` (5/5), `calibrationCurveFitter.selftest.mjs` (4/4), and `stressOrchestrator.selftest.mjs` (5/5); gated by `mesh-stress-signature-extractor` / `mesh-stress-signature-calibrator` / `mesh-stress-orchestrator` in `verify-local-gates`. |
 | LBA-REQ-033 | The system shall provision a from-scratch Ubuntu 24.04 golden VM with activated LabVIEW 2026 Community Edition plus VIPM, confirming the activation with a headless probe VI before registering the VM as a mesh actor. | The single biggest gap is that a community member cannot yet get a reproducible LabVIEW benchmark environment from scratch; a one-command Ubuntu provisioner with functional activation confirmation and a locally-minted personal golden VM unlocks the Linux plane and community onboarding (ADR-0023, builds on the Windows golden box). | `lba init` provisions Ubuntu 24.04 Noble, installs `ni-labview-2026-community` plus `vipm` from the NI apt repo, and after the interactive activation a headless `LabVIEWCLI` `RunVI` probe emits an `activation-receipt@1` whose success gates minting the local golden VM plus its `mesh-actors.csv` registration; the confirmation is deterministically replayable offline from a committed receipt. | (Planned, Phase 1) The provisioner, probe VI, and activation-receipt validator ship under `experiments/` with a self-test gated in `verify-local-gates`; tracked as T-033. |
 | LBA-REQ-034 | The system shall keep the bounded ISO/IEC/IEEE 26514 information-for-users product set complete and command-covering, so a fail-closed gate blocks the build when a required user-information item is missing or a contributed command is undocumented. | The standards audit found user information was the repo's weakest, non-gated surface (a single user guide, no audience/task/navigation/reference), and non-gated conformance is where documentation drifts from the product; gating the bounded 26514 product set keeps user information current by construction (ADR-0024). | `verify-information-for-users.mjs` checks the 10 required items exist and are non-trivial, the command reference covers every `package.json` contributed command, the conformance boundary states a bounded product claim and disclaims full process conformance, and the navigation hub indexes the set; the self-test also proves an empty set fails closed. | Run `node experiments/information-for-users/verify-information-for-users.selftest.mjs` (2/2); gated by `information-for-users-26514` in `verify-local-gates`. |
+| LBA-REQ-035 | The system shall generate the test report and configuration status-accounting record from the verification apparatus, so a fail-closed gate blocks the build when the committed record drifts from the gates, correspondence rules, requirements, and decisions it accounts for. | A deeper clause-level standards audit found the repo kept a test *plan* but no executed test *report* (ISO/IEC/IEEE 29119-3) and no *configuration status-accounting* record (ISO 10007); outcomes and controlled state were never governed information items. Generating them from the very apparatus CI enforces keeps them current by construction (ADR-0025). | `generate-test-report.mjs` derives the 29119-2 completion criteria, the fail-closed gate inventory, the correspondence rules, the coverage floors, and the requirement / ADR / test-item status accounting into `docs/testing/test-report.md`; `--check` fails closed on drift. | Run `node experiments/reqs-coverage/generate-test-report.selftest.mjs` (4/4); gated by `test-report-current` in `verify-local-gates`. |
 
 ---
 
@@ -1020,6 +1021,38 @@ progressively.
 
 ---
 
+### LBA-REQ-035: Generated test report and configuration status accounting
+
+- Status: Proven
+- Area: Assurance / configuration management (ISO/IEC/IEEE 29119-3 test report; ISO 10007 / ISO/IEC/IEEE 12207 status accounting)
+- Statement: The system shall generate the test report and configuration
+  status-accounting record from the verification apparatus, so a fail-closed gate
+  blocks the build when the committed record drifts from the gates, correspondence
+  rules, requirements, and decisions it accounts for.
+- Rationale: The repo kept a test *plan* (design) but no executed test *report*
+  (ISO/IEC/IEEE 29119-3) and no *configuration status accounting* record (ISO
+  10007); a deeper clause-level standards audit found the executed outcomes and
+  the controlled configuration state were never recorded as governed information
+  items. A single hand-written report would drift; generating it from the very
+  apparatus CI enforces keeps the outcomes current by construction (ADR-0025).
+- Acceptance Criteria:
+  - `docs/testing/test-report.md` exists and is GENERATED (never hand-edited): it
+    states the 29119-2 completion criteria, enumerates the fail-closed gate
+    inventory and the correspondence rules (29119-3 executed evidence), records
+    the coverage floors, and accounts the requirement / ADR / gate / test-item
+    configuration state (ISO 10007 status accounting).
+  - The generator is deterministic (no timestamps / HEAD): two renders are
+    byte-identical, so `--check` is a reliable drift gate.
+  - The `test-report-current` gate fails closed when the committed report drifts
+    from the sources; the self-test also proves fail-closed detection on any
+    mutation.
+- Change Guidance: The generator `experiments/reqs-coverage/generate-test-report.mjs`
+  plus its self-test are gated by `test-report-current` in `verify-local-gates`
+  and mapped in the RTM; the report is registered in the 15289 information item
+  map. Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1058,3 +1091,4 @@ progressively.
 | LBA-REQ-032 | Analysis (mesh-stress signature) | T-032 |
 | LBA-REQ-033 | Deployment (personal golden-VM onboarding) | T-033 |
 | LBA-REQ-034 | CM / assurance (26514 information for users) | T-034 |
+| LBA-REQ-035 | Assurance (generated test report + status accounting) | T-035 |
