@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { capacityWeightedPartition } from '../experiments/parallel/parallelWorkload.mjs';
 
-export const ITERATION = 2; // bump when you refine this tool (see the banner above)
+export const ITERATION = 3; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -77,6 +77,14 @@ export function nextAdrId() {
     if (m) max = Math.max(max, Number(m[1]));
   }
   return `ADR-${String(max + 1).padStart(4, '0')}`;
+}
+
+// This host's execution capabilities (for capability-aware distributed routing, ADR-0029): `node` always,
+// `labview` iff LabVIEWCLI is installed. rg-free so it is safe in the gated selftest.
+export function hostCapabilities() {
+  const caps = ['node'];
+  if (existsSync('/usr/local/bin/LabVIEWCLI')) caps.push('labview');
+  return caps.sort();
 }
 
 // ---- governance completeness for one requirement id ----------------------------------------------
@@ -125,6 +133,10 @@ export const COMMANDS = {
       console.log(`(${tasks.length} self-tests over ${n} shards — run with experiments/parallel/runParallel.mjs)`);
     },
   },
+  caps: {
+    desc: "print this host's execution capabilities (labview iff LabVIEWCLI present, node)",
+    run: () => console.log(hostCapabilities().join(', ')),
+  },
   selftest: {
     desc: 'self-check this tool (run by the agent-tooling-selftest gate)',
     run: () => runSelftest(),
@@ -149,6 +161,7 @@ const SELFTEST = [
     const covered = new Set(shards.flat()).size === tasks.length && shards.reduce((a, s) => a + s.length, 0) === tasks.length;
     return covered && shards.length === 2 && shards[0].length > shards[1].length; // higher weight -> more tasks
   }],
+  ['host capabilities always include node (labview iff LabVIEWCLI present)', () => hostCapabilities().includes('node')],
 ];
 function runSelftest() {
   let passed = 0;

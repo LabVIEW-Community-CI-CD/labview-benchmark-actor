@@ -1,0 +1,368 @@
+{
+  "schema": "labview-benchmark-actor/capability-routed-workload@1",
+  "workload": "cross-plane capability-routed",
+  "instances": [
+    {
+      "id": "host",
+      "hostname": "sergio-ThinkPad-P16-Gen-3",
+      "capabilities": [
+        "labview",
+        "node"
+      ],
+      "weight": 3,
+      "searchTool": "ripgrep"
+    },
+    {
+      "id": "codespace:supreme-space-lamp-x55g795gjr4xc975g",
+      "hostname": "codespaces-0df18f",
+      "capabilities": [
+        "node"
+      ],
+      "weight": 1,
+      "searchTool": "ripgrep"
+    },
+    {
+      "id": "codespace:organic-computing-machine-r445qr45jp57hwjgq",
+      "hostname": "codespaces-2e223b",
+      "capabilities": [
+        "node"
+      ],
+      "weight": 1,
+      "searchTool": "ripgrep"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "experiments/acg-governance/pr-base-branch-guard.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-grid/grid.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-independence/independence.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-mcp/grid-tools.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-mesh/verdict-beacon.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-provenance/attest.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-quorum/assemble-witness.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-quorum/compare-witnesses.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-reviewer/sign-off.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/acg-transparency/transparency-log.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/activation/buildActivationReceipt.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/activation/registerMeshActor.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/compliance/verify-compliance-posture.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/information-for-users/verify-information-for-users.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/labview-authoring/verify-dep-manifest.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/manual-procedure-record/fingerprint.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/manual-procedure-record/frame-diff.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/calibrationCurveFitter.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/concurrentMeshRun.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/concurrentVmMesh.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/liveLadderRun.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/meshBoardView.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/meshCalibrationView.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/signatureExtractor.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/stressOrchestrator.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mesh-stress-signature/winVmLadderRun.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/capture-ring-recorder.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/fiducial-capture.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/frameCorrelatorMarkers.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/inGuestSamplerV2.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/liveV2Capture.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/settle-detect.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/vbox-vnc-source.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/vmware-ring-capture.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/vmware-vnc-source.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/mprr-capture-ring/workload-cross-plane.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/parallel/verify-parallel-workload.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/release/verify-release-procedure.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/reqs-coverage/generate-test-report.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/resource-usage-correlation/captureAndCorrelate.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/resource-usage-correlation/frameMarkers.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/resource-usage-correlation/performanceCounterCorrelation.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "experiments/resource-usage-correlation/winPdhSampler.selftest.mjs",
+      "requires": [
+        "node"
+      ]
+    },
+    {
+      "id": "labview:activation-probe",
+      "requires": [
+        "labview"
+      ]
+    }
+  ],
+  "shards": [
+    {
+      "instance": "host",
+      "tasks": [
+        "experiments/acg-governance/pr-base-branch-guard.selftest.mjs",
+        "experiments/acg-grid/grid.selftest.mjs",
+        "experiments/acg-independence/independence.selftest.mjs",
+        "experiments/acg-mcp/grid-tools.selftest.mjs",
+        "experiments/acg-mesh/verdict-beacon.selftest.mjs",
+        "experiments/acg-provenance/attest.selftest.mjs",
+        "experiments/acg-quorum/assemble-witness.selftest.mjs",
+        "experiments/acg-quorum/compare-witnesses.selftest.mjs",
+        "experiments/acg-reviewer/sign-off.selftest.mjs",
+        "experiments/acg-transparency/transparency-log.selftest.mjs",
+        "experiments/activation/buildActivationReceipt.selftest.mjs",
+        "experiments/activation/registerMeshActor.selftest.mjs",
+        "experiments/compliance/verify-compliance-posture.selftest.mjs",
+        "experiments/information-for-users/verify-information-for-users.selftest.mjs",
+        "experiments/labview-authoring/verify-dep-manifest.selftest.mjs",
+        "experiments/manual-procedure-record/fingerprint.selftest.mjs",
+        "experiments/manual-procedure-record/frame-diff.selftest.mjs",
+        "experiments/mesh-stress-signature/calibrationCurveFitter.selftest.mjs",
+        "experiments/mesh-stress-signature/concurrentMeshRun.selftest.mjs",
+        "experiments/mesh-stress-signature/concurrentVmMesh.selftest.mjs",
+        "experiments/mesh-stress-signature/liveLadderRun.selftest.mjs",
+        "experiments/mesh-stress-signature/meshBoardView.selftest.mjs",
+        "experiments/mesh-stress-signature/meshCalibrationView.selftest.mjs",
+        "experiments/mesh-stress-signature/signatureExtractor.selftest.mjs",
+        "experiments/mesh-stress-signature/stressOrchestrator.selftest.mjs",
+        "experiments/mesh-stress-signature/winVmLadderRun.selftest.mjs",
+        "labview:activation-probe"
+      ],
+      "passed": 27,
+      "total": 27
+    },
+    {
+      "instance": "codespace:supreme-space-lamp-x55g795gjr4xc975g",
+      "tasks": [
+        "experiments/mprr-capture-ring/capture-ring-recorder.selftest.mjs",
+        "experiments/mprr-capture-ring/fiducial-capture.selftest.mjs",
+        "experiments/mprr-capture-ring/frameCorrelatorMarkers.selftest.mjs",
+        "experiments/mprr-capture-ring/inGuestSamplerV2.selftest.mjs",
+        "experiments/mprr-capture-ring/liveV2Capture.selftest.mjs",
+        "experiments/mprr-capture-ring/settle-detect.selftest.mjs",
+        "experiments/mprr-capture-ring/vbox-vnc-source.selftest.mjs",
+        "experiments/mprr-capture-ring/vmware-ring-capture.selftest.mjs",
+        "experiments/mprr-capture-ring/vmware-vnc-source.selftest.mjs"
+      ],
+      "passed": 9,
+      "total": 9
+    },
+    {
+      "instance": "codespace:organic-computing-machine-r445qr45jp57hwjgq",
+      "tasks": [
+        "experiments/mprr-capture-ring/workload-cross-plane.selftest.mjs",
+        "experiments/parallel/verify-parallel-workload.selftest.mjs",
+        "experiments/release/verify-release-procedure.selftest.mjs",
+        "experiments/reqs-coverage/generate-test-report.selftest.mjs",
+        "experiments/resource-usage-correlation/captureAndCorrelate.selftest.mjs",
+        "experiments/resource-usage-correlation/frameMarkers.selftest.mjs",
+        "experiments/resource-usage-correlation/performanceCounterCorrelation.selftest.mjs",
+        "experiments/resource-usage-correlation/winPdhSampler.selftest.mjs"
+      ],
+      "passed": 8,
+      "total": 8
+    }
+  ],
+  "allPassed": true
+}

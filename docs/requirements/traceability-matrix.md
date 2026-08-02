@@ -47,5 +47,6 @@
 | LBA-REQ-038 | LabVIEW activation confirmation via a headless known-answer probe | Proven | §3.2 Deployment | ADR-0023 | T-038 | 6 |
 | LBA-REQ-039 | Mesh-actor registration gated on activation | Proven | §3.2 Deployment | ADR-0023 | T-039 | 4 |
 | LBA-REQ-040 | Distributed capacity-weighted parallel workload | Proven | §3.2 Deployment | ADR-0028 | T-040 | 5 |
+| LBA-REQ-041 | Capability-aware distributed task routing | Proven | §3.2 Deployment | ADR-0029 | T-041 | 5 |
 
-_Generated for 40 requirements._
+_Generated for 41 requirements._

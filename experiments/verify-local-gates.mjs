@@ -349,6 +349,16 @@ check('distributed-parallel-workload', () => {
   return { standard: 'ADR-0028 distributed workload', selftest: 'verify-parallel-workload 4/4 (N instances, capacity-weighted, disjoint, rg-only)' };
 });
 
+// 6m. Capability-aware routing (LBA-REQ-041, ADR-0029): extends the distributed executor so each task runs
+//     ONLY on an instance with the capability it requires -- a real LabVIEW task (LabVIEWCLI RunVI) is routed
+//     to the LabVIEW-capable host, node tasks spread across the pool, every instance ripgrep-only. The
+//     committed real receipt must validate: capability-correct placement, deterministic re-route, disjoint +
+//     full coverage, distinct instances, all passed. Offline replay + fail-closed selftest.
+check('capability-aware-routing', () => {
+  execFileSync(process.execPath, [join(here, 'parallel', 'verify-capability-routing.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0029 capability routing', selftest: 'verify-capability-routing 5/5 (LabVIEW->host, fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
