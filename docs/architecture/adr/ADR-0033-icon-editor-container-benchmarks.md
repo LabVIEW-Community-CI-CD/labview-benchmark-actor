@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-02
 - Deciders: operator directive (2026-08, "make a grid of 2 actors that one builds the ppl and the other tests over lunit; research how the icon editor does it on linux") + agent
-- Relates to: LBA-REQ-051, ADR-0031 (cross-plane comparison / benchmark grid), docs/roadmap.md (Phase 2 — the real benchmark suite), ni/labview-icon-editor CI
+- Relates to: LBA-REQ-051, LBA-REQ-052, ADR-0031 (cross-plane comparison / benchmark grid), docs/roadmap.md (Phase 2 — the real benchmark suite), ni/labview-icon-editor CI
 
 ## Context
 
@@ -48,7 +48,10 @@ Both actors' receipts slot into the cross-plane benchmark grid (ADR-0031).
   pinned icon-editor project (`9545c483`) in ~59s, `ExecuteBuildSpec operation succeeded`,
   with no g-cli, no dependency-vipc apply, and no dev-mode setup — the icon-editor `resource/`
   source loads and builds clean in the NI image.
-- **The tester actor is the next increment**: g-cli's Linux launcher must be built from the
-  Rust source in a derived image before `g-cli lunit` can run; this ADR anchors that slice.
+- **The tester actor is the next increment**: g-cli's Linux launcher is now proven — the
+  `rust-proxy` crate builds with cargo (~7s) and drives host LabVIEW 2026 through a full TCP
+  round-trip (**LBA-REQ-052**: `g-cli` launched `Echo Parameters.vi`, which echoed the args
+  back and exited 0). The remaining piece for the tester actor is the LUnit tool VIs
+  (`g-cli ... lunit` plus the `runner_dependencies.vipc` closure) installed into the container.
 - A well-known community project's **actual CI build** is now a governed, fail-closed,
   cross-plane-comparable benchmark, advancing roadmap Phase 2 (the real benchmark suite).

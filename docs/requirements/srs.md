@@ -79,6 +79,7 @@ progressively.
 | LBA-REQ-049 | The system shall verify the golden-VM provisioner installs every headless-LabVIEW prerequisite -- Xvfb, VI Server (TCP 3363) configuration for both LabVIEW executable basenames, quoted access lists, and the post-install reboot -- so a fail-closed gate proves a fresh one-command provision yields a headless-benchmark-ready VM. | The First Win is a one-command golden VM, but a fresh provision was NOT headless-ready until three fixes were applied by hand during bring-up (Xvfb, VI Server config for both `labview.conf` and `labviewcommunity.conf`, a post-install reboot); folding those into `provision-guest.sh` and gating the provisioner's completeness keeps that hard-won knowledge from silently regressing. | `provision-guest.sh` installs Xvfb, writes the VI Server config into both exe-basename config files with quoted access lists, and addresses the reboot; `provisionerReadiness.mjs` validates the committed receipt against the ACTUAL script text and fails closed if any prerequisite is missing, the ready verdict is forged, or the digest is tampered. | Run `node experiments/provisioner-readiness/verify-provisioner-readiness.selftest.mjs` (7/7); gated by `provisioner-headless-readiness`. Live: the hardened `provision-guest.sh` satisfies all 6 headless-readiness checks. |
 | LBA-REQ-050 | The system shall unify the golden-VM LabVIEW benchmarks into a cross-plane grid that records, per benchmark, the machine-independent identity on each plane and the performance metric, so a fail-closed gate proves identities agree across planes and no determinism violation is admitted. | The golden VM exists to enable objective, reproducible cross-plane comparison (the North Star); a single generated grid that shows every benchmark's identity agreement across planes plus its performance is the artifact that comparison is for, and gating it fail-closed makes a cross-plane determinism violation impossible to merge. | `benchmarkGrid.mjs` assembles the committed per-benchmark cross-plane receipts into `cross-plane-benchmark-grid@1`, deriving per-benchmark identity agreement + consensus and rendering `docs/benchmarks/benchmark-grid.md`; `validateBenchmarkGrid` fails closed on a benchmark whose planes disagree, a forged agreement/verdict, or a tampered digest. | Run `node experiments/benchmark-grid/verify-benchmark-grid.selftest.mjs` (7/7); gated by `cross-plane-benchmark-grid`. Live: VI Analyzer (host + scratch VM) resultHash 0419a449; Mass Compile icon-editor resource/ resultHash bf722123 agrees across the OS axis -- host + lba-golden VM (Linux) + win-VITLT-SERGIO (Windows LabVIEW 2026), 3/3 planes; compile 39s host / 24s VM / 211s Windows. |
 | LBA-REQ-051 | The system shall build the ni/labview-icon-editor Editor Packed Library inside the NI LabVIEW container as a benchmark, so a fail-closed gate proves the committed build result is correctly derived and cross-plane comparable. | The operator-directed 2-actor icon-editor grid reproduces the project's real CI (one actor builds the PPL, one runs the LUnit tests); the builder is the icon-editor's own Editor Packed Library build spec, which native LabVIEWCLI ExecuteBuildSpec runs in the NI LabVIEW container (nationalinstruments/labview:2026q1-linux) where LabVIEW is licensed + headless -- no g-cli required for the build. | `LabVIEWCLI -OperationName ExecuteBuildSpec` builds the Editor Packed Library from lv_icon_editor.lvproj -> lv_icon.lvlibp; `pplBuildBenchmark.mjs` records the machine-independent build identity + build time; `validatePplReceipt` fails closed unless the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/ppl-build/verify-ppl-build-benchmark.selftest.mjs` (7/7); gated by `ppl-build-benchmark`. Live: the NI container built lv_icon.lvlibp (2.9 MB) from icon-editor @9545c48 in 59s, succeeded. |
+| LBA-REQ-052 | The system shall build the g-cli launcher from its Rust source and prove it on this host, so a fail-closed gate confirms the committed round-trip is correctly derived and cross-plane comparable. | The 2-actor icon-editor grid's TESTER actor drives LUnit via g-cli; on Linux g-cli ships no prebuilt binary -- its launcher is the rust-proxy crate (G-CLI/G-CLI) that opens a TCP server, launches LabVIEW on the target VI, and streams args/output/exit code back. Building it from source and proving a real LabVIEW round-trip is the enabler for that actor. | `cargo build --release` builds the `g-cli` binary; `gcliProxyBenchmark.mjs` records the machine-independent proof identity (tool + version + source commit + operation + args in + echoed text + exit code + LabVIEW version/bitness); `validateGcliReceipt` fails closed unless the echo matches the args sent, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/g-cli-proxy/verify-g-cli-proxy-proof.selftest.mjs` (7/7); gated by `g-cli-proxy-proof`. Live: g-cli 3.0.1 built from Rust in 6.7s, then drove host LabVIEW 2026 (headless) to echo hello/from/host and exit 0. |
 
 ---
 
@@ -1562,6 +1563,36 @@ progressively.
 
 ---
 
+### LBA-REQ-052: g-cli launcher built from Rust + proven on host
+
+- Status: Proven
+- Area: Deployment / benchmark (ADR-0033 -- the 2-actor icon-editor grid, tester-actor enabler)
+- Statement: The system shall build the g-cli launcher from its Rust source and prove it on
+  this host, so a fail-closed gate confirms the committed round-trip is correctly derived and
+  cross-plane comparable.
+- Rationale: The grid's TESTER actor runs the icon-editor LUnit suite via `g-cli ... lunit`.
+  On Linux g-cli ships no prebuilt binary: the launcher is the `rust-proxy` crate
+  (`G-CLI/G-CLI`) that opens a TCP server, launches LabVIEW on the target VI, and streams the
+  VI's arguments / output / exit code back over the socket. Building it from source and
+  proving a real LabVIEW round-trip on this host is the enabler for that actor.
+- Acceptance Criteria:
+  - `cargo build --release` builds the `g-cli` binary from the pinned source.
+  - `g-cli` detects the host LabVIEW install and completes a full round-trip: it launches the
+    target VI, which echoes the args back over TCP and sets the exit code.
+  - `gcliProxyBenchmark.mjs` records the machine-independent proof identity (tool + version +
+    source commit + operation + args in + echoed text + exit code + LabVIEW version/bitness).
+  - `validateGcliReceipt` fails closed unless the echo matches the args sent, the `resultHash`
+    re-derives, the verdict matches the rule, and the digest is intact.
+  - Live evidence: g-cli 3.0.1 built from Rust in ~6.7s, then drove host LabVIEW 2026
+    (headless) to run `Echo Parameters.vi`, which echoed `hello/from/host` and exited 0.
+- Change Guidance: The builder + validator `experiments/g-cli-proxy/gcliProxyBenchmark.mjs`
+  plus its self-test are gated by `g-cli-proxy-proof` in `verify-local-gates` and mapped in
+  the RTM. With the launcher proven, the remaining tester-actor slice is the LUnit tool VIs
+  (`g-cli ... lunit` + the `runner_dependencies.vipc` closure). Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1617,3 +1648,4 @@ progressively.
 | LBA-REQ-049 | Deployment (provisioner headless-LabVIEW readiness) | T-049 |
 | LBA-REQ-050 | Deployment (cross-plane benchmark grid) | T-050 |
 | LBA-REQ-051 | Deployment (icon-editor Packed Library build) | T-051 |
+| LBA-REQ-052 | Deployment (g-cli launcher built from Rust) | T-052 |

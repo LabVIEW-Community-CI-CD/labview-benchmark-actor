@@ -58,5 +58,6 @@
 | LBA-REQ-049 | Golden-VM provisioner headless-LabVIEW readiness | Proven | §3.2 Deployment | ADR-0023 | T-049 | 5 |
 | LBA-REQ-050 | Cross-plane benchmark grid | Proven | §3.2 Deployment | ADR-0031 | T-050 | 7 |
 | LBA-REQ-051 | Icon-editor Packed Library build benchmark | Proven | §3.2 Deployment | ADR-0033 | T-051 | 4 |
+| LBA-REQ-052 | g-cli launcher built from Rust + proven on host | Proven | §3.2 Deployment | ADR-0033 | T-052 | 4 |
 
-_Generated for 51 requirements._
+_Generated for 52 requirements._
