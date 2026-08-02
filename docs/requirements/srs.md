@@ -81,6 +81,7 @@ progressively.
 | LBA-REQ-051 | The system shall build the ni/labview-icon-editor Editor Packed Library inside the NI LabVIEW container as a benchmark, so a fail-closed gate proves the committed build result is correctly derived and cross-plane comparable. | The operator-directed 2-actor icon-editor grid reproduces the project's real CI (one actor builds the PPL, one runs the LUnit tests); the builder is the icon-editor's own Editor Packed Library build spec, which native LabVIEWCLI ExecuteBuildSpec runs in the NI LabVIEW container (nationalinstruments/labview:2026q1-linux) where LabVIEW is licensed + headless -- no g-cli required for the build. | `LabVIEWCLI -OperationName ExecuteBuildSpec` builds the Editor Packed Library from lv_icon_editor.lvproj -> lv_icon.lvlibp; `pplBuildBenchmark.mjs` records the machine-independent build identity + build time; `validatePplReceipt` fails closed unless the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/ppl-build/verify-ppl-build-benchmark.selftest.mjs` (7/7); gated by `ppl-build-benchmark`. Live: the NI container built lv_icon.lvlibp (2.9 MB) from icon-editor @9545c48 in 59s, succeeded. |
 | LBA-REQ-052 | The system shall build the g-cli launcher from its Rust source and prove it on this host, so a fail-closed gate confirms the committed round-trip is correctly derived and cross-plane comparable. | The 2-actor icon-editor grid's TESTER actor drives LUnit via g-cli; on Linux g-cli ships no prebuilt binary -- its launcher is the rust-proxy crate (G-CLI/G-CLI) that opens a TCP server, launches LabVIEW on the target VI, and streams args/output/exit code back. Building it from source and proving a real LabVIEW round-trip is the enabler for that actor. | `cargo build --release` builds the `g-cli` binary; `gcliProxyBenchmark.mjs` records the machine-independent proof identity (tool + version + source commit + operation + args in + echoed text + exit code + LabVIEW version/bitness); `validateGcliReceipt` fails closed unless the echo matches the args sent, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/g-cli-proxy/verify-g-cli-proxy-proof.selftest.mjs` (7/7); gated by `g-cli-proxy-proof`. Live: g-cli 3.0.1 built from Rust in 6.7s, then drove host LabVIEW 2026 (headless) to echo hello/from/host and exit 0. |
 | LBA-REQ-053 | The system shall run the ni/labview-icon-editor LUnit suite via g-cli as a benchmark, so a fail-closed gate proves the committed test inventory is correctly derived and cross-plane comparable. | This is the TESTER actor of the 2-actor icon-editor grid (companion to the builder, LBA-REQ-051): the Rust-built g-cli (LBA-REQ-052) runs the project's real unit tests, with the LUnit framework from the CORRECT icon-editor-developer.vipc (NOT the CI-runner runner_dependencies.vipc). | `g-cli --lv-ver 2026 --arch 64 lunit -- -r <report.xml> lv_icon_editor.lvproj` discovers + runs the project's LUnit classes and emits a JUnit report; `lunitTestBenchmark.mjs` records the machine-independent test inventory (sorted class/case set + suite structure); `validateLunitReceipt` fails closed unless the inventory matches the total, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/lunit-test/verify-lunit-test-benchmark.selftest.mjs` (7/7); gated by `lunit-test-benchmark`. Live: g-cli lunit ran the suite on lba-golden -- 4 classes / 25 cases (10 passed, 2 failed, 8 errored headless, 5 setup), well-formed report. |
+| LBA-REQ-054 | The system shall assemble every committed benchmark receipt into a benchmark-type x plane coverage matrix (the Benchmark Observatory), so a fail-closed gate proves the suite-wide determinism ledger and coverage are correctly derived. | As the suite grows along its axes (benchmark type x plane x OS x hardware), one governed artifact must map what has been measured where, whether it reproduces, and what to measure next -- above the per-benchmark grid. | `benchmarkObservatory.mjs` folds the VI Analyzer + Mass Compile + PPL build + LUnit test receipts into a coverage matrix + determinism ledger + frontier; `validateObservatory` fails closed on a determinism violation, a matrix that contradicts the receipts, a forged verdict, or a tampered digest; the generated `docs/benchmarks/benchmark-observatory.md` is drift-gated. | Run `node experiments/benchmark-observatory/verify-benchmark-observatory.selftest.mjs` (8/8); gated by `benchmark-observatory`. Derived: 4 benchmark types x 5 planes, 2 cross-plane-proven, 0 violations, 13-cell frontier. |
 
 ---
 
@@ -1629,6 +1630,37 @@ progressively.
 
 ---
 
+### LBA-REQ-054: Benchmark Observatory (suite-wide coverage + determinism map)
+
+- Status: Proven
+- Area: Deployment / benchmark (ADR-0034 -- the observatory above the cross-plane grid)
+- Statement: The system shall assemble every committed benchmark receipt into a
+  benchmark-type x plane coverage matrix (the Benchmark Observatory), so a fail-closed gate
+  proves the suite-wide determinism ledger and coverage are correctly derived.
+- Rationale: The suite now spans several benchmark types (VI Analyzer, Mass Compile, the
+  icon-editor PPL build + LUnit test) across several planes (bare-metal host, golden VM, NI
+  container, Windows). The per-benchmark grid (ADR-0031) proves determinism but offers no
+  suite-wide view. One governed artifact must map what has been measured where, whether it
+  reproduces, and what to measure next.
+- Acceptance Criteria:
+  - `benchmarkObservatory.mjs` folds every committed benchmark receipt into a benchmark-type
+    x plane coverage matrix, a determinism ledger (identity must agree across a benchmark's
+    planes), and a data-driven frontier (the empty cells).
+  - The observatory is derived from committed receipts (pure + offline) and the generated
+    `docs/benchmarks/benchmark-observatory.md` is regenerated in the `lba verify` pipeline.
+  - `validateObservatory` fails closed on a determinism violation, a coverage matrix that
+    contradicts the receipts, a stale surface, a forged verdict, or a tampered digest.
+  - Derived evidence: 4 benchmark types x 5 planes, 2 cross-plane-proven (Mass Compile 3
+    planes, VI Analyzer 2 planes), 2 pending, 0 violations, ~35% cell coverage, 13-cell
+    frontier.
+- Change Guidance: The `experiments/benchmark-observatory/` model + generator + self-test are
+  gated by `benchmark-observatory` in `verify-local-gates` and mapped in the RTM. The
+  observatory composes with -- does not replace -- the grid (ADR-0031) + the 2-actor
+  icon-editor grid (ADR-0033); new benchmark types / planes / projects slot in as receipts.
+  Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1686,3 +1718,4 @@ progressively.
 | LBA-REQ-051 | Deployment (icon-editor Packed Library build) | T-051 |
 | LBA-REQ-052 | Deployment (g-cli launcher built from Rust) | T-052 |
 | LBA-REQ-053 | Deployment (icon-editor LUnit test) | T-053 |
+| LBA-REQ-054 | Deployment (benchmark observatory) | T-054 |

@@ -41,6 +41,7 @@
 | [ADR-0031](ADR-0031-cross-plane-vi-analyzer-determinism.md) | Cross-plane VI Analyzer determinism: the same config yields the same resultHash across LabVIEW planes | LINUX | Accepted | LBA-REQ-043, LBA-REQ-050 |
 | [ADR-0032](ADR-0032-human-assisted-vm-bridge.md) | Human-assisted VM bridge: the agent drives the golden VM, the human types the secrets | LINUX | Accepted | LBA-REQ-045 |
 | [ADR-0033](ADR-0033-icon-editor-container-benchmarks.md) | Icon-editor CI benchmarks in the NI LabVIEW container (2-actor grid -- build + test) | LINUX | Accepted | LBA-REQ-051, LBA-REQ-052, LBA-REQ-053 |
+| [ADR-0034](ADR-0034-benchmark-observatory.md) | Benchmark Observatory -- suite-wide benchmark-type x plane coverage + determinism map above the grid | LINUX | Accepted | LBA-REQ-054 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
 LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0022, 0023, 0024). Add new ADRs by extending your own range.
