@@ -38,6 +38,7 @@
 | [ADR-0028](ADR-0028-distributed-parallel-workload.md) | Distribute the workload across an N-instance ripgrep-only pool, capacity-weighted and budget-capped | LINUX | Accepted | LBA-REQ-040 |
 | [ADR-0029](ADR-0029-capability-aware-routing.md) | Capability-aware task routing across the distributed instance pool | LINUX | Accepted | LBA-REQ-041 |
 | [ADR-0030](ADR-0030-cross-plane-labview-liveness.md) | Cross-plane LabVIEW liveness: prove >= 2 independent activated LabVIEW planes via the known-answer probe | LINUX | Accepted | LBA-REQ-042 |
+| [ADR-0031](ADR-0031-cross-plane-vi-analyzer-determinism.md) | Cross-plane VI Analyzer determinism: the same config yields the same resultHash across LabVIEW planes | LINUX | Accepted | LBA-REQ-043 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
 LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0022, 0023, 0024). Add new ADRs by extending your own range.

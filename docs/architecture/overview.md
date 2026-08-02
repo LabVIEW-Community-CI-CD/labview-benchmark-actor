@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -102,6 +102,11 @@ multi-VM / Codespace topology.
   by running the known-answer activation probe concurrently. A fail-closed gate
   requires >= 2 activated planes (ADR-0030); the substrate for cross-plane
   benchmark comparison, and Phase 1 (ADR-0023) proven operational.
+- **Cross-plane comparison, proven (LBA-REQ-043):** the same VI Analyzer config run
+  on both LabVIEW planes (host + golden VM) yields a byte-identical deterministic
+  resultHash — objective, reproducible cross-plane benchmark equivalence, the North
+  Star. A fail-closed gate requires the planes agree (ADR-0031, builds on
+  LBA-REQ-015).
 
 ### 3.3 Actor / run-result view — addresses LBA-REQ-003, LBA-REQ-009
 - The agentic actor drives a run and emits a **schema-versioned run result**:
@@ -266,6 +271,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-36 | Distribute the workload across an N-instance ripgrep-only pool (host + codespaces + VMs), dynamically discovered, capacity-weighted, and budget-capped | Spreading load off the host toward the North Star distributed mesh; a fail-closed gate replays a real 3-instance receipt (ADR-0028) | LBA-REQ-040 |
 | AD-37 | Route each distributed task only to an instance advertising the capability it requires (LabVIEW to LabVIEW-capable instances, node work anywhere) | LabVIEW lives only on capable instances; capability routing makes the heterogeneous fleet do real cross-plane work correctly (ADR-0029) | LBA-REQ-041 |
 | AD-38 | Prove cross-plane LabVIEW liveness by running the known-answer probe on every LabVIEW plane (host + LabVIEW VMs), requiring >= 2 activated planes | Real cross-plane comparison needs more than one activated LabVIEW plane; the golden VM (ADR-0023) becomes a proven second plane (ADR-0030) | LBA-REQ-042 |
+| AD-39 | Verify cross-plane benchmark determinism by matching the same VI Analyzer config's resultHash across LabVIEW planes | Turns liveness into objective, reproducible comparison (the North Star); a divergent resultHash fails the gate (ADR-0031, LBA-REQ-015) | LBA-REQ-043 |
 
 ## 5. Risks and open questions
 

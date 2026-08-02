@@ -70,6 +70,7 @@ progressively.
 | LBA-REQ-040 | The system shall distribute an independent-task workload across a budget-capped pool of ripgrep-only instances proportional to each instance's capacity, so a fail-closed gate proves the shards ran disjointly on distinct instances with every task passing. | The North Star is on-demand distributed benchmark runs across planes with no central aggregation (docs/roadmap.md); a capacity-weighted executor that dynamically discovers a budget-capped pool (host + codespaces + local VMs) and runs disjoint shards concurrently — every instance searching with ripgrep only — is the first distributed-execution primitive and spreads load off the host (ADR-0028). | `discoverPool` enumerates host + codespaces + running VMs up to a conservative budget (default host + 2 remote); `capacityWeightedPartition` splits proportional to static per-type weights; per-type SSH adapters run the shards concurrently; `validateReceipt` fails closed unless the split re-derives disjoint distinct-instance rg-only shards with every task passing. | Run `node experiments/parallel/verify-parallel-workload.selftest.mjs` (4/4); gated by `distributed-parallel-workload` in `verify-local-gates`. Live: 42 self-tests split 25/9/8 across three instances. |
 | LBA-REQ-041 | The system shall route each distributed task only to an instance advertising the capability the task requires, so a fail-closed gate proves every task ran on a capability-matching instance. | The distributed executor (ADR-0028) is heterogeneous, but LabVIEW lives only on capable instances (the host and LabVIEW VMs) — a VI task sent to a node-only codespace would fail. Capability-aware routing sends each task only where it can run (ADR-0029, operator directive). | `routeByCapability` groups tasks by required capability and capacity-weight-splits each group across only the advertising instances (throws if none can); host advertises `labview` iff LabVIEWCLI present, codespaces `node` only; `validateRouting` fails closed unless every task ran capability-matched, the re-route reproduces the shards, disjoint + covered + distinct + rg-only + all passed. | Run `node experiments/parallel/verify-capability-routing.selftest.mjs` (5/5); gated by `capability-aware-routing` in `verify-local-gates`. Live: LabVIEW probe -> host, 43 node tasks across 3 instances. |
 | LBA-REQ-042 | The system shall confirm cross-plane LabVIEW liveness by running the known-answer activation probe on every LabVIEW plane, so a fail-closed gate proves at least two independent LabVIEW planes are activated and operational. | Real cross-plane comparison (the North Star) needs more than one activated LabVIEW plane; the capability router (ADR-0029) now reaches the host plus a LabVIEW VM (the Phase 1 golden VM, ADR-0023). Running the known-answer probe on each plane and asserting the answer proves independent, activated, operational planes to compare across (ADR-0030). | `runCrossPlaneLiveness.mjs` discovers LabVIEW planes (host + running VMs answering `ls LabVIEWCLI` over ssh), runs `LabVIEWCLI RunVI` on each concurrently; `validateLiveness` fails closed unless >= 2 distinct planes each returned the known answer and are activated. | Run `node experiments/activation/verify-cross-plane-liveness.selftest.mjs` (4/4); gated by `cross-plane-labview-liveness` in `verify-local-gates`. Live: host + Ubuntu golden VM, both LabVIEW 2026, 7+5=12. |
+| LBA-REQ-043 | The system shall verify cross-plane benchmark determinism by comparing the same VI Analyzer config's deterministic resultHash across every LabVIEW plane, so a fail-closed gate proves the planes agree. | Cross-plane liveness (ADR-0030) proved >= 2 activated planes; the North Star is objective, reproducible cross-plane COMPARISON. LBA-REQ-015's resultHash is machine-independent, so running the same config on each plane and matching the hashes proves benchmark equivalence, not a subjective claim (ADR-0031). | `runCrossPlaneViAnalyzer.mjs` runs the shipped LabVIEWCLIExampleProject on each LabVIEW plane concurrently, computes each resultHash via `summarizeViAnalyzerReport` (LBA-REQ-015); `validateComparison` fails closed unless >= 2 distinct planes carry an identical resultHash. | Run `node experiments/vi-analyzer/verify-cross-plane-comparison.selftest.mjs` (4/4); gated by `cross-plane-vi-analyzer-determinism`. Live: host + Ubuntu golden VM, 69 tests, byte-identical resultHash. |
 
 ---
 
@@ -1285,6 +1286,34 @@ progressively.
 
 ---
 
+### LBA-REQ-043: Cross-plane VI Analyzer determinism
+
+- Status: Proven
+- Area: Deployment / cross-plane comparison (ADR-0031; extends ADR-0030; builds on LBA-REQ-015)
+- Statement: The system shall verify cross-plane benchmark determinism by comparing
+  the same VI Analyzer config's deterministic resultHash across every LabVIEW plane,
+  so a fail-closed gate proves the planes agree.
+- Rationale: Cross-plane liveness (ADR-0030) proved the fleet has >= 2 activated
+  LabVIEW planes; the North Star is objective, reproducible cross-plane
+  *comparison*. LBA-REQ-015's resultHash canonicalizes a VI Analyzer run so it is
+  machine-independent, so running the same config on each plane and asserting the
+  hashes match proves benchmark equivalence rather than a subjective claim
+  (ADR-0031).
+- Acceptance Criteria:
+  - `runCrossPlaneViAnalyzer.mjs` runs the shipped `LabVIEWCLIExampleProject` on
+    every LabVIEW plane concurrently and computes each plane's resultHash via the
+    established `summarizeViAnalyzerReport` (LBA-REQ-015).
+  - `validateComparison` fails closed unless >= 2 distinct planes each carry a
+    resultHash and ALL resultHashes are identical (the consensus).
+  - Live evidence: this host + the Ubuntu golden VM, both LabVIEW 2026, 69 tests,
+    a byte-identical resultHash; the receipt replays offline in CI.
+- Change Guidance: The core `experiments/vi-analyzer/crossPlaneComparison.mjs` +
+  `runCrossPlaneViAnalyzer.mjs` and the self-test are gated by
+  `cross-plane-vi-analyzer-determinism` in `verify-local-gates` and mapped in the
+  RTM. Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1331,3 +1360,4 @@ progressively.
 | LBA-REQ-040 | Deployment (distributed parallel workload) | T-040 |
 | LBA-REQ-041 | Deployment (capability-aware routing) | T-041 |
 | LBA-REQ-042 | Deployment (cross-plane LabVIEW liveness) | T-042 |
+| LBA-REQ-043 | Deployment (cross-plane VI Analyzer determinism) | T-043 |
