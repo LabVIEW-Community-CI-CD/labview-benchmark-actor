@@ -141,7 +141,7 @@ multi-VM / Codespace topology.
   poll / post) to a coding agent through a Model Context Protocol server
   (LBA-REQ-019, ADR-0012).
 
-### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022, LBA-REQ-030, LBA-REQ-034, LBA-REQ-035, LBA-REQ-036
+### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022, LBA-REQ-030, LBA-REQ-034, LBA-REQ-035, LBA-REQ-036, LBA-REQ-037
 - GitFlow branch governance (`main` protected + `develop` integration;
   feature / release / hotfix; SemVer tags on main; coverage retained on the
   release path) satisfies the repo-standards-review CM gate without weakening the
@@ -172,6 +172,11 @@ multi-VM / Codespace topology.
   (`docs/release/release-procedure.md`) whose cited workflows, scripts, and
   release invariants are kept resolvable by a fail-closed gate, so the procedure
   cannot rot away from the apparatus it directs (LBA-REQ-036, ADR-0026).
+- The repository **self-audits** its five-lens standards posture (REQ/ARCH/TEST/
+  CM/DOC) at clause-evidence granularity and generates a scorecard
+  (`docs/compliance/compliance-posture.md`); a fail-closed gate asserts 25/25 at
+  target, so full standards compliance is verified continuously and cannot
+  silently regress (LBA-REQ-037, ADR-0027).
 
 ### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026, LBA-REQ-027, LBA-REQ-028, LBA-REQ-029, LBA-REQ-031
 
@@ -230,6 +235,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-32 | Govern the bounded ISO/IEC/IEEE 26514 information-for-users set with a fail-closed completeness + command-coverage gate | Non-gated documentation drifts from the product; enforcing the bounded product set keeps user information current by construction (ADR-0024) | LBA-REQ-034 |
 | AD-33 | Generate the 29119-3 test report + ISO 10007 status accounting from the verification apparatus and gate it fail-closed on drift | The repo recorded a test plan but never the executed outcomes or controlled configuration state; generating them from the enforced apparatus keeps assurance current by construction (ADR-0025) | LBA-REQ-035 |
 | AD-34 | Make the signed, corroborated release procedure a first-class 15289 information item and gate its cited enforcement points + invariants fail-closed | The release flow was scattered across the CM plan and the grid requirements with no single procedure; gating it keeps the procedure resolvable and invariant-complete by construction (ADR-0026) | LBA-REQ-036 |
+| AD-35 | Self-audit the five-lens standards posture at clause-evidence granularity and gate 25/25 fail-closed | The 25/25 audit was a point-in-time score; a generated, fail-closed self-audit makes full compliance corroborated by construction and closes F4 (non-gated conformance) for all standards (ADR-0027) | LBA-REQ-037 |
 
 ## 5. Risks and open questions
 

@@ -299,6 +299,17 @@ check('release-procedure-references-resolve', () => {
   return { standard: 'ISO/IEC/IEEE 15289 + 12207', selftest: 'verify-release-procedure 3/3 (conformant + fail-closed)' };
 });
 
+// 6h. Continuous compliance self-audit (CAPSTONE, LBA-REQ-037): score THIS repo against the
+//     repo-standards-review five-lens rubric (REQ/ARCH/TEST/CM/DOC) at clause-evidence granularity and
+//     assert 25/25 at target. Fails closed if any lens drops below target -- deleting an information item,
+//     unwiring a gate, or dropping a clause anchor turns the build red. Closes audit finding F4 (non-gated
+//     conformance) for ALL standards: full compliance is verified continuously, not just present. The
+//     selftest also proves the scoring fails closed on any single missing clause-evidence item.
+check('continuous-compliance-self-audit', () => {
+  execFileSync(process.execPath, [join(here, 'compliance', 'verify-compliance-posture.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'repo-standards-review five-lens rubric', selftest: 'verify-compliance-posture 4/4 (25/25 conformant + fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
