@@ -23,6 +23,7 @@
 | Requirements Traceability Matrix | `docs/requirements/rtm.csv` | Maintainers | requirement, test, or code-reference change | every `LBA-REQ` maps to a test + code refs; Proven rows resolve on disk (reqs-coverage) |
 | Generated Traceability Matrix | `docs/requirements/traceability-matrix.md` | Maintainers (generated) | any requirement / test / view / decision source change | regenerated from the sources; the `traceability-matrix-current` gate fails closed on drift |
 | Roadmap | `docs/roadmap.md` | Maintainers | North Star, phase, or near-term-slice change | the multi-year vision + near-term personal-golden-VM slice trace to `ADR-0023` / `LBA-REQ-033` |
+| Information for Users (26514 set) | `docs/information-for-users/navigation-and-search.md` | Maintainers | a new command, audience, task, or delivery surface | the bounded ISO/IEC/IEEE 26514 product set is complete + command-covering; the `information-for-users-26514` gate (`LBA-REQ-034`) fails closed on drift |
 
 ## Notes
 

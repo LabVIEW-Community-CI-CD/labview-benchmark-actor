@@ -269,6 +269,15 @@ check('traceability-matrix-current', () => {
   return { generator: 'reqs-coverage/generate-traceability.mjs' };
 });
 
+// 6e. Information for users (ISO/IEC/IEEE 26514:2022, LBA-REQ-034): the bounded information PRODUCT set is
+//     COMPLETE -- every required item present + non-trivial, the command reference covers EVERY contributed VS
+//     Code command, the conformance boundary is stated, and the navigation hub indexes the set. Fail-closed:
+//     the selftest also proves an empty set flags every missing item + any uncovered command.
+check('information-for-users-26514', () => {
+  execFileSync(process.execPath, [join(here, 'information-for-users', 'verify-information-for-users.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ISO/IEC/IEEE 26514:2022', selftest: 'verify-information-for-users 2/2 (committed conformant + fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
