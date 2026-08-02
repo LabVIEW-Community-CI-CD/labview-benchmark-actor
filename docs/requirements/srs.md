@@ -63,6 +63,7 @@ progressively.
 | LBA-REQ-033 | The system shall provision a from-scratch Ubuntu 24.04 golden VM with activated LabVIEW 2026 Community Edition plus VIPM, confirming the activation with a headless probe VI before registering the VM as a mesh actor. | The single biggest gap is that a community member cannot yet get a reproducible LabVIEW benchmark environment from scratch; a one-command Ubuntu provisioner with functional activation confirmation and a locally-minted personal golden VM unlocks the Linux plane and community onboarding (ADR-0023, builds on the Windows golden box). | `lba init` provisions Ubuntu 24.04 Noble, installs `ni-labview-2026-community` plus `vipm` from the NI apt repo, and after the interactive activation a headless `LabVIEWCLI` `RunVI` probe emits an `activation-receipt@1` whose success gates minting the local golden VM plus its `mesh-actors.csv` registration; the confirmation is deterministically replayable offline from a committed receipt. | (Planned, Phase 1) The provisioner, probe VI, and activation-receipt validator ship under `experiments/` with a self-test gated in `verify-local-gates`; tracked as T-033. |
 | LBA-REQ-034 | The system shall keep the bounded ISO/IEC/IEEE 26514 information-for-users product set complete and command-covering, so a fail-closed gate blocks the build when a required user-information item is missing or a contributed command is undocumented. | The standards audit found user information was the repo's weakest, non-gated surface (a single user guide, no audience/task/navigation/reference), and non-gated conformance is where documentation drifts from the product; gating the bounded 26514 product set keeps user information current by construction (ADR-0024). | `verify-information-for-users.mjs` checks the 10 required items exist and are non-trivial, the command reference covers every `package.json` contributed command, the conformance boundary states a bounded product claim and disclaims full process conformance, and the navigation hub indexes the set; the self-test also proves an empty set fails closed. | Run `node experiments/information-for-users/verify-information-for-users.selftest.mjs` (2/2); gated by `information-for-users-26514` in `verify-local-gates`. |
 | LBA-REQ-035 | The system shall generate the test report and configuration status-accounting record from the verification apparatus, so a fail-closed gate blocks the build when the committed record drifts from the gates, correspondence rules, requirements, and decisions it accounts for. | A deeper clause-level standards audit found the repo kept a test *plan* but no executed test *report* (ISO/IEC/IEEE 29119-3) and no *configuration status-accounting* record (ISO 10007); outcomes and controlled state were never governed information items. Generating them from the very apparatus CI enforces keeps them current by construction (ADR-0025). | `generate-test-report.mjs` derives the 29119-2 completion criteria, the fail-closed gate inventory, the correspondence rules, the coverage floors, and the requirement / ADR / test-item status accounting into `docs/testing/test-report.md`; `--check` fails closed on drift. | Run `node experiments/reqs-coverage/generate-test-report.selftest.mjs` (4/4); gated by `test-report-current` in `verify-local-gates`. |
+| LBA-REQ-036 | The system shall keep the ISO/IEC/IEEE 15289 release procedure resolvable and invariant-complete, so a fail-closed gate blocks the build when the procedure cites a workflow or script that does not resolve or omits a required release invariant. | A deeper clause-level audit found the repo had a 12207 move/transition procedure but no *release* procedure information item; the signed, corroborated release flow was scattered across the CM plan's branch governance and the corroboration-grid requirements. A procedure that could silently cite a renamed workflow would mislead a releaser, so it is gated to stay resolvable by construction (ADR-0026). | `docs/release/release-procedure.md` gives the step-by-step signed, corroborated release; `verify-release-procedure.mjs` asserts every cited workflow/script/action path resolves and every required release invariant is named, failing closed otherwise. | Run `node experiments/release/verify-release-procedure.selftest.mjs` (3/3); gated by `release-procedure-references-resolve` in `verify-local-gates`. |
 
 ---
 
@@ -1053,6 +1054,40 @@ progressively.
 
 ---
 
+### LBA-REQ-036: Resolvable, invariant-complete release procedure
+
+- Status: Proven
+- Area: Configuration management / release process (ISO/IEC/IEEE 15289 procedure; ISO/IEC/IEEE 12207 / ISO 10007 release process)
+- Statement: The system shall keep the ISO/IEC/IEEE 15289 release procedure
+  resolvable and invariant-complete, so a fail-closed gate blocks the build when
+  the procedure cites a workflow or script that does not resolve or omits a
+  required release invariant.
+- Rationale: A deeper clause-level standards audit found the repo carried a 12207
+  move/transition procedure but no *release* procedure information item — the
+  signed, corroborated release flow was scattered across the CM plan's branch
+  governance and the corroboration-grid requirements. A procedure that could
+  silently cite a renamed workflow would mislead a releaser; gating it keeps the
+  procedure resolvable by construction (ADR-0026).
+- Acceptance Criteria:
+  - `docs/release/release-procedure.md` exists and gives the step-by-step signed,
+    corroborated release: release branch → version bump → `--no-ff` merge to
+    `main` → corroboration quorum → bidirectional agreement → keyless signing
+    (Fulcio + rekor) → transparency-log inclusion → immutable GitHub Release →
+    verify-before-install → merge back.
+  - Every workflow / script / action path the procedure cites resolves on disk.
+  - The procedure names every required release invariant (SemVer tag on `main`,
+    bidirectional agreement, keyless signing, transparency-log inclusion,
+    verify-before-install).
+  - The checker fails closed when a cited path is missing or a required invariant
+    is dropped (proven by the self-test).
+- Change Guidance: The checker `experiments/release/verify-release-procedure.mjs`
+  plus its self-test are gated by `release-procedure-references-resolve` in
+  `verify-local-gates` and mapped in the RTM; the procedure is registered in the
+  15289 information item map. Authored under the singular-requirement directive
+  (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1092,3 +1127,4 @@ progressively.
 | LBA-REQ-033 | Deployment (personal golden-VM onboarding) | T-033 |
 | LBA-REQ-034 | CM / assurance (26514 information for users) | T-034 |
 | LBA-REQ-035 | Assurance (generated test report + status accounting) | T-035 |
+| LBA-REQ-036 | CM (release procedure) | T-036 |
