@@ -49,6 +49,10 @@ Mesh-actor enrollment is delivered as requirement **LBA-REQ-039**: the golden VM
 registered in `mesh-actors.csv` only after that receipt confirms activation, so
 confirmation and enrollment form one fail-closed chain.
 
+The provisioner's install layer is delivered as requirement **LBA-REQ-044**: the
+from-scratch Ubuntu VM installs both LabVIEW 2026 Community (NI apt repo) and VIPM
+(the JKI Debian package), proven live on the scratch VM.
+
 ## Consequences
 
 - The **Linux plane** becomes a first-class benchmark actor, unlocking the OS axis of cross-plane comparison

@@ -378,6 +378,15 @@ check('cross-plane-vi-analyzer-determinism', () => {
   return { standard: 'ADR-0031 cross-plane determinism', selftest: 'verify-cross-plane-comparison 4/4 (matching resultHash across planes)' };
 });
 
+// 6p. Provisioner installs LabVIEW + VIPM (LBA-REQ-044, ADR-0023 Phase 1): the from-scratch Ubuntu golden-VM
+//     provisioner (cleanroom/ubuntu-labview/provision-guest.sh) must install BOTH LabVIEW 2026 Community (NI
+//     apt repo, committed key) AND VIPM (the JKI .deb, idempotent + deps resolved). The committed live
+//     receipt confirms VIPM was installed on the real scratch VM. Fail-closed if either install is missing.
+check('provisioner-installs-labview-and-vipm', () => {
+  execFileSync(process.execPath, [join(here, 'provisioner', 'verify-provisioner-labview-vipm.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1', selftest: 'verify-provisioner-labview-vipm 4/4 (LabVIEW + VIPM)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

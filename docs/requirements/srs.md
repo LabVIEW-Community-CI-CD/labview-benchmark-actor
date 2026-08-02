@@ -71,6 +71,7 @@ progressively.
 | LBA-REQ-041 | The system shall route each distributed task only to an instance advertising the capability the task requires, so a fail-closed gate proves every task ran on a capability-matching instance. | The distributed executor (ADR-0028) is heterogeneous, but LabVIEW lives only on capable instances (the host and LabVIEW VMs) — a VI task sent to a node-only codespace would fail. Capability-aware routing sends each task only where it can run (ADR-0029, operator directive). | `routeByCapability` groups tasks by required capability and capacity-weight-splits each group across only the advertising instances (throws if none can); host advertises `labview` iff LabVIEWCLI present, codespaces `node` only; `validateRouting` fails closed unless every task ran capability-matched, the re-route reproduces the shards, disjoint + covered + distinct + rg-only + all passed. | Run `node experiments/parallel/verify-capability-routing.selftest.mjs` (5/5); gated by `capability-aware-routing` in `verify-local-gates`. Live: LabVIEW probe -> host, 43 node tasks across 3 instances. |
 | LBA-REQ-042 | The system shall confirm cross-plane LabVIEW liveness by running the known-answer activation probe on every LabVIEW plane, so a fail-closed gate proves at least two independent LabVIEW planes are activated and operational. | Real cross-plane comparison (the North Star) needs more than one activated LabVIEW plane; the capability router (ADR-0029) now reaches the host plus a LabVIEW VM (the Phase 1 golden VM, ADR-0023). Running the known-answer probe on each plane and asserting the answer proves independent, activated, operational planes to compare across (ADR-0030). | `runCrossPlaneLiveness.mjs` discovers LabVIEW planes (host + running VMs answering `ls LabVIEWCLI` over ssh), runs `LabVIEWCLI RunVI` on each concurrently; `validateLiveness` fails closed unless >= 2 distinct planes each returned the known answer and are activated. | Run `node experiments/activation/verify-cross-plane-liveness.selftest.mjs` (4/4); gated by `cross-plane-labview-liveness` in `verify-local-gates`. Live: host + Ubuntu golden VM, both LabVIEW 2026, 7+5=12. |
 | LBA-REQ-043 | The system shall verify cross-plane benchmark determinism by comparing the same VI Analyzer config's deterministic resultHash across every LabVIEW plane, so a fail-closed gate proves the planes agree. | Cross-plane liveness (ADR-0030) proved >= 2 activated planes; the North Star is objective, reproducible cross-plane COMPARISON. LBA-REQ-015's resultHash is machine-independent, so running the same config on each plane and matching the hashes proves benchmark equivalence, not a subjective claim (ADR-0031). | `runCrossPlaneViAnalyzer.mjs` runs the shipped LabVIEWCLIExampleProject on each LabVIEW plane concurrently, computes each resultHash via `summarizeViAnalyzerReport` (LBA-REQ-015); `validateComparison` fails closed unless >= 2 distinct planes carry an identical resultHash. | Run `node experiments/vi-analyzer/verify-cross-plane-comparison.selftest.mjs` (4/4); gated by `cross-plane-vi-analyzer-determinism`. Live: host + Ubuntu golden VM, 69 tests, byte-identical resultHash. |
+| LBA-REQ-044 | The system shall provision the from-scratch Ubuntu golden VM with both LabVIEW 2026 Community and VIPM, so a fail-closed gate blocks the build when the provisioner omits either install. | ADR-0023's golden VM is Ubuntu + LabVIEW + VIPM, but the provisioner installed only LabVIEW (NI apt repo); VIPM is a standalone JKI .deb, not in the NI repo. Adding the VIPM install completes the golden-VM automation and a gate keeps both present (advances ADR-0023 Phase 1). | `provision-guest.sh` installs `ni-labview-2026-community` (NI apt, committed key) + VIPM from `packages.jki.net` (dpkg -i + apt-get install -f, idempotent via a `dpkg -s vipm` guard); `checkProvisioner` fails closed unless both steps are present and the live receipt confirms VIPM. | Run `node experiments/provisioner/verify-provisioner-labview-vipm.selftest.mjs` (4/4); gated by `provisioner-installs-labview-and-vipm`. Live: VIPM 26.3.1-4000 installed on the scratch VM. |
 
 ---
 
@@ -1314,6 +1315,34 @@ progressively.
 
 ---
 
+### LBA-REQ-044: Provisioner installs LabVIEW and VIPM
+
+- Status: Proven
+- Area: Deployment / onboarding (ADR-0023 Phase 1 -- the from-scratch golden-VM provisioner)
+- Statement: The system shall provision the from-scratch Ubuntu golden VM with both
+  LabVIEW 2026 Community and VIPM, so a fail-closed gate blocks the build when the
+  provisioner omits either install.
+- Rationale: ADR-0023's golden VM is "Ubuntu + LabVIEW + VIPM", but the provisioner
+  installed only LabVIEW (from the NI apt repo). VIPM is a standalone JKI Debian
+  package, not in the NI repo, so it needs its own step. Adding the VIPM install
+  completes the golden-VM automation, and a gate keeps both installs present
+  (advances the Planned LBA-REQ-033 umbrella under ADR-0023).
+- Acceptance Criteria:
+  - `cleanroom/ubuntu-labview/provision-guest.sh` installs `ni-labview-2026-community`
+    from the NI apt repo signed by the committed keyring.
+  - It installs VIPM from the JKI package server
+    (`https://packages.jki.net/vipm/preview/vipm_latest_preview_amd64.deb`) via
+    `dpkg -i` + `apt-get install -f`, idempotent via a `dpkg -s vipm` guard.
+  - `checkProvisioner` fails closed unless both install steps are present.
+  - Live evidence: VIPM 26.3.1-4000 was installed on the real scratch VM
+    (`lba-ubuntu2404-labview2026-scratch`) from the JKI source; the receipt records it.
+- Change Guidance: The checker `experiments/provisioner/checkProvisioner.mjs` plus
+  its self-test are gated by `provisioner-installs-labview-and-vipm` in
+  `verify-local-gates` and mapped in the RTM. Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1361,3 +1390,4 @@ progressively.
 | LBA-REQ-041 | Deployment (capability-aware routing) | T-041 |
 | LBA-REQ-042 | Deployment (cross-plane LabVIEW liveness) | T-042 |
 | LBA-REQ-043 | Deployment (cross-plane VI Analyzer determinism) | T-043 |
+| LBA-REQ-044 | Deployment (provisioner installs LabVIEW + VIPM) | T-044 |
