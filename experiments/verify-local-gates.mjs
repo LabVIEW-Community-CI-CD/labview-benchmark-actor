@@ -396,6 +396,16 @@ check('vm-bridge-human-assisted-secret-safety', () => {
   return { standard: 'ADR-0032 human-in-the-loop secret safety', selftest: 'verify-vm-bridge 4/4 (agent drives VM; human types secrets)' };
 });
 
+// 6r. VIPM functionally installs a community package (LBA-REQ-046, ADR-0023 Phase 1): on the from-scratch
+//     golden VM, VIPM (Community Edition) installs the operator-designated self-test package g-cli
+//     (wiresmith_technology_lib_g_cli) plus its dependency closure into LabVIEW's vi.lib. The committed
+//     receipt records each package's files-installed manifest + the vi.lib file growth; fail-closed if any
+//     package did not install cleanly or no files landed in vi.lib.
+check('vipm-functional-package-install', () => {
+  execFileSync(process.execPath, [join(here, 'vipm-install', 'verify-vipm-package-install.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (functional VIPM)', selftest: 'verify-vipm-package-install 8/8 (g-cli + deps installed into vi.lib)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

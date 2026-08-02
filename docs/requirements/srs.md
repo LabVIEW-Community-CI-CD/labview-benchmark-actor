@@ -73,6 +73,7 @@ progressively.
 | LBA-REQ-043 | The system shall verify cross-plane benchmark determinism by comparing the same VI Analyzer config's deterministic resultHash across every LabVIEW plane, so a fail-closed gate proves the planes agree. | Cross-plane liveness (ADR-0030) proved >= 2 activated planes; the North Star is objective, reproducible cross-plane COMPARISON. LBA-REQ-015's resultHash is machine-independent, so running the same config on each plane and matching the hashes proves benchmark equivalence, not a subjective claim (ADR-0031). | `runCrossPlaneViAnalyzer.mjs` runs the shipped LabVIEWCLIExampleProject on each LabVIEW plane concurrently, computes each resultHash via `summarizeViAnalyzerReport` (LBA-REQ-015); `validateComparison` fails closed unless >= 2 distinct planes carry an identical resultHash. | Run `node experiments/vi-analyzer/verify-cross-plane-comparison.selftest.mjs` (4/4); gated by `cross-plane-vi-analyzer-determinism`. Live: host + Ubuntu golden VM, 69 tests, byte-identical resultHash. |
 | LBA-REQ-044 | The system shall provision the from-scratch Ubuntu golden VM with both LabVIEW 2026 Community and VIPM, so a fail-closed gate blocks the build when the provisioner omits either install. | ADR-0023's golden VM is Ubuntu + LabVIEW + VIPM, but the provisioner installed only LabVIEW (NI apt repo); VIPM is a standalone JKI .deb, not in the NI repo. Adding the VIPM install completes the golden-VM automation and a gate keeps both present (advances ADR-0023 Phase 1). | `provision-guest.sh` installs `ni-labview-2026-community` (NI apt, committed key) + VIPM from `packages.jki.net` (dpkg -i + apt-get install -f, idempotent via a `dpkg -s vipm` guard); `checkProvisioner` fails closed unless both steps are present and the live receipt confirms VIPM. | Run `node experiments/provisioner/verify-provisioner-labview-vipm.selftest.mjs` (4/4); gated by `provisioner-installs-labview-and-vipm`. Live: VIPM 26.3.1-4000 installed on the scratch VM. |
 | LBA-REQ-045 | The system shall provide a human-assisted terminal bridge to the golden VM that lets an automation agent drive the VM's interactive shell while a human types any password or token directly on the VM, so a fail-closed gate proves credentials never transit the agent. | Agent-driven golden-VM onboarding (ADR-0023) needs secrets -- LabVIEW and VIPM activation, sudo -- that must never pass through the agent or the model; a shared tmux session on the VM lets the agent drive while the human supplies credentials in-band, at the prompt (ADR-0032). | `tools/vm-bridge/vm-bridge.sh` is a shared tmux session on the VM; the agent drives via tmux send-keys/capture-pane over ssh (run/send/keys/read), `secret?` detects a credential prompt to hand off, `attach` prints the human's one-line attach; `checkVmBridge` fails closed unless the bridge is secret-safe (no --password/read -s/sshpass) and the receipt shows the agent detected but never answered a prompt. | Run `node experiments/vm-bridge/verify-vm-bridge.selftest.mjs` (4/4); gated by `vm-bridge-human-assisted-secret-safety`. Live: agent drove the scratch VM; a real `password:` prompt was detected (exit 42) + handed off, never answered. |
+| LBA-REQ-046 | The system shall prove VIPM functionally installs a LabVIEW community package into the golden VM's LabVIEW package library, so a fail-closed gate blocks the claim unless the operator-designated self-test package installed cleanly with its files landing in vi.lib. | LBA-REQ-044 proves the provisioner installs the VIPM tool; the golden VM is "Ubuntu + LabVIEW + VIPM" (ADR-0023) only once VIPM WORKS to install a package. The operator designated g-cli (`wiresmith_technology_lib_g_cli`) as the VIPM self-test; installing it exercises real dependency resolution. | The operator installed g-cli via VIPM Desktop (Community Edition) on lba-golden; `validateVipmInstallReceipt` fails closed unless every package installed cleanly (No Errors, > 0 files), vi.lib gained files, the designated package is present, and the verdict-bearing digest is intact. | Run `node experiments/vipm-install/verify-vipm-package-install.selftest.mjs` (8/8); gated by `vipm-functional-package-install`. Live: VIPM 26.3.1-4000 installed g-cli 3.0.1.98 + deps -> 279 files in vi.lib. |
 
 ---
 
@@ -1373,6 +1374,35 @@ progressively.
 
 ---
 
+### LBA-REQ-046: VIPM functionally installs a community package
+
+- Status: Proven
+- Area: Deployment / onboarding (ADR-0023 Phase 1 -- functional VIPM on the golden VM)
+- Statement: The system shall prove VIPM functionally installs a LabVIEW community
+  package into the golden VM's LabVIEW package library, so a fail-closed gate blocks the
+  claim unless the operator-designated self-test package installed cleanly with its
+  files landing in vi.lib.
+- Rationale: LBA-REQ-044 proves the provisioner INSTALLS the VIPM tool; the golden VM
+  is only "Ubuntu + LabVIEW + VIPM" (ADR-0023) once VIPM actually WORKS to install a
+  package. The operator designated g-cli (`wiresmith_technology_lib_g_cli`) as the VIPM
+  self-test; installing it also exercises real dependency resolution.
+- Acceptance Criteria:
+  - On the from-scratch golden VM, VIPM (Community Edition) installs the self-test
+    package g-cli plus its dependency closure into LabVIEW 2026.
+  - Each installed package leaves a `files-installed` manifest in the VIPM package
+    database and its VIs land under `vi.lib`.
+  - `validateVipmInstallReceipt` fails closed unless every recorded package installed
+    cleanly (`No Errors`, > 0 files), vi.lib gained files, the designated package is
+    present, and the verdict-bearing digest is intact.
+  - Live evidence: VIPM 26.3.1-4000 installed g-cli 3.0.1.98 (+ LUnit, LUnit-for-G-CLI,
+    Rainbow Terminal) on `lba-golden`; 279 files under vi.lib; the receipt records it.
+- Change Guidance: The receipt validator
+  `experiments/vipm-install/vipmInstallReceipt.mjs` plus its self-test are gated by
+  `vipm-functional-package-install` in `verify-local-gates` and mapped in the RTM.
+  Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1422,3 +1452,4 @@ progressively.
 | LBA-REQ-043 | Deployment (cross-plane VI Analyzer determinism) | T-043 |
 | LBA-REQ-044 | Deployment (provisioner installs LabVIEW + VIPM) | T-044 |
 | LBA-REQ-045 | Deployment (human-assisted VM bridge) | T-045 |
+| LBA-REQ-046 | Deployment (VIPM functionally installs a community package) | T-046 |
