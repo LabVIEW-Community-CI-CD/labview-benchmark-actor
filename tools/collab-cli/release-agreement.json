@@ -3,6 +3,17 @@
   "policy": "Publishing any component release (collab-cli-vX.Y.Z bus CLI, or ext-vX.Y.Z VS Code extension .vsix) requires an explicit, committed sign-off from BOTH the WIN and LINUX planes for that exact version. Each component's release workflow fails closed (blocks its publish job) unless both planes have recorded agreed:true. This encodes the operator directive: publishing shall occur only after bidirectional WIN<->LINUX agreement. Neither plane may unilaterally ship a shared release. collab-cli sign-offs live under the top-level `releases` map (backward-compatible); other components live under `components.<name>.releases`.",
   "requiredPlanes": ["WIN", "LINUX"],
   "releases": {
+    "0.14.0": {
+      "summary": "lbabus 0.14.0 -- re-snapshot of the version-pinned documentation + requirements bundle (no CLI behaviour change). Re-cuts the embedded, by-reference SRS + RTM + AGENTS so lbabus carries the repo's CURRENT canonical requirements: since 0.13.0 the SRS grew ~1.3k lines and the RTM added LBA-REQ-048..054 -- the 2-actor icon-editor grid (native PPL build + LUnit test via a Rust-built g-cli) and the Benchmark Observatory (ADR-0033 / ADR-0034). Keeps 'same version => same requirements' true against the current repo. The collab-cli code is unchanged from 0.13.0 (its CHANGELOG [Unreleased] was empty); the delta is purely the embedded docs.",
+      "signoffs": {
+        "LINUX": {
+          "agreed": true,
+          "reviewedCommit": "178265abc6bb7a571e1eb9df021d3e2d6db63676",
+          "at": "2026-08-02T20:50:01Z",
+          "note": "Validated on the LINUX plane (.NET 10.0.110 SDK, DOTNET_ROLL_FORWARD=Major over the net8.0 target) at develop 178265a. dotnet build -c Release -p:Version=0.14.0 succeeded (0 warnings / 0 errors). The FRESH EMBED is proven: lbabus version -> 0.14.0; lbabus docs show rtm carries all 7 new rows LBA-REQ-048..054; lbabus docs show srs carries LBA-REQ-054 (register + section + traceability); lbabus selfcheck PASS (gh/glab/dotnet pins OK, version 0.14.0 vs latest published 0.13.0). This release is a documentation / requirements re-snapshot only -- no CLI code change since 0.13.0; the delta is the by-reference embed of docs/requirements/srs.md (+~1.3k lines) + rtm.csv + agents/AGENTS.md. LINUX agrees to publish collab-cli 0.14.0 at 178265a; WIN sign-off requested over the coordination bus."
+        }
+      }
+    },
     "0.13.0": {
       "summary": "net send --stream (persistent-connection, multi-frame streaming): ONE TCP connection carries --count N seq'd bus-msg@1 frames (seq S..S+N-1; --seq sets S) + an optional terminal DONE(S+N-1) via --done, with a single bulk flush (BusWire.WriteFrame gains a flush parameter) instead of the per-frame connect+flush of the single-frame send. Preserves the bus-msg@1 framing + strict per-(sessionId,senderId) seq order; ADDITIVE + back-compat (no --stream = the single-frame path byte-for-byte unchanged). Lifts a source from ~87 frames/s (one process per frame) to the transport/disk ceiling (~784k small frames/s; ~3.0 GB/s to the wire; ~1.46 GB/s to NVMe, disk-bound). Payload is --message/--message-file or --frame-bytes B filler. Plus experiments/throughput-to-disk/ (tpd), the .NET harness used to find the plateau. LbaBus.csproj 0.12.0 -> 0.13.0 + CHANGELOG. #214.",
       "signoffs": {
