@@ -6,6 +6,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-02
+
 ### Added
 - **Mesh-Stress Calibration** and **Concurrent Mesh Board** commands — two
   strict-CSP, script-free webview analysis views. The calibration view renders a
