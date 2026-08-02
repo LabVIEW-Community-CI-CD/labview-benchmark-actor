@@ -426,6 +426,17 @@ check('mass-compile-benchmark', () => {
   return { standard: 'ADR-0023 Phase 1 (golden-VM benchmark)', selftest: 'verify-mass-compile-benchmark 7/7 (icon-editor MassCompile, cross-plane resultHash)' };
 });
 
+// 6u. Golden-VM provisioner headless-LabVIEW readiness (LBA-REQ-049, ADR-0023 Phase 1): the one-command
+//     provisioner (cleanroom/ubuntu-labview/provision-guest.sh) must install EVERY prerequisite a fresh VM
+//     needs to run headless LabVIEWCLI benchmarks without manual fixes -- Xvfb, VI Server (:3363) config for
+//     BOTH exe basenames (labview.conf + labviewcommunity.conf), quoted access lists, and the post-install
+//     reboot. The committed receipt validates against the ACTUAL script text; fail-closed if the provisioner
+//     drops any step, a ready verdict is forged, or the digest is tampered.
+check('provisioner-headless-readiness', () => {
+  execFileSync(process.execPath, [join(here, 'provisioner-readiness', 'verify-provisioner-readiness.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1 (one-command golden VM)', selftest: 'verify-provisioner-readiness 7/7 (provisioner installs all headless prerequisites, fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

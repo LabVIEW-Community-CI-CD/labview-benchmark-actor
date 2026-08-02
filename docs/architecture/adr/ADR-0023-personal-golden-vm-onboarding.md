@@ -70,6 +70,13 @@ identity (VI count + bad count + success) that is cross-plane comparable plus th
 time as the performance metric -- so the golden VM is not just provisioned but measurably
 exercising LabVIEW.
 
+The one-command provision is hardened as requirement **LBA-REQ-049**: `provision-guest.sh`
+installs Xvfb and writes the VI Server (:3363) configuration for both LabVIEW executable
+basenames (`labview.conf` + `labviewcommunity.conf`) with quoted access lists, and a
+fail-closed gate -- bound to the actual script text -- proves it stays
+headless-benchmark-ready, so the three fixes discovered by hand during bring-up cannot
+silently regress.
+
 ## Consequences
 
 - The **Linux plane** becomes a first-class benchmark actor, unlocking the OS axis of cross-plane comparison

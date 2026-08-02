@@ -76,6 +76,7 @@ progressively.
 | LBA-REQ-046 | The system shall prove VIPM functionally installs a LabVIEW community package into the golden VM's LabVIEW package library, so a fail-closed gate blocks the claim unless the operator-designated self-test package installed cleanly with its files landing in vi.lib. | LBA-REQ-044 proves the provisioner installs the VIPM tool; the golden VM is "Ubuntu + LabVIEW + VIPM" (ADR-0023) only once VIPM WORKS to install a package. The operator designated g-cli (`wiresmith_technology_lib_g_cli`) as the VIPM self-test; installing it exercises real dependency resolution. | The operator installed g-cli via VIPM Desktop (Community Edition) on lba-golden; `validateVipmInstallReceipt` fails closed unless every package installed cleanly (No Errors, > 0 files), vi.lib gained files, the designated package is present, and the verdict-bearing digest is intact. | Run `node experiments/vipm-install/verify-vipm-package-install.selftest.mjs` (8/8); gated by `vipm-functional-package-install`. Live: VIPM 26.3.1-4000 installed g-cli 3.0.1.98 + deps -> 279 files in vi.lib. |
 | LBA-REQ-047 | The system shall stream the golden VM live status and analyze a captured timeline for idle spans, so a fail-closed gate proves the committed idle-time analysis is correctly derived from the samples. | The human-assisted golden-VM workflow has long stretches of "dead time" invisible to both human and agent (e.g. LabVIEW idle while VIPM silently waits to connect); a live monitor plus a deterministic idle-time analysis surface and quantify that dead time (advances ADR-0023 Phase 1). | `vm-live-status.sh` streams overall CPU busy% + LabVIEW cpu/mem + vipm/Xvfb over the bridge and captures NDJSON series; `vmStatusAnalysis.mjs` derives idle vs busy spans, idle%, longest idle run; `validateStatusTimelineReceipt` fails closed unless the committed analysis re-derives from the samples and the digest is intact. | Run `node experiments/vm-live-status/verify-vm-live-status.selftest.mjs` (7/7); gated by `vm-live-status-idle-analysis`. Live: 44s capture on lba-golden, 63.6% idle, longest idle run 18s. |
 | LBA-REQ-048 | The system shall benchmark the golden VM by mass-compiling the public icon-editor source with LabVIEWCLI, so a fail-closed gate proves the committed benchmark result is correctly derived and cross-plane comparable. | The golden VM exists to run objective, reproducible benchmarks (the North Star cross-plane comparison); a MassCompile of a pinned public source (ni/labview-icon-editor) is a real LabVIEW workload whose machine-independent result (VI count + bad count + success) is comparable across planes, with the compile time as the performance metric. Replaces the deferred VI Analyzer benchmark. | `LabVIEWCLI -OperationName MassCompile` compiles the icon-editor `resource/` source headless-as-actor; `massCompileBenchmark.mjs` records the result + a timing-invariant resultHash; `validateMassCompileReceipt` fails closed unless the resultHash re-derives, the verdict matches, the bad-VI list is consistent, and the digest is intact. | Run `node experiments/mass-compile/verify-mass-compile-benchmark.selftest.mjs` (7/7); gated by `mass-compile-benchmark`. Live: MassCompile of icon-editor resource/ on lba-golden = 307 VIs/CTLs, 0 bad, succeeded, 24s. |
+| LBA-REQ-049 | The system shall verify the golden-VM provisioner installs every headless-LabVIEW prerequisite -- Xvfb, VI Server (TCP 3363) configuration for both LabVIEW executable basenames, quoted access lists, and the post-install reboot -- so a fail-closed gate proves a fresh one-command provision yields a headless-benchmark-ready VM. | The First Win is a one-command golden VM, but a fresh provision was NOT headless-ready until three fixes were applied by hand during bring-up (Xvfb, VI Server config for both `labview.conf` and `labviewcommunity.conf`, a post-install reboot); folding those into `provision-guest.sh` and gating the provisioner's completeness keeps that hard-won knowledge from silently regressing. | `provision-guest.sh` installs Xvfb, writes the VI Server config into both exe-basename config files with quoted access lists, and addresses the reboot; `provisionerReadiness.mjs` validates the committed receipt against the ACTUAL script text and fails closed if any prerequisite is missing, the ready verdict is forged, or the digest is tampered. | Run `node experiments/provisioner-readiness/verify-provisioner-readiness.selftest.mjs` (7/7); gated by `provisioner-headless-readiness`. Live: the hardened `provision-guest.sh` satisfies all 6 headless-readiness checks. |
 
 ---
 
@@ -1460,6 +1461,36 @@ progressively.
 
 ---
 
+### LBA-REQ-049: Golden-VM provisioner headless-LabVIEW readiness
+
+- Status: Proven
+- Area: Deployment / provisioning (ADR-0023 Phase 1 -- the one-command golden VM)
+- Statement: The system shall verify the golden-VM provisioner installs every
+  headless-LabVIEW prerequisite -- Xvfb, VI Server (TCP 3363) configuration for both LabVIEW
+  executable basenames, quoted access lists, and the post-install reboot -- so a fail-closed
+  gate proves a fresh one-command provision yields a headless-benchmark-ready VM.
+- Rationale: The near-term First Win is a one-command from-scratch golden VM, but a fresh
+  provision was NOT headless-ready until three fixes were applied by hand during bring-up:
+  Xvfb was missing, the VI Server config had to be written for BOTH `labview.conf` and
+  `labviewcommunity.conf` (LabVIEW picks its config file by the launched exe basename), and
+  the install needed a reboot before VI Server would bind :3363. Folding those into the
+  provisioner and gating its completeness keeps that knowledge from silently regressing.
+- Acceptance Criteria:
+  - `provision-guest.sh` apt-installs `xvfb` (headless display for `LabVIEWCLI` over SSH).
+  - It writes the VI Server config (`server.tcp.enabled`, port 3363, quoted access lists)
+    into both `labview.conf` and `labviewcommunity.conf` under the primary user's home.
+  - It addresses the post-install reboot (documented, with an opt-in `PROVISION_REBOOT=1`).
+  - `validateReadinessReceipt` re-derives the checks from the ACTUAL script text and fails
+    closed if any prerequisite is absent, the ready verdict is forged, or the digest is
+    tampered.
+- Change Guidance: The verifier `experiments/provisioner-readiness/provisionerReadiness.mjs`
+  plus its self-test are gated by `provisioner-headless-readiness` in `verify-local-gates`
+  and mapped in the RTM. The committed receipt is bound to the real `provision-guest.sh`, so
+  editing the provisioner requires regenerating the fixture. Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1512,3 +1543,4 @@ progressively.
 | LBA-REQ-046 | Deployment (VIPM functionally installs a community package) | T-046 |
 | LBA-REQ-047 | Deployment (live VM status + idle-time analysis) | T-047 |
 | LBA-REQ-048 | Deployment (golden-VM Mass Compile benchmark) | T-048 |
+| LBA-REQ-049 | Deployment (provisioner headless-LabVIEW readiness) | T-049 |

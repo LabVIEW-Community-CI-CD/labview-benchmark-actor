@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -286,6 +286,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-40 | Provide a human-assisted shared-tmux bridge to the golden VM — the agent drives the interactive shell while the human types secrets directly on the VM | Agent-driven onboarding needs credentials (LabVIEW/VIPM activation, sudo) that must never transit the agent; a secret-safe bridge keeps the human in the loop for secrets only (ADR-0032) | LBA-REQ-045 |
 | AD-41 | Stream the golden VM live status (CPU busy%, LabVIEW/vipm/Xvfb) over the bridge and analyze captured timelines for idle spans, so no long stretch of "dead time" is invisible to human or agent | Human-assisted onboarding has long silent waits (LabVIEW idle while VIPM connects); live visibility plus a deterministic idle-time analysis surface and quantify the dead time to drive it out (ADR-0023) | LBA-REQ-047 |
 | AD-42 | Benchmark the golden VM by mass-compiling a pinned public LabVIEW source (ni/labview-icon-editor) with LabVIEWCLI, recording a timing-invariant result identity plus the compile time | A MassCompile of a pinned public source is a real, reproducible LabVIEW workload; a machine-independent result hash makes it cross-plane comparable (the North Star) while the compile time is the performance metric (ADR-0023) | LBA-REQ-048 |
+| AD-43 | Gate the golden-VM provisioner's headless-LabVIEW readiness by statically verifying (against the actual script text) that it installs Xvfb + dual-basename VI Server config + quoted access + reboot | A fresh provision was not headless-ready without three manual fixes; binding a fail-closed receipt to the provisioner text keeps the one-command First Win from silently regressing (ADR-0023) | LBA-REQ-049 |
 
 ## 5. Risks and open questions
 

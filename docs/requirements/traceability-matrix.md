@@ -55,5 +55,6 @@
 | LBA-REQ-046 | VIPM functionally installs a community package | Proven | §3.2 Deployment | ADR-0023 | T-046 | 4 |
 | LBA-REQ-047 | Live golden-VM status and idle-time analysis | Proven | §3.2 Deployment | ADR-0023 | T-047 | 5 |
 | LBA-REQ-048 | Golden-VM Mass Compile benchmark | Proven | §3.2 Deployment | ADR-0023 | T-048 | 4 |
+| LBA-REQ-049 | Golden-VM provisioner headless-LabVIEW readiness | Proven | §3.2 Deployment | ADR-0023 | T-049 | 5 |
 
-_Generated for 48 requirements._
+_Generated for 49 requirements._
