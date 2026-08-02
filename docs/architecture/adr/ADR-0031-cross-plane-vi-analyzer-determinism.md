@@ -42,5 +42,6 @@ This is requirement **LBA-REQ-043**.
 - **The grid (LBA-REQ-050)** unifies the per-benchmark cross-plane receipts into one
   generated, fail-closed surface (`docs/benchmarks/benchmark-grid.md`): each benchmark's
   identity must agree across its planes and its performance is recorded alongside. Proven
-  Linux-first -- VI Analyzer (host + scratch VM) and Mass Compile (host + lba-golden) each
-  agree across two planes -- this is the first slice of the roadmap Phase 4 benchmark grid.
+  across the OS axis -- VI Analyzer (host + scratch VM) and Mass Compile (host + lba-golden
+  Linux + win-VITLT-SERGIO Windows LabVIEW 2026) agree on the same resultHash -- the first
+  slice of the roadmap Phase 4 benchmark grid, now spanning Windows vs Linux.

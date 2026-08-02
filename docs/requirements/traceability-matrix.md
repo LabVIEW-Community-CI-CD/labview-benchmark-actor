@@ -56,6 +56,6 @@
 | LBA-REQ-047 | Live golden-VM status and idle-time analysis | Proven | §3.2 Deployment | ADR-0023 | T-047 | 5 |
 | LBA-REQ-048 | Golden-VM Mass Compile benchmark | Proven | §3.2 Deployment | ADR-0023 | T-048 | 4 |
 | LBA-REQ-049 | Golden-VM provisioner headless-LabVIEW readiness | Proven | §3.2 Deployment | ADR-0023 | T-049 | 5 |
-| LBA-REQ-050 | Cross-plane benchmark grid | Proven | §3.2 Deployment | ADR-0031 | T-050 | 6 |
+| LBA-REQ-050 | Cross-plane benchmark grid | Proven | §3.2 Deployment | ADR-0031 | T-050 | 7 |
 
 _Generated for 50 requirements._
