@@ -1,0 +1,209 @@
+{
+  "schema": "labview-benchmark-actor/vm-status-timeline@1",
+  "vm": "lba-golden",
+  "note": "Real 44s live-status capture from lba-golden over the SSH bridge (experiments/vm-live-status/vm-live-status.sh capture). A 14s 4-core CPU burst was induced mid-capture to exercise idle->busy->idle discrimination: overall CPU busy% baseline ~1% (idle) rose to ~66% during the burst, then back to idle. The analyzer surfaces the idle spans (dead time) -- exactly the visibility the human-assisted golden-VM workflow needs (e.g. LabVIEW idle while VIPM silently waits to connect).",
+  "sampleIntervalSec": 2,
+  "idleCpuThreshold": 5,
+  "samples": [
+    {
+      "t": 2,
+      "cpuPct": 0.3,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 4,
+      "cpuPct": 1.3,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 6,
+      "cpuPct": 1.4,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 8,
+      "cpuPct": 1.3,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 10,
+      "cpuPct": 1.5,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 12,
+      "cpuPct": 35.1,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 14,
+      "cpuPct": 66.4,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 16,
+      "cpuPct": 65.6,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 18,
+      "cpuPct": 66.7,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 20,
+      "cpuPct": 66.1,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 22,
+      "cpuPct": 65.9,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 24,
+      "cpuPct": 66.5,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 26,
+      "cpuPct": 17.2,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 28,
+      "cpuPct": 1.2,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 30,
+      "cpuPct": 1.1,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 32,
+      "cpuPct": 1.5,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 34,
+      "cpuPct": 1.5,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 36,
+      "cpuPct": 1.4,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 38,
+      "cpuPct": 1.1,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 40,
+      "cpuPct": 1.1,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 42,
+      "cpuPct": 1.4,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    },
+    {
+      "t": 44,
+      "cpuPct": 1.4,
+      "lvCpuPct": 1,
+      "lvMemMb": 293,
+      "vipm": "up",
+      "xvfb": "-"
+    }
+  ],
+  "analysis": {
+    "totalSamples": 22,
+    "sampleIntervalSec": 2,
+    "idleCpuThreshold": 5,
+    "totalSec": 44,
+    "idleSec": 28,
+    "busySec": 16,
+    "idlePct": 63.6,
+    "longestIdleRunSec": 18,
+    "transitions": 2,
+    "idleSpans": [
+      {
+        "startT": 2,
+        "durSec": 10,
+        "sampleCount": 5
+      },
+      {
+        "startT": 28,
+        "durSec": 18,
+        "sampleCount": 9
+      }
+    ]
+  },
+  "digest": "4266a2d29403ea313d2a304753179201b51bc3af69a6ac9db991327f127393f9"
+}

@@ -53,5 +53,6 @@
 | LBA-REQ-044 | Provisioner installs LabVIEW and VIPM | Proven | §3.2 Deployment | ADR-0023 | T-044 | 5 |
 | LBA-REQ-045 | Human-assisted VM bridge | Proven | §3.2 Deployment | ADR-0032 | T-045 | 5 |
 | LBA-REQ-046 | VIPM functionally installs a community package | Proven | §3.2 Deployment | ADR-0023 | T-046 | 4 |
+| LBA-REQ-047 | Live golden-VM status and idle-time analysis | Proven | §3.2 Deployment | ADR-0023 | T-047 | 5 |
 
-_Generated for 46 requirements._
+_Generated for 47 requirements._
