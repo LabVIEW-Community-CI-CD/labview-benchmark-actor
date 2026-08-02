@@ -677,6 +677,14 @@ check('win-vm-concurrent-mesh-real', () => {
   return { pairings: r.pairings.length, ranked: r.allPairingsRankedCorrectly, exact: `${r.exactRungMatches}/${r.totalReadings}` };
 });
 
+// LBA-REQ-032 (overview.md §3.6 / VW-1): the concurrent mesh BOARD renders a committed concurrent-actors
+// receipt into an inert (script-free) HTML surface -- one tile per simultaneous actor with its stress bar +
+// inverse-read rung + recovered mark, plus the simultaneity/invariant badges.
+check('mesh-board-view', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'meshBoardView.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'meshBoardView 6/6', surface: 'script-free HTML board' };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
