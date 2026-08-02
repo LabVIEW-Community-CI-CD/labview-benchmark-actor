@@ -1,0 +1,1158 @@
+{
+    "schema":  "labview-benchmark-actor/resource-correlated-launch@2",
+    "plane":  "WIN",
+    "source":  "PDH System.Diagnostics.PerformanceCounter (drift-corrected, frame-locked loop)",
+    "frameRateHz":  12,
+    "frameIntervalMs":  83.333333333333329,
+    "epochMsAtFrameZero":  1785623047288,
+    "sampleCount":  60,
+    "measured":  {
+                     "medianCadenceMs":  89,
+                     "effectiveFps":  11.9856,
+                     "exactly12fps":  true,
+                     "medianPhaseErrorMs":  10,
+                     "maxPhaseErrorMs":  21.333
+                 },
+    "samples":  [
+                    {
+                        "epochMs":  1785623047376,
+                        "frameIndex":  1,
+                        "counters":  {
+                                         "cpuTotalPct":  46.022,
+                                         "cpuUserPct":  26.627,
+                                         "cpuPrivilegedPct":  3.328,
+                                         "contextSwitchesPerSec":  6158.409,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6093,
+                                         "memCommittedBytes":  2064703488,
+                                         "memCommittedInUsePct":  22.672,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  8.222,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  63333.832,
+                                         "diskAvgQueueLength":  0.002
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623047467,
+                        "frameIndex":  2,
+                        "counters":  {
+                                         "cpuTotalPct":  53.33,
+                                         "cpuUserPct":  27.869,
+                                         "cpuPrivilegedPct":  5.574,
+                                         "contextSwitchesPerSec":  3263.963,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6093,
+                                         "memCommittedBytes":  2064703488,
+                                         "memCommittedInUsePct":  22.672,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623047546,
+                        "frameIndex":  3,
+                        "counters":  {
+                                         "cpuTotalPct":  36.311,
+                                         "cpuUserPct":  34.294,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  3896.828,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6097,
+                                         "memCommittedBytes":  2063400960,
+                                         "memCommittedInUsePct":  22.658,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623047638,
+                        "frameIndex":  4,
+                        "counters":  {
+                                         "cpuTotalPct":  35.745,
+                                         "cpuUserPct":  21.418,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4934.531,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6097,
+                                         "memCommittedBytes":  2063335424,
+                                         "memCommittedInUsePct":  22.657,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623047706,
+                        "frameIndex":  5,
+                        "counters":  {
+                                         "cpuTotalPct":  31.243,
+                                         "cpuUserPct":  22.919,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4607.975,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2063335424,
+                                         "memCommittedInUsePct":  22.657,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623047796,
+                        "frameIndex":  6,
+                        "counters":  {
+                                         "cpuTotalPct":  35.175,
+                                         "cpuUserPct":  21.608,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4279.847,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2063335424,
+                                         "memCommittedInUsePct":  22.657,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623047887,
+                        "frameIndex":  7,
+                        "counters":  {
+                                         "cpuTotalPct":  35.164,
+                                         "cpuUserPct":  21.612,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  3564.073,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2063335424,
+                                         "memCommittedInUsePct":  22.657,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623047976,
+                        "frameIndex":  8,
+                        "counters":  {
+                                         "cpuTotalPct":  38.838,
+                                         "cpuUserPct":  21.844,
+                                         "cpuPrivilegedPct":  4.369,
+                                         "contextSwitchesPerSec":  9559.21,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2063163392,
+                                         "memCommittedInUsePct":  22.655,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  12.356,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  50583.574,
+                                         "diskAvgQueueLength":  0.002
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048044,
+                        "frameIndex":  9,
+                        "counters":  {
+                                         "cpuTotalPct":  42.382,
+                                         "cpuUserPct":  34.571,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4172.459,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2063163392,
+                                         "memCommittedInUsePct":  22.655,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048133,
+                        "frameIndex":  10,
+                        "counters":  {
+                                         "cpuTotalPct":  34.143,
+                                         "cpuUserPct":  21.952,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4568.359,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2063032320,
+                                         "memCommittedInUsePct":  22.654,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048225,
+                        "frameIndex":  11,
+                        "counters":  {
+                                         "cpuTotalPct":  36.651,
+                                         "cpuUserPct":  21.116,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4576.788,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2062782464,
+                                         "memCommittedInUsePct":  22.651,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048293,
+                        "frameIndex":  12,
+                        "counters":  {
+                                         "cpuTotalPct":  36.898,
+                                         "cpuUserPct":  28.683,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  5013.713,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2062782464,
+                                         "memCommittedInUsePct":  22.651,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048373,
+                        "frameIndex":  13,
+                        "counters":  {
+                                         "cpuTotalPct":  31.371,
+                                         "cpuUserPct":  24.51,
+                                         "cpuPrivilegedPct":  4.902,
+                                         "contextSwitchesPerSec":  8359.431,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2062516224,
+                                         "memCommittedInUsePct":  22.648,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048464,
+                        "frameIndex":  14,
+                        "counters":  {
+                                         "cpuTotalPct":  35.642,
+                                         "cpuUserPct":  21.453,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  5265.363,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6098,
+                                         "memCommittedBytes":  2063572992,
+                                         "memCommittedInUsePct":  22.66,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048555,
+                        "frameIndex":  15,
+                        "counters":  {
+                                         "cpuTotalPct":  35.824,
+                                         "cpuUserPct":  21.392,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  3564.938,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6097,
+                                         "memCommittedBytes":  2064609280,
+                                         "memCommittedInUsePct":  22.671,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048624,
+                        "frameIndex":  16,
+                        "counters":  {
+                                         "cpuTotalPct":  37.306,
+                                         "cpuUserPct":  22.798,
+                                         "cpuPrivilegedPct":  5.699,
+                                         "contextSwitchesPerSec":  3874.811,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6096,
+                                         "memCommittedBytes":  2064609280,
+                                         "memCommittedInUsePct":  22.671,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048716,
+                        "frameIndex":  17,
+                        "counters":  {
+                                         "cpuTotalPct":  48.897,
+                                         "cpuUserPct":  25.551,
+                                         "cpuPrivilegedPct":  8.517,
+                                         "contextSwitchesPerSec":  5249.26,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067615744,
+                                         "memCommittedInUsePct":  22.704,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048796,
+                        "frameIndex":  18,
+                        "counters":  {
+                                         "cpuTotalPct":  27.017,
+                                         "cpuUserPct":  24.328,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  6874.234,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067615744,
+                                         "memCommittedInUsePct":  22.704,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048875,
+                        "frameIndex":  19,
+                        "counters":  {
+                                         "cpuTotalPct":  55.393,
+                                         "cpuUserPct":  19.825,
+                                         "cpuPrivilegedPct":  14.869,
+                                         "contextSwitchesPerSec":  18799.912,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067169280,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623048964,
+                        "frameIndex":  20,
+                        "counters":  {
+                                         "cpuTotalPct":  34.159,
+                                         "cpuUserPct":  21.947,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4750.251,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067169280,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  49.729,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  2190088.25,
+                                         "diskAvgQueueLength":  0.027
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049043,
+                        "frameIndex":  21,
+                        "counters":  {
+                                         "cpuTotalPct":  36.031,
+                                         "cpuUserPct":  24.603,
+                                         "cpuPrivilegedPct":  9.841,
+                                         "contextSwitchesPerSec":  5795.899,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067169280,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049124,
+                        "frameIndex":  22,
+                        "counters":  {
+                                         "cpuTotalPct":  51.467,
+                                         "cpuUserPct":  24.266,
+                                         "cpuPrivilegedPct":  4.853,
+                                         "contextSwitchesPerSec":  5361.337,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067169280,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049224,
+                        "frameIndex":  23,
+                        "counters":  {
+                                         "cpuTotalPct":  37.789,
+                                         "cpuUserPct":  23.329,
+                                         "cpuPrivilegedPct":  7.776,
+                                         "contextSwitchesPerSec":  5470.013,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067169280,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049293,
+                        "frameIndex":  24,
+                        "counters":  {
+                                         "cpuTotalPct":  31.821,
+                                         "cpuUserPct":  22.726,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4118.507,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067169280,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049382,
+                        "frameIndex":  25,
+                        "counters":  {
+                                         "cpuTotalPct":  38.595,
+                                         "cpuUserPct":  21.93,
+                                         "cpuPrivilegedPct":  4.386,
+                                         "contextSwitchesPerSec":  4042.462,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067169280,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049473,
+                        "frameIndex":  26,
+                        "counters":  {
+                                         "cpuTotalPct":  35.616,
+                                         "cpuUserPct":  21.461,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4519.656,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067169280,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049541,
+                        "frameIndex":  27,
+                        "counters":  {
+                                         "cpuTotalPct":  31.153,
+                                         "cpuUserPct":  22.949,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4234.239,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049633,
+                        "frameIndex":  28,
+                        "counters":  {
+                                         "cpuTotalPct":  36.105,
+                                         "cpuUserPct":  21.298,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  3640.433,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049722,
+                        "frameIndex":  29,
+                        "counters":  {
+                                         "cpuTotalPct":  38.625,
+                                         "cpuUserPct":  26.304,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4159.691,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049789,
+                        "frameIndex":  30,
+                        "counters":  {
+                                         "cpuTotalPct":  35.858,
+                                         "cpuUserPct":  29.155,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  5013.957,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049879,
+                        "frameIndex":  31,
+                        "counters":  {
+                                         "cpuTotalPct":  34.96,
+                                         "cpuUserPct":  21.68,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  5006.211,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  12.294,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  50275.867,
+                                         "diskAvgQueueLength":  0.001
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623049970,
+                        "frameIndex":  32,
+                        "counters":  {
+                                         "cpuTotalPct":  48.431,
+                                         "cpuUserPct":  21.487,
+                                         "cpuPrivilegedPct":  12.892,
+                                         "contextSwitchesPerSec":  4316.162,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050039,
+                        "frameIndex":  33,
+                        "counters":  {
+                                         "cpuTotalPct":  37.621,
+                                         "cpuUserPct":  22.683,
+                                         "cpuPrivilegedPct":  5.671,
+                                         "contextSwitchesPerSec":  3606.214,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050141,
+                        "frameIndex":  34,
+                        "counters":  {
+                                         "cpuTotalPct":  34.913,
+                                         "cpuUserPct":  26.801,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  3330.84,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050208,
+                        "frameIndex":  35,
+                        "counters":  {
+                                         "cpuTotalPct":  41.916,
+                                         "cpuUserPct":  23.233,
+                                         "cpuPrivilegedPct":  11.617,
+                                         "contextSwitchesPerSec":  6327.196,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067132416,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050298,
+                        "frameIndex":  36,
+                        "counters":  {
+                                         "cpuTotalPct":  39.491,
+                                         "cpuUserPct":  25.932,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  7250.079,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067107840,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050388,
+                        "frameIndex":  37,
+                        "counters":  {
+                                         "cpuTotalPct":  35.031,
+                                         "cpuUserPct":  21.656,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  5878.264,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067107840,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050455,
+                        "frameIndex":  38,
+                        "counters":  {
+                                         "cpuTotalPct":  41.648,
+                                         "cpuUserPct":  29.176,
+                                         "cpuPrivilegedPct":  5.835,
+                                         "contextSwitchesPerSec":  4065.29,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067107840,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050545,
+                        "frameIndex":  39,
+                        "counters":  {
+                                         "cpuTotalPct":  43.254,
+                                         "cpuUserPct":  21.825,
+                                         "cpuPrivilegedPct":  8.73,
+                                         "contextSwitchesPerSec":  4255.592,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067107840,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050634,
+                        "frameIndex":  40,
+                        "counters":  {
+                                         "cpuTotalPct":  38.625,
+                                         "cpuUserPct":  21.92,
+                                         "cpuPrivilegedPct":  4.384,
+                                         "contextSwitchesPerSec":  5491.002,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6088,
+                                         "memCommittedBytes":  2067107840,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050725,
+                        "frameIndex":  41,
+                        "counters":  {
+                                         "cpuTotalPct":  39.697,
+                                         "cpuUserPct":  21.537,
+                                         "cpuPrivilegedPct":  4.307,
+                                         "contextSwitchesPerSec":  7695.928,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067107840,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050792,
+                        "frameIndex":  42,
+                        "counters":  {
+                                         "cpuTotalPct":  36.329,
+                                         "cpuUserPct":  23.153,
+                                         "cpuPrivilegedPct":  5.788,
+                                         "contextSwitchesPerSec":  8952.914,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067107840,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050883,
+                        "frameIndex":  43,
+                        "counters":  {
+                                         "cpuTotalPct":  35.127,
+                                         "cpuUserPct":  21.624,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  7657.416,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067107840,
+                                         "memCommittedInUsePct":  22.699,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623050972,
+                        "frameIndex":  44,
+                        "counters":  {
+                                         "cpuTotalPct":  38.963,
+                                         "cpuUserPct":  21.799,
+                                         "cpuPrivilegedPct":  4.36,
+                                         "contextSwitchesPerSec":  12736.373,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051039,
+                        "frameIndex":  45,
+                        "counters":  {
+                                         "cpuTotalPct":  35.904,
+                                         "cpuUserPct":  29.134,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  16632.879,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051130,
+                        "frameIndex":  46,
+                        "counters":  {
+                                         "cpuTotalPct":  43.914,
+                                         "cpuUserPct":  21.572,
+                                         "cpuPrivilegedPct":  8.629,
+                                         "contextSwitchesPerSec":  15454.871,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051218,
+                        "frameIndex":  47,
+                        "counters":  {
+                                         "cpuTotalPct":  42.463,
+                                         "cpuUserPct":  22.13,
+                                         "cpuPrivilegedPct":  8.852,
+                                         "contextSwitchesPerSec":  9339.58,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051309,
+                        "frameIndex":  48,
+                        "counters":  {
+                                         "cpuTotalPct":  35.434,
+                                         "cpuUserPct":  21.522,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  3276.052,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051376,
+                        "frameIndex":  49,
+                        "counters":  {
+                                         "cpuTotalPct":  35.711,
+                                         "cpuUserPct":  23.378,
+                                         "cpuPrivilegedPct":  5.845,
+                                         "contextSwitchesPerSec":  4070.788,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051467,
+                        "frameIndex":  50,
+                        "counters":  {
+                                         "cpuTotalPct":  35.989,
+                                         "cpuUserPct":  21.337,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  5977.792,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051548,
+                        "frameIndex":  51,
+                        "counters":  {
+                                         "cpuTotalPct":  37.567,
+                                         "cpuUserPct":  24.013,
+                                         "cpuPrivilegedPct":  9.605,
+                                         "contextSwitchesPerSec":  5656.25,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051640,
+                        "frameIndex":  52,
+                        "counters":  {
+                                         "cpuTotalPct":  36.117,
+                                         "cpuUserPct":  21.294,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  3198.488,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051708,
+                        "frameIndex":  53,
+                        "counters":  {
+                                         "cpuTotalPct":  31.184,
+                                         "cpuUserPct":  22.939,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  8042.851,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051799,
+                        "frameIndex":  54,
+                        "counters":  {
+                                         "cpuTotalPct":  35.227,
+                                         "cpuUserPct":  21.591,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  7327.627,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051889,
+                        "frameIndex":  55,
+                        "counters":  {
+                                         "cpuTotalPct":  35.347,
+                                         "cpuUserPct":  21.551,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4871.429,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6087,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623051957,
+                        "frameIndex":  56,
+                        "counters":  {
+                                         "cpuTotalPct":  36.592,
+                                         "cpuUserPct":  23.057,
+                                         "cpuPrivilegedPct":  5.764,
+                                         "contextSwitchesPerSec":  4715.971,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6087,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623052048,
+                        "frameIndex":  57,
+                        "counters":  {
+                                         "cpuTotalPct":  35.191,
+                                         "cpuUserPct":  21.603,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  6666.675,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  355.545,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  1826914.5,
+                                         "diskAvgQueueLength":  0.022
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623052137,
+                        "frameIndex":  58,
+                        "counters":  {
+                                         "cpuTotalPct":  39.091,
+                                         "cpuUserPct":  21.753,
+                                         "cpuPrivilegedPct":  4.351,
+                                         "contextSwitchesPerSec":  5137.216,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623052205,
+                        "frameIndex":  59,
+                        "counters":  {
+                                         "cpuTotalPct":  36.126,
+                                         "cpuUserPct":  29.034,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  3966.24,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    },
+                    {
+                        "epochMs":  1785623052294,
+                        "frameIndex":  60,
+                        "counters":  {
+                                         "cpuTotalPct":  38.697,
+                                         "cpuUserPct":  26.273,
+                                         "cpuPrivilegedPct":  0,
+                                         "contextSwitchesPerSec":  4581.682,
+                                         "processorQueueLength":  0,
+                                         "memAvailableMb":  6086,
+                                         "memCommittedBytes":  2067075072,
+                                         "memCommittedInUsePct":  22.698,
+                                         "diskReadsPerSec":  0,
+                                         "diskWritesPerSec":  0,
+                                         "diskReadBytesPerSec":  0,
+                                         "diskWriteBytesPerSec":  0,
+                                         "diskAvgQueueLength":  0
+                                     }
+                    }
+                ]
+}
