@@ -21,7 +21,7 @@ the `LBA Local Gates verify` CI job.
 
 ## 2. Executed verification evidence (ISO/IEC/IEEE 29119-3)
 
-### 2.1 Local gate suite — 150 fail-closed checks
+### 2.1 Local gate suite — 151 fail-closed checks
 
 Run by `node experiments/verify-local-gates.mjs`. All must pass. The full gate inventory (the executed
 test items at the gate granularity) is:
@@ -116,6 +116,7 @@ image-derived-timing-colon-ocr-fidelity
 in-guest-sampler-v2
 information-for-users-26514
 live-v2-capture-real
+lunit-test-benchmark
 mass-compile-benchmark
 mcp-server-surface-contract
 mesh-actor-registration-requires-activation
@@ -211,12 +212,12 @@ The controlled state of the repository's configuration items, derived from the r
 
 | Configuration item class | Count | Register |
 | --- | --- | --- |
-| Requirements (total) | 52 | docs/requirements/srs.md, rtm.csv |
-| — Status: Proven | 52 | rtm.csv |
+| Requirements (total) | 53 | docs/requirements/srs.md, rtm.csv |
+| — Status: Proven | 53 | rtm.csv |
 | Architecture decisions (ADRs) | 33 | docs/architecture/adr/README.md |
-| Governed gates | 150 | experiments/verify-local-gates.mjs |
+| Governed gates | 151 | experiments/verify-local-gates.mjs |
 | Correspondence rules | 7 | experiments/reqs-coverage/verify-correspondences.mjs |
-| Governed test items | 52 | docs/testing/test-plan.md |
+| Governed test items | 53 | docs/testing/test-plan.md |
 
 Baselines are cut on the `main` branch via SemVer tags (GitFlow); each release is keyless-signed and
 corroborated across planes before publication (see `docs/cm/cm-plan.md` and the release procedure).
@@ -233,4 +234,4 @@ the same correspondence graph (ADR-0013).
 `node experiments/reqs-coverage/generate-test-report.mjs` rewrites this file; `--check` (the
 `test-report-current` gate) fails closed on drift, so the report can never silently lag the apparatus.
 
-_Generated from 150 gates, 7 correspondence rules, 52 requirements, 33 ADRs, 52 test items._
+_Generated from 151 gates, 7 correspondence rules, 53 requirements, 33 ADRs, 53 test items._

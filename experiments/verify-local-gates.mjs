@@ -483,6 +483,18 @@ check('g-cli-proxy-proof', () => {
   return { standard: 'ADR-0033 icon-editor container benchmarks (g-cli launcher)', selftest: 'verify-g-cli-proxy-proof 7/7 (g-cli built from Rust, full host LabVIEW round-trip, fail-closed)' };
 });
 
+// 6z. Icon-editor LUnit suite run via g-cli -- the TESTER actor of the 2-actor icon-editor grid (LBA-REQ-053,
+//     ADR-0033), completing the grid (builder = LBA-REQ-051). The Rust-built g-cli (LBA-REQ-052) runs
+//     `g-cli lunit -- -r <report> lv_icon_editor.lvproj` with the LUnit framework from the CORRECT
+//     icon-editor-developer.vipc (NOT the CI-runner runner_dependencies.vipc). The committed receipt's
+//     machine-independent resultHash is the TEST INVENTORY (sorted class/case set + suite structure), stable
+//     across planes even when pass/fail outcomes differ by environment; fail-closed on a stale/tampered
+//     resultHash, a forged verdict, an inventory that disagrees with the reported total, or a tampered digest.
+check('lunit-test-benchmark', () => {
+  execFileSync(process.execPath, [join(here, 'lunit-test', 'verify-lunit-test-benchmark.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0033 icon-editor container benchmarks (LUnit tester)', selftest: 'verify-lunit-test-benchmark 7/7 (g-cli lunit ran the icon-editor suite, inventory identity, fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

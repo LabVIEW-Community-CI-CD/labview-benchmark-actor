@@ -1,0 +1,88 @@
+{
+  "schema": "labview-benchmark-actor/lunit-test-benchmark@1",
+  "plane": "linux-vm (lba-golden, VirtualBox Ubuntu 24.04)",
+  "tool": {
+    "name": "g-cli",
+    "version": "3.0.1",
+    "build": "rust-proxy musl static, G-CLI/G-CLI @662f75a",
+    "launcher": "LBA-REQ-052"
+  },
+  "dependency": {
+    "correct": "icon-editor-developer.vipc (LUnit framework: astemes_lib_lunit)",
+    "excluded": "runner_dependencies.vipc NOT used (per operator directive)"
+  },
+  "labview": {
+    "version": "2026",
+    "bitness": "64",
+    "installPath": "/usr/local/natinst/LabVIEW-2026-64"
+  },
+  "project": {
+    "name": "lv_icon_editor.lvproj",
+    "repo": "https://github.com/ni/labview-icon-editor",
+    "commit": "9545c483f2b947c71de68c7f70aedefaedadabf7"
+  },
+  "operation": "g-cli --lv-ver 2026 --arch 64 lunit -- -r <report.xml> lv_icon_editor.lvproj",
+  "suites": [
+    {
+      "name": "Editor Position.lvclass",
+      "tests": 14
+    },
+    {
+      "name": "History Tests.lvclass",
+      "tests": 6
+    },
+    {
+      "name": "INI Settings.lvclass",
+      "tests": 4
+    },
+    {
+      "name": "Text-Based VI Icon Tests.lvclass",
+      "tests": 1
+    }
+  ],
+  "inventory": [
+    "Editor Position/Adjust Position.vi",
+    "Editor Position/Assert Windows Bounds.vi",
+    "Editor Position/Backup INI Data.vi",
+    "Editor Position/INI Position Removed.vi",
+    "Editor Position/INI Use Position Size.vi",
+    "Editor Position/Invalid INI Read.vi",
+    "Editor Position/Position Invalid Test.vi",
+    "Editor Position/Position Out of Bounds Test.vi",
+    "Editor Position/Position Set Test.vi",
+    "Editor Position/Restore INI Data.vi",
+    "Editor Position/Size Test.vi",
+    "Editor Position/Standard INI Write Read.vi",
+    "Editor Position/Test Position INI.vi",
+    "Editor Position/Test Window Position.vi",
+    "History Tests/Initial States.vi",
+    "History Tests/Test Add Clears Redo.vi",
+    "History Tests/Test Add and Undo All.vi",
+    "History Tests/Test Overflow.vi",
+    "History Tests/Test Undo Flag.vi",
+    "History Tests/Undo States.vi",
+    "INI Settings/Default Settings.vi",
+    "INI Settings/Remove Icon Editor Settings.vi",
+    "INI Settings/Test INI Settings.vi",
+    "INI Settings/Write and Read Settings.vi",
+    "Text-Based VI Icon Tests/Test Split Text into Words.vi"
+  ],
+  "total": 25,
+  "outcomes": {
+    "passed": 10,
+    "failed": 2,
+    "errored": 8,
+    "setupOrHelper": 5,
+    "total": 25
+  },
+  "reportWellFormed": true,
+  "reportBytes": 14703,
+  "testTimeSeconds": 5.4,
+  "resultHash": "a814e89d185048432f51be0f0140247815e4e999aad5b7ab6253b42d448737e5",
+  "note": "Ran headless via xvfb on lba-golden with the Rust-built g-cli (LBA-REQ-052). The 8 errored cases are the window-geometry / INI-settings tests that require a real editor window (unavailable under headless xvfb); 10 passed, 2 failed, 5 setup/helper. Verdict asserts the TESTER ACTOR executed the suite + produced a well-formed report, not that the icon-editor tests are all green.",
+  "verdict": {
+    "benchmarkOk": true,
+    "reason": "g-cli lunit executed 4 suites / 25 cases and produced a well-formed report"
+  },
+  "digest": "0fe948dcef968c47d57e638d70898ddcc7e9d1cc2f7b3fe83c2cf3bc5f7b56cb"
+}
