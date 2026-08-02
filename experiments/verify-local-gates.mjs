@@ -653,6 +653,18 @@ check('mesh-concurrent-actors-real', () => {
   return { actors: r.perActorInverseRead.length, recovered: r.allActorsRecovered, cpuMeans: r.actors.map((a) => a.cpuPoolPctMean) };
 });
 
+// LBA-REQ-032 (mesh-stress-signature@v1, LIVE + WINDOWS VM): a REAL golden-box Win11 VM calibrated as a mesh
+// actor -- winMeshActorCapture.ps1 drove the running VM through busy=0..4 via VBoxManage guestcontrol (each an
+// exact-12-FPS PDH capture), and runWinVmLadder builds the per-rung signatures + fits + inverse-reads every rung.
+// Recomputes from the committed real captures (offline, no VM).
+check('win-vm-mesh-ladder-real', () => {
+  execFileSync(process.execPath, [join(here, 'mesh-stress-signature', 'winVmLadderRun.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, 'mesh-stress-signature', 'fixtures', 'win-vm-ladder-receipt.json'), 'utf8'));
+  assert(r.invariants.monotone === 1 && r.invariants.separable === true && r.invariants.repeatable === true, 'the golden VM ladder invariants must hold on real data');
+  assert(r.allRungsRecovered === true, 'every rung must inverse-read back to itself on the real VM');
+  return { plane: r.vm.plane, cpuCurve: (r.cpuTotalPctMeanCurve || []).map((c) => c.expected), salient: r.salientDimensions.length };
+});
+
 // Live verify-before-consume evidence (ADR-0016, LBA-REQ-025): the committed enrolled-key attestations over the
 // real {CODESPACE, LINUX} witness bundles must still verify. Re-run verify-before-consume over the committed
 // bundles + attestations + enrollment allowlist and assert it matches the committed consume decision -- tamper-
