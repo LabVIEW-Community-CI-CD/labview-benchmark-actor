@@ -61,6 +61,7 @@ progressively.
 | LBA-REQ-031 | The system shall admit a component release for installation only after its corroboration attestation is proven included in the signed transparency log. | Provenance that lives only beside a verdict can be silently dropped or forged; recording each witness attestation in an append-only, Ed25519-signed Merkle transparency log makes an unattested or un-logged release refusable before install, with tamper-evident inclusion proofs (ADR-0022, extends ADR-0016). | Each witness attestation is a leaf in a signed Merkle log using RFC 6962 domain-separated hashing; the reviewer-workstation install plus a standalone verifier admit a release only when at least the quorum minimum of enrolled-witness attestations each carry an inclusion proof against the signed tree head; any missing or tampered proof blocks the install. | The transparency log `experiments/acg-transparency/transparency-log.mjs` (RFC 6962 inclusion + consistency + Ed25519 signed tree heads, self-test 26/26, gated by `acg-transparency-log`) records the real {codespace, host} attestations under one signed head (`acg-transparency-log-live`); the verifier `experiments/acg-transparency/verify-release-inclusion.mjs` admits the real bundle plus blocks a tampered one (`acg-transparency-verify-before-install`), wired fail-closed into `reviewer-workstation/provision.ps1` before the .vsix install (`acg-transparency-verify-before-install-wired`). |
 | LBA-REQ-032 | The system shall calibrate a stress-ladder performance-signature curve from repeated per-rung benchmark signatures so an observed signature maps to an inferred stress level within the calibrated tolerance band. | The mesh-stress program re-verifies the maximum drop-free streaming ceiling under a stressed actor mesh (mesh-stress-signature@v1); calibrating each actor's 42-counter performance signature across a stress ladder turns raw per-actor counters into a monotone, separable, repeatable stress read for later ladder testing (design #272, builds on performance-counter-correlation@v2). | The signature extractor derives per-counter features (mean/std/percentiles/drift/periodicity) plus across-repeat stability (signature vs noise) plus MAD outliers plus cross-counter outlier co-occurrence from repeated runs; the calibration-curve fitter maps each per-rung signature to an expected value plus tolerance band, scores the monotone/separable/repeatable invariants, drops non-tracking features, and inverse-reads an observed signature to an inferred rung with a confidence; the stress orchestrator emits the monotone commanded ladder (per-actor VirtualBox throttle plus host/guest stress-ng) pinning each actor to a distinct level. | Run `node experiments/mesh-stress-signature/signatureExtractor.selftest.mjs` (5/5), `calibrationCurveFitter.selftest.mjs` (4/4), and `stressOrchestrator.selftest.mjs` (5/5); gated by `mesh-stress-signature-extractor` / `mesh-stress-signature-calibrator` / `mesh-stress-orchestrator` in `verify-local-gates`. |
 | LBA-REQ-033 | The system shall provision a from-scratch Ubuntu 24.04 golden VM with activated LabVIEW 2026 Community Edition plus VIPM, confirming the activation with a headless probe VI before registering the VM as a mesh actor. | The single biggest gap is that a community member cannot yet get a reproducible LabVIEW benchmark environment from scratch; a one-command Ubuntu provisioner with functional activation confirmation and a locally-minted personal golden VM unlocks the Linux plane and community onboarding (ADR-0023, builds on the Windows golden box). | `lba init` provisions Ubuntu 24.04 Noble, installs `ni-labview-2026-community` plus `vipm` from the NI apt repo, and after the interactive activation a headless `LabVIEWCLI` `RunVI` probe emits an `activation-receipt@1` whose success gates minting the local golden VM plus its `mesh-actors.csv` registration; the confirmation is deterministically replayable offline from a committed receipt. | (Planned, Phase 1) The provisioner, probe VI, and activation-receipt validator ship under `experiments/` with a self-test gated in `verify-local-gates`; tracked as T-033. |
+| LBA-REQ-034 | The system shall keep the bounded ISO/IEC/IEEE 26514 information-for-users product set complete and command-covering, so a fail-closed gate blocks the build when a required user-information item is missing or a contributed command is undocumented. | The standards audit found user information was the repo's weakest, non-gated surface (a single user guide, no audience/task/navigation/reference), and non-gated conformance is where documentation drifts from the product; gating the bounded 26514 product set keeps user information current by construction (ADR-0024). | `verify-information-for-users.mjs` checks the 10 required items exist and are non-trivial, the command reference covers every `package.json` contributed command, the conformance boundary states a bounded product claim and disclaims full process conformance, and the navigation hub indexes the set; the self-test also proves an empty set fails closed. | Run `node experiments/information-for-users/verify-information-for-users.selftest.mjs` (2/2); gated by `information-for-users-26514` in `verify-local-gates`. |
 
 ---
 
@@ -987,6 +988,38 @@ progressively.
 
 ---
 
+### LBA-REQ-034: Governed 26514 information for users
+
+- Status: Proven
+- Area: Documentation / information for users (ISO/IEC/IEEE 26514:2022)
+- Statement: The system shall keep the bounded ISO/IEC/IEEE 26514
+  information-for-users product set complete and command-covering, so a
+  fail-closed gate blocks the build when a required user-information item is
+  missing or a contributed command is undocumented.
+- Rationale: A `repo-standards-review` audit scored the repo 25/25 on the scored
+  lenses but found the substantive gaps live where conformance is not gated; the
+  weakest surface was 26514 user information (a single user guide). Gating a
+  bounded 26514 product set keeps user information from drifting from the product
+  (ADR-0024).
+- Acceptance Criteria:
+  - The bounded product set exists under `docs/information-for-users/`: a
+    navigation hub, getting started, user guide, command reference, glossary,
+    FAQ, audience-and-task model, delivery profile, information plan, and a
+    conformance boundary; each is non-trivial.
+  - The command reference covers every VS Code command the extension contributes
+    (cross-checked against `package.json`).
+  - The conformance boundary states a bounded product claim and explicitly
+    disclaims full process conformance to 26514 Clauses 5-6 (`26514 §4`).
+  - The navigation hub indexes every item; a self-test proves the checker fails
+    closed on an empty or incomplete set.
+- Change Guidance: The checker `experiments/information-for-users/verify-information-for-users.mjs`
+  plus its self-test are gated by `information-for-users-26514` in
+  `verify-local-gates` and mapped in the RTM; the set is registered in the 15289
+  information item map. Authored under the singular-requirement directive (one
+  `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1024,3 +1057,4 @@ progressively.
 | LBA-REQ-031 | Corroboration grid (transparency log + verify-before-install) | T-031 |
 | LBA-REQ-032 | Analysis (mesh-stress signature) | T-032 |
 | LBA-REQ-033 | Deployment (personal golden-VM onboarding) | T-033 |
+| LBA-REQ-034 | CM / assurance (26514 information for users) | T-034 |

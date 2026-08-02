@@ -141,7 +141,7 @@ multi-VM / Codespace topology.
   poll / post) to a coding agent through a Model Context Protocol server
   (LBA-REQ-019, ADR-0012).
 
-### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022, LBA-REQ-030
+### 3.8 Configuration-management & assurance view — addresses LBA-REQ-016, LBA-REQ-017, LBA-REQ-020, LBA-REQ-021, LBA-REQ-022, LBA-REQ-030, LBA-REQ-034
 - GitFlow branch governance (`main` protected + `develop` integration;
   feature / release / hotfix; SemVer tags on main; coverage retained on the
   release path) satisfies the repo-standards-review CM gate without weakening the
@@ -154,6 +154,10 @@ multi-VM / Codespace topology.
   corresponds to ≥1 requirement (fail-closed), with the ADR↔requirement and
   requirement↔view rules promoted to fail-closed as the registers reconcile
   (LBA-REQ-021, ADR-0013).
+- The bounded ISO/IEC/IEEE 26514 information-for-users product set is kept complete
+  and command-covering by a fail-closed gate — a required item missing or a
+  contributed command left undocumented blocks the build — under an explicit
+  conformance boundary (LBA-REQ-034, ADR-0024).
 - The requirement traceability matrix (`docs/requirements/traceability-matrix.md`)
   is generated from the canonical sources rather than hand-maintained, so the
   requirement → view → decision → test view stays current by construction
@@ -213,6 +217,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-29 | Non-release pull requests target develop, not main | Prevents the stale main-based pull-request class from dumping integration onto the release branch (ADR-0021, ADR-0010) | LBA-REQ-030 |
 | AD-30 | Publish corroboration provenance to a signed Merkle transparency log and verify inclusion before install | Append-only, offline-verifiable provenance; no unattested or un-logged release is installable (ADR-0022, ADR-0016) | LBA-REQ-031 |
 | AD-31 | One-command `lba init` provisions an Ubuntu 24.04 golden VM with LabVIEW 2026 CE + VIPM; a headless probe VI confirms activation; the VM is minted locally and registered as a mesh actor | From-scratch, reproducible Linux onboarding unlocks the OS comparison axis without a shared box registry (ADR-0023) | LBA-REQ-033 |
+| AD-32 | Govern the bounded ISO/IEC/IEEE 26514 information-for-users set with a fail-closed completeness + command-coverage gate | Non-gated documentation drifts from the product; enforcing the bounded product set keeps user information current by construction (ADR-0024) | LBA-REQ-034 |
 
 ## 5. Risks and open questions
 
@@ -258,6 +263,7 @@ Detailed decisions are recorded as ADRs in [adr/](adr/README.md):
 | [ADR-0021](adr/ADR-0021-pull-requests-target-develop.md) | Pull requests target develop, not main | LINUX |
 | [ADR-0022](adr/ADR-0022-transparency-log-inclusion.md) | Signed Merkle transparency log + verify-before-install | LINUX |
 | [ADR-0023](adr/ADR-0023-personal-golden-vm-onboarding.md) | Personal golden-VM onboarding (Ubuntu + LabVIEW CE) for the community | LINUX |
+| [ADR-0024](adr/ADR-0024-govern-26514-information-for-users.md) | Govern 26514 information for users as a fail-closed requirement | LINUX |
 
 Remaining open items: the picture-capture *source*/cadence (storage itself is
 resolved by ADR-0005) and the extraction-scope `[Risk]` (the bounded
