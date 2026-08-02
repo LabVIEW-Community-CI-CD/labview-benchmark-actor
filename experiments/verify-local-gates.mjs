@@ -320,6 +320,15 @@ check('activation-receipt-confirms-activation', () => {
   return { standard: 'ADR-0023 Phase 1', selftest: 'buildActivationReceipt 5/5 (real replay + fail-closed)' };
 });
 
+// 6j. Mesh-actor registration gated on activation (LBA-REQ-039, realizes ADR-0023 Phase 1): a golden VM is
+//     enrolled in mesh-actors.csv ONLY after its activation-receipt@1 confirms activation. An unactivated or
+//     tampered receipt is refused and the registry is left untouched; registration is idempotent by
+//     role+actor_id. This binds confirmation and enrollment into one fail-closed chain.
+check('mesh-actor-registration-requires-activation', () => {
+  execFileSync(process.execPath, [join(here, 'activation', 'registerMeshActor.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ADR-0023 Phase 1', selftest: 'registerMeshActor 4/4 (activated registers + fail-closed refusal)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {

@@ -45,6 +45,10 @@ a headless known-answer probe (`LabVIEWCLI RunVI` on the shipped `AddTwoNumbers.
 whose deterministic `activation-receipt@1` gates the build, proven live on the
 reference host's activated LabVIEW 2026.
 
+Mesh-actor enrollment is delivered as requirement **LBA-REQ-039**: the golden VM is
+registered in `mesh-actors.csv` only after that receipt confirms activation, so
+confirmation and enrollment form one fail-closed chain.
+
 ## Consequences
 
 - The **Linux plane** becomes a first-class benchmark actor, unlocking the OS axis of cross-plane comparison

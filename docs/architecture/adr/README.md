@@ -30,7 +30,7 @@
 | [ADR-0020](ADR-0020-mcp-orchestration-surface.md) | MCP orchestration surface for the corroboration grid | LINUX | Accepted | LBA-REQ-029 |
 | [ADR-0021](ADR-0021-pull-requests-target-develop.md) | Pull requests target develop, not main | LINUX | Accepted | LBA-REQ-030 |
 | [ADR-0022](ADR-0022-transparency-log-inclusion.md) | Signed Merkle transparency log + verify-before-install | LINUX | Accepted | LBA-REQ-031 |
-| [ADR-0023](ADR-0023-personal-golden-vm-onboarding.md) | Personal golden-VM onboarding (Ubuntu + LabVIEW CE) for the community | LINUX | Accepted | LBA-REQ-033, LBA-REQ-038 |
+| [ADR-0023](ADR-0023-personal-golden-vm-onboarding.md) | Personal golden-VM onboarding (Ubuntu + LabVIEW CE) for the community | LINUX | Accepted | LBA-REQ-033, LBA-REQ-038, LBA-REQ-039 |
 | [ADR-0024](ADR-0024-govern-26514-information-for-users.md) | Govern 26514 information for users as a fail-closed requirement | LINUX | Accepted | LBA-REQ-034 |
 | [ADR-0025](ADR-0025-generated-test-report-status-accounting.md) | Generate the 29119-3 test report + ISO 10007 status accounting from the verification apparatus | LINUX | Accepted | LBA-REQ-035 |
 | [ADR-0026](ADR-0026-release-procedure-information-item.md) | Make the signed, corroborated release procedure a gated 15289 information item | LINUX | Accepted | LBA-REQ-036 |
