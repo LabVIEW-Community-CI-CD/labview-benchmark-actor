@@ -90,7 +90,10 @@ case "${1:-help}" in
   attach)
     echo "HUMAN: run this in your OWN terminal to watch the session and type any password / token"
     echo "directly on the VM (the agent keeps driving the same shared session):"
-    echo "  ssh -t -i $KEY -p $PORT ${VMUSER}@${VMHOST} tmux attach -t $SESSION"
+    # StrictHostKeyChecking=no + a throwaway known-hosts file so the attach still works when the VM behind
+    # this host:port changes (e.g. two VMs sharing a NAT-forwarded port) -- otherwise ssh aborts with
+    # "Host key verification failed" and the human can never attach.
+    echo "  ssh -t -i $KEY -p $PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${VMUSER}@${VMHOST} tmux attach -t $SESSION"
     echo "(detach without stopping anything: press Ctrl-b then d)"
     ;;
   status) _ssh "tmux has-session -t '$SESSION' 2>/dev/null && { echo UP; tmux capture-pane -t '$SESSION' -p -S -3; } || echo DOWN" ;;

@@ -53,6 +53,12 @@ The provisioner's install layer is delivered as requirement **LBA-REQ-044**: the
 from-scratch Ubuntu VM installs both LabVIEW 2026 Community (NI apt repo) and VIPM
 (the JKI Debian package), proven live on the scratch VM.
 
+VIPM's FUNCTIONAL install is delivered as requirement **LBA-REQ-046**: on the golden
+VM, VIPM (Community Edition) installs the operator-designated self-test package g-cli
+(`wiresmith_technology_lib_g_cli`) plus its dependency closure into LabVIEW's `vi.lib`,
+proven live on `lba-golden` -- so the golden VM is "Ubuntu + LabVIEW + VIPM" in the
+functional sense, not merely installed.
+
 ## Consequences
 
 - The **Linux plane** becomes a first-class benchmark actor, unlocking the OS axis of cross-plane comparison
