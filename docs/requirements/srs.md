@@ -68,6 +68,7 @@ progressively.
 | LBA-REQ-038 | The system shall confirm LabVIEW activation with a headless known-answer probe VI, so a fail-closed gate refuses an install whose activation receipt does not show the probe executed and returned the known answer. | ADR-0023's onboarding hinges on confirming activation before minting a personal golden VM, and license-file parsing is brittle for Community Edition; a functional probe (`LabVIEWCLI RunVI` on the shipped `AddTwoNumbers.vi`) that must return the known answer is the robust signal and doubles as the benchmark-execution path. First delivered slice of the Planned LBA-REQ-033 umbrella, proven live on the reference host's activated LabVIEW 2026. | `probe-activation.sh` runs `LabVIEWCLI RunVI` headless (Xvfb) on the known-answer probe; `buildActivationReceipt.mjs` builds a deterministic `activation-receipt@1` (digest over verdict-bearing fields), and validation denies activation on a non-zero exit, wrong value, missing success line, or tampered receipt. The committed REAL capture replays offline in CI. | Run `node experiments/activation/buildActivationReceipt.selftest.mjs` (5/5); gated by `activation-receipt-confirms-activation` in `verify-local-gates`. |
 | LBA-REQ-039 | The system shall register a golden VM as a mesh actor only after its activation receipt confirms LabVIEW is activated, so a fail-closed gate refuses registration for an unconfirmed or tampered receipt. | ADR-0023's onboarding invariant is that activation is confirmed before a VM joins the mesh; binding registration to the LBA-REQ-038 activation receipt enforces that an unactivated box cannot be enrolled as a benchmark actor — confirmation and enrollment are one fail-closed chain. | `registerGoldenActor` validates the `activation-receipt@1` (schema, digest, verdict) and only then composes the golden `mesh-actors.csv` row (idempotent by role+actor_id); an unactivated or tampered receipt is refused and the registry is left untouched. | Run `node experiments/activation/registerMeshActor.selftest.mjs` (4/4); gated by `mesh-actor-registration-requires-activation` in `verify-local-gates`. |
 | LBA-REQ-040 | The system shall distribute an independent-task workload across a budget-capped pool of ripgrep-only instances proportional to each instance's capacity, so a fail-closed gate proves the shards ran disjointly on distinct instances with every task passing. | The North Star is on-demand distributed benchmark runs across planes with no central aggregation (docs/roadmap.md); a capacity-weighted executor that dynamically discovers a budget-capped pool (host + codespaces + local VMs) and runs disjoint shards concurrently — every instance searching with ripgrep only — is the first distributed-execution primitive and spreads load off the host (ADR-0028). | `discoverPool` enumerates host + codespaces + running VMs up to a conservative budget (default host + 2 remote); `capacityWeightedPartition` splits proportional to static per-type weights; per-type SSH adapters run the shards concurrently; `validateReceipt` fails closed unless the split re-derives disjoint distinct-instance rg-only shards with every task passing. | Run `node experiments/parallel/verify-parallel-workload.selftest.mjs` (4/4); gated by `distributed-parallel-workload` in `verify-local-gates`. Live: 42 self-tests split 25/9/8 across three instances. |
+| LBA-REQ-041 | The system shall route each distributed task only to an instance advertising the capability the task requires, so a fail-closed gate proves every task ran on a capability-matching instance. | The distributed executor (ADR-0028) is heterogeneous, but LabVIEW lives only on capable instances (the host and LabVIEW VMs) — a VI task sent to a node-only codespace would fail. Capability-aware routing sends each task only where it can run (ADR-0029, operator directive). | `routeByCapability` groups tasks by required capability and capacity-weight-splits each group across only the advertising instances (throws if none can); host advertises `labview` iff LabVIEWCLI present, codespaces `node` only; `validateRouting` fails closed unless every task ran capability-matched, the re-route reproduces the shards, disjoint + covered + distinct + rg-only + all passed. | Run `node experiments/parallel/verify-capability-routing.selftest.mjs` (5/5); gated by `capability-aware-routing` in `verify-local-gates`. Live: LabVIEW probe -> host, 43 node tasks across 3 instances. |
 
 ---
 
@@ -1220,6 +1221,39 @@ progressively.
 
 ---
 
+### LBA-REQ-041: Capability-aware distributed task routing
+
+- Status: Proven
+- Area: Deployment / distributed execution (ADR-0029; extends ADR-0028)
+- Statement: The system shall route each distributed task only to an instance
+  advertising the capability the task requires, so a fail-closed gate proves every
+  task ran on a capability-matching instance.
+- Rationale: The distributed executor (ADR-0028) is heterogeneous, but LabVIEW
+  lives only on capable instances (this host and, later, LabVIEW VMs) — a VI task
+  sent to a node-only codespace would simply fail. Capability-aware routing sends
+  each task only where it can run: LabVIEW work to LabVIEW-capable instances,
+  non-LabVIEW parts to codespaces, so the fleet does real cross-plane work
+  correctly (ADR-0029, operator directive).
+- Acceptance Criteria:
+  - Instances advertise capabilities (host: `labview` iff LabVIEWCLI present +
+    `node`; codespace: `node`); tasks declare required capabilities.
+  - `routeByCapability` capacity-weight-splits each capability group across only
+    the advertising instances, and throws if a required capability is
+    unsatisfiable.
+  - `validateRouting` fails closed unless every task ran on a capability-matching
+    instance, the re-route from the recorded capabilities + weights reproduces the
+    shards, they are disjoint + cover every task + distinct-instance + ripgrep-only
+    + all passed.
+  - Live evidence: a real `LabVIEWCLI RunVI` activation probe routed to the host
+    while 43 node self-tests spread across the host + two codespaces, all passed;
+    the receipt replays offline in CI.
+- Change Guidance: The router `experiments/parallel/capabilityRouter.mjs` +
+  `runCapabilityRouted.mjs` and the self-test are gated by `capability-aware-routing`
+  in `verify-local-gates` and mapped in the RTM. Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1264,3 +1298,4 @@ progressively.
 | LBA-REQ-038 | Deployment (LabVIEW activation confirmation) | T-038 |
 | LBA-REQ-039 | Deployment (mesh-actor registration) | T-039 |
 | LBA-REQ-040 | Deployment (distributed parallel workload) | T-040 |
+| LBA-REQ-041 | Deployment (capability-aware routing) | T-041 |
