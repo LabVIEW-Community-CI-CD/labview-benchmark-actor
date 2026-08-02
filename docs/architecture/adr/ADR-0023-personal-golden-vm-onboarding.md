@@ -64,6 +64,12 @@ the VM's CPU busy% (plus LabVIEW/vipm/Xvfb) over the bridge, and a deterministic
 analysis of a captured timeline surfaces the "dead time" (idle spans, idle %, longest idle
 run) so no long silent wait is invisible to human or agent.
 
+A golden-VM benchmark is delivered as requirement **LBA-REQ-048**: LabVIEWCLI mass-compiles
+the pinned public `ni/labview-icon-editor` source, recording a machine-independent result
+identity (VI count + bad count + success) that is cross-plane comparable plus the compile
+time as the performance metric -- so the golden VM is not just provisioned but measurably
+exercising LabVIEW.
+
 ## Consequences
 
 - The **Linux plane** becomes a first-class benchmark actor, unlocking the OS axis of cross-plane comparison

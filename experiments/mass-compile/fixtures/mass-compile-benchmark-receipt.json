@@ -1,0 +1,30 @@
+{
+  "schema": "labview-benchmark-actor/mass-compile-benchmark@1",
+  "vm": "lba-golden",
+  "labview": {
+    "version": "2026",
+    "bitness": 64,
+    "edition": "Community"
+  },
+  "source": {
+    "repo": "ni/labview-icon-editor",
+    "repoHead": "9545c483f2b947c71de68c7f70aedefaedadabf7",
+    "directory": "resource"
+  },
+  "operation": "LabVIEWCLI -OperationName MassCompile",
+  "visInDirectory": 307,
+  "badViCount": 0,
+  "badVis": [],
+  "operationSucceeded": true,
+  "timing": {
+    "compileSeconds": 24,
+    "cliElapsedMs": 28520
+  },
+  "resultHash": "bf722123ba07ac4611e41eadf605cf45b20d398d3229b2b837d3f5115d0a7966",
+  "note": "Real MassCompile of the ni/labview-icon-editor resource/ core source (307 VIs/CTLs) on lba-golden via LabVIEWCLI -OperationName MassCompile headless-as-actor (Xvfb, VI Server 3363). LabVIEW reported MassCompile operation succeeded with 0 bad VIs; report Start->Finish = 24s, CLI wall = 28.5s. Replaces the deferred VI Analyzer benchmark (operator-directed). resultHash is over the machine-independent result (directory + 307 VIs + 0 bad + succeeded) for cross-plane comparison; timing is the perf metric.",
+  "verdict": {
+    "benchmarkOk": true,
+    "reason": "MassCompile of resource (307 VIs/CTLs, 0 bad) succeeded"
+  },
+  "digest": "25370b38ea184c9f51bc22f6212690084b79558421ff50052ca193c20d934043"
+}
