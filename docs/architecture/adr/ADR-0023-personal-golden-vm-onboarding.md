@@ -40,6 +40,11 @@ headless.
 
 This is requirement **LBA-REQ-033**.
 
+The activation-confirmation step is delivered first as requirement **LBA-REQ-038**:
+a headless known-answer probe (`LabVIEWCLI RunVI` on the shipped `AddTwoNumbers.vi`)
+whose deterministic `activation-receipt@1` gates the build, proven live on the
+reference host's activated LabVIEW 2026.
+
 ## Consequences
 
 - The **Linux plane** becomes a first-class benchmark actor, unlocking the OS axis of cross-plane comparison
