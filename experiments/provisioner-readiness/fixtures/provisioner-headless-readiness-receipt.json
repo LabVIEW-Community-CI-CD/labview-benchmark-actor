@@ -1,0 +1,43 @@
+{
+  "schema": "labview-benchmark-actor/provisioner-headless-readiness@1",
+  "scriptPath": "cleanroom/ubuntu-labview/provision-guest.sh",
+  "checks": [
+    {
+      "name": "installs-xvfb",
+      "description": "apt-installs Xvfb (headless X display for LabVIEWCLI over SSH)",
+      "present": true
+    },
+    {
+      "name": "vi-server-config-labview-conf",
+      "description": "writes VI Server config into labview.conf (the -LabVIEWPath symlink basename)",
+      "present": true
+    },
+    {
+      "name": "vi-server-config-labviewcommunity-conf",
+      "description": "writes VI Server config into labviewcommunity.conf (VIPM launches the labviewcommunity basename)",
+      "present": true
+    },
+    {
+      "name": "vi-server-tcp-enabled-3363",
+      "description": "enables VI Server TCP on port 3363",
+      "present": true
+    },
+    {
+      "name": "vi-server-access-quoted",
+      "description": "quotes the VI Server access lists (LabVIEW ignores unquoted lists)",
+      "present": true
+    },
+    {
+      "name": "post-install-reboot",
+      "description": "addresses the post-install reboot (VI Server binds :3363 only after a reboot)",
+      "present": true
+    }
+  ],
+  "missing": [],
+  "ready": true,
+  "verdict": {
+    "ready": true,
+    "reason": "the provisioner installs every headless-LabVIEW prerequisite (Xvfb, VI Server :3363 for both exe basenames, quoted access, reboot)"
+  },
+  "digest": "c455ad2b0b756c254d5be1c7708e1acf7b7841429d2729ef554be22d8b52c872"
+}
