@@ -25,6 +25,7 @@
 | Roadmap | `docs/roadmap.md` | Maintainers | North Star, phase, or near-term-slice change | the multi-year vision + near-term personal-golden-VM slice trace to `ADR-0023` / `LBA-REQ-033` |
 | Information for Users (26514 set) | `docs/information-for-users/navigation-and-search.md` | Maintainers | a new command, audience, task, or delivery surface | the bounded ISO/IEC/IEEE 26514 product set is complete + command-covering; the `information-for-users-26514` gate (`LBA-REQ-034`) fails closed on drift |
 | Test & Assurance Report | `docs/testing/test-report.md` | Maintainers (generated) | any gate / correspondence-rule / requirement / ADR / coverage-floor change | the ISO/IEC/IEEE 29119-3 executed evidence + ISO 10007 status accounting are regenerated from the apparatus; the `test-report-current` gate (`LBA-REQ-035`) fails closed on drift |
+| Release Procedure | `docs/release/release-procedure.md` | Maintainers | a release workflow, signing, corroboration, or verify-before-install change | the step-by-step signed, corroborated release; the `release-procedure-references-resolve` gate (`LBA-REQ-036`) fails closed if a cited enforcement point stops resolving or a release invariant is dropped |
 
 ## Notes
 

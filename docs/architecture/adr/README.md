@@ -33,6 +33,7 @@
 | [ADR-0023](ADR-0023-personal-golden-vm-onboarding.md) | Personal golden-VM onboarding (Ubuntu + LabVIEW CE) for the community | LINUX | Accepted | LBA-REQ-033 |
 | [ADR-0024](ADR-0024-govern-26514-information-for-users.md) | Govern 26514 information for users as a fail-closed requirement | LINUX | Accepted | LBA-REQ-034 |
 | [ADR-0025](ADR-0025-generated-test-report-status-accounting.md) | Generate the 29119-3 test report + ISO 10007 status accounting from the verification apparatus | LINUX | Accepted | LBA-REQ-035 |
+| [ADR-0026](ADR-0026-release-procedure-information-item.md) | Make the signed, corroborated release procedure a gated 15289 information item | LINUX | Accepted | LBA-REQ-036 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
 LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0022, 0023, 0024). Add new ADRs by extending your own range.

@@ -288,6 +288,17 @@ check('test-report-current', () => {
   return { standard: 'ISO/IEC/IEEE 29119-3 + ISO 10007', selftest: 'generate-test-report 4/4 (current + deterministic + fail-closed)' };
 });
 
+// 6g. Release procedure references resolve (ISO/IEC/IEEE 15289 procedure + 12207/10007 release process,
+//     LBA-REQ-036): the step-by-step release procedure (docs/release/release-procedure.md) must stay honest --
+//     every workflow/script/action path it cites resolves on disk and every required release invariant
+//     (SemVer tag on main, bidirectional agreement, keyless signing, transparency-log inclusion,
+//     verify-before-install) is named. Fail-closed via the selftest (committed conformant + a missing
+//     cited file or a dropped invariant is rejected).
+check('release-procedure-references-resolve', () => {
+  execFileSync(process.execPath, [join(here, 'release', 'verify-release-procedure.selftest.mjs')], { stdio: 'pipe' });
+  return { standard: 'ISO/IEC/IEEE 15289 + 12207', selftest: 'verify-release-procedure 3/3 (conformant + fail-closed)' };
+});
+
 // 7. corroborationConfidence reference matches the real OCR readbacks (ADR-0007 fidelity metric).
 check('corroboration-confidence-reference', () => {
   for (const c of REAL_READBACK_CASES) {
