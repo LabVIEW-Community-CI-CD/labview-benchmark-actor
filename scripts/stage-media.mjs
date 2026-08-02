@@ -91,6 +91,16 @@ writeFileSync(
   join(repo, 'media', 'mesh-live-ladder-receipt.json'),
   readFileSync(join(repo, 'experiments', 'mesh-stress-signature', 'fixtures', 'mesh-live-ladder-receipt.json'))
 );
+// 1c-iv. The concurrent mesh BOARD view (VW-1, LBA-REQ-032): a live snapshot of N simultaneously-stressed
+//     actors (one tile per actor + its stress bar + inverse-read rung). Gated by meshBoardView.selftest.mjs.
+writeFileSync(
+  join(repo, 'media', 'meshBoardView.mjs'),
+  readFileSync(join(repo, 'experiments', 'mesh-stress-signature', 'meshBoardView.mjs'))
+);
+writeFileSync(
+  join(repo, 'media', 'mesh-concurrent-actors-receipt.json'),
+  readFileSync(join(repo, 'experiments', 'mesh-stress-signature', 'fixtures', 'mesh-concurrent-actors-receipt.json'))
+);
 
 // 2. Real mprr ring-buffer series for the deployed viewer.
 const fixture = JSON.parse(

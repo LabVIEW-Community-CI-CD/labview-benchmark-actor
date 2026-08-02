@@ -205,6 +205,7 @@ try {
     'labviewBenchmarkActor.openResourceProfile',
     'labviewBenchmarkActor.openCrossPlaneResource',
     'labviewBenchmarkActor.openMeshCalibration',
+    'labviewBenchmarkActor.openMeshBoard',
     'labviewBenchmarkActor.writeAgents',
     'labviewBenchmarkActor.showAgents',
     'labviewBenchmarkActor.checkAgents',
@@ -471,6 +472,7 @@ try {
     'labviewBenchmarkActor.openResourceProfile',
     'labviewBenchmarkActor.openCrossPlaneResource',
     'labviewBenchmarkActor.openMeshCalibration',
+    'labviewBenchmarkActor.openMeshBoard',
   ];
   const panelsBefore = panels.length;
   for (const id of panelCommands) {
@@ -491,6 +493,31 @@ try {
     panels.slice(panelsBefore).some((p) => /Mesh-Stress Calibration &mdash; Analysis view/.test(p.webview.html) && /script-src 'none'/.test(p.webview.html)),
     'openMeshCalibration renders the inert mesh calibration analysis view from the staged live-ladder receipt'
   );
+  // the concurrent mesh board panel renders the inert live-snapshot board (LBA-REQ-032, VW-1).
+  assert(
+    panels.slice(panelsBefore).some((p) => /Concurrent Mesh Board &mdash; who is stressed/.test(p.webview.html) && /script-src 'none'/.test(p.webview.html)),
+    'openMeshBoard renders the inert concurrent mesh board from the staged concurrent-actors receipt'
+  );
+  // Cover the staged mesh view builders' DEFENSIVE branches directly: the extension only renders them on the
+  // all-recovered happy path (openMeshCalibration/openMeshBoard), leaving the failing-invariant / not-recovered
+  // / missing-field / no-cspSource branches uncovered under the media/** coverage scope. (Both builders are also
+  // fully proven by meshBoardView.selftest / meshCalibrationView.selftest in verify-local-gates.)
+  {
+    const board = await import(pathToFileURL(join(repoRoot, 'media', 'meshBoardView.mjs')).href);
+    const boardHtml = board.buildMeshBoardHtml({
+      schema: '<x>', host: {}, measured: {}, concurrency: {}, invariants: { monotone: 0.5, separable: false, repeatable: false },
+      actors: [{ actor: 'a', rung: null, cpuPoolPctMean: 150 }, { actor: 'b', rung: 'x', cpuPoolPctMean: -5 }],
+      perActorInverseRead: [{ actor: 'a', inferredRung: null, correct: false }],
+    }); // no cspSource -> the 'none' CSP fallback + the not-recovered / missing-field / failing-badge branches
+    assert(/mb-mark no/.test(boardHtml) && /script-src 'none'/.test(boardHtml), 'mesh board renders the not-recovered + no-cspSource defensive branches');
+
+    const cal = await import(pathToFileURL(join(repoRoot, 'media', 'meshCalibrationView.mjs')).href);
+    const calHtml = cal.buildMeshCalibrationHtml({
+      schema: 'x', host: {}, ladder: {}, cpuTotalPctMeanCurve: [], separability: [], salientDimensions: [],
+      invariants: { monotone: 0.2, separable: false, repeatable: false }, inverseRead: {},
+    }); // failing invariants + empty curve -> the 'no' badges + empty-SVG branches
+    assert(/mc-badge no/.test(calHtml), 'mesh calibration renders the failing-invariant defensive branches');
+  }
 
   // pollBus + postNote (CLI-backed): child_process is mocked to ENOENT, so both surface remediation via runCli.
   await registered.find((r) => r.id === 'labviewBenchmarkActor.pollBus').handler();
@@ -587,11 +614,11 @@ try {
   mockVscode.commands.registerCommand = savedRegisterCommand;
   mockVscode.lm.registerTool = savedRegisterTool;
   const errBefore = errorMessages.length;
-  for (const id of ['openBenchmarkRun', 'openBenchmarkTrend', 'openCrossPlaneTrend', 'openResourceProfile', 'openCrossPlaneResource', 'openMeshCalibration']) {
+  for (const id of ['openBenchmarkRun', 'openBenchmarkTrend', 'openCrossPlaneTrend', 'openResourceProfile', 'openCrossPlaneResource', 'openMeshCalibration', 'openMeshBoard']) {
     await second.find((r) => r.id === `labviewBenchmarkActor.${id}`).handler();
   }
   assert(
-    errorMessages.length >= errBefore + 6,
+    errorMessages.length >= errBefore + 7,
     'each panel command reports a UI error (reportUiError) when the staged fixtures are unreadable (graceful degradation, not a crash)'
   );
 
