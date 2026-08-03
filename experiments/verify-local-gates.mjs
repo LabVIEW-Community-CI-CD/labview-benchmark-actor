@@ -2346,6 +2346,23 @@ check('net-coordination-log', () => {
   return { receipt: r.ok, model: 'live-only net (no GitHub Discussion)', cases: Object.keys(r.cases).length };
 });
 
+// LBA-REQ-061 / ADR-0041: off-Discussions step 2 -- the extension's coordination commands select the transport
+// (Discussion default, `net` opt-in). Source-asserts the switch + the config surface; the runtime busSendArgs +
+// the pollBus/postNote net branches are unit-covered by test/extension-activation.mjs (the extension-tests job).
+check('bus-transport-select', () => {
+  const ext = readFileSync(join(here, '..', 'src', 'extension.ts'), 'utf8');
+  assert(/export function busSendArgs\(/.test(ext) && ext.includes("['net', 'send']"), 'busSendArgs builds the net send argv');
+  assert(ext.includes("'busTransport'") && ext.includes("transport === 'net'"), 'the bus commands select discussion vs net');
+  assert(/'net', 'poll'/.test(ext) && /'net', 'send'/.test(ext), 'pollBus -> net poll and postNote -> net send under the net transport');
+  const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8'));
+  const props = pkg.contributes.configuration.properties;
+  for (const k of ['labviewBenchmarkActor.busTransport', 'labviewBenchmarkActor.busNetHosts', 'labviewBenchmarkActor.busNetLog']) {
+    assert(props[k], `package.json contributes ${k}`);
+  }
+  assert(props['labviewBenchmarkActor.busTransport'].default === 'discussion', 'default transport stays discussion (opt-in net during transition)');
+  return { config: 3, default: 'discussion', netOptIn: true };
+});
+
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
 // embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
 // runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops

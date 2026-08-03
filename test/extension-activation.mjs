@@ -892,8 +892,12 @@ try {
     const bp = ext.busPostArgs({ type: 'RESOLVED', task: 'extension-release-0.5.0', ref: 'abc123', priority: 'P2' }, '/tmp/v.json');
     assert(bp[0] === 'post' && bp.includes('RESOLVED') && bp.includes('--message-file') && bp.includes('/tmp/v.json') && bp.includes('--ref') && bp.includes('abc123'), 'busPostArgs builds the lbabus post argv');
     assert(!ext.busPostArgs({ type: 'BLOCKED', task: 't', ref: null, priority: 'P1' }, '/tmp/v.json').includes('--ref'), 'busPostArgs omits --ref when the verdict has no commit');
+    // LBA-REQ-061 (off-Discussions step 2): busSendArgs builds the `lbabus net send` argv for the verdict over TCP.
+    const bs = ext.busSendArgs({ type: 'RESOLVED', task: 'extension-release-0.5.0' }, '/tmp/v.json', '10.0.2.2');
+    assert(bs[0] === 'net' && bs[1] === 'send' && bs.includes('--hosts') && bs.includes('10.0.2.2') && bs.includes('--type') && bs.includes('RESOLVED') && bs.includes('--task') && bs.includes('extension-release-0.5.0') && bs.includes('--message-file') && bs.includes('/tmp/v.json'), 'busSendArgs builds the lbabus net send argv');
+    assert(!ext.busSendArgs({ type: 'BLOCKED', task: 't' }, '/tmp/v.json', '').includes('--hosts'), 'busSendArgs omits --hosts when no peer is configured');
     rmSync(vt, { recursive: true, force: true });
-    console.log('reviewer-verdict-helpers: PASS -- verdictsDir + readReviewTarget + buildSignedVerdict + busPostArgs');
+    console.log('reviewer-verdict-helpers: PASS -- verdictsDir + readReviewTarget + buildSignedVerdict + busPostArgs + busSendArgs');
   }
 
   {

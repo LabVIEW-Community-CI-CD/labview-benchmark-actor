@@ -7,6 +7,13 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Extension bus transport selection — off GitHub Discussions, step 2** (ADR-0041, LBA-REQ-061). The
+  extension can now coordinate over the live-only `lbabus net` TCP bus instead of a GitHub Discussion: a new
+  `labviewBenchmarkActor.busTransport` setting (`discussion` default | `net`) plus `busNetHosts` / `busNetLog`
+  route **Post Note** → `net send`, **Poll Bus** → `net poll` (the local receive-log), and the reviewer-verdict
+  announcement → `net send --message-file` (reusing the semantic `RESOLVED`/`REFINE`/`BLOCKED` types). The
+  Discussion transport stays the **default** (no user-facing change; opt in per actor). Gated by
+  `bus-transport-select`.
 - **Live-only `net` coordination — off GitHub Discussions, step 1** (ADR-0040, LBA-REQ-060). The
   coordination read side now rides TCP: `lbabus net listen --log <file>` records received frames to a
   per-actor JSONL **receive-log**, and new **`lbabus net poll`** reads + filters it (by `--type` / `--task`),

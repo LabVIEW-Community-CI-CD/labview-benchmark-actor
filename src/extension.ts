@@ -565,6 +565,28 @@ export function busPostArgs(post: { type: string; task: string; ref: string | nu
   return args;
 }
 
+/** Build the `lbabus net send` argv for a verdict announcement over TCP (pure, LBA-REQ-061/ADR-0041): the
+ *  semantic type + release task + the FULL signed verdict JSON (--message-file). The net envelope has no
+ *  priority/ref fields (those live inside the verdict JSON); host(s) are the configured peer(s). */
+export function busSendArgs(post: { type: string; task: string }, verdictFile: string, netHosts: string): string[] {
+  const args = ['net', 'send'];
+  if (netHosts) args.push('--hosts', netHosts);
+  args.push('--type', post.type, '--task', post.task, '--message-file', verdictFile);
+  return args;
+}
+
+/** The coordination-bus transport selection (LBA-REQ-061, ADR-0041): 'discussion' (GitHub Discussion, the
+ *  legacy default) or 'net' (live-only `lbabus net` TCP). `net` sends to the configured peer host(s) and polls
+ *  the local receive-log written by `lbabus net listen --log`. Off-Discussions migration, step 2. */
+function busConfig(): { transport: string; netHosts: string; netLog: string } {
+  const c = vscode.workspace.getConfiguration('labviewBenchmarkActor');
+  return {
+    transport: c.get<string>('busTransport', 'discussion'),
+    netHosts: (c.get<string>('busNetHosts', '') || '').trim(),
+    netLog: (c.get<string>('busNetLog', '') || '').trim(),
+  };
+}
+
 /** Parse a capture's resources.jsonl into the raw sample array (skipping blank/partial lines). */
 export function readResourceSamples(dir: string): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [];
@@ -750,7 +772,8 @@ async function postVerdictToBus(
 ): Promise<void> {
   try {
     const post = builder.buildVerdictBusPost(record);
-    const args = busPostArgs(post, verdictFile);
+    const { transport, netHosts } = busConfig();
+    const args = transport === 'net' ? busSendArgs(post, verdictFile, netHosts) : busPostArgs(post, verdictFile);
     output.appendLine(`$ ${CLI} ${args.join(' ')}`);
     try {
       const { stdout, stderr } = await execFileAsync(CLI, args, { timeout: 30000 });
@@ -1465,9 +1488,13 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('labviewBenchmarkActor.pollBus', () =>
-      runCli(output, ['poll', '--full', '--tail', '10'], 30000)
-    )
+    vscode.commands.registerCommand('labviewBenchmarkActor.pollBus', () => {
+      const { transport, netLog } = busConfig();
+      const args = transport === 'net'
+        ? ['net', 'poll', ...(netLog ? ['--log', netLog] : []), '--tail', '10']
+        : ['poll', '--full', '--tail', '10'];
+      return runCli(output, args, 30000);
+    })
   );
 
   context.subscriptions.push(
@@ -1479,7 +1506,11 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!message) {
         return;
       }
-      await runCli(output, ['post', '--type', 'NOTE', '--message', message], 20000);
+      const { transport, netHosts } = busConfig();
+      const args = transport === 'net'
+        ? ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : []), '--type', 'NOTE', '--message', message]
+        : ['post', '--type', 'NOTE', '--message', message];
+      await runCli(output, args, 20000);
     })
   );
 
