@@ -167,3 +167,37 @@ export function gateVisualReview({ verdict, signOffs = [], reviewerAllowlist = {
     reasons,
   };
 }
+
+// The lbabus message type by verdict: a PASS RESOLVES the review, CHANGES asks to REFINE, a FAIL BLOCKS -- so a
+// remote actor reading the coordination bus gets an ACTIONABLE signal, not just an FYI.
+export const VERDICT_BUS_TYPES = Object.freeze({ pass: 'RESOLVED', changes: 'REFINE', fail: 'BLOCKED' });
+
+/**
+ * Build the lbabus post for a signed reviewer verdict record `{ verdict, signOff }` (LBA-REQ-058, ADR-0038):
+ * the `lbabus post` args (semantic `type` by verdict, `task` = <component>-release-<version>, `ref` = the
+ * candidate commit, `priority`) + a one-line `summary`. The message BODY posted to the bus is the FULL signed
+ * verdict JSON (the caller passes the verdict file via `--message-file`). Tolerant/fail-safe: an unknown verdict
+ * defaults to the conservative BLOCKED.
+ */
+export function buildVerdictBusPost(record) {
+  const r = record && typeof record === 'object' ? record : {};
+  const v = r.verdict && typeof r.verdict === 'object' ? r.verdict : {};
+  const s = r.signOff && typeof r.signOff === 'object' ? r.signOff : {};
+  const verdict = VERDICTS.includes(v.verdict) ? v.verdict : 'fail';
+  const t = v.target && typeof v.target === 'object' ? v.target : {};
+  const component = t.component != null ? String(t.component) : 'extension';
+  const version = t.version != null ? String(t.version) : '0.0.0';
+  const digest = s.subject && s.subject.verdictDigest ? String(s.subject.verdictDigest) : '';
+  return {
+    type: VERDICT_BUS_TYPES[verdict],
+    task: `${component}-release-${version}`,
+    ref: t.commit != null ? String(t.commit) : null,
+    priority: verdict === 'pass' ? 'P2' : 'P1',
+    reviewer: s.reviewer != null ? String(s.reviewer) : null,
+    summary:
+      `Reviewer visual verdict: ${verdict.toUpperCase()} for ${component} ${version}` +
+      (s.reviewer ? ` by ${s.reviewer}` : '') +
+      (s.station ? ` (${s.station})` : '') +
+      (digest ? ` digest ${digest.slice(0, 12)}` : ''),
+  };
+}

@@ -169,6 +169,26 @@ jobs:
         with:
           artifacts-dir: ${{ github.workspace }}/staging
 
+      - name: Set up .NET (to run the lbabus bus post)
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8'
+
+      - name: Announce the reviewer verdict on the coordination bus (LBA-REQ-058, best-effort)
+        # Post the SIGNED reviewer verdict to the lbabus GitHub-Discussion bus with a SEMANTIC type
+        # (PASS->RESOLVED / CHANGES->REFINE / FAIL->BLOCKED) so the WIN plane + remote actors see the human's
+        # verdict. Best-effort: a bus hiccup must never fail an already-signed release (ADR-0038).
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          f="staging/reviewer-verdict-${{ steps.ver.outputs.version }}.json"
+          if [ ! -f "$f" ]; then echo "no reviewer verdict to announce for ${{ steps.ver.outputs.version }}"; exit 0; fi
+          args="$(node reviewer-workstation/post-verdict.mjs --verdict "$f" --print-args)"
+          echo "lbabus $args"
+          dotnet run --project tools/collab-cli/LbaBus.csproj -- $args
+
       - name: Upload the keyless-signed release assets (immutable-release + org-ruleset safe)
         # Under the org tag-creation ruleset the in-Actions github.token cannot create the ext-v* tag; only a
         # maintainer's authorized bypass token can (via the releases API). So the reliable output of this job is
