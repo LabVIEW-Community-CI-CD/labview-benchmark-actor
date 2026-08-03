@@ -442,11 +442,54 @@ function loadCorrelatorBuilder(extensionUri: vscode.Uri): Promise<CorrelatorBuil
   return correlatorBuilderPromise;
 }
 
+// Handoff Beacon (LBA-REQ-055): the capture-status payload builder, staged into media/ + loaded like the others.
+interface CaptureStatusBuilder {
+  buildCapturingStatus(opts: unknown): unknown;
+  buildCaptureStatus(record: unknown, samples: unknown, opts: unknown): unknown;
+  buildFailedStatus(opts: unknown): unknown;
+}
+let captureStatusBuilderPromise: Promise<CaptureStatusBuilder> | undefined;
+function loadCaptureStatusBuilder(extensionUri: vscode.Uri): Promise<CaptureStatusBuilder> {
+  if (!captureStatusBuilderPromise) {
+    captureStatusBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'captureStatus.mjs')) as unknown as Promise<CaptureStatusBuilder>;
+  }
+  return captureStatusBuilderPromise;
+}
+
+/** Parse a capture's resources.jsonl into the raw sample array (skipping blank/partial lines). */
+function readResourceSamples(dir: string): Array<Record<string, unknown>> {
+  const out: Array<Record<string, unknown>> = [];
+  const resFile = path.join(dir, 'resources.jsonl');
+  if (!existsSync(resFile)) return out;
+  for (const line of readFileSync(resFile, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    try { out.push(JSON.parse(t) as Record<string, unknown>); } catch { /* skip partial */ }
+  }
+  return out;
+}
+
+/** Best-effort write of the handoff capture-status beacon (never throws into the capture flow). */
+async function writeCaptureStatusBeacon(
+  extensionUri: vscode.Uri,
+  dir: string,
+  build: (b: CaptureStatusBuilder) => unknown,
+  output: vscode.OutputChannel
+): Promise<void> {
+  try {
+    const builder = await loadCaptureStatusBuilder(extensionUri);
+    writeFileSync(path.join(dir, 'capture-status.json'), `${JSON.stringify(build(builder), null, 2)}\n`);
+  } catch (err) {
+    output.appendLine(`capture-status beacon skipped: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 interface ActiveCapture {
   dir: string;
   ffmpeg: ChildProcess;
   sampler: ChildProcess;
   status: vscode.StatusBarItem;
+  startedAt: string;
 }
 let activeCapture: ActiveCapture | undefined;
 
@@ -537,6 +580,9 @@ async function captureLaunchCommand(context: vscode.ExtensionContext, output: vs
     reportUiError(output, 'Capture LabVIEW Launch', err);
     return;
   }
+  // Handoff beacon: mark the capture in flight so the agent's poll knows one is running (LBA-REQ-055).
+  const startedAt = new Date().toISOString();
+  void writeCaptureStatusBeacon(context.extensionUri, dir, (b) => b.buildCapturingStatus({ runDir: dir, startedAt }), output);
   const framePattern = path.join(dir, 'frame-%05d.png');
   const resourcesFile = path.join(dir, 'resources.jsonl');
 
@@ -580,7 +626,7 @@ async function captureLaunchCommand(context: vscode.ExtensionContext, output: vs
   status.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
   status.show();
 
-  activeCapture = { dir, ffmpeg: ffmpegProc, sampler, status };
+  activeCapture = { dir, ffmpeg: ffmpegProc, sampler, status, startedAt };
   output.appendLine(`capture started: ${dir} (ffmpeg 12fps + CPU/RAM/disk; LabVIEW launching)`);
   void vscode.window
     .showInformationMessage(
@@ -630,11 +676,17 @@ async function stopCaptureCommand(context: vscode.ExtensionContext, output: vsco
     /* ignore */
   }
 
+  const stoppedAt = new Date().toISOString();
   try {
     const record = await assembleCapture(context, cap.dir);
     await openCorrelatorForCapture(context, output, cap.dir, record);
-    output.appendLine(`capture stopped: ${record.frameCount} frames -> correlator`);
+    // Handoff beacon: the rich stop status so the agent's await poll resolves + jumps to the peak-write evidence.
+    const samples = readResourceSamples(cap.dir);
+    await writeCaptureStatusBeacon(context.extensionUri, cap.dir, (b) => b.buildCaptureStatus(record, samples, { runDir: cap.dir, startedAt: cap.startedAt, stoppedAt }), output);
+    output.appendLine(`capture stopped: ${record.frameCount} frames -> correlator (beacon written)`);
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await writeCaptureStatusBeacon(context.extensionUri, cap.dir, (b) => b.buildFailedStatus({ runDir: cap.dir, startedAt: cap.startedAt, stoppedAt, error: message }), output);
     reportUiError(output, 'Assemble LabVIEW capture', err);
   }
 }

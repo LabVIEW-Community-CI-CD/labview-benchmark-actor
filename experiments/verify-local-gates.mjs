@@ -50,6 +50,7 @@ import { buildBenchmarkPanelHtml, buildTrendPanelHtml, scrubberModelFromTrend, d
 import { buildBenchmarkFrameScrubberHtml } from './dashboard-slider/buildBenchmarkFrameScrubberHtml.mjs';
 import { buildLaunchCapture } from './mprr-capture-ring/launch-capture.mjs';
 import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.mjs';
+import { buildCaptureStatus, validateCaptureStatus } from './handoff-beacon/captureStatus.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { verifyDepManifest } from './labview-authoring/verify-dep-manifest.mjs';
@@ -2248,6 +2249,25 @@ check('capture-ring-frame-correlator', () => {
   assert(Array.isArray(v2island.counterKeys) && v2island.counterKeys.length === 3, 'the selected counterKeys are carried into the runtime');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-launch-capture.mjs')], { stdio: 'pipe' });
   return { record: 'launch-capture@1', frames: N, v2Counters: v2island.counterKeys.length, dualPacket: cap.dualPacket.outcome, suite: 'verify-launch-capture subprocess' };
+});
+
+// LBA-REQ-055 / ADR-0035: the Handoff Beacon capture-status payload -- the machine-readable capture lifecycle the
+// agent polls so a human "run a VI, then Stop the capture" step becomes an AWAITED signal (not a guess/re-ask).
+// Subprocess selftest + an inline integration check that a real launch-capture (with per-disk throughput) yields
+// a coherent stop beacon that points the agent straight at the peak-write frame.
+check('handoff-capture-status', () => {
+  execFileSync(process.execPath, [join(here, 'handoff-beacon', 'captureStatus.selftest.mjs')], { stdio: 'pipe' });
+  const startMs = 1_700_000_000_000;
+  const N = 6;
+  const frames = Array.from({ length: N }, (_, i) => ({ index: i, imageFile: `frame-${String(i).padStart(5, '0')}.png`, imageBytes: 1000 + i, ms: startMs + Math.round((i * 1000) / 12) }));
+  const resourceSamples = Array.from({ length: N }, (_, i) => ({ ms: startMs + Math.round((i * 1000) / 12), cpuPct: 10, ramMb: 2000, diskPct: 1, disks: [{ name: '0 C:', writeMBs: i === 3 ? 11.4 : 0, readMBs: 0 }] }));
+  const cap = buildLaunchCapture({ frames, resourceSamples, startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'WIN' } });
+  const status = buildCaptureStatus(cap, resourceSamples, { runDir: 'C:\\run', startedAt: 'a', stoppedAt: 'b' });
+  assert(validateCaptureStatus(status).ok, 'the stop beacon validates');
+  assert(status.state === 'stopped' && status.peak.writeMBs === 11.4 && status.peak.disk === '0 C:', 'the beacon captures the peak write throughput + disk');
+  assert(status.peak.frameIndex === 3, `the beacon points at the peak-write frame (got ${status.peak.frameIndex})`);
+  assert(status.wroteToDisk === false, 'wroteToDisk stays false below the >=3-sample threshold (only one write sample)');
+  return { schema: status.schema, peakWriteMBs: status.peak.writeMBs, peakFrameIndex: status.peak.frameIndex, selftest: 'capture-status 6/6' };
 });
 
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document

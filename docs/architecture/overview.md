@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051, LBA-REQ-052, LBA-REQ-053, LBA-REQ-054
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051, LBA-REQ-052, LBA-REQ-053, LBA-REQ-054, LBA-REQ-055
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -293,6 +293,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-47 | Build the Linux g-cli launcher from its Rust source (rust-proxy crate) and prove it end-to-end on host LabVIEW -- the enabler for the grid's LUnit tester actor | g-cli has no prebuilt Linux binary; building the rust-proxy with cargo and driving a real LabVIEW round-trip (launch VI -> echo args over TCP -> exit 0) proves g-cli works on this plane before wiring `g-cli ... lunit` (ADR-0033, roadmap Phase 2) | LBA-REQ-052 |
 | AD-48 | Complete the 2-actor icon-editor grid with the LUnit tester -- run `g-cli lunit` on the project with the LUnit framework from the correct `icon-editor-developer.vipc` (not the CI-runner `runner_dependencies.vipc`) | The Rust-built g-cli (AD-47) drives the icon-editor's real unit-test suite; the benchmark's machine-independent identity is the test inventory (cross-plane comparable) while pass/fail outcomes are environment-dependent (ADR-0033, roadmap Phase 2) | LBA-REQ-053 |
 | AD-49 | Assemble the whole benchmark suite into one Benchmark Observatory -- a benchmark-type x plane coverage matrix + determinism ledger + data-driven frontier, above the per-benchmark grid | As the suite grows along its axes (type x plane x OS x hardware), one governed, fail-closed artifact maps what has been measured where, whether it reproduces, and what to measure next; derived from committed receipts (ADR-0034, roadmap Phase 2) | LBA-REQ-054 |
+| AD-50 | Make the human-in-the-loop a machine-observable signal -- the Handoff Beacon capture-status: the extension emits capture-status.json (capturing -> stopped/failed with a rich payload) that the agent polls (await-handoff.sh) so a human "run a VI, then Stop" step is AWAITED, not guessed, and the agent jumps straight to the peak-write evidence | The reviewer VM exists because some steps need a human; without a signal those steps are invisible to the agent except via chat. A beacon turns the Stop into an awaited event + evidence pointer (ADR-0035, first instance of the Handoff Beacon Protocol) | LBA-REQ-055 |
 
 ## 5. Risks and open questions
 

@@ -7,6 +7,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Handoff Beacon — capture-status** (`capture-status@1`, ADR-0035). The extension
+  now writes a machine-readable `capture-status.json` beacon into each capture's
+  run dir at start (`capturing`) and stop (`stopped` with a rich payload —
+  `wroteToDisk`, the peak write MB/s + the frame index where it peaked, and a
+  per-physical-disk write/read peak breakdown — or `failed` on assembly error).
+  A committed host poller (`reviewer-workstation/await-handoff.sh`) awaits the
+  human's Stop and returns the payload, so the agentic flow leverages human
+  assistance efficiently instead of guessing or re-asking.
 - **Per-physical-disk read/write throughput (MB/s)** in the live LabVIEW-launch
   capture and Frame Correlator. The launch sampler now records `Disk Write
   Bytes/sec` and `Disk Read Bytes/sec` for **every physical disk** and the

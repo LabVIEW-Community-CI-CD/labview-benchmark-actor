@@ -82,6 +82,7 @@ progressively.
 | LBA-REQ-052 | The system shall build the g-cli launcher from its Rust source and prove it on this host, so a fail-closed gate confirms the committed round-trip is correctly derived and cross-plane comparable. | The 2-actor icon-editor grid's TESTER actor drives LUnit via g-cli; on Linux g-cli ships no prebuilt binary -- its launcher is the rust-proxy crate (G-CLI/G-CLI) that opens a TCP server, launches LabVIEW on the target VI, and streams args/output/exit code back. Building it from source and proving a real LabVIEW round-trip is the enabler for that actor. | `cargo build --release` builds the `g-cli` binary; `gcliProxyBenchmark.mjs` records the machine-independent proof identity (tool + version + source commit + operation + args in + echoed text + exit code + LabVIEW version/bitness); `validateGcliReceipt` fails closed unless the echo matches the args sent, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/g-cli-proxy/verify-g-cli-proxy-proof.selftest.mjs` (7/7); gated by `g-cli-proxy-proof`. Live: g-cli 3.0.1 built from Rust in 6.7s, then drove host LabVIEW 2026 (headless) to echo hello/from/host and exit 0. |
 | LBA-REQ-053 | The system shall run the ni/labview-icon-editor LUnit suite via g-cli as a benchmark, so a fail-closed gate proves the committed test inventory is correctly derived and cross-plane comparable. | This is the TESTER actor of the 2-actor icon-editor grid (companion to the builder, LBA-REQ-051): the Rust-built g-cli (LBA-REQ-052) runs the project's real unit tests, with the LUnit framework from the CORRECT icon-editor-developer.vipc (NOT the CI-runner runner_dependencies.vipc). | `g-cli --lv-ver 2026 --arch 64 lunit -- -r <report.xml> lv_icon_editor.lvproj` discovers + runs the project's LUnit classes and emits a JUnit report; `lunitTestBenchmark.mjs` records the machine-independent test inventory (sorted class/case set + suite structure); `validateLunitReceipt` fails closed unless the inventory matches the total, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/lunit-test/verify-lunit-test-benchmark.selftest.mjs` (7/7); gated by `lunit-test-benchmark`. Live: g-cli lunit ran the suite on lba-golden -- 4 classes / 25 cases (10 passed, 2 failed, 8 errored headless, 5 setup), well-formed report. |
 | LBA-REQ-054 | The system shall assemble every committed benchmark receipt into a benchmark-type x plane coverage matrix (the Benchmark Observatory), so a fail-closed gate proves the suite-wide determinism ledger and coverage are correctly derived. | As the suite grows along its axes (benchmark type x plane x OS x hardware), one governed artifact must map what has been measured where, whether it reproduces, and what to measure next -- above the per-benchmark grid. | `benchmarkObservatory.mjs` folds the VI Analyzer + Mass Compile + PPL build + LUnit test receipts into a coverage matrix + determinism ledger + frontier; `validateObservatory` fails closed on a determinism violation, a matrix that contradicts the receipts, a forged verdict, or a tampered digest; the generated `docs/benchmarks/benchmark-observatory.md` is drift-gated. | Run `node experiments/benchmark-observatory/verify-benchmark-observatory.selftest.mjs` (8/8); gated by `benchmark-observatory`. Derived: 4 benchmark types x 5 planes, 2 cross-plane-proven, 0 violations, 13-cell frontier. |
+| LBA-REQ-055 | The system shall emit a machine-readable capture-status beacon for each LabVIEW-launch capture (capturing -> stopped/failed), so a fail-closed gate proves the rich stop payload (wroteToDisk, peak write throughput + its frame, per-disk breakdown) is correctly derived and an agent can await a human-in-the-loop step. | The reviewer/agentic flow has human-in-the-loop steps (run a VI, then Stop the capture); without a signal the agent guesses or re-asks. A capture-status beacon makes the human's Stop an awaited, machine-observable event that also carries a pointer straight to the evidence. | `captureStatus.mjs` derives the beacon (wroteToDisk thresholded, peak write MB/s + the frame index where it peaked, per-physical-disk peaks) from the capture's samples; the extension writes `capture-status.json` at capture start (capturing) + stop (stopped) or assembly failure (failed); `reviewer-workstation/await-handoff.sh` polls it; `validateCaptureStatus` fails closed on a bad schema/state/missing payload. | Run `node experiments/handoff-beacon/captureStatus.selftest.mjs` (6/6); gated by `handoff-capture-status`. Live: the operator's streaming VI produced a stopped beacon (wroteToDisk=true, peak 134 MB/s @ frame 1122) the agent's poll resolved. |
 
 ---
 
@@ -1661,6 +1662,39 @@ progressively.
 
 ---
 
+### LBA-REQ-055: Handoff Beacon -- capture-status (human-in-the-loop signal)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0035 -- the Handoff Beacon Protocol)
+- Statement: The system shall emit a machine-readable capture-status beacon for each
+  LabVIEW-launch capture (capturing -> stopped/failed), so a fail-closed gate proves the rich
+  stop payload (wroteToDisk, peak write throughput + its frame, per-disk breakdown) is
+  correctly derived and an agent can await a human-in-the-loop step.
+- Rationale: The reviewer VM exists because some steps need a human -- run a VI, then click
+  Stop. Those steps are invisible to the agent except through chat, so it guesses or re-asks.
+  A capture-status beacon turns the human's Stop into an AWAITED, machine-observable event and
+  carries a pointer straight to the evidence (the peak-write frame), so human assistance is
+  leveraged efficiently. This is the first instance of the Handoff Beacon Protocol (ADR-0035).
+- Acceptance Criteria:
+  - `buildCaptureStatus` derives, from the capture's resource samples, `wroteToDisk` (a
+    per-disk write rate above a threshold for a minimum number of samples), the peak write
+    MB/s + the disk + the frame index where it peaked, and a per-physical-disk write/read peak
+    breakdown; `buildCapturingStatus` / `buildFailedStatus` cover the other lifecycle states.
+  - The extension writes `capture-status.json` into the run dir at capture START and STOP (or
+    FAILED on assembly error), best-effort (never perturbing the capture).
+  - `reviewer-workstation/await-handoff.sh` runs the guest poll ONCE and blocks until the
+    beacon resolves (stopped|failed) or a timeout, printing the resolved payload -- the one
+    sanctioned poll in the agentic flow.
+  - `validateCaptureStatus` fails closed on a wrong schema, an unknown state, or a stopped/
+    failed beacon missing its payload.
+- Change Guidance: The `experiments/handoff-beacon/` payload builder + self-test are gated by
+  `handoff-capture-status` in `verify-local-gates` and mapped in the RTM; the builder is staged
+  into `media/` and loaded by `src/extension.ts`. The protocol extends (ADR-0035) with an
+  agent->human request beacon, a keyless-signed reviewer verdict beacon, and a bus post; each
+  ships as its own governed slice. Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1719,3 +1753,4 @@ progressively.
 | LBA-REQ-052 | Deployment (g-cli launcher built from Rust) | T-052 |
 | LBA-REQ-053 | Deployment (icon-editor LUnit test) | T-053 |
 | LBA-REQ-054 | Deployment (benchmark observatory) | T-054 |
+| LBA-REQ-055 | Deployment (handoff beacon) | T-055 |
