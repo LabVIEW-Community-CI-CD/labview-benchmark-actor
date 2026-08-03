@@ -91,6 +91,7 @@ progressively.
 | LBA-REQ-061 | The system shall let the extension select the coordination-bus transport -- GitHub Discussion (default) or the live-only `lbabus net` TCP bus (opt-in via busTransport/busNetHosts/busNetLog) -- so postNote/pollBus/the reviewer-verdict announcement ride `net send`/`net poll` when configured, and a fail-closed gate proves the switch + the Discussion-safe default. | ADR-0040 gave net a live-only model; the extension still shelled the GitHub-Discussion post/poll. Step 2 lets it select the transport WITHOUT breaking existing users (Discussion stays default). | `busConfig` reads the settings; `busSendArgs` builds the net send argv; postNote->net send, pollBus->net poll, the verdict->net send --message-file under net; Discussion default keeps busPostArgs/post + poll. | Extension tests (busSendArgs + activation) in test/extension-activation.mjs; gated by `bus-transport-select` (source + package.json config assertion; Discussion default). |
 | LBA-REQ-062 | The system shall let the extension's MCP coordination tools select the transport -- the provider passes the bus-transport config as env (VIHS_COLLAB_TRANSPORT/NET_HOSTS/NET_LOG) and the stdio server routes poll_coordination_bus/post_coordination_note to `net poll`/`net send` under net (Discussion default) -- so the agent tool surface coordinates over TCP when configured, proven by a fail-closed gate. | ADR-0041 migrated the extension commands; the MCP server (a separate stdio process) still shelled the Discussion poll/post. | `busEnvFromConfig` maps busTransport/busNetHosts/busNetLog -> env on the McpStdioServerDefinition; `pollBusArgs`/`postNoteArgs` route to net poll/send under net; Discussion default keeps poll/post. | test/mcp-server.mjs (busEnvFromConfig + stdio tools); gated by `mcp-net-transport` (src/mcp source assertion). |
 | LBA-REQ-063 | The system shall let the reviewer-workstation verdict announcer (post-verdict.mjs) select the transport -- GitHub Discussion (default) or the live-only lbabus net TCP bus (opt-in via VIHS_COLLAB_TRANSPORT/NET_HOSTS) -- so a signed verdict announces via `net send` with the same semantic type when configured, and a fail-closed gate proves the argv under both transports. | ADR-0041/0042 migrated the extension + MCP; post-verdict.mjs (used by the release CI + by hand) still built only the Discussion post argv. | post-verdict.mjs reads VIHS_COLLAB_TRANSPORT/NET_HOSTS: net -> `net send --hosts --type --task --message-file`, else `post` (unchanged); --print-args honors it so the release CI is unchanged at the default. | Gated by `post-verdict-net-transport` (runs --print-args under both transports + asserts the argv). |
+| LBA-REQ-064 | The system shall NOT announce the reviewer verdict to a GitHub Discussion from the release publish workflow -- the durable record of the human PASS is the committed signed verdict (release-agreement visualReview, keyless counter-signed); under the live-only net model CI has no bus peer -- so a fail-closed gate proves the publish workflow carries no GitHub-Discussion announce. | ADR-0038 had the release CI announce the verdict to a GitHub Discussion; under live-only (ADR-0040) CI has no net peer + the committed verdict is already durable, so the CI announce is dropped. | The Set up .NET + Announce steps are removed from extension-release.yml; the committed verdict (staged + keyless counter-signed) is the durable record; off-CI live announce stays via post-verdict.mjs/extension over net. | Gated by `release-no-discussion-announce` (the workflow carries no dotnet-run-LbaBus / announce step + keeps the keyless counter-sign). |
 
 ---
 
@@ -1943,6 +1944,32 @@ progressively.
 
 ---
 
+### LBA-REQ-064: Drop the release-CI GitHub-Discussion verdict announce
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0044 -- drop the release-CI Discussion announce, off GitHub Discussions step 5)
+- Statement: The system shall NOT announce the reviewer verdict to a GitHub Discussion from the release publish
+  workflow -- the durable record of the human PASS is the committed signed verdict (release-agreement
+  `visualReview`, keyless counter-signed); under the live-only net model CI has no bus peer -- so a fail-closed
+  gate proves the publish workflow carries no GitHub-Discussion announce.
+- Rationale: ADR-0038 had the release CI announce the signed verdict to the `lbabus` GitHub-Discussion bus. The
+  off-Discussions migration (ADR-0040..0043) moved coordination onto the live-only `net` bus, but CI runs in
+  ephemeral Actions with no persistent `net` peer -- a net announce there has no listener. The human PASS is
+  already durably recorded as the committed signed verdict (gated by verify-visual-review + keyless
+  counter-signed), so the CI announce is redundant + is dropped.
+- Acceptance Criteria:
+  - The `Set up .NET` + `Announce the reviewer verdict on the coordination bus` steps are removed from
+    `.github/workflows/extension-release.yml`; the publish pipeline touches no GitHub Discussion.
+  - The committed signed verdict (staged for keyless counter-sign + committed in the release-agreement) remains
+    the durable record; `verify-visual-review` still gates the release.
+  - Off-CI, the live announce stays available via `post-verdict.mjs`/the extension over `net` (ADR-0041/0043).
+- Change Guidance: the removal is in `.github/workflows/extension-release.yml`; gate
+  `release-no-discussion-announce`. Supersedes the CI-announce portion of ADR-0038/LBA-REQ-058. The FINAL step
+  -- deprecating + removing the Discussion transport (Program.cs + GraphQL) + the CI mock GraphQL harness -- is
+  deferred (ADR-0044 Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -2010,3 +2037,4 @@ progressively.
 | LBA-REQ-061 | Deployment (extension bus transport selection) | T-061 |
 | LBA-REQ-062 | Deployment (MCP tools transport selection) | T-062 |
 | LBA-REQ-063 | Deployment (post-verdict transport selection) | T-063 |
+| LBA-REQ-064 | Deployment (drop release-CI Discussion announce) | T-064 |

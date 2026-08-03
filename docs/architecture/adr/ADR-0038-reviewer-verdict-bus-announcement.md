@@ -5,6 +5,10 @@
 - Deciders: operator directive (2026-08, PR5 direction: semantic bus type by verdict; the extension posts from the VM + auto in release CI; the full signed verdict JSON is the payload) + agent
 - Relates to: LBA-REQ-058, ADR-0035 (Handoff Beacon Protocol — parent), ADR-0037 (reviewer visual verdict), LBA-REQ-057, ADR-0032 (human-assisted VM bridge), experiments/provider-delegation/busFrame.mjs, tools/collab-cli (lbabus)
 
+> **Superseded in part (ADR-0044, LBA-REQ-064):** the release-CI GitHub-Discussion announce step was removed
+> under the live-only net model. The verdict is still announced by the extension + `post-verdict.mjs` (now
+> net-capable, ADR-0041/0043); the durable record is the committed signed verdict.
+
 ## Context
 
 ADR-0037 made the reviewer's visual PASS/FAIL a signed, gate-verifiable artifact — but it stayed

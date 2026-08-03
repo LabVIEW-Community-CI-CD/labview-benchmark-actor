@@ -7,6 +7,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Drop the release-CI GitHub-Discussion announce — off GitHub Discussions, step 5** (ADR-0044, LBA-REQ-064).
+  The release publish workflow no longer announces the reviewer verdict to a GitHub Discussion (the `Set up
+  .NET` + announce steps are removed) — the durable record of the human PASS is the committed signed verdict
+  (release-agreement `visualReview`, keyless counter-signed), and off-CI a reviewer announces over `net` via
+  `post-verdict.mjs` / the extension. Removes the last GitHub-Discussion dependency from the publish pipeline.
+  Gated by `release-no-discussion-announce`.
 - **Verdict announcer transport selection — off GitHub Discussions, step 4** (ADR-0043, LBA-REQ-063).
   `reviewer-workstation/post-verdict.mjs` now honors the same switch: under `VIHS_COLLAB_TRANSPORT=net` (+
   `VIHS_COLLAB_NET_HOSTS`) it announces a signed verdict via `net send` with the same semantic type, else the

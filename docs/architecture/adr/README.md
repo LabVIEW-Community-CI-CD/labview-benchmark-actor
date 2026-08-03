@@ -51,6 +51,7 @@
 | [ADR-0041](ADR-0041-bus-transport-selection.md) | Bus transport selection in the extension -- Discussion (default) or the live-only `lbabus net` TCP bus (opt-in); postNote/pollBus/verdict announcement ride net send/net poll when configured, off-Discussions step 2 | LINUX | Accepted | LBA-REQ-061 |
 | [ADR-0042](ADR-0042-mcp-transport-selection.md) | MCP coordination tools transport selection -- the provider passes the transport config as env and the stdio server routes poll_coordination_bus/post_coordination_note to net poll/net send under net (Discussion default), off-Discussions step 3 | LINUX | Accepted | LBA-REQ-062 |
 | [ADR-0043](ADR-0043-post-verdict-transport-selection.md) | post-verdict.mjs transport selection -- the reviewer verdict announcer emits net send under VIHS_COLLAB_TRANSPORT=net (Discussion default, so the release CI is unchanged), off-Discussions step 4 | LINUX | Accepted | LBA-REQ-063 |
+| [ADR-0044](ADR-0044-drop-release-ci-discussion-announce.md) | Drop the release-CI GitHub-Discussion verdict announce -- the committed signed verdict (keyless counter-signed) is the durable record; supersedes the CI-announce portion of ADR-0038, off-Discussions step 5 | LINUX | Accepted | LBA-REQ-064 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
 LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0022, 0023, 0024). Add new ADRs by extending your own range.
