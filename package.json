@@ -112,6 +112,10 @@
         "title": "LabVIEW Benchmark Actor: Skip Handoff Step"
       },
       {
+        "command": "labviewBenchmarkActor.renderReviewerVerdict",
+        "title": "LabVIEW Benchmark Actor: Render Reviewer Verdict"
+      },
+      {
         "command": "labviewBenchmarkActor.writeAgents",
         "title": "LabVIEW Benchmark Actor: Write Agent Instructions"
       },
@@ -245,6 +249,16 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Path to the `LabVIEW.exe` to launch for a capture. Leave empty to auto-detect LabVIEW 2026 (32-bit then 64-bit) under `National Instruments`."
+        },
+        "labviewBenchmarkActor.reviewerId": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The enrolled reviewer identity (e.g. an email) recorded + signed into a reviewer visual verdict. Its Ed25519 public key must be enrolled in the release reviewer allowlist. Required by **Render Reviewer Verdict**."
+        },
+        "labviewBenchmarkActor.reviewerKeyPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the enrolled reviewer's Ed25519 **private** key (PKCS#8 PEM) used to sign a reviewer visual verdict IN the VM. Keep this file local to the reviewer station; never commit it. Required by **Render Reviewer Verdict**."
         }
       }
     }

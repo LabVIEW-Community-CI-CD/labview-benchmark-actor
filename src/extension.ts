@@ -497,6 +497,65 @@ export function answeredRequestIds(doneDir: string): string[] {
     .filter((x): x is string => !!x);
 }
 
+// Handoff Beacon reviewer VISUAL VERDICT (LBA-REQ-057, ADR-0037): the pure, dependency-free builder the extension
+// loads to build + Ed25519-SIGN the reviewer's PASS/FAIL of a release candidate IN the VM (mapping to an
+// acg-human-signoff-v1 that feeds the release gate).
+interface HandoffVerdictBuilder {
+  buildReviewerVerdict(opts: unknown): { schema: string; verdict: string; target: Record<string, unknown>; [k: string]: unknown };
+  validateReviewerVerdict(v: unknown): { ok: boolean; errors: string[] };
+  signReviewerVerdict(v: unknown, opts: unknown): { schema: string; decision: string; [k: string]: unknown };
+}
+let handoffVerdictBuilderPromise: Promise<HandoffVerdictBuilder> | undefined;
+function loadHandoffVerdictBuilder(extensionUri: vscode.Uri): Promise<HandoffVerdictBuilder> {
+  if (!handoffVerdictBuilderPromise) {
+    handoffVerdictBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'reviewerVerdict.mjs')) as unknown as Promise<HandoffVerdictBuilder>;
+  }
+  return handoffVerdictBuilderPromise;
+}
+
+/** The dir where the reviewer's signed verdicts are written (globalStorage/handoff/verdicts). */
+export function verdictsDir(globalDir: string): string {
+  return path.join(handoffPaths(globalDir).root, 'verdicts');
+}
+
+/**
+ * The review TARGET (what the human is judging): read from handoff/review-target.json (written by the host
+ * render-verdict.sh so it knows the candidate's commit + .vsix digest) with safe defaults from the running
+ * extension version.
+ */
+export function readReviewTarget(
+  globalDir: string,
+  extVersion: string
+): { component: string; version: string; commit: string | null; vsixSha256: string | null; evidence: Array<Record<string, unknown>> } {
+  const dflt = { component: 'extension', version: extVersion || '0.0.0', commit: null as string | null, vsixSha256: null as string | null, evidence: [] as Array<Record<string, unknown>> };
+  const p = path.join(handoffPaths(globalDir).root, 'review-target.json');
+  if (!existsSync(p)) return dflt;
+  try {
+    const t = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
+    return {
+      component: typeof t.component === 'string' ? t.component : dflt.component,
+      version: typeof t.version === 'string' ? t.version : dflt.version,
+      commit: typeof t.commit === 'string' ? t.commit : null,
+      vsixSha256: typeof t.vsixSha256 === 'string' ? t.vsixSha256 : null,
+      evidence: Array.isArray(t.evidence) ? (t.evidence as Array<Record<string, unknown>>) : [],
+    };
+  } catch {
+    return dflt;
+  }
+}
+
+/** Build + sign a reviewer verdict via the loaded builder (pure orchestration): validate, then Ed25519-sign. */
+export function buildSignedVerdict(
+  builder: HandoffVerdictBuilder,
+  opts: { target: unknown; verdict: string; reviewer: string; station: string; notes: string; evidence: unknown; privateKeyPem: string; renderedAt: string }
+): { verdict: unknown; signOff: unknown } {
+  const verdict = builder.buildReviewerVerdict({ target: opts.target, verdict: opts.verdict, reviewer: opts.reviewer, station: opts.station, notes: opts.notes, evidence: opts.evidence, renderedAt: opts.renderedAt });
+  const check = builder.validateReviewerVerdict(verdict);
+  if (!check.ok) throw new Error(`invalid reviewer verdict: ${check.errors.join('; ')}`);
+  const signOff = builder.signReviewerVerdict(verdict, { privateKeyPem: opts.privateKeyPem, reviewer: opts.reviewer, station: opts.station });
+  return { verdict, signOff };
+}
+
 /** Parse a capture's resources.jsonl into the raw sample array (skipping blank/partial lines). */
 export function readResourceSamples(dir: string): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [];
@@ -622,6 +681,49 @@ function startHandoffWatcher(context: vscode.ExtensionContext, output: vscode.Ou
     context.subscriptions.push({ dispose: () => watcher.close() });
   } catch (err) {
     output.appendLine(`handoff watcher not started: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// Handoff Beacon reviewer VISUAL VERDICT command (LBA-REQ-057, ADR-0037): the human renders their PASS/FAIL of
+// the release candidate IN the VM; the extension Ed25519-SIGNS it with the enrolled reviewer key and writes the
+// signed verdict (an acg-human-signoff-v1 over the reviewer-verdict@1) into handoff/verdicts/ for the release
+// gate + a CI keyless counter-sign.
+async function renderReviewerVerdictCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const cfg = vscode.workspace.getConfiguration('labviewBenchmarkActor');
+  const reviewer = String(cfg.get<string>('reviewerId', '') || '').trim();
+  const keyPath = String(cfg.get<string>('reviewerKeyPath', '') || '').trim();
+  if (!reviewer || !keyPath) {
+    vscode.window.showWarningMessage('Set labviewBenchmarkActor.reviewerId and labviewBenchmarkActor.reviewerKeyPath (the enrolled reviewer key) to render a signed verdict.');
+    return;
+  }
+  if (!existsSync(keyPath)) {
+    vscode.window.showErrorMessage(`Reviewer key not found at ${keyPath}.`);
+    return;
+  }
+  const globalDir = context.globalStorageUri?.fsPath;
+  if (!globalDir) {
+    return;
+  }
+  const extVersion = String((context.extension?.packageJSON as { version?: string } | undefined)?.version ?? '0.0.0');
+  const target = readReviewTarget(globalDir, extVersion);
+  const choice = await vscode.window.showInformationMessage(`Reviewer visual verdict for ${target.component} ${target.version}?`, 'Pass', 'Request changes', 'Fail');
+  if (!choice) {
+    return;
+  }
+  const verdict = choice === 'Pass' ? 'pass' : choice === 'Fail' ? 'fail' : 'changes';
+  const notes = await vscode.window.showInputBox({ prompt: `Notes for the ${verdict.toUpperCase()} verdict on ${target.component} ${target.version}`, placeHolder: 'what you saw / why' });
+  try {
+    const builder = await loadHandoffVerdictBuilder(context.extensionUri);
+    const privateKeyPem = readFileSync(keyPath, 'utf8');
+    const record = buildSignedVerdict(builder, { target, verdict, reviewer, station: 'WINDOWS_VM', notes: notes || '', evidence: target.evidence, privateKeyPem, renderedAt: new Date().toISOString() });
+    const dir = verdictsDir(globalDir);
+    mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${target.component}-${target.version}.json`);
+    writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+    output.appendLine(`reviewer verdict ${verdict} signed for ${target.component} ${target.version} by ${reviewer}`);
+    vscode.window.showInformationMessage(`Reviewer verdict signed: ${verdict.toUpperCase()} for ${target.component} ${target.version}.`);
+  } catch (err) {
+    reportUiError(output, 'Render reviewer verdict', err);
   }
 }
 
@@ -1398,7 +1500,8 @@ export function activate(context: vscode.ExtensionContext): void {
   // op-done beacon the agent awaits.
   context.subscriptions.push(
     vscode.commands.registerCommand('labviewBenchmarkActor.markStepDone', () => markStepDoneCommand(context, output)),
-    vscode.commands.registerCommand('labviewBenchmarkActor.skipStep', () => skipStepCommand(context, output))
+    vscode.commands.registerCommand('labviewBenchmarkActor.skipStep', () => skipStepCommand(context, output)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.renderReviewerVerdict', () => renderReviewerVerdictCommand(context, output))
   );
   startHandoffWatcher(context, output);
 

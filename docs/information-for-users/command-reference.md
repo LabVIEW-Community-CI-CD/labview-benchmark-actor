@@ -37,6 +37,7 @@
 | --- | --- | --- |
 | **Mark Handoff Step Done** | `markStepDone` | Answer the agent's pending handoff request as done (writes the op-done beacon the agent awaits); prompts for an optional note. |
 | **Skip Handoff Step** | `skipStep` | Decline the agent's pending handoff request (writes an op-done beacon with a `skipped` outcome). |
+| **Render Reviewer Verdict** | `renderReviewerVerdict` | Record + Ed25519-sign your visual PASS / CHANGES / FAIL of the release candidate under review, using the enrolled reviewer key (`reviewerId` + `reviewerKeyPath`). Writes a signed reviewer verdict that gates the release. |
 
 ## Cross-plane and resource
 

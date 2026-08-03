@@ -63,5 +63,6 @@
 | LBA-REQ-054 | Benchmark Observatory (suite-wide coverage + determinism map) | Proven | §3.2 Deployment | ADR-0034 | T-054 | 4 |
 | LBA-REQ-055 | Handoff Beacon -- capture-status (human-in-the-loop signal) | Proven | §3.2 Deployment | ADR-0035 | T-055 | 6 |
 | LBA-REQ-056 | Handoff Beacon -- agent->human request (human-step barrier) | Proven | §3.2 Deployment | ADR-0036 | T-056 | 7 |
+| LBA-REQ-057 | Handoff Beacon -- reviewer visual verdict (signed human PASS/FAIL) | Proven | §3.2 Deployment | ADR-0037 | T-057 | 9 |
 
-_Generated for 56 requirements._
+_Generated for 57 requirements._
