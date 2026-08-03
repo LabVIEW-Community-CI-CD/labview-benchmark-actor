@@ -73,5 +73,6 @@
 | LBA-REQ-064 | Drop the release-CI GitHub-Discussion verdict announce | Proven | §3.2 Deployment | ADR-0044 | T-064 | 3 |
 | LBA-REQ-065 | Flip the coordination default to net + graceful no-op when unconfigured | Proven | §3.2 Deployment | ADR-0045 | T-065 | 7 |
 | LBA-REQ-066 | Collapse the coordination product surface to net-only | Proven | §3.2 Deployment | ADR-0046 | T-066 | 8 |
+| LBA-REQ-067 | Remove the GitHub-Discussion transport from the lbabus CLI | Proven | §3.2 Deployment | ADR-0047 | T-067 | 5 |
 
-_Generated for 66 requirements._
+_Generated for 67 requirements._

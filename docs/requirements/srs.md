@@ -94,6 +94,7 @@ progressively.
 | LBA-REQ-064 | The system shall NOT announce the reviewer verdict to a GitHub Discussion from the release publish workflow -- the durable record of the human PASS is the committed signed verdict (release-agreement visualReview, keyless counter-signed); under the live-only net model CI has no bus peer -- so a fail-closed gate proves the publish workflow carries no GitHub-Discussion announce. | ADR-0038 had the release CI announce the verdict to a GitHub Discussion; under live-only (ADR-0040) CI has no net peer + the committed verdict is already durable, so the CI announce is dropped. | The Set up .NET + Announce steps are removed from extension-release.yml; the committed verdict (staged + keyless counter-signed) is the durable record; off-CI live announce stays via post-verdict.mjs/extension over net. | Gated by `release-no-discussion-announce` (the workflow carries no dotnet-run-LbaBus / announce step + keeps the keyless counter-sign). |
 | LBA-REQ-065 | The system shall default the coordination-bus transport to the live-only `lbabus net` TCP bus (GitHub Discussion becomes a legacy opt-out) AND degrade gracefully when net is unconfigured -- `net poll` with no receive-log and `net send --skip-if-no-peer` with no peer both exit 0 with a hint (no error, no dead loopback) -- so a fresh install coordinates over TCP once a peer/log is set and does nothing quietly until then, proven by a gate. | Steps 1-5 (ADR-0040..0044) made net available everywhere but kept Discussion the default (opt-in net) during the transition; with the net loop proven live (ADR-0039) the last thing pinning Discussion is inertia. Flipping naively would error/hang an unconfigured install, so the flip is paired with a graceful no-op. | busTransport defaults to net across the extension/MCP/post-verdict; `net poll` no-log softened from fail-closed to graceful (exit 0); the send side passes --skip-if-no-peer so `net send` with no peer exits 0; Discussion is `busTransport: discussion` / VIHS_COLLAB_TRANSPORT=discussion. | npm test (extension + MCP default flip) + the net-coordination-log receipt (graceful poll); gated by `net-default-graceful` (Net.cs graceful branches + net default in package.json/extension) + `bus-transport-select` (default === 'net'). |
 | LBA-REQ-066 | The system shall coordinate over the live-only `lbabus net` TCP bus ONLY across its product surface (the extension commands + the MCP coordination tools + the reviewer verdict announcer) -- the GitHub-Discussion transport opt-out is removed (no `busTransport` selection, no consumer builds a Discussion `post`/`poll` argv) -- so a fail-closed gate proves the product surface is net-only. | Steps 1-6 (ADR-0040..0045) made net the default with Discussion a legacy opt-out, but the product still carried the Discussion arms (busPostArgs, the busTransport selection, VIHS_COLLAB_TRANSPORT, the post/--priority branch). With net proven + default, the opt-out is dead weight on the surface users + agents touch. | Removed the busTransport setting; busConfig returns {netHosts,netLog}; pollBus->net poll, postNote/verdict->net send unconditionally; busEnvFromConfig maps only NET_HOSTS/NET_LOG; post-verdict.mjs is net send only. The graceful no-op (--skip-if-no-peer / net poll exit 0) is preserved. | npm test (extension + MCP net-only) + gates `bus-transport-select`/`mcp-net-transport`/`post-verdict-net-transport` (now net-only) + `net-default-graceful`. |
+| LBA-REQ-067 | The system shall NOT expose a GitHub-Discussion coordination transport from the `lbabus` CLI -- the `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion client are removed (GitHubGraphQL keeps only the REST release-tag + issue-comment calls for `selfcheck`/`defect`), leaving the live-only `lbabus net` TCP bus as the sole coordination transport -- so a fail-closed gate proves the CLI carries no Discussion transport. | Step 7 (ADR-0046) made the product net-only, leaving the CLI's Discussion commands dead. Removing them + the GraphQL client completes the off-Discussions teardown; GitHubGraphQL was shared with selfcheck (release tags) + defect (issue comment), which stay on REST. | Program.cs drops init/post/poll/wait/delta + EnforceVersionOrNull + ParseAll/SeedBody/Eq/Dur; GitHubGraphQL is REST-only; Config drops Category/Title/AgentId/Counterpart/AddressesMe; the 12 discussion/version-guard ci cases are retired. | dotnet build + a CLI smoke test (removed cmds exit 1; net intact); gated by `cli-no-discussion-transport`. |
 
 ---
 
@@ -2035,6 +2036,36 @@ progressively.
 
 ---
 
+### LBA-REQ-067: Remove the GitHub-Discussion transport from the lbabus CLI
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0047 -- remove the CLI Discussion transport, off GitHub Discussions step 8 / final)
+- Statement: The system shall NOT expose a GitHub-Discussion coordination transport from the `lbabus` CLI -- the
+  `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion client are removed (GitHubGraphQL
+  keeps only the REST release-tag + issue-comment calls for `selfcheck`/`defect`), leaving the live-only
+  `lbabus net` TCP bus as the sole coordination transport -- so a fail-closed gate proves the CLI carries no
+  Discussion transport.
+- Rationale: step 7 (ADR-0046) made the coordination product surface net-only, leaving the CLI's own Discussion
+  commands (init/post/poll/wait/delta) reachable by nothing in the product. This final step removes them + the
+  GraphQL Discussion client, completing the off-Discussions migration (steps 1-8). GitHubGraphQL.cs was shared:
+  selfcheck reads release tags (REST) + defect appends an issue comment (REST) -- those keepers stay.
+- Acceptance Criteria:
+  - `Program.cs` no longer dispatches `init`/`post`/`poll`/`wait`/`delta` (the `Cmd*` methods + help entries +
+    the `EnforceVersionOrNull` guard + the `ParseAll`/`SeedBody`/`Eq`/`Dur` helpers are gone); `version`/
+    `capabilities`/`selfcheck`/`grep`/`defect`/`net`/`resource`/`agents`/`docs` remain.
+  - `GitHubGraphQL.cs` is REST-only (drops the Discussion records + `Query`/`ResolveContext`/`FindDiscussion`/
+    `CreateDiscussion`/`EnsureDiscussion`/`ListComments`/`AddComment`; keeps `ListReleaseTags` + `AddIssueComment`);
+    `Config.cs` drops the discussion-only fields (`Category`/`Title`/`AgentId`/`Counterpart`/`AddressesMe`).
+  - The 12 discussion / version-guard ci cases are retired (the grep + defect + runner-meta cases remain); the
+    build + a CLI smoke test verify the removal.
+- Change Guidance: the removal is in tools/collab-cli/{Program.cs, GitHubGraphQL.cs, Config.cs} + the ci cases;
+  gate `cli-no-discussion-transport`. A doc/cleanup follow-up (step 8b) sweeps the stale docs (collab-cli
+  README/AGENTS.md, ci/README.md, docs/mcp-tools.md, reviewer-manual-test-plan.md, root README.md) + trims the
+  ci mock's vestigial GraphQL/release handlers + retires experiments/ollama-bus/bus-agent.mjs -- none block a
+  gate. Completes the off-Discussions migration. Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -2105,3 +2136,4 @@ progressively.
 | LBA-REQ-064 | Deployment (drop release-CI Discussion announce) | T-064 |
 | LBA-REQ-065 | Deployment (flip coordination default to net + graceful no-op) | T-065 |
 | LBA-REQ-066 | Deployment (collapse coordination product to net-only) | T-066 |
+| LBA-REQ-067 | Deployment (remove CLI Discussion transport) | T-067 |
