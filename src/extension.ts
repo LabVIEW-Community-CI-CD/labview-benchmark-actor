@@ -477,20 +477,42 @@ function resolveFfmpeg(): string {
   return 'ffmpeg';
 }
 
-// PowerShell CIM sampler: instant formatted counters (CPU/disk %) + OS memory -> JSONL every ~200 ms.
+// PowerShell sampler: fast System.Diagnostics.PerformanceCounter reads (NextValue() is sub-ms, unlike the old
+// ~0.8 s CIM loop) frame-locked to ~100 ms. Emits CPU %, used RAM MB, disk % busy (kept for back-compat) AND
+// per-PHYSICAL-DISK write/read THROUGHPUT in MB/s (decimal, bytes/1e6) for every physical disk. A modest
+// sustained write (e.g. ~11 MB/s) registers on the throughput curve even though % Disk Time barely moves.
 export function samplerScript(outFile: string): string {
   const out = outFile.replace(/'/g, "''");
   return [
     "$ErrorActionPreference='SilentlyContinue'",
     `$out='${out}'`,
+    'function NewPC($cat,$ctr,$inst){ try { if ($inst) { New-Object System.Diagnostics.PerformanceCounter $cat,$ctr,$inst } else { New-Object System.Diagnostics.PerformanceCounter $cat,$ctr } } catch { $null } }',
+    '$totalMb=[math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize/1024,0)',
+    "$cpu=NewPC 'Processor' '% Processor Time' '_Total'",
+    "$avail=NewPC 'Memory' 'Available MBytes' $null",
+    "$dt=NewPC 'PhysicalDisk' '% Disk Time' '_Total'",
+    "$insts=@()",
+    "try { $insts=@((New-Object System.Diagnostics.PerformanceCounterCategory 'PhysicalDisk').GetInstanceNames() | Where-Object { $_ -ne '_Total' } | Sort-Object) } catch {}",
+    '$wc=@{}; $rc=@{}',
+    "foreach($i in $insts){ $wc[$i]=NewPC 'PhysicalDisk' 'Disk Write Bytes/sec' $i; $rc[$i]=NewPC 'PhysicalDisk' 'Disk Read Bytes/sec' $i }",
+    'foreach($x in @($cpu,$dt)+$wc.Values+$rc.Values){ if($x){ try{ [void]$x.NextValue() }catch{} } }',
     'while ($true) {',
-    "  $c=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter \"Name='_Total'\").PercentProcessorTime",
-    '  $o=Get-CimInstance Win32_OperatingSystem',
-    '  $r=[math]::Round((($o.TotalVisibleMemorySize-$o.FreePhysicalMemory)/1024),1)',
-    "  $d=(Get-CimInstance Win32_PerfFormattedData_PerfDisk_PhysicalDisk -Filter \"Name='_Total'\").PercentDiskTime",
+    '  $t0=[DateTimeOffset]::UtcNow',
+    '  $c=if($cpu){[math]::Round($cpu.NextValue(),1)}else{0}',
+    '  $am=if($avail){$avail.NextValue()}else{0}',
+    '  $r=[math]::Round($totalMb-$am,1)',
+    '  $d=if($dt){[math]::Round($dt.NextValue(),1)}else{0}',
+    '  $ds=@()',
+    '  foreach($i in $insts){',
+    '    $w=if($wc[$i]){[math]::Round($wc[$i].NextValue()/1000000,3)}else{0}',
+    '    $rd=if($rc[$i]){[math]::Round($rc[$i].NextValue()/1000000,3)}else{0}',
+    '    $nm=$i.Replace(\'"\',\'\')',
+    '    $ds+=("{""name"":"""+$nm+""",""writeMBs"":"+$w+",""readMBs"":"+$rd+"}")',
+    '  }',
     '  $ms=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()',
-    '  Add-Content -Path $out -Value ("{""ms"":"+$ms+",""cpuPct"":"+[double]$c+",""ramMb"":"+$r+",""diskPct"":"+[double]$d+"}")',
-    '  Start-Sleep -Milliseconds 200',
+    '  Add-Content -Path $out -Value ("{""ms"":"+$ms+",""cpuPct"":"+$c+",""ramMb"":"+$r+",""diskPct"":"+$d+",""disks"":["+($ds -join ",")+"]}")',
+    '  $el=([DateTimeOffset]::UtcNow-$t0).TotalMilliseconds',
+    '  $sl=100-$el; if($sl -gt 0){ Start-Sleep -Milliseconds ([int]$sl) }',
     '}',
   ].join('\n');
 }
@@ -683,13 +705,16 @@ async function openCorrelatorForCapture(
     cpuPct: f.cpuPct,
     ramMb: f.ramMb,
     diskPct: f.diskPct,
+    // per-physical-disk read/write throughput (MB/s) when the sampler captured it (the correlator plots a
+    // write + read curve per disk alongside CPU/RAM/disk%); undefined on legacy captures (falls back cleanly).
+    disks: f.disks,
     // v2: pass the frame's performance-counter catalog through when the capture carries it (the correlator plots
     // the counter curves; a legacy flat capture falls back to CPU/RAM/disk).
     counters: f.counters,
     imageSrc: panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString(),
   }));
   const existingMarkers = Array.isArray(record.markers) ? record.markers : [];
-  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel, markers: existingMarkers };
+  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel, markers: existingMarkers, diskNames: record.diskNames };
   panel.webview.html = correlator.buildFrameCorrelatorHtml(model, getNonce(), panel.webview.cspSource);
 
   // Persist a CLICK marker into the capture metadata ("mouse click -> label in metadata"): the webview posts
