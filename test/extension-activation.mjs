@@ -798,9 +798,9 @@ try {
   assert(typeof summaryText === 'string' && /LabVIEW Benchmark Actor/.test(summaryText), 'the summary LM tool returns text');
 
   // Handoff Beacon agent->human flow (PR3, LBA-REQ-056): a pending request surfaces via refreshHandoffRequests
-  // as a notification whose action writes the op-done beacon. Deterministic -- awaits refreshHandoffRequests
-  // directly (no timers / no fs.watch race) so it is stable on slow CI; covers refreshHandoffRequests + the
-  // mark/skip commands + writeOpDoneBeacon against temp globalStorages.
+  // as a notification whose action writes the op-done beacon. Deterministic + ISOLATED -- awaits
+  // refreshHandoffRequests directly and stubs the notification/input responses inline (no shared queue, no
+  // fs.watch race) so it is stable on every CI runner. Covers refreshHandoffRequests + mark/skip + writeOpDoneBeacon.
   {
     const mkOut = () => ({ appendLine() {}, show() {}, dispose() {} });
     const ctxFor = (gs) => ({ globalStorageUri: { fsPath: gs }, extensionUri: { path: repoRoot, fsPath: repoRoot } });
@@ -809,20 +809,22 @@ try {
       mkdirSync(join(gs, 'handoff', 'requests'), { recursive: true });
       writeFileSync(join(gs, 'handoff', 'requests', `${id}.json`), JSON.stringify({ schema: 'labview-benchmark-actor/agent-request@1', id, title, body: '', kind: 'step', createdAt }));
     };
+    const savedInfo = mockVscode.window.showInformationMessage;
+    const savedInput = mockVscode.window.showInputBox;
 
     // (1) "Mark step done" with a note -> op-done { done, note }.
     const gsDone = join(tmpdir(), 'lba-test-handoff-done-xyz');
     seedReq(gsDone, 'req-done', 'Run the streaming VI, then Stop', '2026-08-03T00:00:00Z');
-    infoResponseQueue.push('Mark step done');
-    inputQueue.push('ran VI #3');
+    mockVscode.window.showInformationMessage = () => 'Mark step done';
+    mockVscode.window.showInputBox = async () => 'ran VI #3';
     await ext.refreshHandoffRequests(ctxFor(gsDone), mkOut());
     const opDone = JSON.parse(readFileSync(join(gsDone, 'handoff', 'done', 'req-done.json'), 'utf8'));
-    assert(opDone.requestId === 'req-done' && opDone.outcome === 'done' && opDone.note === 'ran VI #3', 'handoff: op-done records done + the note');
+    assert(opDone.requestId === 'req-done' && opDone.outcome === 'done' && opDone.note === 'ran VI #3', `handoff: op-done records done + the note (got ${JSON.stringify(opDone)})`);
 
     // (2) "Skip" -> op-done { skipped, note:null }.
     const gsSkip = join(tmpdir(), 'lba-test-handoff-skip-xyz');
     seedReq(gsSkip, 'req-skip', 'Activate LabVIEW', '2026-08-03T00:05:00Z');
-    infoResponseQueue.push('Skip');
+    mockVscode.window.showInformationMessage = () => 'Skip';
     await ext.refreshHandoffRequests(ctxFor(gsSkip), mkOut());
     const opSkip = JSON.parse(readFileSync(join(gsSkip, 'handoff', 'done', 'req-skip.json'), 'utf8'));
     assert(opSkip.outcome === 'skipped' && opSkip.note === null, 'handoff: op-done records skipped');
@@ -830,8 +832,11 @@ try {
     // (3) A dismissed notification (no action chosen) writes no answer.
     const gsDismiss = join(tmpdir(), 'lba-test-handoff-dismiss-xyz');
     seedReq(gsDismiss, 'req-dismiss', 'Some step', '2026-08-03T00:07:00Z');
-    await ext.refreshHandoffRequests(ctxFor(gsDismiss), mkOut()); // infoResponseQueue empty -> choice undefined
+    mockVscode.window.showInformationMessage = () => undefined;
+    await ext.refreshHandoffRequests(ctxFor(gsDismiss), mkOut());
     assert(!existsSync(join(gsDismiss, 'handoff', 'done', 'req-dismiss.json')), 'handoff: a dismissed notification writes no op-done');
+    mockVscode.window.showInformationMessage = savedInfo;
+    mockVscode.window.showInputBox = savedInput;
 
     // (4) No pending: refresh with an empty requests dir clears the active request; the mark/skip commands no-op.
     const gsEmpty = join(tmpdir(), 'lba-test-handoff-empty-xyz');
