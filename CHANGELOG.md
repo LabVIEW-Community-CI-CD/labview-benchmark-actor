@@ -30,6 +30,16 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 - The reviewer-workstation tool install is resilient to broken `winget` sources
   (best-effort winget, then a direct-download fall back).
 
+### Fixed
+- **MCP grid tools now declare `items` on every array parameter** — the bundled
+  MCP server's `run_quorum` / `get_confidence` / `verify_attestation` /
+  `check_independence` tools declared their `bundles` / `witnesses` array inputs
+  without the JSON-Schema `items` subschema, which the VS Code tool validator
+  rejects ("tool parameters array type must have items"), breaking agent-mode use
+  of *all* the extension's tools. A pure-schema regression guard
+  (`experiments/acg-mcp/grid-tools.selftest.mjs`, gate `acg-mcp`) now fails closed
+  on any malformed published tool schema so it cannot ship again.
+
 ### Docs
 - **Roadmap** (`docs/roadmap.md`) and **ADR-0023** — the multi-year vision and the
   near-term personal-golden-VM onboarding slice (`LBA-REQ-033`).
@@ -39,6 +49,10 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
   real Windows VMs.
 - Decoupled the reviewer / authoring documentation from the `vi-history-suite`
   prototype.
+- Added a reviewer **agent-chat smoke test** (TC-11) plus an authoritative host-side
+  driver (`reviewer-workstation/drive-agent-chat.sh`) that drives the reviewer VM's
+  agent chat and captures screenshot evidence — the procedure that caught the MCP
+  schema defect above.
 
 ## [0.4.0] - 2026-08-01
 
