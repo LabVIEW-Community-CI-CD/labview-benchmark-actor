@@ -105,6 +105,7 @@ progressively.
 | LBA-REQ-075 | The system shall fold the governed mesh-run receipts (dispatch, fulfillment, cross-plane parity) into a coverage matrix + a consistency ledger -- which benchmarks x which planes x how many actors fulfilled, and whether each run's dispatch/fulfillment/parity name the SAME identity -- so a fail-closed gate proves the operator-facing mesh dashboard reflects the receipts it summarizes. | The mesh dispatch->fulfill loop is closed (LBA-REQ-072/073/074) but those receipts are three separate artifacts with no single governed view of which benchmarks are fulfilled, across which planes, by how many actors -- the roadmap Phase 3->4 cross-plane-comparison-at-scale dashboard (the benchmark observatory LBA-REQ-054 is the single-plane precedent). | `meshObservatory.mjs` folds the committed dispatch + fulfillment + parity receipts into a `mesh-coverage-observatory@1` matrix + ledger, re-derived byte-stably from the source receipts (currency) + grounded in the real fulfillment (identity + actors + planes). | `node experiments/mesh-fulfillment/meshObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `mesh-coverage-observatory`. |
 | LBA-REQ-076 | The system shall expand a validated mesh-run dispatch into per-plane actor tasking and validate the returned-receipt collection that feeds fulfillment, both identity-bound to the dispatch -- so a fail-closed gate proves every collected receipt provably descends from the dispatched tasks and ran the SAME benchmark. | The mesh dispatch->fulfill loop is governed at its ends (LBA-REQ-074 dispatch + LBA-REQ-073 fulfillment) but the MIDDLE -- how a dispatch tasks actors + how their receipts are collected -- was ungoverned, so an assembled receipt set could bypass the fan-out. The roadmap live fan-out needs an identity-bound tasking + collection contract. | `meshFanout.mjs` derives an `actor-tasking@1` set from the dispatch (one identity-bound task per requested plane) + validates a `receipt-collection@1` mapping returned receipts back to tasks; the committed tasking re-derives from the dispatch + the collection reconstructs the committed LBA-REQ-073 fulfillment; `.github/workflows/mesh-run.yml` runs the fan-out step. | `node experiments/mesh-fulfillment/meshFanout.selftest.mjs` (7/7) + the committed tasking + collection (via the CLI) + the tasking currency + the fulfillment reconstruction + the mesh-run.yml wiring; gated by `mesh-live-fanout-wired`. |
 | LBA-REQ-077 | The system shall admit a returned mesh-actor receipt into a verified collection only when it carries a valid attestation from its declared, enrolled actor -- so a fail-closed gate proves each collected receipt provably came from a REAL enrolled actor (not a fabricated trend). | The fan-out (LBA-REQ-076) proves a receipt is identity-bound + structurally valid but not that it came from a real enrolled actor -- a rogue participant could fabricate a plausible trend. A public volunteer mesh needs each receipt cryptographically bound to the enrolled actor that produced it; the ADR-0016 enrolled-key engine already exists to reuse. | `meshVerifiedTier.mjs` REUSES acg-provenance `signBundle`/`verifyWitnessAttestation` (Ed25519, ADR-0016): each returned receipt is signed by the actor's enrolled key, and a `verified-receipt-collection@1` admits it only when the attestation verifies against the enrolled `mesh-actor-keys.json` allowlist; the committed verified collection re-verifies its attestations offline. | `node experiments/mesh-fulfillment/meshVerifiedTier.selftest.mjs` (7/7) + the committed verified collection (via the CLI) + every collected receipt attested by its declared enrolled actor + the mesh-run.yml wiring; gated by `mesh-verified-tier-attested`. |
+| LBA-REQ-078 | The system shall admit a verified mesh-actor attestation only when it carries an inclusion proof against a transparency-log tree head signed by the enrolled log key -- so a fail-closed gate proves the mesh receipts are enrolled-signed AND publicly auditable (append-only, tamper-evident). | The verified tier (LBA-REQ-077) binds a receipt to its enrolled actor, but the set of attestations is not publicly auditable -- a compromised key could sign + nothing records the attestations in an append-only log. Release provenance already solved this (the ADR-0022 signed Merkle transparency log); the mesh should reuse it. | `meshTransparency.mjs` REUSES the acg-transparency engine (`recordRelease`/`verifyReleaseInclusion`, RFC-6962): each verified-tier attestation is recorded into a signed Merkle tree, and a `logged-verified-collection@1` admits it only when its inclusion proof reconstructs the enrolled-key-signed tree head; the committed logged collection re-verifies offline. | `node experiments/mesh-fulfillment/meshTransparency.selftest.mjs` (7/7) + the committed logged collection (via the CLI) + the signed tree head + every inclusion proof + the mesh-run.yml wiring; gated by `mesh-attestations-transparency-logged`. |
 
 ---
 
@@ -2376,6 +2377,38 @@ progressively.
   `mesh-verified-tier-attested` in `verify-local-gates`. Enrolling an actor is publishing its public key to
   `mesh-actor-keys.json`. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-078: Transparency-log the mesh-actor attestations (public auditability)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0059 -- transparency-log the mesh-actor attestations, roadmap Phase 3)
+- Statement: The system shall admit a verified mesh-actor attestation only when it carries an inclusion proof
+  against a transparency-log tree head signed by the enrolled log key -- so a fail-closed gate proves the mesh
+  receipts are enrolled-signed AND publicly auditable (append-only, tamper-evident).
+- Rationale: the verified tier (LBA-REQ-077) binds each returned receipt to its enrolled actor, but the SET of
+  attestations is not publicly auditable -- a compromised actor key could sign a receipt, and nothing records the
+  attestations in an append-only, tamper-evident log a third party can audit. Release provenance already solved
+  this with the ADR-0022 acg-transparency signed Merkle log (record attestations + admit only with an inclusion
+  proof against the signed tree head); the mesh reuses it.
+- Acceptance Criteria:
+  - `meshTransparency.mjs` records each verified-tier attestation into an RFC-6962 signed Merkle transparency log
+    by REUSING the ADR-0022 `recordRelease` (the Merkle tree over the attestation entry leaves + a tree head signed
+    by the enrolled log key + a per-attestation inclusion proof).
+  - A `logged-verified-collection@1` binds a validated LBA-REQ-077 verified collection (by digest) to the signed
+    tree head + one inclusion proof per attestation; `validateLoggedCollection` requires the verified tier to hold,
+    the wrapper to bind to it, the signed tree head to verify against the enrolled log key, and -- for every
+    attestation -- a valid inclusion proof against that signed root. It fails closed on an unsigned/wrong-key tree
+    head, a missing or non-reconstructing inclusion proof, a tree-size mismatch, a binding mismatch, or a tampered
+    digest.
+  - The gate `mesh-attestations-transparency-logged` proves offline: the selftest (7/7); the committed logged
+    collection re-verifies (signed tree head + every inclusion proof); the tree logs every attestation; and
+    `mesh-run.yml` runs the transparency step. The enrolled log PUBLIC key is committed; the private key is not.
+- Change Guidance: the verifier + selftest + committed logged collection + log key live under
+  `experiments/mesh-fulfillment/` (`meshTransparency.mjs` / `.selftest.mjs` / `mesh-run-logged-collection.json` /
+  `mesh-log-key.json`); the workflow step is in `.github/workflows/mesh-run.yml`; gate
+  `mesh-attestations-transparency-logged` in `verify-local-gates`. A consistency proof between successive tree
+  heads (the engine already provides it) extends this to an append-only history. Authored under the
+  singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2459,3 +2492,4 @@ progressively.
 | LBA-REQ-075 | Deployment (mesh coverage observatory) | T-075 |
 | LBA-REQ-076 | Deployment (live fan-out contract) | T-076 |
 | LBA-REQ-077 | Deployment (opt-in verified tier) | T-077 |
+| LBA-REQ-078 | Deployment (mesh attestation transparency log) | T-078 |

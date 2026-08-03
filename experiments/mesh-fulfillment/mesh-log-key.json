@@ -1,0 +1,5 @@
+{
+  "note": "The enrolled Ed25519 PUBLIC key of the mesh transparency log (LBA-REQ-078). The private key stays with the log operator and is never committed. A logged-verified-collection@1 is admitted only when its signed tree head verifies against this key and every attestation carries an inclusion proof against that signed root.",
+  "logIdentity": "mesh-transparency-log@labview-benchmark-actor",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAjrYu2L0JAFRWtB4mt2pMY4yptfSkteIRPu2IYe8NM8g=\n-----END PUBLIC KEY-----\n"
+}
