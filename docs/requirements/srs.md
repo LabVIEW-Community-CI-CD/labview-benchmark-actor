@@ -104,6 +104,7 @@ progressively.
 | LBA-REQ-074 | The system shall dispatch a cross-plane benchmark run GitHub-natively via a `repository_dispatch` event carrying a validated `mesh-run-dispatch@1` request bound to its fulfillment, and gate the returned receipts on cross-plane fulfillment -- so a fail-closed gate proves the dispatch->fulfill loop is wired with no central server (the repo IS the queue). | LBA-REQ-073 governs mesh-run FULFILLMENT, but the GitHub-native DISPATCH transport did not exist -- no repository_dispatch workflow, no committed dispatch-request contract binding a dispatch to its fulfillment (the roadmap Phase 3 GitHub-native queue). | `meshDispatch.mjs` validates a `mesh-run-dispatch@1` request (benchmarkId + spec + minActors + planes + dispatchId, carrying the LBA-REQ-072 identity) fail-closed; `.github/workflows/mesh-run.yml` triggers on `repository_dispatch[mesh-run]`, validates the dispatch, then gates `meshFulfillment`; the committed request binds to the LBA-REQ-073 fulfillment (same identity). | `node experiments/mesh-fulfillment/meshDispatch.selftest.mjs` (7/7) + the committed request (via the CLI) + the dispatch<->fulfillment binding + the mesh-run.yml wiring; gated by `mesh-run-dispatch-wired`. |
 | LBA-REQ-075 | The system shall fold the governed mesh-run receipts (dispatch, fulfillment, cross-plane parity) into a coverage matrix + a consistency ledger -- which benchmarks x which planes x how many actors fulfilled, and whether each run's dispatch/fulfillment/parity name the SAME identity -- so a fail-closed gate proves the operator-facing mesh dashboard reflects the receipts it summarizes. | The mesh dispatch->fulfill loop is closed (LBA-REQ-072/073/074) but those receipts are three separate artifacts with no single governed view of which benchmarks are fulfilled, across which planes, by how many actors -- the roadmap Phase 3->4 cross-plane-comparison-at-scale dashboard (the benchmark observatory LBA-REQ-054 is the single-plane precedent). | `meshObservatory.mjs` folds the committed dispatch + fulfillment + parity receipts into a `mesh-coverage-observatory@1` matrix + ledger, re-derived byte-stably from the source receipts (currency) + grounded in the real fulfillment (identity + actors + planes). | `node experiments/mesh-fulfillment/meshObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `mesh-coverage-observatory`. |
 | LBA-REQ-076 | The system shall expand a validated mesh-run dispatch into per-plane actor tasking and validate the returned-receipt collection that feeds fulfillment, both identity-bound to the dispatch -- so a fail-closed gate proves every collected receipt provably descends from the dispatched tasks and ran the SAME benchmark. | The mesh dispatch->fulfill loop is governed at its ends (LBA-REQ-074 dispatch + LBA-REQ-073 fulfillment) but the MIDDLE -- how a dispatch tasks actors + how their receipts are collected -- was ungoverned, so an assembled receipt set could bypass the fan-out. The roadmap live fan-out needs an identity-bound tasking + collection contract. | `meshFanout.mjs` derives an `actor-tasking@1` set from the dispatch (one identity-bound task per requested plane) + validates a `receipt-collection@1` mapping returned receipts back to tasks; the committed tasking re-derives from the dispatch + the collection reconstructs the committed LBA-REQ-073 fulfillment; `.github/workflows/mesh-run.yml` runs the fan-out step. | `node experiments/mesh-fulfillment/meshFanout.selftest.mjs` (7/7) + the committed tasking + collection (via the CLI) + the tasking currency + the fulfillment reconstruction + the mesh-run.yml wiring; gated by `mesh-live-fanout-wired`. |
+| LBA-REQ-077 | The system shall admit a returned mesh-actor receipt into a verified collection only when it carries a valid attestation from its declared, enrolled actor -- so a fail-closed gate proves each collected receipt provably came from a REAL enrolled actor (not a fabricated trend). | The fan-out (LBA-REQ-076) proves a receipt is identity-bound + structurally valid but not that it came from a real enrolled actor -- a rogue participant could fabricate a plausible trend. A public volunteer mesh needs each receipt cryptographically bound to the enrolled actor that produced it; the ADR-0016 enrolled-key engine already exists to reuse. | `meshVerifiedTier.mjs` REUSES acg-provenance `signBundle`/`verifyWitnessAttestation` (Ed25519, ADR-0016): each returned receipt is signed by the actor's enrolled key, and a `verified-receipt-collection@1` admits it only when the attestation verifies against the enrolled `mesh-actor-keys.json` allowlist; the committed verified collection re-verifies its attestations offline. | `node experiments/mesh-fulfillment/meshVerifiedTier.selftest.mjs` (7/7) + the committed verified collection (via the CLI) + every collected receipt attested by its declared enrolled actor + the mesh-run.yml wiring; gated by `mesh-verified-tier-attested`. |
 
 ---
 
@@ -2343,6 +2344,38 @@ progressively.
   receipt slots into the collection contract with no new governance. Authored under the singular-requirement
   directive (one `shall`).
 
+### LBA-REQ-077: The opt-in verified tier (enrolled-actor receipt attestations)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0058 -- the opt-in verified tier, roadmap Phase 3)
+- Statement: The system shall admit a returned mesh-actor receipt into a verified collection only when it carries a
+  valid attestation from its declared, enrolled actor -- so a fail-closed gate proves each collected receipt
+  provably came from a REAL enrolled actor (not a fabricated trend).
+- Rationale: the fan-out collection (LBA-REQ-076) proves a returned receipt is identity-bound + structurally valid,
+  and fulfillment (LBA-REQ-073) proves enough distinct actors responded, but nothing proves a receipt actually came
+  from a REAL enrolled actor -- a rogue or buggy participant could fabricate a plausible plane-tagged trend. A
+  public volunteer mesh with no central server needs each receipt cryptographically bound to the enrolled actor
+  that produced it. The ADR-0016 acg-provenance enrolled-key attestation engine already provides this and is reused.
+- Acceptance Criteria:
+  - `meshVerifiedTier.mjs` attests each returned receipt with the actor's ENROLLED Ed25519 key by REUSING the
+    ADR-0016 `signBundle` (an `acg-witness-attestation-v1` whose subject digest is the canonical digest of the
+    exact receipt, whose `witnessIdentity` is the actor id).
+  - A `verified-receipt-collection@1` binds a validated LBA-REQ-076 collection (by digest) to one attestation per
+    collected receipt; `validateVerifiedCollection` requires the collection to validate, the wrapper to bind to it,
+    and -- for every collected receipt -- a valid attestation from its declared, enrolled actor (via
+    `verifyWitnessAttestation` against `mesh-actor-keys.json`). It fails closed on an unsigned/forged receipt, an
+    un-enrolled actor, a key that does not match the enrolled one, an attestation not by the declared actor, an
+    orphan attestation, or a tampered digest.
+  - The gate `mesh-verified-tier-attested` proves offline: the selftest (7/7); the committed verified collection
+    re-verifies against the committed collection + enrolled keys; every collected receipt is attested by its
+    declared enrolled actor; and `mesh-run.yml` runs the verified-tier step. The enrolled PUBLIC keys are committed;
+    the private keys are not.
+- Change Guidance: the verifier + selftest + committed verified collection + enrolled keys live under
+  `experiments/mesh-fulfillment/` (`meshVerifiedTier.mjs` / `.selftest.mjs` / `mesh-run-verified-collection.json` /
+  `mesh-actor-keys.json`); the workflow step is in `.github/workflows/mesh-run.yml`; gate
+  `mesh-verified-tier-attested` in `verify-local-gates`. Enrolling an actor is publishing its public key to
+  `mesh-actor-keys.json`. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2425,3 +2458,4 @@ progressively.
 | LBA-REQ-074 | Deployment (GitHub-native mesh-run dispatch) | T-074 |
 | LBA-REQ-075 | Deployment (mesh coverage observatory) | T-075 |
 | LBA-REQ-076 | Deployment (live fan-out contract) | T-076 |
+| LBA-REQ-077 | Deployment (opt-in verified tier) | T-077 |

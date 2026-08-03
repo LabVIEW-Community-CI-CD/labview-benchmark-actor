@@ -50,6 +50,13 @@ jobs:
         # on an unbound task, a collected receipt with no matching task, or a plane/identity mismatch.
         run: node experiments/mesh-fulfillment/meshFanout.mjs
 
+      - name: Verify enrolled-actor attestations (opt-in verified tier, fail-closed)
+        # The higher-assurance mode (LBA-REQ-077): a verified-receipt-collection@1 admits a returned receipt only
+        # when it carries a valid acg-witness-attestation-v1 (ADR-0016) from its DECLARED, ENROLLED actor -- so a
+        # collected receipt provably came from a real enrolled actor, not a fabricated trend. Fail-closed on an
+        # unsigned/forged receipt, an un-enrolled actor, or a wrong-actor signature.
+        run: node experiments/mesh-fulfillment/meshVerifiedTier.mjs
+
       - name: Gate the returned receipts on cross-plane fulfillment (fail-closed)
         # Volunteer actors return plane-tagged receipts; the run is fulfilled ONLY when >= N distinct cross-plane
         # actors returned a valid receipt for the SAME benchmark identity (LBA-REQ-073). No central results DB.

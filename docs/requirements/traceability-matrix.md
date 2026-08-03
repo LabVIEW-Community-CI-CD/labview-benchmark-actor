@@ -83,5 +83,6 @@
 | LBA-REQ-074 | GitHub-native mesh-run dispatch transport (repository_dispatch) | Proven | §3.2 Deployment | ADR-0055 | T-074 | 6 |
 | LBA-REQ-075 | The mesh coverage observatory (fold the mesh-run receipts into a coverage matrix) | Proven | §3.2 Deployment | ADR-0056 | T-075 | 5 |
 | LBA-REQ-076 | The live fan-out contract (actor-tasking + receipt-collection) | Proven | §3.2 Deployment | ADR-0057 | T-076 | 6 |
+| LBA-REQ-077 | The opt-in verified tier (enrolled-actor receipt attestations) | Proven | §3.2 Deployment | ADR-0058 | T-077 | 7 |
 
-_Generated for 76 requirements._
+_Generated for 77 requirements._

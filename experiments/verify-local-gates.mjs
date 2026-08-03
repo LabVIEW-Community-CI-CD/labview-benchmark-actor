@@ -1783,6 +1783,26 @@ check('mesh-live-fanout-wired', () => {
   return { tasks: tasking.tasks.length, collected: collection.collected.length, identity: collection.identity.slice(0, 12), wired: true };
 });
 
+// LBA-REQ-077 / ADR-0058: the opt-in VERIFIED TIER -- each returned actor receipt is SIGNED by the actor's
+// ENROLLED Ed25519 key (reusing the ADR-0016 acg-provenance attestation engine), and a verified-receipt-collection@1
+// admits a receipt only when it carries a valid attestation from its declared, enrolled actor. Asserts the
+// selftest (7/7) + the committed verified collection (via the CLI) + that the attestations verify over the real
+// collected receipts against the committed enrolled keys + that mesh-run.yml wires the verified-tier step.
+check('mesh-verified-tier-attested', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshVerifiedTier.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshVerifiedTier.mjs')], { stdio: 'pipe' });
+  const collection = JSON.parse(readFileSync(join(dir, 'mesh-run-collection.json'), 'utf8'));
+  const verified = JSON.parse(readFileSync(join(dir, 'mesh-run-verified-collection.json'), 'utf8'));
+  const keys = JSON.parse(readFileSync(join(dir, 'mesh-actor-keys.json'), 'utf8')).enrolled ?? {};
+  assert(verified.schema === 'labview-benchmark-actor/verified-receipt-collection@1' && verified.requirement === 'LBA-REQ-077', 'committed verified collection shape');
+  // every collected receipt is attested by its declared actor, and every attesting actor is enrolled (has a key).
+  assert(Array.isArray(verified.attestations) && verified.attestations.length === collection.collected.length, 'every collected receipt carries an attestation');
+  assert(verified.attestations.every((a) => a.attestation && a.attestation.witnessIdentity === a.actorId && typeof keys[a.actorId] === 'string'), 'each attestation is by the declared, enrolled actor');
+  assert(verified.identity === collection.identity && verified.dispatchId === collection.dispatchId, 'the verified collection binds to the collection');
+  return { attestations: verified.attestations.length, enrolledActors: Object.keys(keys).length, identity: verified.identity.slice(0, 12) };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch
