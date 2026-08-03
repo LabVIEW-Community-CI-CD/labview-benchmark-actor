@@ -61,6 +61,13 @@ writeFileSync(
   join(repo, 'media', 'captureStatus.mjs'),
   readFileSync(join(repo, 'experiments', 'handoff-beacon', 'captureStatus.mjs'))
 );
+// 1c-iv. Handoff Beacon agent->human request payloads (LBA-REQ-056): the extension watches handoff/requests/ and
+//     surfaces each ask as a notification with a "Mark step done" action that writes an op-done beacon, all built
+//     from this pure, gated module (loaded like captureStatus.mjs).
+writeFileSync(
+  join(repo, 'media', 'handoffRequest.mjs'),
+  readFileSync(join(repo, 'experiments', 'handoff-beacon', 'handoffRequest.mjs'))
+);
 writeFileSync(
   join(repo, 'media', 'labview-launch-record.json'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-record.json'))

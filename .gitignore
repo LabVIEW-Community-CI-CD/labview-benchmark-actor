@@ -10,6 +10,7 @@ media/benchmark-panels.mjs
 media/launch-capture.mjs
 media/frame-correlator.mjs
 media/captureStatus.mjs
+media/handoffRequest.mjs
 media/labview-launch-record.json
 media/labview-launch-trend.json
 media/labview-launch-trend-win.json

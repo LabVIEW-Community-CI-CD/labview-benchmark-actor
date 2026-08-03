@@ -54,6 +54,19 @@ The viewer shows the metric chart with a **vertical cursor line**:
 This keeps the **metric** and the **visual evidence** synchronized at every
 point in time (LBA-REQ-004/005).
 
+## 3.1 Respond to a handoff request
+
+When the agent needs you to perform a manual step in the reviewer VM (run a VI,
+activate LabVIEW, click **Stop**), it appears as a notification with **Mark step
+done** and **Skip** buttons. You can also answer from the Command Palette:
+
+- **LabVIEW Benchmark Actor: Mark Handoff Step Done** — after completing the
+  step (you may add an optional note).
+- **LabVIEW Benchmark Actor: Skip Handoff Step** — to decline it.
+
+Your answer is recorded as a machine-readable `op-done` beacon so the agent
+resumes without re-asking (LBA-REQ-056).
+
 ## 4. Run across multiple VMs (optional)
 
 1. Spawn the multi-VM topology (N Vagrant VMs), each with the extension

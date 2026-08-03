@@ -83,6 +83,7 @@ progressively.
 | LBA-REQ-053 | The system shall run the ni/labview-icon-editor LUnit suite via g-cli as a benchmark, so a fail-closed gate proves the committed test inventory is correctly derived and cross-plane comparable. | This is the TESTER actor of the 2-actor icon-editor grid (companion to the builder, LBA-REQ-051): the Rust-built g-cli (LBA-REQ-052) runs the project's real unit tests, with the LUnit framework from the CORRECT icon-editor-developer.vipc (NOT the CI-runner runner_dependencies.vipc). | `g-cli --lv-ver 2026 --arch 64 lunit -- -r <report.xml> lv_icon_editor.lvproj` discovers + runs the project's LUnit classes and emits a JUnit report; `lunitTestBenchmark.mjs` records the machine-independent test inventory (sorted class/case set + suite structure); `validateLunitReceipt` fails closed unless the inventory matches the total, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/lunit-test/verify-lunit-test-benchmark.selftest.mjs` (7/7); gated by `lunit-test-benchmark`. Live: g-cli lunit ran the suite on lba-golden -- 4 classes / 25 cases (10 passed, 2 failed, 8 errored headless, 5 setup), well-formed report. |
 | LBA-REQ-054 | The system shall assemble every committed benchmark receipt into a benchmark-type x plane coverage matrix (the Benchmark Observatory), so a fail-closed gate proves the suite-wide determinism ledger and coverage are correctly derived. | As the suite grows along its axes (benchmark type x plane x OS x hardware), one governed artifact must map what has been measured where, whether it reproduces, and what to measure next -- above the per-benchmark grid. | `benchmarkObservatory.mjs` folds the VI Analyzer + Mass Compile + PPL build + LUnit test receipts into a coverage matrix + determinism ledger + frontier; `validateObservatory` fails closed on a determinism violation, a matrix that contradicts the receipts, a forged verdict, or a tampered digest; the generated `docs/benchmarks/benchmark-observatory.md` is drift-gated. | Run `node experiments/benchmark-observatory/verify-benchmark-observatory.selftest.mjs` (8/8); gated by `benchmark-observatory`. Derived: 4 benchmark types x 5 planes, 2 cross-plane-proven, 0 violations, 13-cell frontier. |
 | LBA-REQ-055 | The system shall emit a machine-readable capture-status beacon for each LabVIEW-launch capture (capturing -> stopped/failed), so a fail-closed gate proves the rich stop payload (wroteToDisk, peak write throughput + its frame, per-disk breakdown) is correctly derived and an agent can await a human-in-the-loop step. | The reviewer/agentic flow has human-in-the-loop steps (run a VI, then Stop the capture); without a signal the agent guesses or re-asks. A capture-status beacon makes the human's Stop an awaited, machine-observable event that also carries a pointer straight to the evidence. | `captureStatus.mjs` derives the beacon (wroteToDisk thresholded, peak write MB/s + the frame index where it peaked, per-physical-disk peaks) from the capture's samples; the extension writes `capture-status.json` at capture start (capturing) + stop (stopped) or assembly failure (failed); `reviewer-workstation/await-handoff.sh` polls it; `validateCaptureStatus` fails closed on a bad schema/state/missing payload. | Run `node experiments/handoff-beacon/captureStatus.selftest.mjs` (6/6); gated by `handoff-capture-status`. Live: the operator's streaming VI produced a stopped beacon (wroteToDisk=true, peak 134 MB/s @ frame 1122) the agent's poll resolved. |
+| LBA-REQ-056 | The system shall surface an agent's request for a human step as an in-VM VS Code notification whose "Mark step done" / "Skip" actions emit a machine-readable op-done beacon, so a fail-closed gate proves the request/answer payloads are correctly derived and the agent can await a human-in-the-loop step it initiated. | The capture-status beacon (LBA-REQ-055) let the agent AWAIT a human step; the agent's own ASK ("run this VI", "activate LabVIEW") was invisible except via chat, so it re-asked. Making the ask a first-class, in-VM, machine-observable event (a reusable human-step barrier) lets the agent request a manual step and resume when the human answers. | `handoffRequest.mjs` derives `agent-request@1` + `op-done@1` (validated fail-closed) + `selectPendingRequest` (newest unanswered); the extension watches `handoff/requests/` and surfaces the ask as a notification with "Mark step done" (optional note) / "Skip" -- also palette commands -- writing `handoff/done/<id>.json`; `reviewer-workstation/request-step.sh` drops the request + polls the answer ONCE. | Run `node experiments/handoff-beacon/handoffRequest.selftest.mjs` (5/5); gated by `handoff-request`. Live: the agent asked the human in the reviewer VM + resumed on the op-done beacon. |
 
 ---
 
@@ -1699,6 +1700,39 @@ progressively.
 
 ---
 
+### LBA-REQ-056: Handoff Beacon -- agent->human request (human-step barrier)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0036 -- agent->human request beacon, under the Handoff Beacon Protocol ADR-0035)
+- Statement: The system shall surface an agent's request for a human step as an in-VM VS Code
+  notification whose "Mark step done" / "Skip" actions emit a machine-readable op-done beacon,
+  so a fail-closed gate proves the request/answer payloads are correctly derived and the agent
+  can await a human-in-the-loop step it initiated.
+- Rationale: The capture-status beacon (LBA-REQ-055) let the agent AWAIT a human step (Stop).
+  This closes the OTHER direction: the agent's ASK -- "run this VI", "activate LabVIEW", "log in
+  to VIPM" -- was invisible except through chat, so it re-asked and wasted turns. Making the ask
+  a first-class, in-VM, machine-observable event (a reusable human-step BARRIER) lets the agent
+  request a manual step and resume exactly when the human answers.
+- Acceptance Criteria:
+  - `buildAgentRequest` / `buildOpDone` derive the `agent-request@1` / `op-done@1` payloads;
+    `validateAgentRequest` / `validateOpDone` fail closed on a wrong schema, an empty id/title,
+    or an unknown outcome; `selectPendingRequest` returns the newest unanswered request
+    (deterministic), so an answered ask is never re-surfaced.
+  - The extension watches `handoff/requests/` and surfaces the newest pending request as a
+    `showInformationMessage` with "Mark step done" (prompts an optional note) and "Skip"; both
+    actions are also palette commands (`labviewBenchmarkActor.markStepDone` / `.skipStep`), so
+    the barrier is answerable without a mouse; the answer is written to `handoff/done/<id>.json`.
+  - `reviewer-workstation/request-step.sh` writes the request beacon into the VM (via the same
+    pure builder) and runs the guest poll ONCE, blocking until the op-done answer resolves
+    (`done|skipped`) or a bounded timeout -- the one sanctioned poll in the flow.
+- Change Guidance: The `experiments/handoff-beacon/handoffRequest.mjs` builder + self-test are
+  gated by `handoff-request` in `verify-local-gates` and mapped in the RTM; the builder is staged
+  into `media/` and loaded by `src/extension.ts`. This is the agent->human tier of the Handoff
+  Beacon Protocol (ADR-0035); the keyless-signed reviewer verdict beacon + the bus post ship as
+  their own governed slices. Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1758,3 +1792,4 @@ progressively.
 | LBA-REQ-053 | Deployment (icon-editor LUnit test) | T-053 |
 | LBA-REQ-054 | Deployment (benchmark observatory) | T-054 |
 | LBA-REQ-055 | Deployment (handoff beacon) | T-055 |
+| LBA-REQ-056 | Deployment (handoff beacon -- agent->human request) | T-056 |
