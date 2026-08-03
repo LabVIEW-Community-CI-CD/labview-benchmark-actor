@@ -14,7 +14,7 @@
 // Exit: 0 = the composite decision passes (cleared to publish); 1 = fail-closed; 2 = usage.
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { validateReceipt } from '../../reviewer-workstation/composite-release-decision.mjs';
 
@@ -31,7 +31,7 @@ export function verifyCompositeRelease({ receipt, component, version } = {}) {
   return { publish: reasons.length === 0, reasons };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2);
   const opt = {};
   let versionArg = '';
