@@ -46,6 +46,7 @@ Notes:
 | TC-08 | Dogfood AGENTS.md guidance | – | – | – |
 | TC-09 | End-to-end LabVIEW run | yes | opt. | yes |
 | TC-10 | MCP server (programmatic) | – | – | – |
+| TC-11 | Agent-chat tool invocation | – | – | – |
 
 ---
 
@@ -168,6 +169,32 @@ workspace root.
 - **Expected:** the server is discoverable and starts locally over stdio; the four tools are
   listed; `get_benchmark_series` returns a structured series with no error. Nothing is sent to the
   internet. See [../mcp-tools.md](../mcp-tools.md) for the full tool contract.
+- **Result:** _____
+
+### TC-11 — Agent-chat tool invocation (agent-facing surface)
+- **Pre:** the extension is installed and active; the editor's AI chat is available in **Agent**
+  mode. No CLI or LabVIEW needed. This case exercises the extension's agent-facing tools (its
+  Language Model tools and the bundled MCP grid tools) the way a real agent uses them.
+- **Automated drive (VirtualBox reviewer VM):** from the host, run
+  `reviewer-workstation/drive-agent-chat.sh --vm <name> --prompt "Open the resource profile benchmark panel" --out <dir>`.
+  It starts a fresh chat, types and submits the prompt, and captures PNG evidence at each step
+  (`01`..`06`) into `<dir>`. Inspect the frames to judge PASS/FAIL. This is the authoritative
+  procedure that caught the `check_independence` MCP schema defect described below.
+- **Steps (manual equivalent):**
+  1. Start a fresh chat (Command Palette -> **Chat: New Chat**), Agent mode.
+  2. Enter the prompt: `Open the resource profile benchmark panel`.
+  3. Submit and wait for the agent to invoke the extension's benchmark-panel tool.
+- **Expected:** the agent validates its tool set with **no** "tool parameters array type must have
+  items" or other tool-validation error, invokes the extension's tool, and the **Benchmark
+  Resource Profile** panel opens and renders (CPU/RAM/disk correlation). Every published MCP tool
+  schema is well-formed.
+- **Gotcha — MCP schema changes do not hot-reload:** VS Code **caches MCP tool schemas** and keeps
+  MCP servers alive **across window reloads**. After reinstalling a `.vsix` that changes any MCP
+  tool schema, run **MCP: Reset Cached Tools** *and* fully restart VS Code (kill + relaunch, not
+  just **Developer: Reload Window**) before re-testing, or the stale schema persists and the tool
+  keeps failing validation. The offline guard in
+  `experiments/acg-mcp/grid-tools.selftest.mjs` (gate `acg-mcp`) catches malformed tool schemas at
+  build time so this defect cannot ship again.
 - **Result:** _____
 
 ---

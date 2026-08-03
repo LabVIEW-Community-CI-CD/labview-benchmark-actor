@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { handleAcgGridMcpMessage, dispatchGridTool } from './grid-tools.mjs';
+import { handleAcgGridMcpMessage, dispatchGridTool, ACG_GRID_TOOLS } from './grid-tools.mjs';
 import { signBundle, generateEnrolledKeypair } from '../acg-provenance/attest.mjs';
 import { recordRelease } from '../acg-transparency/transparency-log.mjs';
 
@@ -54,6 +54,24 @@ ok('tools/list publishes the ADR-0020 grid tools', () => {
   const r = handleAcgGridMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
   const names = r.result.tools.map((t) => t.name);
   for (const req of ['spin_up_witness', 'run_quorum', 'get_confidence', 'verify_attestation', 'verify_inclusion', 'verify_before_install', 'teardown']) assert.ok(names.includes(req), `missing ${req}`);
+});
+
+// 2b. every published tool inputSchema is well-formed for the VS Code / MCP tool validator: an array-typed
+// node MUST declare `items`, else the client rejects the whole tool ("tool parameters array type must have
+// items") and agent-mode tool use breaks. This guards the ENTIRE published surface as it grows, so a future
+// array parameter added without `items` fails this gate offline instead of only surfacing live in the VM chat.
+ok('every published tool inputSchema is well-formed (array nodes declare items)', () => {
+  const walk = (node, where) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'array') assert.ok(node.items && typeof node.items === 'object', `${where}: array schema must declare "items"`);
+    if (node.properties && typeof node.properties === 'object') for (const [k, v] of Object.entries(node.properties)) walk(v, `${where}.${k}`);
+    if (node.items) walk(node.items, `${where}[]`);
+  };
+  assert.ok(Array.isArray(ACG_GRID_TOOLS) && ACG_GRID_TOOLS.length >= 5, 'ACG_GRID_TOOLS must be published');
+  for (const tool of ACG_GRID_TOOLS) {
+    assert.ok(tool.inputSchema && tool.inputSchema.type === 'object', `${tool.name}: inputSchema must be an object schema`);
+    walk(tool.inputSchema, tool.name);
+  }
 });
 
 // 3. run_quorum composes the quorum.
