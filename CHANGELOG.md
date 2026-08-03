@@ -7,6 +7,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **MCP tools bus transport selection — off GitHub Discussions, step 3** (ADR-0042, LBA-REQ-062). The
+  extension's MCP server now honors the same transport switch: the provider passes `busTransport` / `busNetHosts`
+  / `busNetLog` to the stdio server as env, and `poll_coordination_bus` → `net poll` / `post_coordination_note`
+  → `net send` under `net` (Discussion default). The agent tool surface coordinates over TCP when configured;
+  tool schemas unchanged. Gated by `mcp-net-transport`.
 - **Extension bus transport selection — off GitHub Discussions, step 2** (ADR-0041, LBA-REQ-061). The
   extension can now coordinate over the live-only `lbabus net` TCP bus instead of a GitHub Discussion: a new
   `labviewBenchmarkActor.busTransport` setting (`discussion` default | `net`) plus `busNetHosts` / `busNetLog`

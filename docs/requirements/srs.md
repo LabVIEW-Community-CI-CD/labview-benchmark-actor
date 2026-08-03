@@ -89,6 +89,7 @@ progressively.
 | LBA-REQ-059 | The system shall close the host<->VM-agent coordination loop over the `lbabus net` TCP bus -- after driving the reviewer VM's Copilot agent, the host awaits the agent's reply frame correlated by task id (fail-closed on mismatch/timeout) and the signed reviewer verdict announces with a semantic net type (RESOLVED/REFINE/BLOCKED), so a fail-closed gate proves the read-back + the semantic types are correctly derived and coordination rides TCP, not a GitHub Discussion. | `drive-agent-chat.sh` drove the VM's chat fire-and-screenshot with no programmatic read-back, and the verdict announcement (LBA-REQ-058) rode a GitHub Discussion; an operator directive moves coordination onto the private TCP bus (`lbabus net`, LBA-REQ-007) and deprecates Discussions. | `await-agent-reply.mjs` runs `lbabus net listen` + correlates the VM agent's reply by task/type (fail-closed); `drive-agent-closed-loop.sh` composes inject (`drive-agent-chat.sh`) + await; the net type set gains RESOLVED/REFINE/BLOCKED (option A); guest->host proven in `provider-delegation/vm-run-evidence.json`. | Run `node reviewer-workstation/await-agent-reply.selftest.mjs` (7/7); gated by `closed-loop-readback`. Live: 3 drives from the reviewer VM (senderId WIN) -- loop, benchmark review (2604 ms/5 PASS), verdict RESOLVED -- all over TCP. |
 | LBA-REQ-060 | The system shall provide a live-only net coordination read side -- a per-actor local receive-log written by `lbabus net listen --log` and read by `lbabus net poll` (filtered by type/task; fail-closed without a log) -- so a fail-closed gate proves post->log->poll round-trips over TCP and coordination reads no longer depend on a GitHub Discussion. | ADR-0039 moved the host<->VM-agent loop + verdict announcement onto net; an operator directive moves the REST of coordination off Discussions with a LIVE-ONLY model (no async store). The send side (`net send`) existed; the read side was missing. | `net listen --log <file>` appends received frames to a per-actor JSONL receive-log; `net poll` reads + filters it (BusWire.ToJson/FromJson); no central/async store -- an offline peer misses the frame (accepted). | Run `bash experiments/net-coordination/net-coordination-log-proof.sh`; gated by `net-coordination-log` (committed loopback receipt + Net.cs source). Loopback: post->log->poll round-trip + type filter + poll-without-log fails closed. |
 | LBA-REQ-061 | The system shall let the extension select the coordination-bus transport -- GitHub Discussion (default) or the live-only `lbabus net` TCP bus (opt-in via busTransport/busNetHosts/busNetLog) -- so postNote/pollBus/the reviewer-verdict announcement ride `net send`/`net poll` when configured, and a fail-closed gate proves the switch + the Discussion-safe default. | ADR-0040 gave net a live-only model; the extension still shelled the GitHub-Discussion post/poll. Step 2 lets it select the transport WITHOUT breaking existing users (Discussion stays default). | `busConfig` reads the settings; `busSendArgs` builds the net send argv; postNote->net send, pollBus->net poll, the verdict->net send --message-file under net; Discussion default keeps busPostArgs/post + poll. | Extension tests (busSendArgs + activation) in test/extension-activation.mjs; gated by `bus-transport-select` (source + package.json config assertion; Discussion default). |
+| LBA-REQ-062 | The system shall let the extension's MCP coordination tools select the transport -- the provider passes the bus-transport config as env (VIHS_COLLAB_TRANSPORT/NET_HOSTS/NET_LOG) and the stdio server routes poll_coordination_bus/post_coordination_note to `net poll`/`net send` under net (Discussion default) -- so the agent tool surface coordinates over TCP when configured, proven by a fail-closed gate. | ADR-0041 migrated the extension commands; the MCP server (a separate stdio process) still shelled the Discussion poll/post. | `busEnvFromConfig` maps busTransport/busNetHosts/busNetLog -> env on the McpStdioServerDefinition; `pollBusArgs`/`postNoteArgs` route to net poll/send under net; Discussion default keeps poll/post. | test/mcp-server.mjs (busEnvFromConfig + stdio tools); gated by `mcp-net-transport` (src/mcp source assertion). |
 
 ---
 
@@ -1890,6 +1891,33 @@ progressively.
 
 ---
 
+### LBA-REQ-062: MCP coordination tools transport selection -- Discussion default, net opt-in
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0042 -- MCP transport selection, off GitHub Discussions step 3)
+- Statement: The system shall let the extension's MCP coordination tools select the transport -- the provider
+  passes the bus-transport config as env (`VIHS_COLLAB_TRANSPORT`/`VIHS_COLLAB_NET_HOSTS`/`VIHS_COLLAB_NET_LOG`)
+  and the stdio server routes `poll_coordination_bus`/`post_coordination_note` to `net poll`/`net send` under
+  `net` (Discussion default) -- so the agent tool surface coordinates over TCP when configured, proven by a
+  fail-closed gate.
+- Rationale: ADR-0041 migrated the extension's own commands to a selectable transport; the extension's MCP
+  server -- a separate stdio process that cannot read vscode config directly -- still shelled the
+  GitHub-Discussion `poll`/`post`. Step 3 migrates the agent tool surface too, via env passed at launch.
+- Acceptance Criteria:
+  - `busEnvFromConfig` (provider) maps `busTransport`/`busNetHosts`/`busNetLog` to `VIHS_COLLAB_TRANSPORT`/
+    `VIHS_COLLAB_NET_HOSTS`/`VIHS_COLLAB_NET_LOG`, set on the launched `McpStdioServerDefinition` env; empty
+    values omitted (Discussion default).
+  - `pollBusArgs`/`postNoteArgs` (server) route `poll_coordination_bus` -> `net poll --log` and
+    `post_coordination_note` -> `net send --hosts` under `net`, else the Discussion `poll`/`post`.
+  - The tool schemas + the MCP tool doc are unchanged; tools stay soft-`isError` on a missing CLI.
+- Change Guidance: `busTransport`/`pollBusArgs`/`postNoteArgs` in `src/mcp/runBenchmarkActorMcpServer.ts`;
+  `busEnvFromConfig` + the env-passing `provideMcpServerDefinitions` in
+  `src/mcp/benchmarkActorMcpServerProvider.ts`; unit-covered in `test/mcp-server.mjs`; gate
+  `mcp-net-transport`. `post-verdict.mjs` + the release CI + the Discussion-transport removal are the NEXT
+  increments (ADR-0042 Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1955,3 +1983,4 @@ progressively.
 | LBA-REQ-059 | Deployment (host<->VM-agent closed loop over TCP) | T-059 |
 | LBA-REQ-060 | Deployment (live-only net coordination read side) | T-060 |
 | LBA-REQ-061 | Deployment (extension bus transport selection) | T-061 |
+| LBA-REQ-062 | Deployment (MCP tools transport selection) | T-062 |
