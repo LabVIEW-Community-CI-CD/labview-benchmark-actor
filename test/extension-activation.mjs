@@ -383,7 +383,7 @@ try {
   // Capture ASSEMBLY + CIM sampler SCRIPT: pure/file logic extracted from the cleanroom-gated ffmpeg CAPTURE, so
   // they are unit-testable directly (the ffmpeg gdigrab + PowerShell spawns that PRODUCE the frames stay live-
   // proven in the cleanroom, never faked). assembleCaptureFromDir gathers the frame PNGs + resource samples into
-  // a launch-capture record; samplerScript emits the PowerShell CIM sampler.
+  // a launch-capture record; samplerScript emits the PowerShell PerformanceCounter sampler.
   {
     const capBuilder = await import(pathToFileURL(join(repoRoot, 'media', 'launch-capture.mjs')).href);
     const capDir = join(tmpdir(), 'lba-test-capture-assemble-xyz');
@@ -391,14 +391,17 @@ try {
     mkdirSync(capDir, { recursive: true });
     writeFileSync(join(capDir, 'frame-00000.png'), 'x'.repeat(120));
     writeFileSync(join(capDir, 'frame-00001.png'), 'x'.repeat(140));
-    // resources.jsonl: two valid samples + a blank line + a partial (unparseable) line the assembler must skip.
+    // resources.jsonl: two valid samples (incl per-physical-disk throughput) + a blank line + a partial
+    // (unparseable) line the assembler must skip.
     writeFileSync(
       join(capDir, 'resources.jsonl'),
-      '{"ms":1,"cpuPct":10,"ramMb":2000,"diskPct":1}\n\n{bad partial line\n{"ms":2,"cpuPct":12,"ramMb":2010,"diskPct":2}\n'
+      '{"ms":1,"cpuPct":10,"ramMb":2000,"diskPct":1,"disks":[{"name":"0 C:","writeMBs":0,"readMBs":0}]}\n\n{bad partial line\n{"ms":2,"cpuPct":12,"ramMb":2010,"diskPct":2,"disks":[{"name":"0 C:","writeMBs":11.4,"readMBs":0.2}]}\n'
     );
     const rec = ext.assembleCaptureFromDir(capDir, capBuilder);
     assert(Array.isArray(rec.frames) && rec.frames.length === 2, `assembleCaptureFromDir builds a 2-frame record, got ${rec.frames && rec.frames.length}`);
     assert(existsSync(join(capDir, 'capture.json')), 'assembleCaptureFromDir writes capture.json alongside the frames');
+    assert(Array.isArray(rec.diskNames) && rec.diskNames.includes('0 C:'), 'assembleCaptureFromDir exposes the per-physical-disk names');
+    assert(rec.frames[1].disks && rec.frames[1].disks[0].writeMBs === 11.4, 'assembleCaptureFromDir carries per-disk write throughput onto frames');
 
     // empty dir -> fails closed (no frames were captured).
     const capEmpty = join(tmpdir(), 'lba-test-capture-empty-xyz');
@@ -410,11 +413,16 @@ try {
     rmSync(capDir, { recursive: true, force: true });
     rmSync(capEmpty, { recursive: true, force: true });
 
-    // CIM sampler script: the CPU/RAM/disk CIM queries + a single-quote-escaped out path (no injection).
+    // PerformanceCounter sampler script: CPU %, used RAM (TotalVisible - Available), disk % busy, AND
+    // per-physical-disk write/read throughput; plus a single-quote-escaped out path (no injection).
     const script = ext.samplerScript("C:\\lba\\res'ources.jsonl");
     assert(
-      /Win32_PerfFormattedData_PerfOS_Processor/.test(script) && /TotalVisibleMemorySize/.test(script) && /PerfDisk_PhysicalDisk/.test(script),
-      'samplerScript emits the CPU + RAM + disk CIM queries'
+      /% Processor Time/.test(script) && /TotalVisibleMemorySize/.test(script) && /Available MBytes/.test(script) && /% Disk Time/.test(script),
+      'samplerScript emits the CPU + RAM + disk% counters'
+    );
+    assert(
+      /Disk Write Bytes\/sec/.test(script) && /Disk Read Bytes\/sec/.test(script) && /""disks""/.test(script),
+      'samplerScript emits per-physical-disk read/write throughput'
     );
     assert(/res''ources\.jsonl/.test(script), 'samplerScript single-quote-escapes the out path (no injection)');
   }

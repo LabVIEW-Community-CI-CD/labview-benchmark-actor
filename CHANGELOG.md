@@ -6,6 +6,21 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+### Added
+- **Per-physical-disk read/write throughput (MB/s)** in the live LabVIEW-launch
+  capture and Frame Correlator. The launch sampler now records `Disk Write
+  Bytes/sec` and `Disk Read Bytes/sec` for **every physical disk** and the
+  correlator plots a write and a read curve per disk alongside CPU / RAM /
+  % Disk Time. A real disk workload (e.g. a streaming VI at ~11 MB/s) now shows
+  on the throughput curve even though `% Disk Time` — a *busy-time* metric —
+  barely moves for that load.
+
+### Changed
+- The launch-capture resource sampler switched from the slow per-iteration CIM
+  loop (~0.8 s/sample) to fast `System.Diagnostics.PerformanceCounter`
+  `NextValue()` reads (sub-millisecond) frame-locked to ~100 ms, so short bursts
+  register. `% Disk Time` is retained (now via the same counter path).
+
 ## [0.5.0] - 2026-08-02
 
 ### Added

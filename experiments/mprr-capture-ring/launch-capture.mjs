@@ -81,8 +81,8 @@ const numOrNull = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null
  * @param {object} input
  * @param {Array<{index?:number, ms?:number, imageFile:string, imageBytes?:number, dhashHex?:string}>} input.frames
  *   the captured frames IN ORDER (imageFile = VM-local path/name of the PNG long-packet payload).
- * @param {Array<{ms:number, cpuPct?:number, ramMb?:number, diskPct?:number, counters?:object}>} [input.resourceSamples]
- *   CPU/RAM/disk (and/or a v2 counters{} object) samples at any cadence; each frame takes its nearest-in-time sample.
+ * @param {Array<{ms:number, cpuPct?:number, ramMb?:number, diskPct?:number, disks?:Array<{name:string,writeMBs?:number,readMBs?:number}>, counters?:object}>} [input.resourceSamples]
+ *   CPU/RAM/disk (and/or a v2 counters{} object, and/or per-physical-disk throughput) samples at any cadence; each frame takes its nearest-in-time sample.
  * @param {number} [input.startMs] epoch ms of frame 0 (defaults to frames[0].ms or 0).
  * @param {number} [input.fps=12] capture frame rate.
  * @param {number} [input.capacityBytes=Infinity] mprr ring capacity bound for the dual-packet policy.
@@ -122,11 +122,20 @@ export function buildLaunchCapture(input) {
     if (rs && rs.counters && typeof rs.counters === 'object') {
       frame.counters = rs.counters;
     }
+    // per-physical-disk read/write throughput (MB/s), carried from the nearest sample (present only when the
+    // sampler emits it). Each entry: { name, writeMBs, readMBs } -- the correlator plots a curve per disk/direction.
+    if (rs && Array.isArray(rs.disks)) {
+      frame.disks = rs.disks
+        .filter((dk) => dk && dk.name != null)
+        .map((dk) => ({ name: String(dk.name), writeMBs: numOrNull(dk.writeMBs), readMBs: numOrNull(dk.readMBs) }));
+    }
     return frame;
   });
 
   // union of v2 counter keys across frames (present only when a sampler emitted counters{}).
   const counterKeys = [...new Set(outFrames.flatMap((f) => (f.counters ? Object.keys(f.counters) : [])))].sort();
+  // union of physical-disk names across frames (present only when the sampler emitted per-disk throughput).
+  const diskNames = [...new Set(outFrames.flatMap((f) => (Array.isArray(f.disks) ? f.disks.map((d) => d.name) : [])))].sort();
 
   // mprr dual-packet correlation: short (timing+metrics) always present; long (image) admitted while it fits.
   const dualFrames = outFrames.map((f) => ({
@@ -161,5 +170,7 @@ export function buildLaunchCapture(input) {
   };
   // v2: expose the captured performance-counter catalog when a sampler emitted counters{} (else omitted).
   if (counterKeys.length) { record.counterKeys = counterKeys; }
+  // expose the physical-disk names when the sampler emitted per-disk read/write throughput (else omitted).
+  if (diskNames.length) { record.diskNames = diskNames; }
   return record;
 }

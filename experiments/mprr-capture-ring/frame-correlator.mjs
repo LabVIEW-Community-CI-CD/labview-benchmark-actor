@@ -68,7 +68,14 @@ const SCRIPT = `
   // metric set: v2 performance-counter keys when the frames carry a counters{} object (all correlated to the
   // same 12 FPS frame axis), else the legacy flat CPU/RAM/disk fields. Backward-compatible.
   var PALETTE = ['#4fc1ff', '#a5d6a7', '#ffd166', '#ff8fab', '#c792ea', '#82e0aa', '#f78c6c', '#7fdbff'];
-  function valueOf(f, m) { return m.counters ? (f && f.counters ? f.counters[m.key] : null) : (f ? f[m.key] : null); }
+  function valueOf(f, m) {
+    if (m.disk != null) {
+      if (!f || !Array.isArray(f.disks)) { return null; }
+      for (var j = 0; j < f.disks.length; j++) { if (f.disks[j] && f.disks[j].name === m.disk) { var dv = f.disks[j][m.field]; return typeof dv === 'number' ? dv : null; } }
+      return null;
+    }
+    return m.counters ? (f && f.counters ? f.counters[m.key] : null) : (f ? f[m.key] : null);
+  }
   function labelFor(key) { var L = { cpuPct: 'CPU %', ramMb: 'RAM MB', diskPct: 'Disk %' }; return L[key] || key; }
   var useCounters = frames.some(function (f) { return f && f.counters && typeof f.counters === 'object'; });
   var metricKeys;
@@ -83,9 +90,22 @@ const SCRIPT = `
   } else {
     metricKeys = ['cpuPct', 'ramMb', 'diskPct'];
   }
-  var metrics = metricKeys.map(function (key, i) {
-    return { key: key, label: useCounters ? key : labelFor(key), color: PALETTE[i % PALETTE.length], counters: useCounters };
+  var metrics = metricKeys.map(function (key) {
+    return { key: key, label: useCounters ? key : labelFor(key), counters: useCounters };
   });
+  // per-PHYSICAL-DISK throughput curves (write + read MB/s), one pair per disk, appended alongside the base
+  // metrics so a real disk workload (e.g. a streaming VI) shows even when % Disk Time barely moves. Each is
+  // auto-scaled to its own range like the others. Disk names come from the record (diskNames) or the frames.
+  var diskNames = (model && Array.isArray(model.diskNames)) ? model.diskNames.slice() : [];
+  if (!diskNames.length) {
+    var seenDisk = {};
+    frames.forEach(function (f) { if (f && Array.isArray(f.disks)) { f.disks.forEach(function (d) { if (d && d.name != null && !seenDisk[d.name]) { seenDisk[d.name] = 1; diskNames.push(d.name); } }); } });
+  }
+  diskNames.forEach(function (name) {
+    metrics.push({ disk: name, field: 'writeMBs', label: 'Disk ' + name + ' write MB/s' });
+    metrics.push({ disk: name, field: 'readMBs', label: 'Disk ' + name + ' read MB/s' });
+  });
+  metrics.forEach(function (m, i) { m.color = PALETTE[i % PALETTE.length]; });
   var VW = 1000, VH = 300, PADL = 8, PADR = 8, PADT = 10, PADB = 16;
   function gx(i) { return PADL + (n <= 1 ? 0 : (i / (n - 1)) * (VW - PADL - PADR)); }
 
@@ -280,6 +300,7 @@ export function buildFrameCorrelatorHtml(model, nonce, cspSource) {
     markers: Array.isArray(model && model.markers) ? model.markers : [],
     markerToleranceMs: model && typeof model.markerToleranceMs === 'number' ? model.markerToleranceMs : 200,
     counterKeys: Array.isArray(model && model.counterKeys) ? model.counterKeys : [],
+    diskNames: Array.isArray(model && model.diskNames) ? model.diskNames : [],
   };
   const csp =
     "default-src 'none'; " +

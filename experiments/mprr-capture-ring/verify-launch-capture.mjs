@@ -64,6 +64,22 @@ check('back-compat: a flat capture has no counters / counterKeys', cap.counterKe
 const v2html = buildFrameCorrelatorHtml({ title: 'v2', fps: 12, selectedIndex: 0, frames: v2.frames.map((f) => ({ index: f.index, tMs: f.tMs, counters: f.counters, imageSrc: 'x' })) }, 'nv2', '');
 check('v2: counters flow through buildLaunchCapture -> the correlator webview island', v2html.includes('cpuTotalPct'));
 
+// per-physical-disk throughput: a sampler that emits disks[] -> each frame carries its nearest sample's per-disk
+// read/write MB/s, the record exposes the diskNames union, and a legacy flat capture stays byte-compatible.
+const dt = buildLaunchCapture({
+  frames,
+  resourceSamples: [
+    { ms: 100000, cpuPct: 5, ramMb: 600, diskPct: 1, disks: [{ name: '0 C:', writeMBs: 0, readMBs: 0 }, { name: '1 D:', writeMBs: 0, readMBs: 0 }] },
+    { ms: 100300, cpuPct: 55, ramMb: 720, diskPct: 2, disks: [{ name: '0 C:', writeMBs: 11.4, readMBs: 0 }, { name: '1 D:', writeMBs: 0, readMBs: 3.2 }] },
+  ],
+  startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'WIN' },
+});
+check('disk: frames carry the nearest sample per-disk throughput', Array.isArray(dt.frames[3].disks) && dt.frames[3].disks[0].name === '0 C:' && dt.frames[3].disks[0].writeMBs === 11.4, JSON.stringify(dt.frames[3].disks));
+check('disk: record exposes the diskNames union', Array.isArray(dt.diskNames) && dt.diskNames.join(',') === '0 C:,1 D:');
+check('back-compat: a capture without disks[] has no diskNames', cap.diskNames === undefined && cap.frames[0].disks === undefined);
+const dthtml = buildFrameCorrelatorHtml({ title: 'disk', fps: 12, selectedIndex: 3, diskNames: dt.diskNames, frames: dt.frames.map((f) => ({ index: f.index, tMs: f.tMs, cpuPct: f.cpuPct, ramMb: f.ramMb, diskPct: f.diskPct, disks: f.disks, imageSrc: 'x' })) }, 'nvd', '');
+check('disk: per-disk throughput + values flow into the correlator document', dthtml.includes(' write MB/s') && dthtml.includes(' read MB/s') && dthtml.includes('"writeMBs":11.4'));
+
 console.log('buildFrameCorrelatorHtml');
 const model = {
   title: 'Launch </script> correlator',
@@ -82,6 +98,7 @@ const isl = html.match(/<script id="fc-model"[^>]*>([\s\S]*?)<\/script>/)[1];
 check('island has no raw </script', !isl.toLowerCase().includes('</script'));
 check('runtime references the draggable red line + pointer drag', html.includes('pointerdown') && html.includes('#ff3b30'));
 check('runtime plots cpu/ram/disk curves', html.includes("'cpuPct'") && html.includes("'ramMb'") && html.includes("'diskPct'"));
+check('runtime builds per-disk write/read throughput metrics', html.includes("'writeMBs'") && html.includes("'readMBs'") && html.includes(' write MB/s'));
 check('lower frame img element present', html.includes('id="fc-img"'));
 check('deterministic', buildFrameCorrelatorHtml(model, nonce, 'https://file+.vscode-resource') === html);
 
