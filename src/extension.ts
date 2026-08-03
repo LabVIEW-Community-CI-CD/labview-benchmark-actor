@@ -579,7 +579,7 @@ async function skipStepCommand(context: vscode.ExtensionContext, output: vscode.
   await writeOpDoneBeacon(context, output, 'skipped', null);
 }
 
-async function refreshHandoffRequests(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+export async function refreshHandoffRequests(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
   try {
     const { requestsDir, doneDir } = handoffPaths(context.globalStorageUri.fsPath);
     const builder = await loadHandoffRequestBuilder(context.extensionUri);

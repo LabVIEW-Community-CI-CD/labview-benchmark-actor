@@ -797,51 +797,50 @@ try {
   const summaryText = summaryResult && summaryResult.content && summaryResult.content[0] && summaryResult.content[0].value;
   assert(typeof summaryText === 'string' && /LabVIEW Benchmark Actor/.test(summaryText), 'the summary LM tool returns text');
 
-  // Handoff Beacon agent->human flow (PR3, LBA-REQ-056): a pending request in handoff/requests/ surfaces as a
-  // notification whose action writes the op-done beacon -- drives startHandoffWatcher + refreshHandoffRequests +
-  // the mark/skip commands + writeOpDoneBeacon end-to-end against a temp globalStorage.
+  // Handoff Beacon agent->human flow (PR3, LBA-REQ-056): a pending request surfaces via refreshHandoffRequests
+  // as a notification whose action writes the op-done beacon. Deterministic -- awaits refreshHandoffRequests
+  // directly (no timers / no fs.watch race) so it is stable on slow CI; covers refreshHandoffRequests + the
+  // mark/skip commands + writeOpDoneBeacon against temp globalStorages.
   {
-    const mkReq = (dir, id, title, createdAt) => {
-      mkdirSync(join(dir, 'handoff', 'requests'), { recursive: true });
-      writeFileSync(join(dir, 'handoff', 'requests', `${id}.json`), JSON.stringify({ schema: 'labview-benchmark-actor/agent-request@1', id, title, body: '', kind: 'step', createdAt }));
+    const mkOut = () => ({ appendLine() {}, show() {}, dispose() {} });
+    const ctxFor = (gs) => ({ globalStorageUri: { fsPath: gs }, extensionUri: { path: repoRoot, fsPath: repoRoot } });
+    const seedReq = (gs, id, title, createdAt) => {
+      rmSync(gs, { recursive: true, force: true });
+      mkdirSync(join(gs, 'handoff', 'requests'), { recursive: true });
+      writeFileSync(join(gs, 'handoff', 'requests', `${id}.json`), JSON.stringify({ schema: 'labview-benchmark-actor/agent-request@1', id, title, body: '', kind: 'step', createdAt }));
     };
-    const settle = () => new Promise((r) => setTimeout(r, 200));
 
     // (1) "Mark step done" with a note -> op-done { done, note }.
     const gsDone = join(tmpdir(), 'lba-test-handoff-done-xyz');
-    rmSync(gsDone, { recursive: true, force: true });
-    mkReq(gsDone, 'req-done', 'Run the streaming VI, then Stop', '2026-08-03T00:00:00Z');
+    seedReq(gsDone, 'req-done', 'Run the streaming VI, then Stop', '2026-08-03T00:00:00Z');
     infoResponseQueue.push('Mark step done');
     inputQueue.push('ran VI #3');
-    const subsDone = [];
-    ext.activate({ subscriptions: subsDone, extensionUri: { path: repoRoot, fsPath: repoRoot }, globalStorageUri: { fsPath: gsDone }, extension: { packageJSON: { version: '0.1.0' } } });
-    await settle();
-    const donePath = join(gsDone, 'handoff', 'done', 'req-done.json');
-    assert(existsSync(donePath), 'handoff: Mark step done wrote the op-done beacon');
-    const opDone = JSON.parse(readFileSync(donePath, 'utf8'));
+    await ext.refreshHandoffRequests(ctxFor(gsDone), mkOut());
+    const opDone = JSON.parse(readFileSync(join(gsDone, 'handoff', 'done', 'req-done.json'), 'utf8'));
     assert(opDone.requestId === 'req-done' && opDone.outcome === 'done' && opDone.note === 'ran VI #3', 'handoff: op-done records done + the note');
-    subsDone.forEach((d) => d && d.dispose && d.dispose());
 
     // (2) "Skip" -> op-done { skipped, note:null }.
     const gsSkip = join(tmpdir(), 'lba-test-handoff-skip-xyz');
-    rmSync(gsSkip, { recursive: true, force: true });
-    mkReq(gsSkip, 'req-skip', 'Activate LabVIEW', '2026-08-03T00:05:00Z');
+    seedReq(gsSkip, 'req-skip', 'Activate LabVIEW', '2026-08-03T00:05:00Z');
     infoResponseQueue.push('Skip');
-    const subsSkip = [];
-    ext.activate({ subscriptions: subsSkip, extensionUri: { path: repoRoot, fsPath: repoRoot }, globalStorageUri: { fsPath: gsSkip }, extension: { packageJSON: { version: '0.1.0' } } });
-    await settle();
-    const skipPath = join(gsSkip, 'handoff', 'done', 'req-skip.json');
-    assert(existsSync(skipPath), 'handoff: Skip wrote the op-done beacon');
-    const opSkip = JSON.parse(readFileSync(skipPath, 'utf8'));
+    await ext.refreshHandoffRequests(ctxFor(gsSkip), mkOut());
+    const opSkip = JSON.parse(readFileSync(join(gsSkip, 'handoff', 'done', 'req-skip.json'), 'utf8'));
     assert(opSkip.outcome === 'skipped' && opSkip.note === null, 'handoff: op-done records skipped');
-    subsSkip.forEach((d) => d && d.dispose && d.dispose());
 
-    // (3) No-pending branches: with nothing pending, the mark/skip commands no-op gracefully.
-    const markDone = registered.find((r) => r.id === 'labviewBenchmarkActor.markStepDone').handler;
-    const skipStep = registered.find((r) => r.id === 'labviewBenchmarkActor.skipStep').handler;
-    await markDone(); // activeHandoffRequest is undefined now -> "No pending ... to mark done"
-    await skipStep(); // -> writeOpDoneBeacon "No pending ... to answer"
-    console.log('handoff-request-flow: PASS -- notification -> Mark step done/Skip -> op-done beacon (+ no-pending no-op)');
+    // (3) A dismissed notification (no action chosen) writes no answer.
+    const gsDismiss = join(tmpdir(), 'lba-test-handoff-dismiss-xyz');
+    seedReq(gsDismiss, 'req-dismiss', 'Some step', '2026-08-03T00:07:00Z');
+    await ext.refreshHandoffRequests(ctxFor(gsDismiss), mkOut()); // infoResponseQueue empty -> choice undefined
+    assert(!existsSync(join(gsDismiss, 'handoff', 'done', 'req-dismiss.json')), 'handoff: a dismissed notification writes no op-done');
+
+    // (4) No pending: refresh with an empty requests dir clears the active request; the mark/skip commands no-op.
+    const gsEmpty = join(tmpdir(), 'lba-test-handoff-empty-xyz');
+    rmSync(gsEmpty, { recursive: true, force: true });
+    mkdirSync(join(gsEmpty, 'handoff', 'requests'), { recursive: true });
+    await ext.refreshHandoffRequests(ctxFor(gsEmpty), mkOut());
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.markStepDone').handler();
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.skipStep').handler();
+    console.log('handoff-request-flow: PASS -- refreshHandoffRequests -> Mark done/Skip/dismiss -> op-done beacon (+ no-pending no-op)');
   }
 } finally {
   Module._load = originalLoad;
