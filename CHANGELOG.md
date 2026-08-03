@@ -7,6 +7,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Frame Correlator auto-jump to the peak-write frame** (ADR-0035, LBA-REQ-055).
+  On Stop, the correlator now opens on the capture-status beacon's peak-write
+  frame (clamped into range) instead of frame 0, so the human and the agent land
+  straight on the disk-throughput evidence. Reopening a completed capture reads
+  the same beacon and jumps there too.
 - **Handoff Beacon — capture-status** (`capture-status@1`, ADR-0035). The extension
   now writes a machine-readable `capture-status.json` beacon into each capture's
   run dir at start (`capturing`) and stop (`stopped` with a rich payload —

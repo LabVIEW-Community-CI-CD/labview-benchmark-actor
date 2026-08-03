@@ -193,6 +193,9 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(/Disk 0 C: write MB\/s/.test(legend), 'legend labels the per-disk write throughput curve');
   assert(/Disk 1 D: read MB\/s/.test(legend), 'legend labels the per-disk read throughput curve');
   assert(/11\.4/.test(legend), 'legend shows the 11.4 MB/s write value at the streaming frame');
+  // auto-jump: opening with a non-zero selectedIndex (the beacon's peak-write frame) lands THERE, not on frame 0.
+  assert(doc.getElementById('fc-root').getAttribute('data-selected-index') === '2', 'correlator opens AT the given selectedIndex (auto-jump target)');
+  assert(/frame 3\/5/.test(doc.getElementById('fc-readout').textContent), 'readout reflects the auto-jump frame (3/5)');
 }
 
 // --- 3b. frame correlator, EMPTY record -> the no-frames empty state (early return, no graph built) ---------

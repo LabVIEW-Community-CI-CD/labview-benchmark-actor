@@ -457,7 +457,7 @@ function loadCaptureStatusBuilder(extensionUri: vscode.Uri): Promise<CaptureStat
 }
 
 /** Parse a capture's resources.jsonl into the raw sample array (skipping blank/partial lines). */
-function readResourceSamples(dir: string): Array<Record<string, unknown>> {
+export function readResourceSamples(dir: string): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [];
   const resFile = path.join(dir, 'resources.jsonl');
   if (!existsSync(resFile)) return out;
@@ -469,19 +469,72 @@ function readResourceSamples(dir: string): Array<Record<string, unknown>> {
   return out;
 }
 
-/** Best-effort write of the handoff capture-status beacon (never throws into the capture flow). */
+/** Best-effort write of the handoff capture-status beacon (never throws into the capture flow). Returns the
+ *  built beacon so the caller can act on it (e.g. auto-jump the correlator to the peak-write frame). */
 async function writeCaptureStatusBeacon(
   extensionUri: vscode.Uri,
   dir: string,
   build: (b: CaptureStatusBuilder) => unknown,
   output: vscode.OutputChannel
-): Promise<void> {
+): Promise<unknown> {
   try {
     const builder = await loadCaptureStatusBuilder(extensionUri);
-    writeFileSync(path.join(dir, 'capture-status.json'), `${JSON.stringify(build(builder), null, 2)}\n`);
+    const status = build(builder);
+    writeFileSync(path.join(dir, 'capture-status.json'), `${JSON.stringify(status, null, 2)}\n`);
+    return status;
   } catch (err) {
     output.appendLine(`capture-status beacon skipped: ${err instanceof Error ? err.message : String(err)}`);
+    return undefined;
   }
+}
+
+/** The peak-write frame index a capture-status beacon points at (0 when absent/invalid) -- the frame the
+ *  correlator opens at so the human + agent land on the evidence instead of scrubbing (LBA-REQ-055). */
+export function peakFrameIndexOf(status: unknown): number {
+  const peak = (status as { peak?: { frameIndex?: unknown } } | undefined)?.peak;
+  const idx = peak ? peak.frameIndex : undefined;
+  return typeof idx === 'number' && Number.isInteger(idx) && idx >= 0 ? idx : 0;
+}
+
+/** Read the peak-write frame index from a capture's capture-status beacon on disk (0 if absent/unreadable). */
+export function readPeakFrameIndex(dir: string): number {
+  const statusPath = path.join(dir, 'capture-status.json');
+  if (!existsSync(statusPath)) return 0;
+  try { return peakFrameIndexOf(JSON.parse(readFileSync(statusPath, 'utf8'))); } catch { return 0; }
+}
+
+/** Clamp a desired frame index into [0, count) (0 when out of range) -- keeps the correlator auto-jump safe. */
+export function clampFrameIndex(index: number, count: number): number {
+  return Number.isInteger(index) && index >= 0 && index < count ? index : 0;
+}
+
+/** Build the frame-correlator webview model (pure): clamps the initial/auto-jump index + carries markers/disks. */
+export function buildCorrelatorModel(
+  framesModel: unknown[],
+  initialIndex: number,
+  markers: unknown,
+  diskNames: unknown
+): { title: string; fps: number; selectedIndex: number; frames: unknown[]; markers: unknown[]; diskNames: unknown } {
+  const frames = Array.isArray(framesModel) ? framesModel : [];
+  const existingMarkers = Array.isArray(markers) ? markers : [];
+  const selectedIndex = clampFrameIndex(initialIndex, frames.length);
+  return { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex, frames, markers: existingMarkers, diskNames };
+}
+
+/** Map one capture frame + its (webview) image src into the correlator's per-frame model (pure). */
+export function buildCorrelatorFrame(f: Record<string, unknown>, imageSrc: string): Record<string, unknown> {
+  return {
+    index: f.index,
+    tMs: f.tMs,
+    cpuPct: f.cpuPct,
+    ramMb: f.ramMb,
+    diskPct: f.diskPct,
+    // per-physical-disk read/write throughput (MB/s) when the sampler captured it (write + read curve per disk).
+    disks: f.disks,
+    // v2: the frame's performance-counter catalog when the capture carries it (else CPU/RAM/disk fallback).
+    counters: f.counters,
+    imageSrc,
+  };
 }
 
 interface ActiveCapture {
@@ -679,11 +732,13 @@ async function stopCaptureCommand(context: vscode.ExtensionContext, output: vsco
   const stoppedAt = new Date().toISOString();
   try {
     const record = await assembleCapture(context, cap.dir);
-    await openCorrelatorForCapture(context, output, cap.dir, record);
-    // Handoff beacon: the rich stop status so the agent's await poll resolves + jumps to the peak-write evidence.
+    // Handoff beacon FIRST: the rich stop status (which resolves the agent's await poll) also tells us the
+    // peak-write frame, so the correlator opens THERE -- the human + agent land on the evidence, not frame 0.
     const samples = readResourceSamples(cap.dir);
-    await writeCaptureStatusBeacon(context.extensionUri, cap.dir, (b) => b.buildCaptureStatus(record, samples, { runDir: cap.dir, startedAt: cap.startedAt, stoppedAt }), output);
-    output.appendLine(`capture stopped: ${record.frameCount} frames -> correlator (beacon written)`);
+    const status = await writeCaptureStatusBeacon(context.extensionUri, cap.dir, (b) => b.buildCaptureStatus(record, samples, { runDir: cap.dir, startedAt: cap.startedAt, stoppedAt }), output);
+    const peakIndex = peakFrameIndexOf(status);
+    await openCorrelatorForCapture(context, output, cap.dir, record, peakIndex);
+    output.appendLine(`capture stopped: ${record.frameCount} frames -> correlator @ frame ${peakIndex + 1} (peak write; beacon written)`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await writeCaptureStatusBeacon(context.extensionUri, cap.dir, (b) => b.buildFailedStatus({ runDir: cap.dir, startedAt: cap.startedAt, stoppedAt, error: message }), output);
@@ -742,7 +797,8 @@ async function openCorrelatorForCapture(
   context: vscode.ExtensionContext,
   output: vscode.OutputChannel,
   dir: string,
-  record: LaunchCaptureRecord
+  record: LaunchCaptureRecord,
+  initialIndex = 0
 ): Promise<void> {
   const correlator = await loadCorrelatorBuilder(context.extensionUri);
   const panel = vscode.window.createWebviewPanel(
@@ -751,22 +807,11 @@ async function openCorrelatorForCapture(
     vscode.ViewColumn.Active,
     { enableScripts: true, localResourceRoots: [vscode.Uri.file(dir)] }
   );
-  const framesModel = record.frames.map((f) => ({
-    index: f.index,
-    tMs: f.tMs,
-    cpuPct: f.cpuPct,
-    ramMb: f.ramMb,
-    diskPct: f.diskPct,
-    // per-physical-disk read/write throughput (MB/s) when the sampler captured it (the correlator plots a
-    // write + read curve per disk alongside CPU/RAM/disk%); undefined on legacy captures (falls back cleanly).
-    disks: f.disks,
-    // v2: pass the frame's performance-counter catalog through when the capture carries it (the correlator plots
-    // the counter curves; a legacy flat capture falls back to CPU/RAM/disk).
-    counters: f.counters,
-    imageSrc: panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString(),
-  }));
-  const existingMarkers = Array.isArray(record.markers) ? record.markers : [];
-  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel, markers: existingMarkers, diskNames: record.diskNames };
+  const framesModel = record.frames.map((f) =>
+    buildCorrelatorFrame(f, panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString())
+  );
+  // Auto-jump to the beacon's peak-write frame (clamped inside buildCorrelatorModel): open on the evidence, not frame 0.
+  const model = buildCorrelatorModel(framesModel, initialIndex, record.markers, record.diskNames);
   panel.webview.html = correlator.buildFrameCorrelatorHtml(model, getNonce(), panel.webview.cspSource);
 
   // Persist a CLICK marker into the capture metadata ("mouse click -> label in metadata"): the webview posts
@@ -819,7 +864,8 @@ async function openFrameCorrelatorCommand(
     }
     const dir = path.join(root, runs[runs.length - 1]);
     const record = JSON.parse(readFileSync(path.join(dir, 'capture.json'), 'utf8')) as LaunchCaptureRecord;
-    await openCorrelatorForCapture(context, output, dir, record);
+    // If a capture-status beacon is present, open on its peak-write frame too (not just on a fresh stop).
+    await openCorrelatorForCapture(context, output, dir, record, readPeakFrameIndex(dir));
   } catch (err) {
     reportUiError(output, 'Open Frame Correlator', err);
   }

@@ -454,6 +454,10 @@ try {
     assert(cs.buildCaptureStatus(rec, [{ ms: startMs, disks: [{ name: '0 C:', writeMBs: 0.5, readMBs: 0 }] }]).peak.frameIndex === 0, 'a tiny write maps the peak to the nearest frame');
     const empty = cs.buildCaptureStatus({}, []);
     assert(empty.frameCount === 0 && empty.peak.frameIndex === null && Array.isArray(empty.perDisk) && empty.perDisk.length === 0, 'empty capture defaults + null peak frame');
+    const withNullDisk = cs.buildCaptureStatus(rec, [{ ms: startMs + 100, disks: [{ name: '0 C:', writeMBs: 4 }, { name: null, writeMBs: 999 }, { writeMBs: 5 }] }]);
+    assert(withNullDisk.peak.writeMBs === 4 && withNullDisk.perDisk.length === 1, 'disks with a null/absent name are skipped');
+    const noStartMs = cs.buildCaptureStatus({ frames: [{ index: 0, tMs: 0, ms: 5000 }, { index: 1, tMs: 83, ms: 5083 }] }, [{ ms: 5083, disks: [{ name: '0 C:', writeMBs: 9 }] }]);
+    assert(noStartMs.peak.frameIndex === 1, 'startMs falls back to the first frame ms when the record omits it');
     const failed = cs.buildFailedStatus({ runDir: 'C:\\run', error: 'boom' });
     assert(failed.state === 'failed' && /boom/.test(failed.error), 'failed beacon');
     assert(cs.buildFailedStatus({}).error === 'unknown', 'failed beacon default error');
@@ -464,6 +468,40 @@ try {
     assert(!cs.validateCaptureStatus({ schema: cs.CAPTURE_STATUS_SCHEMA, state: 'failed' }).ok, 'validate rejects failed w/o error');
     assert(!cs.validateCaptureStatus(null).ok, 'validate rejects null');
     console.log('capture-status-beacon-coverage: PASS -- media/captureStatus.mjs exercised across all states + branches');
+  }
+
+  // Coverage + behavior: the correlator auto-jump helpers (PR2, LBA-REQ-055) -- the correlator opens on the
+  // beacon's peak-write frame so the human + agent land on the evidence.
+  {
+    assert(ext.peakFrameIndexOf({ peak: { frameIndex: 5 } }) === 5, 'peakFrameIndexOf reads a valid frame');
+    assert(ext.peakFrameIndexOf({ peak: { frameIndex: -1 } }) === 0, 'peakFrameIndexOf clamps a negative to 0');
+    assert(ext.peakFrameIndexOf({ peak: { frameIndex: 'x' } }) === 0, 'peakFrameIndexOf rejects a non-number');
+    assert(ext.peakFrameIndexOf({ peak: {} }) === 0, 'peakFrameIndexOf handles a missing frameIndex');
+    assert(ext.peakFrameIndexOf(undefined) === 0, 'peakFrameIndexOf handles an absent beacon');
+    const pdir = join(tmpdir(), 'lba-test-peakframe-xyz');
+    rmSync(pdir, { recursive: true, force: true });
+    mkdirSync(pdir, { recursive: true });
+    assert(ext.readPeakFrameIndex(pdir) === 0, 'readPeakFrameIndex returns 0 with no beacon');
+    writeFileSync(join(pdir, 'capture-status.json'), JSON.stringify({ schema: 'labview-benchmark-actor/capture-status@1', state: 'stopped', peak: { frameIndex: 7 } }));
+    assert(ext.readPeakFrameIndex(pdir) === 7, 'readPeakFrameIndex reads the beacon peak frame');
+    writeFileSync(join(pdir, 'capture-status.json'), '{bad json');
+    assert(ext.readPeakFrameIndex(pdir) === 0, 'readPeakFrameIndex returns 0 on a bad beacon');
+    rmSync(pdir, { recursive: true, force: true });
+    assert(ext.clampFrameIndex(2, 5) === 2 && ext.clampFrameIndex(99, 5) === 0 && ext.clampFrameIndex(-1, 5) === 0 && ext.clampFrameIndex(0, 0) === 0, 'clampFrameIndex bounds the auto-jump target into [0,count)');
+    const cm = ext.buildCorrelatorModel([{ index: 0 }, { index: 1 }, { index: 2 }], 2, [{ frameIndex: 1 }], ['0 C:']);
+    assert(cm.selectedIndex === 2 && cm.frames.length === 3 && cm.markers.length === 1 && cm.diskNames[0] === '0 C:' && cm.fps === 12, 'buildCorrelatorModel builds the model + clamps to the auto-jump index');
+    assert(ext.buildCorrelatorModel(null, 99, null, undefined).selectedIndex === 0 && ext.buildCorrelatorModel(null, 0, null, undefined).frames.length === 0, 'buildCorrelatorModel tolerates non-array frames/markers');
+    const fr = ext.buildCorrelatorFrame({ index: 3, tMs: 250, cpuPct: 10, ramMb: 200, diskPct: 5, disks: [{ name: '0 C:' }], counters: { a: 1 } }, 'vscode-webview://img.png');
+    assert(fr.index === 3 && fr.tMs === 250 && fr.cpuPct === 10 && fr.ramMb === 200 && fr.diskPct === 5 && fr.imageSrc === 'vscode-webview://img.png' && fr.disks[0].name === '0 C:' && fr.counters.a === 1, 'buildCorrelatorFrame maps a capture frame + webview image src');
+    const rdir = join(tmpdir(), 'lba-test-resamples-xyz');
+    rmSync(rdir, { recursive: true, force: true });
+    mkdirSync(rdir, { recursive: true });
+    assert(ext.readResourceSamples(rdir).length === 0, 'readResourceSamples returns [] with no resources.jsonl');
+    writeFileSync(join(rdir, 'resources.jsonl'), '{"ms":1,"cpuPct":10}\n\n  \n{bad json\n{"ms":2,"cpuPct":20}\n');
+    const rsamples = ext.readResourceSamples(rdir);
+    assert(rsamples.length === 2 && rsamples[0].ms === 1 && rsamples[1].cpuPct === 20, 'readResourceSamples parses valid lines + skips blank/partial');
+    rmSync(rdir, { recursive: true, force: true });
+    console.log('correlator-autojump-helpers: PASS -- peakFrameIndexOf + readPeakFrameIndex + clampFrameIndex + buildCorrelatorModel + buildCorrelatorFrame + readResourceSamples across all branches');
   }
 
   // createCleanroom input VALIDATION: an invalid name/port/actor is rejected by the validators and aborts the

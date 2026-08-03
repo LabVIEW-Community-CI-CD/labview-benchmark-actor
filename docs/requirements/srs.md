@@ -1687,6 +1687,10 @@ progressively.
     sanctioned poll in the agentic flow.
   - `validateCaptureStatus` fails closed on a wrong schema, an unknown state, or a stopped/
     failed beacon missing its payload.
+  - On STOP the Frame Correlator opens on the beacon's peak-write frame (derived via
+    `peakFrameIndexOf` / `readPeakFrameIndex`, clamped into range by `clampFrameIndex` and
+    carried into the correlator model by `buildCorrelatorModel`), so the human + agent land on
+    the evidence rather than scrubbing from frame 0.
 - Change Guidance: The `experiments/handoff-beacon/` payload builder + self-test are gated by
   `handoff-capture-status` in `verify-local-gates` and mapped in the RTM; the builder is staged
   into `media/` and loaded by `src/extension.ts`. The protocol extends (ADR-0035) with an
