@@ -79,5 +79,6 @@
 | LBA-REQ-070 | Composite release decision (bind the machine corroboration gate to the human visual gate over one net-staged candidate) | Proven | §3.2 Deployment | ADR-0051 | T-070 | 6 |
 | LBA-REQ-071 | Enforce the composite release decision in the extension release workflow | Proven | §3.2 Deployment | ADR-0052 | T-071 | 4 |
 | LBA-REQ-072 | Cross-plane launch-benchmark parity (identity is the spec, not the series) | Proven | §3.2 Deployment | ADR-0053 | T-072 | 6 |
+| LBA-REQ-073 | Mesh-run cross-plane fulfillment (the North Star loop) | Proven | §3.2 Deployment | ADR-0054 | T-073 | 5 |
 
-_Generated for 72 requirements._
+_Generated for 73 requirements._
