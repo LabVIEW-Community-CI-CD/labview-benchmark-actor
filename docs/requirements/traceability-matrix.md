@@ -69,5 +69,6 @@
 | LBA-REQ-060 | Live-only net coordination -- the receive-log + net poll read side | Proven | §3.2 Deployment | ADR-0040 | T-060 | 4 |
 | LBA-REQ-061 | Bus transport selection in the extension -- Discussion default, net opt-in | Proven | §3.2 Deployment | ADR-0041 | T-061 | 4 |
 | LBA-REQ-062 | MCP coordination tools transport selection -- Discussion default, net opt-in | Proven | §3.2 Deployment | ADR-0042 | T-062 | 4 |
+| LBA-REQ-063 | post-verdict.mjs transport selection -- Discussion default, net opt-in | Proven | §3.2 Deployment | ADR-0043 | T-063 | 2 |
 
-_Generated for 62 requirements._
+_Generated for 63 requirements._

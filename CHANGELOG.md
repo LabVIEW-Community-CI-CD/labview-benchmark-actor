@@ -7,6 +7,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Verdict announcer transport selection — off GitHub Discussions, step 4** (ADR-0043, LBA-REQ-063).
+  `reviewer-workstation/post-verdict.mjs` now honors the same switch: under `VIHS_COLLAB_TRANSPORT=net` (+
+  `VIHS_COLLAB_NET_HOSTS`) it announces a signed verdict via `net send` with the same semantic type, else the
+  Discussion `post` (default). `--print-args` honors it, so the release workflow is unchanged at the default.
+  Gated by `post-verdict-net-transport`.
 - **MCP tools bus transport selection — off GitHub Discussions, step 3** (ADR-0042, LBA-REQ-062). The
   extension's MCP server now honors the same transport switch: the provider passes `busTransport` / `busNetHosts`
   / `busNetLog` to the stdio server as env, and `poll_coordination_bus` → `net poll` / `post_coordination_note`

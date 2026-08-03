@@ -2375,6 +2375,26 @@ check('mcp-net-transport', () => {
   return { server: 'poll/postArgs env-selected', provider: 'busEnvFromConfig', default: 'discussion' };
 });
 
+// LBA-REQ-063 / ADR-0043: off-Discussions step 4 -- post-verdict.mjs announces the signed verdict over the
+// selected transport (Discussion default, net opt-in via VIHS_COLLAB_TRANSPORT/NET_HOSTS). Runs --print-args
+// under both transports + asserts the argv (post vs net send, same semantic RESOLVED type + release task).
+check('post-verdict-net-transport', () => {
+  const { privateKeyPem } = generateReviewerKeypair();
+  const reviewer = 'reviewer@example';
+  const verdict = buildReviewerVerdict({ target: { component: 'extension', version: '0.5.0', commit: 'a'.repeat(40), vsixSha256: 'b'.repeat(64) }, verdict: 'pass', reviewer, station: 'WINDOWS_VM', evidence: [{ kind: 'capture', ref: 'run-x' }], renderedAt: '2026-08-03T00:00:00Z' });
+  const signOff = signReviewerVerdict(verdict, { privateKeyPem, reviewer });
+  const tmp = join(tmpdir(), `lba-verdict-${Date.now()}.json`);
+  writeFileSync(tmp, JSON.stringify({ verdict, signOff }));
+  const pv = join(here, '..', 'reviewer-workstation', 'post-verdict.mjs');
+  const run = (env) => execFileSync(process.execPath, [pv, '--verdict', tmp, '--print-args'], { encoding: 'utf8', env: { ...process.env, ...env } }).trim();
+  const disc = run({ VIHS_COLLAB_TRANSPORT: 'discussion' });
+  assert(disc.startsWith('post ') && disc.includes('--type RESOLVED') && disc.includes('--task extension-release-0.5.0') && disc.includes('--message-file'), `discussion default -> post argv (got: ${disc})`);
+  const net = run({ VIHS_COLLAB_TRANSPORT: 'net', VIHS_COLLAB_NET_HOSTS: '10.0.2.2' });
+  assert(net.startsWith('net send ') && net.includes('--hosts 10.0.2.2') && net.includes('--type RESOLVED') && net.includes('--task extension-release-0.5.0') && net.includes('--message-file') && !net.includes('--priority'), `net transport -> net send argv (got: ${net})`);
+  rmSync(tmp, { force: true });
+  return { discussion: 'post', net: 'net send', default: 'discussion' };
+});
+
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
 // embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
 // runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops

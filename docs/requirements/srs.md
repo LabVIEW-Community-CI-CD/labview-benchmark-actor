@@ -90,6 +90,7 @@ progressively.
 | LBA-REQ-060 | The system shall provide a live-only net coordination read side -- a per-actor local receive-log written by `lbabus net listen --log` and read by `lbabus net poll` (filtered by type/task; fail-closed without a log) -- so a fail-closed gate proves post->log->poll round-trips over TCP and coordination reads no longer depend on a GitHub Discussion. | ADR-0039 moved the host<->VM-agent loop + verdict announcement onto net; an operator directive moves the REST of coordination off Discussions with a LIVE-ONLY model (no async store). The send side (`net send`) existed; the read side was missing. | `net listen --log <file>` appends received frames to a per-actor JSONL receive-log; `net poll` reads + filters it (BusWire.ToJson/FromJson); no central/async store -- an offline peer misses the frame (accepted). | Run `bash experiments/net-coordination/net-coordination-log-proof.sh`; gated by `net-coordination-log` (committed loopback receipt + Net.cs source). Loopback: post->log->poll round-trip + type filter + poll-without-log fails closed. |
 | LBA-REQ-061 | The system shall let the extension select the coordination-bus transport -- GitHub Discussion (default) or the live-only `lbabus net` TCP bus (opt-in via busTransport/busNetHosts/busNetLog) -- so postNote/pollBus/the reviewer-verdict announcement ride `net send`/`net poll` when configured, and a fail-closed gate proves the switch + the Discussion-safe default. | ADR-0040 gave net a live-only model; the extension still shelled the GitHub-Discussion post/poll. Step 2 lets it select the transport WITHOUT breaking existing users (Discussion stays default). | `busConfig` reads the settings; `busSendArgs` builds the net send argv; postNote->net send, pollBus->net poll, the verdict->net send --message-file under net; Discussion default keeps busPostArgs/post + poll. | Extension tests (busSendArgs + activation) in test/extension-activation.mjs; gated by `bus-transport-select` (source + package.json config assertion; Discussion default). |
 | LBA-REQ-062 | The system shall let the extension's MCP coordination tools select the transport -- the provider passes the bus-transport config as env (VIHS_COLLAB_TRANSPORT/NET_HOSTS/NET_LOG) and the stdio server routes poll_coordination_bus/post_coordination_note to `net poll`/`net send` under net (Discussion default) -- so the agent tool surface coordinates over TCP when configured, proven by a fail-closed gate. | ADR-0041 migrated the extension commands; the MCP server (a separate stdio process) still shelled the Discussion poll/post. | `busEnvFromConfig` maps busTransport/busNetHosts/busNetLog -> env on the McpStdioServerDefinition; `pollBusArgs`/`postNoteArgs` route to net poll/send under net; Discussion default keeps poll/post. | test/mcp-server.mjs (busEnvFromConfig + stdio tools); gated by `mcp-net-transport` (src/mcp source assertion). |
+| LBA-REQ-063 | The system shall let the reviewer-workstation verdict announcer (post-verdict.mjs) select the transport -- GitHub Discussion (default) or the live-only lbabus net TCP bus (opt-in via VIHS_COLLAB_TRANSPORT/NET_HOSTS) -- so a signed verdict announces via `net send` with the same semantic type when configured, and a fail-closed gate proves the argv under both transports. | ADR-0041/0042 migrated the extension + MCP; post-verdict.mjs (used by the release CI + by hand) still built only the Discussion post argv. | post-verdict.mjs reads VIHS_COLLAB_TRANSPORT/NET_HOSTS: net -> `net send --hosts --type --task --message-file`, else `post` (unchanged); --print-args honors it so the release CI is unchanged at the default. | Gated by `post-verdict-net-transport` (runs --print-args under both transports + asserts the argv). |
 
 ---
 
@@ -1918,6 +1919,30 @@ progressively.
 
 ---
 
+### LBA-REQ-063: post-verdict.mjs transport selection -- Discussion default, net opt-in
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0043 -- post-verdict transport selection, off GitHub Discussions step 4)
+- Statement: The system shall let the reviewer-workstation verdict announcer (`post-verdict.mjs`) select the
+  transport -- GitHub Discussion (default) or the live-only `lbabus net` TCP bus (opt-in via
+  `VIHS_COLLAB_TRANSPORT`/`VIHS_COLLAB_NET_HOSTS`) -- so a signed verdict announces via `net send` with the same
+  semantic type when configured, and a fail-closed gate proves the argv under both transports.
+- Rationale: ADR-0041/0042 migrated the extension's own commands + its MCP tools; the reviewer verdict is also
+  announced via `post-verdict.mjs` (the release CI calls it `--print-args`; a reviewer can run it by hand),
+  which still built only the Discussion `post` argv. Step 4 makes it transport-selectable too.
+- Acceptance Criteria:
+  - Under `VIHS_COLLAB_TRANSPORT=net`, `post-verdict.mjs` emits `net send [--hosts <peers>] --type <RESOLVED/...>
+    --task <release-task> --message-file <verdict>` (the net envelope carries no priority/ref -- they live in
+    the signed verdict JSON); else the Discussion `post` argv (with `--priority`/`--ref`).
+  - `--print-args` / `--dry-run` / the default post all honor the transport.
+  - The Discussion default is unchanged, so the release CI (which runs `--print-args`) is unchanged.
+- Change Guidance: the transport branch is in `reviewer-workstation/post-verdict.mjs`; gate
+  `post-verdict-net-transport`. The release-CI announce under live-only (no net peer in CI; the committed signed
+  verdict is the durable record) + deprecating/removing the Discussion transport are the NEXT increments
+  (ADR-0043 Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1984,3 +2009,4 @@ progressively.
 | LBA-REQ-060 | Deployment (live-only net coordination read side) | T-060 |
 | LBA-REQ-061 | Deployment (extension bus transport selection) | T-061 |
 | LBA-REQ-062 | Deployment (MCP tools transport selection) | T-062 |
+| LBA-REQ-063 | Deployment (post-verdict transport selection) | T-063 |
