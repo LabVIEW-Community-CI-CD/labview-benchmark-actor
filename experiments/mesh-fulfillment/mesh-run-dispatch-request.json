@@ -1,0 +1,22 @@
+{
+  "schema": "labview-benchmark-actor/mesh-run-dispatch@1",
+  "requirement": "LBA-REQ-074",
+  "adr": "ADR-0055",
+  "dispatchId": "mesh-run-labview-ide-launch-2026-08-03",
+  "benchmarkId": "labview-ide-launch",
+  "benchmark": {
+    "metric": "launchMs",
+    "workload": "labview-ide-launch",
+    "n": 5
+  },
+  "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+  "minActors": 2,
+  "requestedPlanes": [
+    "LINUX",
+    "WIN"
+  ],
+  "requester": "operator@labview-benchmark-actor",
+  "coordination": "GitHub-native repository_dispatch (event type mesh-run) -- the repo IS the queue; volunteer actors return plane-tagged receipts, no central server.",
+  "dispatchedAt": "2026-08-03",
+  "digest": "f8fbd6818c1c5c893159c86c67867e13b9b3c054de68556c42568865eba54d11"
+}
