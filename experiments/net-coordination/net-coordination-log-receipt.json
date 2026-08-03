@@ -1,0 +1,16 @@
+{
+  "schema": "labview-benchmark-actor/net-coordination-log-proof@1",
+  "requirement": "LBA-REQ-060",
+  "adr": "ADR-0040",
+  "model": "live-only over lbabus net TCP -- per-actor local receive-log, no central/async store (no GitHub Discussion)",
+  "transport": "lbabus net -- bus-msg@1, ADR-0003/0004 (loopback 127.0.0.1 TCP 47430)",
+  "cases": {
+    "postToLogToPollRoundTrip": true,
+    "typeFilterNote": true,
+    "typeFilterResolved": true,
+    "pollWithoutLogFailsClosed": true
+  },
+  "framesLogged": 2,
+  "ok": true,
+  "generatedAt": "2026-08-03"
+}

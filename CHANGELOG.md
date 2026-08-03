@@ -7,6 +7,13 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Live-only `net` coordination — off GitHub Discussions, step 1** (ADR-0040, LBA-REQ-060). The
+  coordination read side now rides TCP: `lbabus net listen --log <file>` records received frames to a
+  per-actor JSONL **receive-log**, and new **`lbabus net poll`** reads + filters it (by `--type` / `--task`),
+  mirroring the Discussion `poll` over the private bus (the send side is the existing `net send`). Live-only
+  by design — no central/async store, so an offline peer misses a post; durable records are the committed
+  artifacts, not a bus log. Gated by `net-coordination-log`. First increment of retiring the GitHub-Discussion
+  transport.
 - **Host↔VM-agent closed loop over TCP** (ADR-0039, LBA-REQ-059). The host now drives the reviewer
   VM's Copilot agent and **awaits its reply over the `lbabus net` TCP bus** — `await-agent-reply.mjs`
   runs `lbabus net listen` and correlates the VM agent's reply frame by task id (fail-closed on

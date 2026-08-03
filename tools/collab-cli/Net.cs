@@ -55,6 +55,16 @@ internal static class BusWire
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    /// <summary>Serialize an envelope to a single-line JSON string (the wire + receive-log encoding).</summary>
+    internal static string ToJson(BusEnvelope e) => JsonSerializer.Serialize(e, JsonOpts);
+
+    /// <summary>Parse one receive-log JSON line back to an envelope; returns null on malformed JSON (fail-safe).</summary>
+    internal static BusEnvelope? FromJson(string s)
+    {
+        try { return JsonSerializer.Deserialize<BusEnvelope>(s, JsonOpts); }
+        catch (JsonException) { return null; }
+    }
+
     public static void WriteFrame(Stream stream, BusEnvelope env, bool flush = true)
     {
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(env, JsonOpts);
@@ -154,7 +164,7 @@ internal static class NetCommands
     {
         if (tail.Length == 0)
         {
-            Console.Error.WriteLine("lbabus net: subcommand required — listen | send | beacon | ping");
+            Console.Error.WriteLine("lbabus net: subcommand required — listen | send | poll | beacon | ping");
             return 1;
         }
 
@@ -164,6 +174,7 @@ internal static class NetCommands
         {
             "listen" or "serve" => CmdListen(a),
             "send" => CmdSend(a),
+            "poll" => CmdPoll(a),
             "beacon" => CmdBeacon(a),
             "ping" => CmdPing(a),
             _ => Fail($"unknown net subcommand '{sub}'"),
@@ -174,6 +185,52 @@ internal static class NetCommands
 
     private static int? IntOrNull(ArgMap a, string key) =>
         a.Get(key) is { } s && int.TryParse(s, out int v) ? v : null;
+
+    private static readonly object LogLock = new();
+
+    /// <summary>
+    /// Append a received frame to the per-actor local receive-log (JSONL). This is the LIVE-ONLY coordination
+    /// store (ADR-0040, LBA-REQ-060): each actor's `net listen --log` daemon records what it heard while online;
+    /// `net poll` reads it. There is no central/async store -- a peer offline at post time simply misses the
+    /// frame. Best-effort: a log error is reported but never breaks the listener.
+    /// </summary>
+    private static void AppendLog(string? path, BusEnvelope env)
+    {
+        if (string.IsNullOrEmpty(path)) { return; }
+        try { lock (LogLock) { File.AppendAllText(path, BusWire.ToJson(env) + "\n"); } }
+        catch (Exception ex) { Console.Error.WriteLine($"[net] receive-log append failed: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// `net poll` -- read the local receive-log written by `net listen --log` and print the last N frames
+    /// (optionally filtered by --type / --task), mirroring the Discussion `poll` UX over the TCP bus. Live-only:
+    /// with no log (never listened / nothing heard) it prints nothing and exits 0. This is the read side of the
+    /// off-GitHub-Discussions coordination model (ADR-0040, LBA-REQ-060).
+    /// </summary>
+    private static int CmdPoll(ArgMap a)
+    {
+        string? logPath = a.Get("log") ?? Environment.GetEnvironmentVariable("VIHS_COLLAB_NET_LOG");
+        int tail = a.GetInt("tail", 10);
+        string? type = a.Get("type");
+        string? task = a.Get("task");
+        if (string.IsNullOrEmpty(logPath)) { return Fail("net poll: --log <file> (or VIHS_COLLAB_NET_LOG) required -- the local receive-log written by `net listen --log`"); }
+        if (!File.Exists(logPath)) { Console.Error.WriteLine($"[net poll] no local receive-log at {logPath} -- nothing heard yet (live-only, ADR-0040)"); return 0; }
+        var frames = new List<BusEnvelope>();
+        foreach (string line in File.ReadLines(logPath))
+        {
+            if (string.IsNullOrWhiteSpace(line)) { continue; }
+            BusEnvelope? env = BusWire.FromJson(line);
+            if (env is null) { continue; }
+            if (type is not null && !string.Equals(env.Type, type, StringComparison.OrdinalIgnoreCase)) { continue; }
+            if (task is not null && !string.Equals(env.Task, task, StringComparison.Ordinal)) { continue; }
+            frames.Add(env);
+        }
+        foreach (BusEnvelope env in frames.Skip(Math.Max(0, frames.Count - tail)))
+        {
+            Console.WriteLine(BusWire.Render(env));
+        }
+        return 0;
+    }
 
     /// <summary>Headless listener/collector: prints every received TCP frame + UDP beacon (troubleshooting).</summary>
     private static int CmdListen(ArgMap a)
@@ -186,6 +243,7 @@ internal static class NetCommands
         int countDistinct = a.GetInt("count-distinct", 0); // 0 = disabled; else stop once N distinct peers heard
         int timeoutSec = a.GetInt("timeout", 0); // 0 = no timeout
         string session = a.Get("session") ?? "default";
+        string? logPath = a.Get("log"); // append received frames to a local JSONL receive-log (live-only coordination, ADR-0040)
 
         if (tcpPort is null && udpPort is null)
         {
@@ -223,7 +281,7 @@ internal static class NetCommands
                         }
 
                         TcpClient client = tcp.AcceptTcpClient();
-                        HandleTcpClient(client, echo, ref received, count, stop, distinct, countDistinct, self);
+                        HandleTcpClient(client, echo, ref received, count, stop, distinct, countDistinct, self, logPath);
                     }
                 }
                 catch (SocketException) { }
@@ -251,6 +309,7 @@ internal static class NetCommands
                         if (env is not null)
                         {
                             Console.WriteLine($"UDP {remote.Address}  {BusWire.Render(env)}");
+                            AppendLog(logPath, env);
                             int n = Interlocked.Increment(ref received);
                             if (count > 0 && n >= count) { stop.Set(); }
                             if (NoteDistinct(distinct, countDistinct, self, env.SenderId)) { stop.Set(); }
@@ -299,7 +358,7 @@ internal static class NetCommands
     }
 
     private static void HandleTcpClient(TcpClient client, bool echo, ref int received, int count, ManualResetEventSlim stop,
-        System.Collections.Concurrent.ConcurrentDictionary<string, byte> distinct, int countDistinct, string self)
+        System.Collections.Concurrent.ConcurrentDictionary<string, byte> distinct, int countDistinct, string self, string? logPath)
     {
         using (client)
         {
@@ -315,6 +374,7 @@ internal static class NetCommands
                 if (env is null) { break; } // peer closed
 
                 Console.WriteLine($"TCP {remote}  {BusWire.Render(env)}");
+                AppendLog(logPath, env);
                 int n = Interlocked.Increment(ref received);
                 bool distinctDone = NoteDistinct(distinct, countDistinct, self, env.SenderId);
 
