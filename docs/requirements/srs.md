@@ -84,6 +84,7 @@ progressively.
 | LBA-REQ-054 | The system shall assemble every committed benchmark receipt into a benchmark-type x plane coverage matrix (the Benchmark Observatory), so a fail-closed gate proves the suite-wide determinism ledger and coverage are correctly derived. | As the suite grows along its axes (benchmark type x plane x OS x hardware), one governed artifact must map what has been measured where, whether it reproduces, and what to measure next -- above the per-benchmark grid. | `benchmarkObservatory.mjs` folds the VI Analyzer + Mass Compile + PPL build + LUnit test receipts into a coverage matrix + determinism ledger + frontier; `validateObservatory` fails closed on a determinism violation, a matrix that contradicts the receipts, a forged verdict, or a tampered digest; the generated `docs/benchmarks/benchmark-observatory.md` is drift-gated. | Run `node experiments/benchmark-observatory/verify-benchmark-observatory.selftest.mjs` (8/8); gated by `benchmark-observatory`. Derived: 4 benchmark types x 5 planes, 2 cross-plane-proven, 0 violations, 13-cell frontier. |
 | LBA-REQ-055 | The system shall emit a machine-readable capture-status beacon for each LabVIEW-launch capture (capturing -> stopped/failed), so a fail-closed gate proves the rich stop payload (wroteToDisk, peak write throughput + its frame, per-disk breakdown) is correctly derived and an agent can await a human-in-the-loop step. | The reviewer/agentic flow has human-in-the-loop steps (run a VI, then Stop the capture); without a signal the agent guesses or re-asks. A capture-status beacon makes the human's Stop an awaited, machine-observable event that also carries a pointer straight to the evidence. | `captureStatus.mjs` derives the beacon (wroteToDisk thresholded, peak write MB/s + the frame index where it peaked, per-physical-disk peaks) from the capture's samples; the extension writes `capture-status.json` at capture start (capturing) + stop (stopped) or assembly failure (failed); `reviewer-workstation/await-handoff.sh` polls it; `validateCaptureStatus` fails closed on a bad schema/state/missing payload. | Run `node experiments/handoff-beacon/captureStatus.selftest.mjs` (6/6); gated by `handoff-capture-status`. Live: the operator's streaming VI produced a stopped beacon (wroteToDisk=true, peak 134 MB/s @ frame 1122) the agent's poll resolved. |
 | LBA-REQ-056 | The system shall surface an agent's request for a human step as an in-VM VS Code notification whose "Mark step done" / "Skip" actions emit a machine-readable op-done beacon, so a fail-closed gate proves the request/answer payloads are correctly derived and the agent can await a human-in-the-loop step it initiated. | The capture-status beacon (LBA-REQ-055) let the agent AWAIT a human step; the agent's own ASK ("run this VI", "activate LabVIEW") was invisible except via chat, so it re-asked. Making the ask a first-class, in-VM, machine-observable event (a reusable human-step barrier) lets the agent request a manual step and resume when the human answers. | `handoffRequest.mjs` derives `agent-request@1` + `op-done@1` (validated fail-closed) + `selectPendingRequest` (newest unanswered); the extension watches `handoff/requests/` and surfaces the ask as a notification with "Mark step done" (optional note) / "Skip" -- also palette commands -- writing `handoff/done/<id>.json`; `reviewer-workstation/request-step.sh` drops the request + polls the answer ONCE. | Run `node experiments/handoff-beacon/handoffRequest.selftest.mjs` (5/5); gated by `handoff-request`. Live: the agent asked the human in the reviewer VM + resumed on the op-done beacon. |
+| LBA-REQ-057 | The system shall emit a signed reviewer visual verdict (`reviewer-verdict@1` mapping to `acg-human-signoff-v1`) for an extension release candidate, so a fail-closed gate proves the human's PASS/FAIL of the built candidate is Ed25519-signed by an enrolled reviewer and gates the release alongside the plane agreement. | The reviewer VM exists for the human's VISUAL PASS/FAIL of a candidate; that verdict was informal (chat / a hand-edited signoff). Making it a signed, candidate-bound artifact turns the human gate into a governed, verifiable release input, signable IN the VM (enrolled Ed25519 needs no OIDC). | `reviewerVerdict.mjs` (dependency-free, staged) builds + Ed25519-signs the verdict IN the VM; `gateVisualReview` publishes only on a pass + verified enrolled approvals; `release-with-review.mjs` composes it with the ADR-0018 machine gate; `verify-visual-review.mjs` gates a release's visualReview block; CI keyless-cosign counter-signs. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (6/6); gated by `handoff-verdict`. Live: the reviewer signs a pass verdict for ext 0.5.0 in the VM that verifies against the enrolled allowlist. |
 
 ---
 
@@ -1733,6 +1734,42 @@ progressively.
 
 ---
 
+### LBA-REQ-057: Handoff Beacon -- reviewer visual verdict (signed human PASS/FAIL)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0037 -- reviewer visual verdict beacon, under the Handoff Beacon Protocol ADR-0035)
+- Statement: The system shall emit a signed reviewer visual verdict (`reviewer-verdict@1` mapping to
+  `acg-human-signoff-v1`) for an extension release candidate, so a fail-closed gate proves the human's
+  PASS/FAIL of the built candidate is Ed25519-signed by an enrolled reviewer and gates the release
+  alongside the plane agreement.
+- Rationale: The reviewer VM exists for the human's VISUAL PASS/FAIL of a candidate -- the thing the
+  whole reviewer gate is for. That verdict was informal (a chat "looks good" or a hand-edited
+  release-agreement signoff). Making it a signed, candidate-bound, verifiable artifact turns the human
+  gate into a governed release input, and -- because enrolled Ed25519 needs no OIDC -- it is signed IN
+  the VM where the human is (keyless cosign layers on in CI).
+- Acceptance Criteria:
+  - `buildReviewerVerdict` / `validateReviewerVerdict` derive the candidate-bound verdict (target
+    component/version/commit/vsixSha256 + evidence), fail-closed; `reviewerVerdict.mjs` is
+    dependency-free so it stages into the extension's `media/` and signs headless.
+  - `signReviewerVerdict` maps the verdict to an `acg-human-signoff-v1` bound to its canonical digest
+    (a `pass` is an `approve`); `verifyReviewerVerdict` fails closed on a wrong schema, a tampered
+    verdict, an un-enrolled reviewer, a mismatched key, or a bad signature.
+  - `gateVisualReview` publishes only on a `pass` verdict with >= minReviewers verified enrolled
+    approvals; `release-with-review.mjs`'s `gateReleaseWithReview` composes it with the ADR-0018
+    `gateReleasePublish` so the machine corroboration and the human's PASS are independently required.
+  - The extension's Render Reviewer Verdict command signs the verdict in the VM (enrolled reviewer
+    key) into `handoff/verdicts/`; `reviewer-workstation/render-verdict.sh` sets the target + collects
+    it; `tools/collab-cli/verify-visual-review.mjs` gates a release's `visualReview` block against the
+    committed `reviewer-allowlist.json`; CI keyless-cosign counter-signs the verdict bundle.
+- Change Guidance: `experiments/handoff-beacon/reviewerVerdict.mjs` + its self-test are gated by
+  `handoff-verdict` and mapped in the RTM; the builder is staged into `media/` + loaded by
+  `src/extension.ts`. Reviewer keys are enrolled via `reviewer-workstation/enroll-reviewer.mjs` (the
+  private key stays local; the public key is committed to `reviewer-allowlist.json`). This is the
+  verdict tier of the Handoff Beacon Protocol (ADR-0035); the `lbabus` post ships as its own governed
+  slice. Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1793,3 +1830,4 @@ progressively.
 | LBA-REQ-054 | Deployment (benchmark observatory) | T-054 |
 | LBA-REQ-055 | Deployment (handoff beacon) | T-055 |
 | LBA-REQ-056 | Deployment (handoff beacon -- agent->human request) | T-056 |
+| LBA-REQ-057 | Deployment (handoff beacon -- reviewer visual verdict) | T-057 |

@@ -1,0 +1,3 @@
+{
+  "_comment": "Enrolled reviewer visual-verdict signing keys (reviewer id -> Ed25519 SPKI public key PEM). Add entries with reviewer-workstation/enroll-reviewer.mjs (the private key stays LOCAL to the reviewer, never committed). The verify-visual-review gate + the extension-release workflow verify a release's signed reviewer verdict against these keys (LBA-REQ-057, ADR-0037)."
+}

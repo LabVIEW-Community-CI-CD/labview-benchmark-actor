@@ -52,6 +52,8 @@ import { buildLaunchCapture } from './mprr-capture-ring/launch-capture.mjs';
 import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.mjs';
 import { buildCaptureStatus, validateCaptureStatus } from './handoff-beacon/captureStatus.mjs';
 import { buildAgentRequest, buildOpDone, validateAgentRequest, validateOpDone, selectPendingRequest } from './handoff-beacon/handoffRequest.mjs';
+import { buildReviewerVerdict, signReviewerVerdict, verifyReviewerVerdict, gateVisualReview, generateEnrolledKeypair as generateReviewerKeypair } from './handoff-beacon/reviewerVerdict.mjs';
+import { verifyVisualReview } from '../tools/collab-cli/verify-visual-review.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { verifyDepManifest } from './labview-authoring/verify-dep-manifest.mjs';
@@ -2286,6 +2288,28 @@ check('handoff-request', () => {
   assert(validateOpDone(done).ok && done.requestId === 'req-b', 'the op-done answer validates + keys off the request');
   assert(selectPendingRequest([r1, r2], [done.requestId]).id === 'req-a', 'once answered, the next pending surfaces');
   return { schema: r1.schema, opDoneSchema: done.schema, selftest: 'handoff-request 5/5' };
+});
+
+// LBA-REQ-057 / ADR-0037: the reviewer VISUAL VERDICT beacon -- the human's PASS/FAIL of a release candidate,
+// signed in the VM with an ENROLLED Ed25519 reviewer key (mapping to acg-human-signoff-v1), gating the visual
+// review of a release. Subprocess selftest + an inline end-to-end: build a pass verdict -> enrolled reviewer
+// signs -> the sign-off verifies + gateVisualReview publishes; a tampered verdict fails closed.
+check('handoff-verdict', () => {
+  execFileSync(process.execPath, [join(here, 'handoff-beacon', 'reviewerVerdict.selftest.mjs')], { stdio: 'pipe' });
+  const { privateKeyPem, publicKeyPem } = generateReviewerKeypair();
+  const reviewer = 'reviewer@example';
+  const allow = { [reviewer]: publicKeyPem };
+  const verdict = buildReviewerVerdict({ target: { component: 'extension', version: '0.5.0', commit: 'c'.repeat(40), vsixSha256: 'd'.repeat(64) }, verdict: 'pass', reviewer, station: 'WINDOWS_VM', evidence: [{ kind: 'capture', ref: 'run-x' }], renderedAt: '2026-08-03T00:00:00Z' });
+  const signed = signReviewerVerdict(verdict, { privateKeyPem, reviewer });
+  assert(verifyReviewerVerdict(verdict, signed, { reviewerAllowlist: allow }).ok, 'the enrolled reviewer sign-off verifies');
+  const decision = gateVisualReview({ verdict, signOffs: [signed], reviewerAllowlist: allow, minReviewers: 1 });
+  assert(decision.publish === true, 'a pass verdict + an enrolled approval publishes the visual review');
+  assert(gateVisualReview({ verdict: { ...verdict, notes: 'tampered' }, signOffs: [signed], reviewerAllowlist: allow }).publish === false, 'a tampered verdict fails closed');
+  // the release-agreement visual-review verifier (tools/collab-cli/verify-visual-review.mjs) reuses the gate over
+  // a { verdict, signOff } record -- so the extension-signed verdict + a plane agreement gate the release together.
+  assert(verifyVisualReview({ record: { verdict, signOff: signed }, reviewerAllowlist: allow, minReviewers: 1 }).publish === true, 'verify-visual-review publishes a signed pass record');
+  assert(verifyVisualReview({ record: { verdict, signOffs: [] }, reviewerAllowlist: allow }).publish === false, 'verify-visual-review fails closed without a sign-off');
+  return { schema: verdict.schema, verdict: verdict.verdict, signoffSchema: signed.schema, selftest: 'reviewer-verdict 6/6' };
 });
 
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document

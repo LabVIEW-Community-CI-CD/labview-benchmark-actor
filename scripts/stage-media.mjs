@@ -68,6 +68,13 @@ writeFileSync(
   join(repo, 'media', 'handoffRequest.mjs'),
   readFileSync(join(repo, 'experiments', 'handoff-beacon', 'handoffRequest.mjs'))
 );
+// 1c-v. Handoff Beacon reviewer VISUAL VERDICT builder (LBA-REQ-057): the extension builds + Ed25519-SIGNS the
+//     reviewer's PASS/FAIL of a release candidate IN the VM from this pure, dependency-free, gated module
+//     (canonicalize/bundleDigest inlined so it stages cleanly + signs without OIDC).
+writeFileSync(
+  join(repo, 'media', 'reviewerVerdict.mjs'),
+  readFileSync(join(repo, 'experiments', 'handoff-beacon', 'reviewerVerdict.mjs'))
+);
 writeFileSync(
   join(repo, 'media', 'labview-launch-record.json'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-record.json'))

@@ -44,6 +44,7 @@
 | [ADR-0034](ADR-0034-benchmark-observatory.md) | Benchmark Observatory -- suite-wide benchmark-type x plane coverage + determinism map above the grid | LINUX | Accepted | LBA-REQ-054 |
 | [ADR-0035](ADR-0035-handoff-beacon-protocol.md) | Handoff Beacon Protocol -- human-in-the-loop steps become machine-observable beacons the agent awaits (capture-status first) | LINUX | Accepted | LBA-REQ-055 |
 | [ADR-0036](ADR-0036-agent-human-request-beacon.md) | Agent->human request beacon -- the agent's ask surfaces in the VM as a notification with a "Mark step done" action that writes an op-done beacon (under the Handoff Beacon Protocol) | LINUX | Accepted | LBA-REQ-056 |
+| [ADR-0037](ADR-0037-reviewer-visual-verdict-beacon.md) | Reviewer visual verdict beacon -- the human's PASS/FAIL of a release candidate, Ed25519-signed in the VM (mapping to acg-human-signoff-v1), gating the release with the plane agreement | LINUX | Accepted | LBA-REQ-057 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
 LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0022, 0023, 0024). Add new ADRs by extending your own range.

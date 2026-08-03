@@ -847,6 +847,93 @@ try {
     await registered.find((r) => r.id === 'labviewBenchmarkActor.skipStep').handler();
     console.log('handoff-request-flow: PASS -- refreshHandoffRequests -> Mark done/Skip/dismiss -> op-done beacon (+ no-pending no-op)');
   }
+
+  // Reviewer VISUAL VERDICT (PR4, LBA-REQ-057): the staged media/reviewerVerdict.mjs + the extension helpers +
+  // the Render Reviewer Verdict command that Ed25519-signs a verdict IN the VM.
+  const rv = await import(pathToFileURL(join(repoRoot, 'media', 'reviewerVerdict.mjs')).href);
+  const rvKeys = rv.generateEnrolledKeypair();
+  {
+    const target = { component: 'extension', version: '0.5.0', commit: 'a'.repeat(40), vsixSha256: 'b'.repeat(64) };
+    const reviewer = 'rev@x';
+    const allow = { [reviewer]: rvKeys.publicKeyPem };
+    const v = rv.buildReviewerVerdict({ target, verdict: 'pass', reviewer, station: 'WINDOWS_VM', notes: 'ok', evidence: [{ kind: 'capture', ref: 'run-1' }, { kind: 'x' }], renderedAt: 't' });
+    assert(v.schema === rv.REVIEWER_VERDICT_SCHEMA && v.verdict === 'pass' && v.evidence.length === 1, 'buildReviewerVerdict builds + drops evidence without a ref');
+    assert(rv.buildReviewerVerdict({}).verdict === 'fail' && rv.buildReviewerVerdict({ verdict: 'z' }).station === 'WINDOWS_VM', 'reviewer-verdict verdict/station defaults');
+    assert(rv.validateReviewerVerdict(v).ok && !rv.validateReviewerVerdict({ ...v, verdict: 'z' }).ok && !rv.validateReviewerVerdict({ ...v, target: { version: '', commit: '' } }).ok && !rv.validateReviewerVerdict({ ...v, reviewer: '' }).ok && !rv.validateReviewerVerdict({ ...v, station: 'MARS' }).ok && !rv.validateReviewerVerdict(null).ok, 'validateReviewerVerdict fail-closed');
+    const s = rv.signReviewerVerdict(v, { privateKeyPem: rvKeys.privateKeyPem, reviewer, station: 'WINDOWS_VM' });
+    assert(s.schema === rv.SIGNOFF_SCHEMA && s.decision === 'approve' && s.subject.verdictDigest === rv.reviewerVerdictDigest(v), 'signReviewerVerdict -> acg-human-signoff-v1 bound to the digest');
+    assert(rv.signReviewerVerdict(rv.buildReviewerVerdict({ target, verdict: 'fail', reviewer }), { privateKeyPem: rvKeys.privateKeyPem, reviewer }).decision === 'reject', 'a fail verdict -> reject');
+    assert(rv.verifyReviewerVerdict(v, s, { reviewerAllowlist: allow }).ok, 'verifyReviewerVerdict verifies a good sign-off');
+    assert(!rv.verifyReviewerVerdict({ ...v, notes: 'x' }, s, { reviewerAllowlist: allow }).ok && !rv.verifyReviewerVerdict(v, s, { reviewerAllowlist: {} }).ok && !rv.verifyReviewerVerdict(v, { schema: 'no' }, { reviewerAllowlist: allow }).ok, 'verifyReviewerVerdict fail-closed');
+    assert(rv.gateVisualReview({ verdict: v, signOffs: [s], reviewerAllowlist: allow, minReviewers: 1 }).publish === true, 'gateVisualReview publishes on pass + approval');
+    assert(rv.gateVisualReview({ verdict: v, signOffs: [], reviewerAllowlist: allow }).publish === false && rv.gateVisualReview({ verdict: { ...v, verdict: 'fail' }, signOffs: [s], reviewerAllowlist: allow }).publish === false, 'gateVisualReview fail-closed');
+    let threw = false; try { rv.signReviewerVerdict(v, { reviewer }); } catch { threw = true; }
+    assert(threw, 'signReviewerVerdict requires a private key');
+    console.log('reviewer-verdict-media-coverage: PASS -- media/reviewerVerdict.mjs exercised across all branches');
+  }
+
+  {
+    assert(ext.verdictsDir(join('g', 'r')).endsWith(join('handoff', 'verdicts')), 'verdictsDir is handoff/verdicts');
+    const vt = join(tmpdir(), 'lba-test-verdict-target-xyz');
+    rmSync(vt, { recursive: true, force: true });
+    mkdirSync(join(vt, 'handoff'), { recursive: true });
+    assert(ext.readReviewTarget(vt, '9.9.9').version === '9.9.9' && ext.readReviewTarget(vt, '9.9.9').commit === null, 'readReviewTarget defaults when the file is absent');
+    writeFileSync(join(vt, 'handoff', 'review-target.json'), JSON.stringify({ component: 'extension', version: '0.5.0', commit: 'c'.repeat(40), vsixSha256: 'd'.repeat(64), evidence: [{ kind: 'capture', ref: 'run-x' }] }));
+    const t1 = ext.readReviewTarget(vt, '9.9.9');
+    assert(t1.version === '0.5.0' && t1.commit.length === 40 && t1.evidence.length === 1, 'readReviewTarget reads the target file');
+    writeFileSync(join(vt, 'handoff', 'review-target.json'), '{bad');
+    assert(ext.readReviewTarget(vt, '9.9.9').version === '9.9.9', 'readReviewTarget tolerates bad json');
+    const signed = ext.buildSignedVerdict(rv, { target: t1, verdict: 'pass', reviewer: 'rev@x', station: 'WINDOWS_VM', notes: 'ok', evidence: t1.evidence, privateKeyPem: rvKeys.privateKeyPem, renderedAt: 't' });
+    assert(signed.verdict.verdict === 'pass' && signed.signOff.decision === 'approve', 'buildSignedVerdict builds + signs a verdict');
+    let threw = false; try { ext.buildSignedVerdict(rv, { target: { version: '' }, verdict: 'pass', reviewer: 'r', station: 'WINDOWS_VM', notes: '', evidence: [], privateKeyPem: rvKeys.privateKeyPem, renderedAt: 't' }); } catch { threw = true; }
+    assert(threw, 'buildSignedVerdict throws on an invalid verdict');
+    rmSync(vt, { recursive: true, force: true });
+    console.log('reviewer-verdict-helpers: PASS -- verdictsDir + readReviewTarget + buildSignedVerdict');
+  }
+
+  {
+    const savedInfo = mockVscode.window.showInformationMessage;
+    const savedInput = mockVscode.window.showInputBox;
+    const savedCfg = mockVscode.workspace.getConfiguration;
+    const render = registered.find((r) => r.id === 'labviewBenchmarkActor.renderReviewerVerdict').handler;
+    const reviewer = 'reviewer@vm';
+    const keyFile = join(tmpdir(), 'lba-test-reviewer-key-xyz.pem');
+    writeFileSync(keyFile, rvKeys.privateKeyPem);
+
+    // (1) no reviewerId/keyPath configured -> warns, no verdict.
+    warnMessages.length = 0;
+    await render();
+    assert(warnMessages.some((m) => /reviewerId/.test(m)), 'renderReviewerVerdict warns without config');
+
+    // (2) configured but the key path is missing -> errors.
+    errorMessages.length = 0;
+    mockVscode.workspace.getConfiguration = () => ({ get: (k, d) => (k === 'reviewerId' ? reviewer : k === 'reviewerKeyPath' ? join(tmpdir(), 'lba-no-such-key-xyz.pem') : d) });
+    await render();
+    assert(errorMessages.some((m) => /key not found/i.test(m)), 'renderReviewerVerdict errors on a missing key');
+
+    // (3) configured + a Pass choice + notes -> a signed verdict written that verifies against the enrolled key.
+    mockVscode.workspace.getConfiguration = () => ({ get: (k, d) => (k === 'reviewerId' ? reviewer : k === 'reviewerKeyPath' ? keyFile : d) });
+    mkdirSync(join(gsRoot, 'handoff'), { recursive: true });
+    writeFileSync(join(gsRoot, 'handoff', 'review-target.json'), JSON.stringify({ component: 'extension', version: '0.5.0', commit: 'e'.repeat(40), vsixSha256: 'f'.repeat(64), evidence: [{ kind: 'capture', ref: 'run-live' }] }));
+    mockVscode.window.showInformationMessage = () => 'Pass';
+    mockVscode.window.showInputBox = async () => 'looks right end to end';
+    await render();
+    const verdictFile = join(gsRoot, 'handoff', 'verdicts', 'extension-0.5.0.json');
+    assert(existsSync(verdictFile), 'renderReviewerVerdict wrote the signed verdict');
+    const rec = JSON.parse(readFileSync(verdictFile, 'utf8'));
+    assert(rec.verdict.verdict === 'pass' && rec.verdict.target.version === '0.5.0' && rec.signOff.schema === rv.SIGNOFF_SCHEMA && rec.signOff.decision === 'approve' && rec.signOff.reviewer === reviewer, 'the signed verdict records pass + approve + the reviewer');
+    assert(rv.verifyReviewerVerdict(rec.verdict, rec.signOff, { reviewerAllowlist: { [reviewer]: rvKeys.publicKeyPem } }).ok, 'the extension-signed verdict verifies against the enrolled key');
+
+    // (4) a dismissed choice -> no throw.
+    mockVscode.window.showInformationMessage = () => undefined;
+    await render();
+
+    mockVscode.window.showInformationMessage = savedInfo;
+    mockVscode.window.showInputBox = savedInput;
+    mockVscode.workspace.getConfiguration = savedCfg;
+    rmSync(keyFile, { force: true });
+    console.log('reviewer-verdict-command: PASS -- Render Reviewer Verdict -> Ed25519-signed verdict written + verifies');
+  }
 } finally {
   Module._load = originalLoad;
 }

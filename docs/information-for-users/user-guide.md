@@ -67,6 +67,20 @@ done** and **Skip** buttons. You can also answer from the Command Palette:
 Your answer is recorded as a machine-readable `op-done` beacon so the agent
 resumes without re-asking (LBA-REQ-056).
 
+## 3.2 Sign a reviewer verdict (release reviewers)
+
+If you are an enrolled release reviewer, record your **visual verdict** of a
+release candidate from the Command Palette:
+
+- **LabVIEW Benchmark Actor: Render Reviewer Verdict** — choose **Pass**,
+  **Request changes**, or **Fail** and add a note. The extension Ed25519-signs
+  the verdict in the VM with your enrolled key
+  (`labviewBenchmarkActor.reviewerId` + `labviewBenchmarkActor.reviewerKeyPath`;
+  mint one with `reviewer-workstation/enroll-reviewer.mjs`).
+
+A release publishes only when a passing, signed reviewer verdict accompanies the
+machine gates and the WIN↔LINUX plane agreement (LBA-REQ-057).
+
 ## 4. Run across multiple VMs (optional)
 
 1. Spawn the multi-VM topology (N Vagrant VMs), each with the extension

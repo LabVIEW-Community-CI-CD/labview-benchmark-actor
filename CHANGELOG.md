@@ -7,6 +7,16 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Handoff Beacon — reviewer visual verdict** (`reviewer-verdict@1`, ADR-0037,
+  LBA-REQ-057). The human's VISUAL PASS / CHANGES / FAIL of an extension release
+  candidate is now a signed, governed artifact. The new **Render Reviewer Verdict**
+  command records the verdict (bound to the candidate's version + commit + `.vsix`
+  digest, with capture-evidence pointers) and **Ed25519-signs it in the VM** with an
+  enrolled reviewer key (no OIDC), mapping to an `acg-human-signoff-v1`. A fail-closed
+  gate (`verify-visual-review`) requires a passing, signed verdict from an enrolled
+  reviewer to publish a release — composed with the machine release gate and the
+  WIN↔LINUX plane agreement; CI keyless-cosign counter-signs the verdict bundle.
+  Reviewer keys are minted with `reviewer-workstation/enroll-reviewer.mjs`.
 - **Handoff Beacon — agent→human request** (`agent-request@1` / `op-done@1`,
   ADR-0036, LBA-REQ-056). The agent can now ask the human to perform a manual
   step in the reviewer VM; the ask surfaces as a VS Code notification with
