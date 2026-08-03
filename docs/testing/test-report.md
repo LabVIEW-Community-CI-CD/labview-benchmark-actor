@@ -21,7 +21,7 @@ the `LBA Local Gates verify` CI job.
 
 ## 2. Executed verification evidence (ISO/IEC/IEEE 29119-3)
 
-### 2.1 Local gate suite — 161 fail-closed checks
+### 2.1 Local gate suite — 162 fail-closed checks
 
 Run by `node experiments/verify-local-gates.mjs`. All must pass. The full gate inventory (the executed
 test items at the gate granularity) is:
@@ -143,6 +143,7 @@ mprr-short-ring-model-green
 multi-vm-corpus-export-receipt-green
 multi-vm-topology-receipt-green
 net-coordination-log
+net-default-graceful
 ocr-primitive-engine-and-readback
 ollama-comparison-core-receipt-green
 performance-counter-correlation-live-trigger
@@ -222,12 +223,12 @@ The controlled state of the repository's configuration items, derived from the r
 
 | Configuration item class | Count | Register |
 | --- | --- | --- |
-| Requirements (total) | 64 | docs/requirements/srs.md, rtm.csv |
-| — Status: Proven | 64 | rtm.csv |
-| Architecture decisions (ADRs) | 44 | docs/architecture/adr/README.md |
-| Governed gates | 161 | experiments/verify-local-gates.mjs |
+| Requirements (total) | 65 | docs/requirements/srs.md, rtm.csv |
+| — Status: Proven | 65 | rtm.csv |
+| Architecture decisions (ADRs) | 45 | docs/architecture/adr/README.md |
+| Governed gates | 162 | experiments/verify-local-gates.mjs |
 | Correspondence rules | 7 | experiments/reqs-coverage/verify-correspondences.mjs |
-| Governed test items | 64 | docs/testing/test-plan.md |
+| Governed test items | 65 | docs/testing/test-plan.md |
 
 Baselines are cut on the `main` branch via SemVer tags (GitFlow); each release is keyless-signed and
 corroborated across planes before publication (see `docs/cm/cm-plan.md` and the release procedure).
@@ -244,4 +245,4 @@ the same correspondence graph (ADR-0013).
 `node experiments/reqs-coverage/generate-test-report.mjs` rewrites this file; `--check` (the
 `test-report-current` gate) fails closed on drift, so the report can never silently lag the apparatus.
 
-_Generated from 161 gates, 7 correspondence rules, 64 requirements, 44 ADRs, 64 test items._
+_Generated from 162 gates, 7 correspondence rules, 65 requirements, 45 ADRs, 65 test items._

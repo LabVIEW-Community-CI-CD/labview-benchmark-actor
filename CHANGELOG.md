@@ -7,6 +7,13 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Flip the coordination default to `net` + graceful no-op — off GitHub Discussions, step 6** (ADR-0045,
+  LBA-REQ-065). `labviewBenchmarkActor.busTransport` now defaults to the live-only `lbabus net` TCP bus across
+  the extension, the MCP tools, and `post-verdict.mjs`; GitHub Discussion becomes a legacy opt-out
+  (`busTransport: "discussion"` / `VIHS_COLLAB_TRANSPORT=discussion`). An unconfigured net-default install is a
+  silent no-op — `net poll` with no receive-log and `net send --skip-if-no-peer` with no peer both exit 0 with a
+  hint (the poll fail-closed of ADR-0040 is softened to graceful; no dead loopback). Gated by
+  `net-default-graceful` + `bus-transport-select` (default is `net`).
 - **Drop the release-CI GitHub-Discussion announce — off GitHub Discussions, step 5** (ADR-0044, LBA-REQ-064).
   The release publish workflow no longer announces the reviewer verdict to a GitHub Discussion (the `Set up
   .NET` + announce steps are removed) — the durable record of the human PASS is the committed signed verdict

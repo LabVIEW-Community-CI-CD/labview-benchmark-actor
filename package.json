@@ -262,9 +262,9 @@
         },
         "labviewBenchmarkActor.busTransport": {
           "type": "string",
-          "enum": ["discussion", "net"],
-          "default": "discussion",
-          "markdownDescription": "Coordination-bus transport (LBA-REQ-061, ADR-0041). `discussion` (default) posts/polls a GitHub Discussion; `net` uses the live-only `lbabus net` TCP bus -- **Post Note** + verdict announcements `net send` to the configured peer host(s), and **Poll Bus** reads the local receive-log. Part of moving coordination off GitHub Discussions."
+          "enum": ["net", "discussion"],
+          "default": "net",
+          "markdownDescription": "Coordination-bus transport. `net` (default, LBA-REQ-065/ADR-0045) uses the live-only `lbabus net` TCP bus -- **Post Note** + verdict announcements `net send` to `busNetHosts` (a graceful no-op if unset), and **Poll Bus** reads `busNetLog`. `discussion` posts/polls a GitHub Discussion (legacy, being retired)."
         },
         "labviewBenchmarkActor.busNetHosts": {
           "type": "string",

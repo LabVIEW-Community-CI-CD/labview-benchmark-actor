@@ -8,7 +8,7 @@
     "postToLogToPollRoundTrip": true,
     "typeFilterNote": true,
     "typeFilterResolved": true,
-    "pollWithoutLogFailsClosed": true
+    "pollWithoutLogGraceful": true
   },
   "framesLogged": 2,
   "ok": true,
