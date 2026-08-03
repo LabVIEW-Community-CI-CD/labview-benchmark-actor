@@ -110,6 +110,7 @@ progressively.
 | LBA-REQ-080 | The system shall decide a mesh run FULLY ATTESTED only when its fulfillment, cross-plane parity, verified-tier signatures, transparency inclusion, and append-only proof all hold and name the SAME run identity -- so a fail-closed gate gives a consumer ONE verdict to trust a mesh run end-to-end. | The mesh sub-proofs (LBA-REQ-072..079) are each a separate fail-closed gate, but a consumer wanting to trust a run had no single decision + had to confirm by hand that the receipts all refer to the same run. The composite-release-decision (LBA-REQ-071) is the pattern to mirror. | `meshAttested.mjs` REUSES every sub-verifier (`decideFulfillment`/`validateReceipt`(parity)/`validateVerifiedCollection`/`validateLoggedCollection`/`validateHistory`) + binds them to one identity, emitting a `mesh-run-attested@1` verdict; the committed decision re-derives from every source receipt (currency). | `node experiments/mesh-fulfillment/meshAttested.selftest.mjs` (7/7, one break per sub-proof) + the committed decision (via the CLI) + all five gates + the identity binding + the mesh-run.yml wiring; gated by `mesh-run-attested`. |
 | LBA-REQ-081 | The system shall prove cross-plane VI Analyzer performance parity by validating that a LINUX and a WIN VI Analyzer run share the same benchmark identity and deterministic resultHash, so a fail-closed gate proves the planes ran the SAME benchmark and their run times are comparable performance witnesses. | Cross-plane parity (roadmap §8) was proven only for the launch benchmark (LBA-REQ-072); Phase 2 is the SUITE. VI Analyzer has real 2-plane evidence + governed determinism (LBA-REQ-043, the resultHash), but not performance parity (same identity -> comparable timing). The LBA-REQ-072 engine is benchmark-generic + should extend. | `viAnalyzerParity.mjs` REUSES the LBA-REQ-072 core (`launchIdentity`/`decideParity`/`planeSummary`/`performanceWitness`) via a `trendFromEvidence` adapter over the committed `vi-analyzer-trend-live-evidence@1` captures; a run is parity-proven only when the planes share the identity AND the resultHash. | `node experiments/vi-analyzer/viAnalyzerParity.selftest.mjs` (7/7) + the committed receipt (via the CLI, re-derived from the two evidence files) + identity + resultHash + cross-plane; gated by `cross-plane-vi-analyzer-parity`. |
 | LBA-REQ-082 | The system shall fold the benchmark suite's cross-plane parity receipts into one coverage matrix, so a fail-closed gate proves which benchmark families have proven cross-plane parity and records their LINUX-vs-WIN timing. | The suite has two parity families (launch LBA-REQ-072 + VI Analyzer LBA-REQ-081), each a separate gate with its own schema, but no single view of which families are cross-plane parity-proven -- the roadmap Phase 2 capstone + Phase 4 (comparison at scale) bridge; the mesh observatory (LBA-REQ-075) is the pattern to mirror. | `suiteParityObservatory.mjs` folds the committed parity receipts into a `benchmark-suite-parity-observatory@1` coverage matrix (family + identity + parity flags + LINUX/WIN performance), re-derived byte-stably from the source receipts (currency); it EXTENDS with no new machinery as families land. | `node experiments/benchmark-suite/suiteParityObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `benchmark-suite-parity-observatory`. |
+| LBA-REQ-083 | The system shall fulfill the VI Analyzer benchmark through the mesh fulfillment engine as a benchmark distinct from launch, so a fail-closed gate proves the mesh carries more than one benchmark family (the engine is benchmark-generic). | The mesh (Phase 3) had only ever fulfilled the launch benchmark; the fulfillment engine (LBA-REQ-073) is written generically but nothing PROVED it carries the suite. VI Analyzer now has real 2-plane captures + a proven identity (LBA-REQ-081), so it is the natural 2nd family -- the Phase 2 <-> Phase 3 convergence. | `viAnalyzerMeshRun.mjs` REUSES `meshFulfillment` (073) + `trendFromEvidence` (081): two golden actors return their VI Analyzer trend from the real evidence, the 073 engine fulfills the run, and a `mesh-benchmark-family-run@1` proves it is a distinct family from launch. | `node experiments/mesh-fulfillment/viAnalyzerMeshRun.selftest.mjs` (7/7) + the committed run (via the CLI, re-derived from the evidence) + the fulfillment + the distinct-from-launch identity; gated by `mesh-benchmark-family-vi-analyzer`. |
 
 ---
 
@@ -2538,6 +2539,37 @@ progressively.
   `benchmark-suite-parity-observatory` in `verify-local-gates`. Folding a mass-compile / unit-test parity family
   extends the matrix with no new machinery. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-083: The mesh carries a second benchmark family (VI Analyzer)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0064 -- the mesh carries a second benchmark family, roadmap Phase 2 <-> 3)
+- Statement: The system shall fulfill the VI Analyzer benchmark through the mesh fulfillment engine as a benchmark
+  distinct from launch, so a fail-closed gate proves the mesh carries more than one benchmark family (the engine is
+  benchmark-generic).
+- Rationale: the actor mesh (Phase 3) and the cross-plane benchmark suite (Phase 2) grew as two threads that meet
+  at a gap -- the mesh had only ever fulfilled the launch benchmark (LBA-REQ-072). The fulfillment engine
+  (LBA-REQ-073) is written generically, but nothing PROVED it carries more than launch. VI Analyzer now has real
+  two-plane captures and a proven cross-plane identity (LBA-REQ-081), so it is the natural second family to run
+  through the mesh and close the gap.
+- Acceptance Criteria:
+  - `viAnalyzerMeshRun.mjs` REUSES both engines with no new logic: the two golden-VM actors return their VI Analyzer
+    `workload-trend@1` via `trendFromEvidence` (LBA-REQ-081, from the committed `vi-analyzer-trend-live-evidence@1`
+    captures), and `meshFulfillment.buildReceipt` / `validateReceipt` (LBA-REQ-073) decides the cross-plane
+    fulfillment.
+  - A `mesh-benchmark-family-run@1` is `carried` iff the embedded LBA-REQ-073 fulfillment is proven AND the identity
+    is the VI Analyzer identity AND that identity is DISTINCT from the launch identity. `validateFamilyRun` fails
+    closed if the fulfillment is not proven, the actor receipts do not descend from the real committed evidence, the
+    run is not the VI Analyzer benchmark, it is not distinct from launch, or the digest is tampered.
+  - The gate `mesh-benchmark-family-vi-analyzer` proves offline: the selftest (7/7); the committed run re-derives
+    from the two VI Analyzer captures; the mesh carried a benchmark distinct from launch; the carried benchmark is
+    VI Analyzer (the LBA-REQ-081 identity); and the embedded fulfillment is a real LBA-REQ-073 cross-plane
+    fulfillment (>= 2 distinct actors, both planes).
+- Change Guidance: the verifier + selftest + committed run live under `experiments/mesh-fulfillment/`
+  (`viAnalyzerMeshRun.mjs` / `.selftest.mjs` / `mesh-run-vi-analyzer-family.json`), grounded in the committed
+  `experiments/vi-analyzer/vi-analyzer-trend-live-evidence@1` captures; gate `mesh-benchmark-family-vi-analyzer` in
+  `verify-local-gates`. A mass-compile / unit-test mesh run is the same adapter + `buildFamilyRun` once real
+  two-plane captures exist. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2626,3 +2658,4 @@ progressively.
 | LBA-REQ-080 | Deployment (composite mesh-run-attested decision) | T-080 |
 | LBA-REQ-081 | Deployment (cross-plane VI Analyzer benchmark parity) | T-081 |
 | LBA-REQ-082 | Deployment (benchmark-suite parity observatory) | T-082 |
+| LBA-REQ-083 | Deployment (mesh carries VI Analyzer benchmark) | T-083 |

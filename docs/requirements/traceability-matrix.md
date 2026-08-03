@@ -89,5 +89,6 @@
 | LBA-REQ-080 | The composite mesh-run-attested decision (one verdict to trust a run) | Proven | §3.2 Deployment | ADR-0061 | T-080 | 4 |
 | LBA-REQ-081 | Cross-plane VI Analyzer performance parity (the second benchmark family) | Proven | §3.2 Deployment | ADR-0062 | T-081 | 7 |
 | LBA-REQ-082 | The benchmark-suite parity observatory (one view over the parity families) | Proven | §3.2 Deployment | ADR-0063 | T-082 | 6 |
+| LBA-REQ-083 | The mesh carries a second benchmark family (VI Analyzer) | Proven | §3.2 Deployment | ADR-0064 | T-083 | 6 |
 
-_Generated for 82 requirements._
+_Generated for 83 requirements._

@@ -1,0 +1,122 @@
+{
+  "schema": "labview-benchmark-actor/mesh-benchmark-family-run@1",
+  "requirement": "LBA-REQ-083",
+  "adr": "ADR-0064",
+  "family": "vi-analyzer",
+  "benchmark": {
+    "metric": "viAnalyzerMs",
+    "workload": "vi-analyzer-labviewcli-example",
+    "n": 6
+  },
+  "identity": "27d0e17368d1a7ae3096388f0a0e01594644c8e751e101e669a2b4f5e668aefe",
+  "distinctFromLaunch": true,
+  "fulfillment": {
+    "schema": "labview-benchmark-actor/mesh-run-fulfillment-receipt@1",
+    "requirement": "LBA-REQ-073",
+    "adr": "ADR-0054",
+    "dispatch": {
+      "benchmarkId": "vi-analyzer-labviewcli-example",
+      "benchmark": {
+        "metric": "viAnalyzerMs",
+        "workload": "vi-analyzer-labviewcli-example",
+        "n": 6
+      },
+      "minActors": 2,
+      "requestedPlanes": [
+        "LINUX",
+        "WIN"
+      ],
+      "requester": "operator@labview-benchmark-actor",
+      "dispatchedAt": "2026-08-03",
+      "coordination": "GitHub-native (repository_dispatch / Actions queue) -- the mesh carries the VI Analyzer benchmark (LBA-REQ-081 identity), not only launch (LBA-REQ-072)."
+    },
+    "identity": "27d0e17368d1a7ae3096388f0a0e01594644c8e751e101e669a2b4f5e668aefe",
+    "actors": [
+      {
+        "actorId": "golden-linux",
+        "role": "golden",
+        "plane": "LINUX",
+        "hypervisor": "virtualbox",
+        "receipt": {
+          "schema": "labview-benchmark-actor/workload-trend@1",
+          "metric": "viAnalyzerMs",
+          "workload": "vi-analyzer-labviewcli-example",
+          "plane": "LINUX",
+          "hypervisor": "virtualbox",
+          "n": 6,
+          "values": [
+            8363,
+            4491,
+            4621,
+            3159,
+            3882,
+            3885
+          ],
+          "stats": {
+            "min": 3159,
+            "max": 8363,
+            "mean": 4733.5,
+            "median": 4188,
+            "stddev": 1691.6,
+            "spread": 5204
+          },
+          "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+          "verdict": "PASS"
+        }
+      },
+      {
+        "actorId": "golden-win",
+        "role": "golden",
+        "plane": "WIN",
+        "hypervisor": "virtualbox",
+        "receipt": {
+          "schema": "labview-benchmark-actor/workload-trend@1",
+          "metric": "viAnalyzerMs",
+          "workload": "vi-analyzer-labviewcli-example",
+          "plane": "WIN",
+          "hypervisor": "virtualbox",
+          "n": 6,
+          "values": [
+            94683,
+            9557,
+            6948,
+            4842,
+            4821,
+            4895
+          ],
+          "stats": {
+            "min": 4821,
+            "max": 94683,
+            "mean": 20957.7,
+            "median": 5921.5,
+            "stddev": 33014.6,
+            "spread": 89862
+          },
+          "resultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+          "verdict": "PASS"
+        }
+      }
+    ],
+    "fulfillment": {
+      "respondingActors": 2,
+      "distinctActors": 2,
+      "planes": [
+        "LINUX",
+        "WIN"
+      ],
+      "planesCovered": true,
+      "identityAgreement": true,
+      "minActorsMet": true
+    },
+    "verdict": {
+      "fulfilled": true,
+      "reason": "dispatched run vi-analyzer-labviewcli-example fulfilled by 2 distinct actors covering planes [LINUX, WIN]; all ran the same benchmark identity"
+    },
+    "digest": "c25f87f2af92d6477329f26da1940b82816374cd891efc7ce09345127855a43b"
+  },
+  "verdict": {
+    "carried": true,
+    "reason": "the mesh fulfilled the VI Analyzer benchmark 27d0e17368d1 (a distinct family from launch) via the same LBA-REQ-073 engine: 2 actors across [LINUX, WIN]"
+  },
+  "digest": "87c5b45c134108a6d800735c9d30291755779d8977cb32e22a45b7d241691551"
+}
