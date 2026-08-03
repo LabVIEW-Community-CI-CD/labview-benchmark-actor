@@ -61,5 +61,6 @@
 | LBA-REQ-052 | g-cli launcher built from Rust + proven on host | Proven | §3.2 Deployment | ADR-0033 | T-052 | 4 |
 | LBA-REQ-053 | Icon-editor LUnit test benchmark | Proven | §3.2 Deployment | ADR-0033 | T-053 | 4 |
 | LBA-REQ-054 | Benchmark Observatory (suite-wide coverage + determinism map) | Proven | §3.2 Deployment | ADR-0034 | T-054 | 4 |
+| LBA-REQ-055 | Handoff Beacon -- capture-status (human-in-the-loop signal) | Proven | §3.2 Deployment | ADR-0035 | T-055 | 6 |
 
-_Generated for 54 requirements._
+_Generated for 55 requirements._

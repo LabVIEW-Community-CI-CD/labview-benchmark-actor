@@ -55,6 +55,12 @@ writeFileSync(
   join(repo, 'media', 'frame-correlator.mjs'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'frame-correlator.mjs'))
 );
+// 1c-iii. Handoff Beacon capture-status builder (LBA-REQ-055): the extension writes capture-status.json at
+//     capture start/stop from this pure, gated payload builder so the agent can await the human's Stop.
+writeFileSync(
+  join(repo, 'media', 'captureStatus.mjs'),
+  readFileSync(join(repo, 'experiments', 'handoff-beacon', 'captureStatus.mjs'))
+);
 writeFileSync(
   join(repo, 'media', 'labview-launch-record.json'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-record.json'))
@@ -128,4 +134,4 @@ if (!agents.ok) {
 writeFileSync(join(repo, 'media', 'AGENTS.md'), readFileSync(join(repo, 'extension-agents', 'AGENTS.md')));
 writeFileSync(join(repo, 'media', 'agents.manifest.json'), readFileSync(join(repo, 'extension-agents', 'agents.manifest.json')));
 
-console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/benchmark-panels.mjs + media/launch-capture.mjs + media/frame-correlator.mjs + media/mprr-series.json (${series.length} points) + benchmark fixtures + media/AGENTS.md`);
+console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/benchmark-panels.mjs + media/launch-capture.mjs + media/frame-correlator.mjs + media/captureStatus.mjs + media/mprr-series.json (${series.length} points) + benchmark fixtures + media/AGENTS.md`);
