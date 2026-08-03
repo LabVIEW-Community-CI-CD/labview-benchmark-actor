@@ -6,6 +6,126 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+### Added
+- **Retire message priority + addressing (LBA-REQ-013) — off GitHub Discussions, step 8b cleanup** (ADR-0048).
+  The message priority tier (`P0`–`P3`, `--min-priority`) + plane addressing (`--to`/`--to-me`) were features
+  of the removed GitHub-Discussion transport (`post`/`poll` + the `CollabMessage`/`Priority` model). Under the
+  live-only `lbabus net` bus there is no async inbox to triage and `net send --hosts` targets a specific peer,
+  so both are moot; LBA-REQ-013 is superseded and the dead `CollabMessage.cs`/`Priority.cs` are removed.
+- **Remove the GitHub-Discussion transport from the `lbabus` CLI — off GitHub Discussions, step 8 (final)**
+  (ADR-0047, LBA-REQ-067). The CLI's `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion
+  client are gone; `GitHubGraphQL` is now a REST-only client (release tags for `selfcheck`, issue comments for
+  `lbabus defect`), and `Config` drops the discussion-only fields. The live-only `lbabus net` TCP bus is the
+  sole coordination transport, **completing the off-Discussions migration.** Gated by `cli-no-discussion-transport`.
+  (A doc sweep + ci-mock trim + retiring the `ollama-bus` experiment follow in step 8b.)
+- **Collapse the coordination product surface to net-only — off GitHub Discussions, step 7** (ADR-0046,
+  LBA-REQ-066). The extension commands, the MCP coordination tools, and the reviewer verdict announcer
+  (`post-verdict.mjs`) now coordinate over the live-only `lbabus net` TCP bus ONLY — the `busTransport`
+  selection setting is removed and no consumer builds a GitHub-Discussion `post`/`poll` argv (the extension's
+  `busPostArgs` + the `--priority`/`--ref` branch are gone). `busNetHosts`/`busNetLog` still configure the net
+  bus, and the ADR-0045 graceful no-op (`--skip-if-no-peer`; `net poll` no-log exits 0) is preserved. The CLI's
+  Discussion transport is removed next (step 8). Gated by `bus-transport-select` + `mcp-net-transport` +
+  `post-verdict-net-transport` (now net-only).
+- **Flip the coordination default to `net` + graceful no-op — off GitHub Discussions, step 6** (ADR-0045,
+  LBA-REQ-065). `labviewBenchmarkActor.busTransport` now defaults to the live-only `lbabus net` TCP bus across
+  the extension, the MCP tools, and `post-verdict.mjs`; GitHub Discussion becomes a legacy opt-out
+  (`busTransport: "discussion"` / `VIHS_COLLAB_TRANSPORT=discussion`). An unconfigured net-default install is a
+  silent no-op — `net poll` with no receive-log and `net send --skip-if-no-peer` with no peer both exit 0 with a
+  hint (the poll fail-closed of ADR-0040 is softened to graceful; no dead loopback). Gated by
+  `net-default-graceful` + `bus-transport-select` (default is `net`).
+- **Drop the release-CI GitHub-Discussion announce — off GitHub Discussions, step 5** (ADR-0044, LBA-REQ-064).
+  The release publish workflow no longer announces the reviewer verdict to a GitHub Discussion (the `Set up
+  .NET` + announce steps are removed) — the durable record of the human PASS is the committed signed verdict
+  (release-agreement `visualReview`, keyless counter-signed), and off-CI a reviewer announces over `net` via
+  `post-verdict.mjs` / the extension. Removes the last GitHub-Discussion dependency from the publish pipeline.
+  Gated by `release-no-discussion-announce`.
+- **Verdict announcer transport selection — off GitHub Discussions, step 4** (ADR-0043, LBA-REQ-063).
+  `reviewer-workstation/post-verdict.mjs` now honors the same switch: under `VIHS_COLLAB_TRANSPORT=net` (+
+  `VIHS_COLLAB_NET_HOSTS`) it announces a signed verdict via `net send` with the same semantic type, else the
+  Discussion `post` (default). `--print-args` honors it, so the release workflow is unchanged at the default.
+  Gated by `post-verdict-net-transport`.
+- **MCP tools bus transport selection — off GitHub Discussions, step 3** (ADR-0042, LBA-REQ-062). The
+  extension's MCP server now honors the same transport switch: the provider passes `busTransport` / `busNetHosts`
+  / `busNetLog` to the stdio server as env, and `poll_coordination_bus` → `net poll` / `post_coordination_note`
+  → `net send` under `net` (Discussion default). The agent tool surface coordinates over TCP when configured;
+  tool schemas unchanged. Gated by `mcp-net-transport`.
+- **Extension bus transport selection — off GitHub Discussions, step 2** (ADR-0041, LBA-REQ-061). The
+  extension can now coordinate over the live-only `lbabus net` TCP bus instead of a GitHub Discussion: a new
+  `labviewBenchmarkActor.busTransport` setting (`discussion` default | `net`) plus `busNetHosts` / `busNetLog`
+  route **Post Note** → `net send`, **Poll Bus** → `net poll` (the local receive-log), and the reviewer-verdict
+  announcement → `net send --message-file` (reusing the semantic `RESOLVED`/`REFINE`/`BLOCKED` types). The
+  Discussion transport stays the **default** (no user-facing change; opt in per actor). Gated by
+  `bus-transport-select`.
+- **Live-only `net` coordination — off GitHub Discussions, step 1** (ADR-0040, LBA-REQ-060). The
+  coordination read side now rides TCP: `lbabus net listen --log <file>` records received frames to a
+  per-actor JSONL **receive-log**, and new **`lbabus net poll`** reads + filters it (by `--type` / `--task`),
+  mirroring the Discussion `poll` over the private bus (the send side is the existing `net send`). Live-only
+  by design — no central/async store, so an offline peer misses a post; durable records are the committed
+  artifacts, not a bus log. Gated by `net-coordination-log`. First increment of retiring the GitHub-Discussion
+  transport.
+- **Host↔VM-agent closed loop over TCP** (ADR-0039, LBA-REQ-059). The host now drives the reviewer
+  VM's Copilot agent and **awaits its reply over the `lbabus net` TCP bus** — `await-agent-reply.mjs`
+  runs `lbabus net listen` and correlates the VM agent's reply frame by task id (fail-closed on
+  mismatch/timeout); `drive-agent-closed-loop.sh` composes the keyboard-inject with the await. The
+  `net` envelope type set gains the semantic verdict statuses **`RESOLVED`/`REFINE`/`BLOCKED`**, so a
+  signed reviewer verdict announces over TCP as a first-class semantic event — the first concrete step
+  of moving coordination **off GitHub Discussions**. Gated by `closed-loop-readback`. Proven live: three
+  drives from the reviewer VM (`senderId=WIN`) — the loop, a real benchmark review (2604 ms / 5 samples →
+  PASS via the extension tool), and the signed verdict announced as `RESOLVED`.
+- **Handoff Beacon — reviewer verdict bus announcement** (ADR-0038, LBA-REQ-058).
+  A signed reviewer verdict is now announced on the `lbabus` coordination bus with
+  a **semantic** message type — **pass → RESOLVED**, **changes → REFINE**,
+  **fail → BLOCKED** — carrying the full signed verdict JSON, so the WIN plane and
+  remote actors see the human's PASS/FAIL as an actionable coordination event. The
+  extension posts it from the reviewer VM right after signing (best-effort), and the
+  release CI posts it automatically after the visual-review gate passes. This
+  completes the Handoff Beacon Protocol's five governed tiers.
+- **Handoff Beacon — reviewer visual verdict** (`reviewer-verdict@1`, ADR-0037,
+  LBA-REQ-057). The human's VISUAL PASS / CHANGES / FAIL of an extension release
+  candidate is now a signed, governed artifact. The new **Render Reviewer Verdict**
+  command records the verdict (bound to the candidate's version + commit + `.vsix`
+  digest, with capture-evidence pointers) and **Ed25519-signs it in the VM** with an
+  enrolled reviewer key (no OIDC), mapping to an `acg-human-signoff-v1`. A fail-closed
+  gate (`verify-visual-review`) requires a passing, signed verdict from an enrolled
+  reviewer to publish a release — composed with the machine release gate and the
+  WIN↔LINUX plane agreement; CI keyless-cosign counter-signs the verdict bundle.
+  Reviewer keys are minted with `reviewer-workstation/enroll-reviewer.mjs`.
+- **Handoff Beacon — agent→human request** (`agent-request@1` / `op-done@1`,
+  ADR-0036, LBA-REQ-056). The agent can now ask the human to perform a manual
+  step in the reviewer VM; the ask surfaces as a VS Code notification with
+  **Mark step done** / **Skip** actions (also the `Mark Handoff Step Done` /
+  `Skip Handoff Step` palette commands), and the answer is written as a
+  machine-readable `op-done` beacon the agent awaits — a reusable human-step
+  barrier, the other direction of the capture-status beacon. A committed host
+  wrapper (`reviewer-workstation/request-step.sh`) drops the request into the VM
+  and polls the answer once.
+- **Frame Correlator auto-jump to the peak-write frame** (ADR-0035, LBA-REQ-055).
+  On Stop, the correlator now opens on the capture-status beacon's peak-write
+  frame (clamped into range) instead of frame 0, so the human and the agent land
+  straight on the disk-throughput evidence. Reopening a completed capture reads
+  the same beacon and jumps there too.
+- **Handoff Beacon — capture-status** (`capture-status@1`, ADR-0035). The extension
+  now writes a machine-readable `capture-status.json` beacon into each capture's
+  run dir at start (`capturing`) and stop (`stopped` with a rich payload —
+  `wroteToDisk`, the peak write MB/s + the frame index where it peaked, and a
+  per-physical-disk write/read peak breakdown — or `failed` on assembly error).
+  A committed host poller (`reviewer-workstation/await-handoff.sh`) awaits the
+  human's Stop and returns the payload, so the agentic flow leverages human
+  assistance efficiently instead of guessing or re-asking.
+- **Per-physical-disk read/write throughput (MB/s)** in the live LabVIEW-launch
+  capture and Frame Correlator. The launch sampler now records `Disk Write
+  Bytes/sec` and `Disk Read Bytes/sec` for **every physical disk** and the
+  correlator plots a write and a read curve per disk alongside CPU / RAM /
+  % Disk Time. A real disk workload (e.g. a streaming VI at ~11 MB/s) now shows
+  on the throughput curve even though `% Disk Time` — a *busy-time* metric —
+  barely moves for that load.
+
+### Changed
+- The launch-capture resource sampler switched from the slow per-iteration CIM
+  loop (~0.8 s/sample) to fast `System.Diagnostics.PerformanceCounter`
+  `NextValue()` reads (sub-millisecond) frame-locked to ~100 ms, so short bursts
+  register. `% Disk Time` is retained (now via the same counter path).
+
 ## [0.5.0] - 2026-08-02
 
 ### Added

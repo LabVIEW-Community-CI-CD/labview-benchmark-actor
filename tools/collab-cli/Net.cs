@@ -42,13 +42,28 @@ internal static class BusWire
     public const string Schema = "labview-benchmark-actor/bus-msg@1";
     public const int MaxFrameBytes = 1024 * 1024;
 
+    // Envelope types. The base coordination set (CLAIM/ACK/HANDOFF/DONE/PROGRESS/NOTE/HELLO) plus the
+    // semantic reviewer-verdict statuses (RESOLVED/REFINE/BLOCKED) so a signed verdict announces over
+    // `net` with a first-class semantic type (ADR-0039, LBA-REQ-059) -- coordination is net-only, off
+    // the GitHub-Discussion bus (ADR-0047).
     public static readonly HashSet<string> Types =
-        new(StringComparer.OrdinalIgnoreCase) { "CLAIM", "ACK", "HANDOFF", "DONE", "PROGRESS", "NOTE", "HELLO" };
+        new(StringComparer.OrdinalIgnoreCase)
+        { "CLAIM", "ACK", "HANDOFF", "DONE", "PROGRESS", "NOTE", "HELLO", "RESOLVED", "REFINE", "BLOCKED" };
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
+
+    /// <summary>Serialize an envelope to a single-line JSON string (the wire + receive-log encoding).</summary>
+    internal static string ToJson(BusEnvelope e) => JsonSerializer.Serialize(e, JsonOpts);
+
+    /// <summary>Parse one receive-log JSON line back to an envelope; returns null on malformed JSON (fail-safe).</summary>
+    internal static BusEnvelope? FromJson(string s)
+    {
+        try { return JsonSerializer.Deserialize<BusEnvelope>(s, JsonOpts); }
+        catch (JsonException) { return null; }
+    }
 
     public static void WriteFrame(Stream stream, BusEnvelope env, bool flush = true)
     {
@@ -149,7 +164,7 @@ internal static class NetCommands
     {
         if (tail.Length == 0)
         {
-            Console.Error.WriteLine("lbabus net: subcommand required — listen | send | beacon | ping");
+            Console.Error.WriteLine("lbabus net: subcommand required — listen | send | poll | beacon | ping");
             return 1;
         }
 
@@ -159,6 +174,7 @@ internal static class NetCommands
         {
             "listen" or "serve" => CmdListen(a),
             "send" => CmdSend(a),
+            "poll" => CmdPoll(a),
             "beacon" => CmdBeacon(a),
             "ping" => CmdPing(a),
             _ => Fail($"unknown net subcommand '{sub}'"),
@@ -169,6 +185,52 @@ internal static class NetCommands
 
     private static int? IntOrNull(ArgMap a, string key) =>
         a.Get(key) is { } s && int.TryParse(s, out int v) ? v : null;
+
+    private static readonly object LogLock = new();
+
+    /// <summary>
+    /// Append a received frame to the per-actor local receive-log (JSONL). This is the LIVE-ONLY coordination
+    /// store (ADR-0040, LBA-REQ-060): each actor's `net listen --log` daemon records what it heard while online;
+    /// `net poll` reads it. There is no central/async store -- a peer offline at post time simply misses the
+    /// frame. Best-effort: a log error is reported but never breaks the listener.
+    /// </summary>
+    private static void AppendLog(string? path, BusEnvelope env)
+    {
+        if (string.IsNullOrEmpty(path)) { return; }
+        try { lock (LogLock) { File.AppendAllText(path, BusWire.ToJson(env) + "\n"); } }
+        catch (Exception ex) { Console.Error.WriteLine($"[net] receive-log append failed: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// `net poll` -- read the local receive-log written by `net listen --log` and print the last N frames
+    /// (optionally filtered by --type / --task), mirroring the Discussion `poll` UX over the TCP bus. Live-only:
+    /// with no log (never listened / nothing heard) it prints nothing and exits 0. This is the read side of the
+    /// off-GitHub-Discussions coordination model (ADR-0040, LBA-REQ-060).
+    /// </summary>
+    private static int CmdPoll(ArgMap a)
+    {
+        string? logPath = a.Get("log") ?? Environment.GetEnvironmentVariable("VIHS_COLLAB_NET_LOG");
+        int tail = a.GetInt("tail", 10);
+        string? type = a.Get("type");
+        string? task = a.Get("task");
+        if (string.IsNullOrEmpty(logPath)) { Console.Error.WriteLine("[net poll] no receive-log configured (set busNetLog / VIHS_COLLAB_NET_LOG) -- nothing to poll (live-only default, ADR-0045)"); return 0; }
+        if (!File.Exists(logPath)) { Console.Error.WriteLine($"[net poll] no local receive-log at {logPath} -- nothing heard yet (live-only, ADR-0040)"); return 0; }
+        var frames = new List<BusEnvelope>();
+        foreach (string line in File.ReadLines(logPath))
+        {
+            if (string.IsNullOrWhiteSpace(line)) { continue; }
+            BusEnvelope? env = BusWire.FromJson(line);
+            if (env is null) { continue; }
+            if (type is not null && !string.Equals(env.Type, type, StringComparison.OrdinalIgnoreCase)) { continue; }
+            if (task is not null && !string.Equals(env.Task, task, StringComparison.Ordinal)) { continue; }
+            frames.Add(env);
+        }
+        foreach (BusEnvelope env in frames.Skip(Math.Max(0, frames.Count - tail)))
+        {
+            Console.WriteLine(BusWire.Render(env));
+        }
+        return 0;
+    }
 
     /// <summary>Headless listener/collector: prints every received TCP frame + UDP beacon (troubleshooting).</summary>
     private static int CmdListen(ArgMap a)
@@ -181,6 +243,7 @@ internal static class NetCommands
         int countDistinct = a.GetInt("count-distinct", 0); // 0 = disabled; else stop once N distinct peers heard
         int timeoutSec = a.GetInt("timeout", 0); // 0 = no timeout
         string session = a.Get("session") ?? "default";
+        string? logPath = a.Get("log"); // append received frames to a local JSONL receive-log (live-only coordination, ADR-0040)
 
         if (tcpPort is null && udpPort is null)
         {
@@ -218,7 +281,7 @@ internal static class NetCommands
                         }
 
                         TcpClient client = tcp.AcceptTcpClient();
-                        HandleTcpClient(client, echo, ref received, count, stop, distinct, countDistinct, self);
+                        HandleTcpClient(client, echo, ref received, count, stop, distinct, countDistinct, self, logPath);
                     }
                 }
                 catch (SocketException) { }
@@ -246,6 +309,7 @@ internal static class NetCommands
                         if (env is not null)
                         {
                             Console.WriteLine($"UDP {remote.Address}  {BusWire.Render(env)}");
+                            AppendLog(logPath, env);
                             int n = Interlocked.Increment(ref received);
                             if (count > 0 && n >= count) { stop.Set(); }
                             if (NoteDistinct(distinct, countDistinct, self, env.SenderId)) { stop.Set(); }
@@ -294,7 +358,7 @@ internal static class NetCommands
     }
 
     private static void HandleTcpClient(TcpClient client, bool echo, ref int received, int count, ManualResetEventSlim stop,
-        System.Collections.Concurrent.ConcurrentDictionary<string, byte> distinct, int countDistinct, string self)
+        System.Collections.Concurrent.ConcurrentDictionary<string, byte> distinct, int countDistinct, string self, string? logPath)
     {
         using (client)
         {
@@ -310,6 +374,7 @@ internal static class NetCommands
                 if (env is null) { break; } // peer closed
 
                 Console.WriteLine($"TCP {remote}  {BusWire.Render(env)}");
+                AppendLog(logPath, env);
                 int n = Interlocked.Increment(ref received);
                 bool distinctDone = NoteDistinct(distinct, countDistinct, self, env.SenderId);
 
@@ -352,6 +417,14 @@ internal static class NetCommands
     /// <summary>Sends one reliable, ordered TCP frame to each target (claim/handoff/ack/done/progress/note).</summary>
     private static int CmdSend(ArgMap a)
     {
+        // Graceful no-op for an unconfigured net-default actor (ADR-0045): with --skip-if-no-peer and no
+        // explicit --hosts/--host, there is no peer to announce to -- skip cleanly (exit 0) instead of a dead
+        // loopback attempt. Callers set this when on the net transport but no busNetHosts is configured.
+        if (a.Get("skip-if-no-peer") is not null && a.Get("hosts") is null && a.Get("host") is null)
+        {
+            Console.Error.WriteLine("[net send] no peer configured (set busNetHosts / VIHS_COLLAB_NET_HOSTS) -- skipping the announce (live-only default, ADR-0045)");
+            return 0;
+        }
         IReadOnlyList<string> hosts = HostList(a, "127.0.0.1");
         int port = a.GetInt("tcp", a.GetInt("port", 7420));
         string type = (a.Get("type") ?? "NOTE").ToUpperInvariant();

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { execFile, spawn, ChildProcess } from 'node:child_process';
-import { readFileSync, mkdirSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, mkdirSync, readdirSync, statSync, writeFileSync, existsSync, watch } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
@@ -442,11 +442,399 @@ function loadCorrelatorBuilder(extensionUri: vscode.Uri): Promise<CorrelatorBuil
   return correlatorBuilderPromise;
 }
 
+// Handoff Beacon (LBA-REQ-055): the capture-status payload builder, staged into media/ + loaded like the others.
+interface CaptureStatusBuilder {
+  buildCapturingStatus(opts: unknown): unknown;
+  buildCaptureStatus(record: unknown, samples: unknown, opts: unknown): unknown;
+  buildFailedStatus(opts: unknown): unknown;
+}
+let captureStatusBuilderPromise: Promise<CaptureStatusBuilder> | undefined;
+function loadCaptureStatusBuilder(extensionUri: vscode.Uri): Promise<CaptureStatusBuilder> {
+  if (!captureStatusBuilderPromise) {
+    captureStatusBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'captureStatus.mjs')) as unknown as Promise<CaptureStatusBuilder>;
+  }
+  return captureStatusBuilderPromise;
+}
+
+// Handoff Beacon agent->human request (LBA-REQ-056, ADR-0036): the request/op-done payload builders + the
+// pending-request selector, staged into media/ + loaded like the capture-status builder.
+interface HandoffRequestBuilder {
+  buildAgentRequest(opts: unknown): { id: string; title: string; body: string; kind: string; createdAt: string | null };
+  buildOpDone(opts: unknown): unknown;
+  validateAgentRequest(req: unknown): { ok: boolean; errors: string[] };
+  validateOpDone(done: unknown): { ok: boolean; errors: string[] };
+  selectPendingRequest(requests: unknown, answeredIds: unknown): { id: string; title: string; body?: string } | null;
+}
+let handoffRequestBuilderPromise: Promise<HandoffRequestBuilder> | undefined;
+function loadHandoffRequestBuilder(extensionUri: vscode.Uri): Promise<HandoffRequestBuilder> {
+  if (!handoffRequestBuilderPromise) {
+    handoffRequestBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'handoffRequest.mjs')) as unknown as Promise<HandoffRequestBuilder>;
+  }
+  return handoffRequestBuilderPromise;
+}
+
+/** The Handoff Beacon dirs under globalStorage: requests/ (agent asks) + done/ (human answers). */
+export function handoffPaths(globalDir: string): { root: string; requestsDir: string; doneDir: string } {
+  const root = path.join(globalDir, 'handoff');
+  return { root, requestsDir: path.join(root, 'requests'), doneDir: path.join(root, 'done') };
+}
+
+/** Read + JSON-parse every *.json in a dir (skipping a missing dir / unreadable / partial files). */
+export function readJsonDir(dir: string): Array<Record<string, unknown>> {
+  const out: Array<Record<string, unknown>> = [];
+  if (!existsSync(dir)) return out;
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith('.json')) continue;
+    try { out.push(JSON.parse(readFileSync(path.join(dir, name), 'utf8')) as Record<string, unknown>); } catch { /* skip partial */ }
+  }
+  return out;
+}
+
+/** The request ids that already have an op-done answer in done/, so an answered ask is never re-surfaced. */
+export function answeredRequestIds(doneDir: string): string[] {
+  return readJsonDir(doneDir)
+    .map((d) => (typeof d.requestId === 'string' ? d.requestId : null))
+    .filter((x): x is string => !!x);
+}
+
+// Handoff Beacon reviewer VISUAL VERDICT (LBA-REQ-057, ADR-0037): the pure, dependency-free builder the extension
+// loads to build + Ed25519-SIGN the reviewer's PASS/FAIL of a release candidate IN the VM (mapping to an
+// acg-human-signoff-v1 that feeds the release gate).
+interface HandoffVerdictBuilder {
+  buildReviewerVerdict(opts: unknown): { schema: string; verdict: string; target: Record<string, unknown>; [k: string]: unknown };
+  validateReviewerVerdict(v: unknown): { ok: boolean; errors: string[] };
+  signReviewerVerdict(v: unknown, opts: unknown): { schema: string; decision: string; [k: string]: unknown };
+  buildVerdictBusPost(record: unknown): { type: string; task: string; ref: string | null; priority: string; reviewer: string | null; summary: string };
+}
+let handoffVerdictBuilderPromise: Promise<HandoffVerdictBuilder> | undefined;
+function loadHandoffVerdictBuilder(extensionUri: vscode.Uri): Promise<HandoffVerdictBuilder> {
+  if (!handoffVerdictBuilderPromise) {
+    handoffVerdictBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'reviewerVerdict.mjs')) as unknown as Promise<HandoffVerdictBuilder>;
+  }
+  return handoffVerdictBuilderPromise;
+}
+
+/** The dir where the reviewer's signed verdicts are written (globalStorage/handoff/verdicts). */
+export function verdictsDir(globalDir: string): string {
+  return path.join(handoffPaths(globalDir).root, 'verdicts');
+}
+
+/**
+ * The review TARGET (what the human is judging): read from handoff/review-target.json (written by the host
+ * render-verdict.sh so it knows the candidate's commit + .vsix digest) with safe defaults from the running
+ * extension version.
+ */
+export function readReviewTarget(
+  globalDir: string,
+  extVersion: string
+): { component: string; version: string; commit: string | null; vsixSha256: string | null; evidence: Array<Record<string, unknown>> } {
+  const dflt = { component: 'extension', version: extVersion || '0.0.0', commit: null as string | null, vsixSha256: null as string | null, evidence: [] as Array<Record<string, unknown>> };
+  const p = path.join(handoffPaths(globalDir).root, 'review-target.json');
+  if (!existsSync(p)) return dflt;
+  try {
+    const t = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
+    return {
+      component: typeof t.component === 'string' ? t.component : dflt.component,
+      version: typeof t.version === 'string' ? t.version : dflt.version,
+      commit: typeof t.commit === 'string' ? t.commit : null,
+      vsixSha256: typeof t.vsixSha256 === 'string' ? t.vsixSha256 : null,
+      evidence: Array.isArray(t.evidence) ? (t.evidence as Array<Record<string, unknown>>) : [],
+    };
+  } catch {
+    return dflt;
+  }
+}
+
+/** Build + sign a reviewer verdict via the loaded builder (pure orchestration): validate, then Ed25519-sign. */
+export function buildSignedVerdict(
+  builder: HandoffVerdictBuilder,
+  opts: { target: unknown; verdict: string; reviewer: string; station: string; notes: string; evidence: unknown; privateKeyPem: string; renderedAt: string }
+): { verdict: unknown; signOff: unknown } {
+  const verdict = builder.buildReviewerVerdict({ target: opts.target, verdict: opts.verdict, reviewer: opts.reviewer, station: opts.station, notes: opts.notes, evidence: opts.evidence, renderedAt: opts.renderedAt });
+  const check = builder.validateReviewerVerdict(verdict);
+  if (!check.ok) throw new Error(`invalid reviewer verdict: ${check.errors.join('; ')}`);
+  const signOff = builder.signReviewerVerdict(verdict, { privateKeyPem: opts.privateKeyPem, reviewer: opts.reviewer, station: opts.station });
+  return { verdict, signOff };
+}
+
+/** Build the `lbabus net send` argv for a verdict announcement over TCP (pure, LBA-REQ-066/ADR-0046, net-only):
+ *  the semantic type + release task + the FULL signed verdict JSON (--message-file). The net envelope has no
+ *  priority/ref fields (those live inside the verdict JSON); host(s) are the configured peer(s), else a graceful
+ *  no-op via --skip-if-no-peer. */
+export function busSendArgs(post: { type: string; task: string }, verdictFile: string, netHosts: string): string[] {
+  const args = ['net', 'send'];
+  if (netHosts) { args.push('--hosts', netHosts); } else { args.push('--skip-if-no-peer'); }
+  args.push('--type', post.type, '--task', post.task, '--message-file', verdictFile);
+  return args;
+}
+
+/** The live-only `lbabus net` TCP coordination bus config (LBA-REQ-066, ADR-0046, net-only): the peer host(s)
+ *  that `net send` targets (else a graceful no-op) + the local receive-log written by `lbabus net listen --log`
+ *  that `net poll` reads. The GitHub-Discussion transport opt-out was removed off-Discussions step 7. */
+function busConfig(): { netHosts: string; netLog: string } {
+  const c = vscode.workspace.getConfiguration('labviewBenchmarkActor');
+  return {
+    netHosts: (c.get<string>('busNetHosts', '') || '').trim(),
+    netLog: (c.get<string>('busNetLog', '') || '').trim(),
+  };
+}
+
+/** Parse a capture's resources.jsonl into the raw sample array (skipping blank/partial lines). */
+export function readResourceSamples(dir: string): Array<Record<string, unknown>> {
+  const out: Array<Record<string, unknown>> = [];
+  const resFile = path.join(dir, 'resources.jsonl');
+  if (!existsSync(resFile)) return out;
+  for (const line of readFileSync(resFile, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    try { out.push(JSON.parse(t) as Record<string, unknown>); } catch { /* skip partial */ }
+  }
+  return out;
+}
+
+/** Best-effort write of the handoff capture-status beacon (never throws into the capture flow). Returns the
+ *  built beacon so the caller can act on it (e.g. auto-jump the correlator to the peak-write frame). */
+async function writeCaptureStatusBeacon(
+  extensionUri: vscode.Uri,
+  dir: string,
+  build: (b: CaptureStatusBuilder) => unknown,
+  output: vscode.OutputChannel
+): Promise<unknown> {
+  try {
+    const builder = await loadCaptureStatusBuilder(extensionUri);
+    const status = build(builder);
+    writeFileSync(path.join(dir, 'capture-status.json'), `${JSON.stringify(status, null, 2)}\n`);
+    return status;
+  } catch (err) {
+    output.appendLine(`capture-status beacon skipped: ${err instanceof Error ? err.message : String(err)}`);
+    return undefined;
+  }
+}
+
+// --- Handoff Beacon agent->human request barrier (LBA-REQ-056, ADR-0036) -------------------------------------
+// The agent drops an agent-request@1 beacon in handoff/requests/; the extension watches that dir and surfaces the
+// newest unanswered ask as a VS Code notification with 'Mark step done' / 'Skip' actions (also palette commands).
+// The human's answer is an op-done@1 beacon written into handoff/done/<id>.json that the agent awaits -- a reusable
+// human-step barrier for any manual op (activate LabVIEW, run a VI, VIPM login, ...).
+let activeHandoffRequest: { id: string; title: string; body?: string } | undefined;
+let lastNotifiedRequestId: string | undefined;
+
+async function writeOpDoneBeacon(
+  context: vscode.ExtensionContext,
+  output: vscode.OutputChannel,
+  outcome: 'done' | 'skipped',
+  note: string | null
+): Promise<void> {
+  const request = activeHandoffRequest;
+  if (!request) {
+    vscode.window.showInformationMessage('No pending handoff request to answer.');
+    return;
+  }
+  try {
+    const { doneDir } = handoffPaths(context.globalStorageUri.fsPath);
+    mkdirSync(doneDir, { recursive: true });
+    const builder = await loadHandoffRequestBuilder(context.extensionUri);
+    const done = builder.buildOpDone({ requestId: request.id, outcome, note, doneAt: new Date().toISOString() });
+    writeFileSync(path.join(doneDir, `${request.id}.json`), `${JSON.stringify(done, null, 2)}\n`);
+    output.appendLine(`handoff ${outcome}: ${request.id}${note ? ` (${note})` : ''}`);
+    vscode.window.showInformationMessage(`Handoff step ${outcome}: ${request.title}`);
+    activeHandoffRequest = undefined;
+  } catch (err) {
+    reportUiError(output, 'Answer handoff request', err);
+  }
+}
+
+async function markStepDoneCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  if (!activeHandoffRequest) {
+    vscode.window.showInformationMessage('No pending handoff request to mark done.');
+    return;
+  }
+  const note = await vscode.window.showInputBox({
+    prompt: `Optional note for the handoff step: ${activeHandoffRequest.title}`,
+    placeHolder: '(optional) what you did / observed',
+  });
+  // showInputBox returns undefined when dismissed -> still mark done (the note is optional).
+  await writeOpDoneBeacon(context, output, 'done', note && note.length ? note : null);
+}
+
+async function skipStepCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  await writeOpDoneBeacon(context, output, 'skipped', null);
+}
+
+export async function refreshHandoffRequests(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const { requestsDir, doneDir } = handoffPaths(context.globalStorageUri.fsPath);
+    const builder = await loadHandoffRequestBuilder(context.extensionUri);
+    const pending = builder.selectPendingRequest(readJsonDir(requestsDir), answeredRequestIds(doneDir));
+    if (!pending) {
+      activeHandoffRequest = undefined;
+      return;
+    }
+    activeHandoffRequest = pending;
+    if (pending.id === lastNotifiedRequestId) {
+      return; // already surfaced this ask (avoid duplicate toasts on repeated fs events)
+    }
+    lastNotifiedRequestId = pending.id;
+    const detail = pending.body ? `${pending.title} \u2014 ${pending.body}` : pending.title;
+    output.appendLine(`handoff request ${pending.id}: ${detail}`);
+    const choice = await vscode.window.showInformationMessage(`Agent request: ${detail}`, 'Mark step done', 'Skip');
+    if (choice === 'Mark step done') {
+      await markStepDoneCommand(context, output);
+    } else if (choice === 'Skip') {
+      await skipStepCommand(context, output);
+    }
+  } catch (err) {
+    output.appendLine(`handoff request refresh skipped: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+function startHandoffWatcher(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
+  const globalDir = context.globalStorageUri?.fsPath;
+  if (!globalDir) {
+    return; // no globalStorage (e.g. a minimal host/test context) -> nothing to watch
+  }
+  const { requestsDir, doneDir } = handoffPaths(globalDir);
+  try {
+    mkdirSync(requestsDir, { recursive: true });
+    mkdirSync(doneDir, { recursive: true });
+  } catch { /* best-effort: the dirs are also created on demand when answering */ }
+  void refreshHandoffRequests(context, output); // surface any ask already waiting at startup
+  try {
+    const watcher = watch(requestsDir, () => { void refreshHandoffRequests(context, output); });
+    context.subscriptions.push({ dispose: () => watcher.close() });
+  } catch (err) {
+    output.appendLine(`handoff watcher not started: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// Handoff Beacon reviewer VISUAL VERDICT command (LBA-REQ-057, ADR-0037): the human renders their PASS/FAIL of
+// the release candidate IN the VM; the extension Ed25519-SIGNS it with the enrolled reviewer key and writes the
+// signed verdict (an acg-human-signoff-v1 over the reviewer-verdict@1) into handoff/verdicts/ for the release
+// gate + a CI keyless counter-sign.
+async function renderReviewerVerdictCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const cfg = vscode.workspace.getConfiguration('labviewBenchmarkActor');
+  const reviewer = String(cfg.get<string>('reviewerId', '') || '').trim();
+  const keyPath = String(cfg.get<string>('reviewerKeyPath', '') || '').trim();
+  if (!reviewer || !keyPath) {
+    vscode.window.showWarningMessage('Set labviewBenchmarkActor.reviewerId and labviewBenchmarkActor.reviewerKeyPath (the enrolled reviewer key) to render a signed verdict.');
+    return;
+  }
+  if (!existsSync(keyPath)) {
+    vscode.window.showErrorMessage(`Reviewer key not found at ${keyPath}.`);
+    return;
+  }
+  const globalDir = context.globalStorageUri?.fsPath;
+  if (!globalDir) {
+    return;
+  }
+  const extVersion = String((context.extension?.packageJSON as { version?: string } | undefined)?.version ?? '0.0.0');
+  const target = readReviewTarget(globalDir, extVersion);
+  const choice = await vscode.window.showInformationMessage(`Reviewer visual verdict for ${target.component} ${target.version}?`, 'Pass', 'Request changes', 'Fail');
+  if (!choice) {
+    return;
+  }
+  const verdict = choice === 'Pass' ? 'pass' : choice === 'Fail' ? 'fail' : 'changes';
+  const notes = await vscode.window.showInputBox({ prompt: `Notes for the ${verdict.toUpperCase()} verdict on ${target.component} ${target.version}`, placeHolder: 'what you saw / why' });
+  try {
+    const builder = await loadHandoffVerdictBuilder(context.extensionUri);
+    const privateKeyPem = readFileSync(keyPath, 'utf8');
+    const record = buildSignedVerdict(builder, { target, verdict, reviewer, station: 'WINDOWS_VM', notes: notes || '', evidence: target.evidence, privateKeyPem, renderedAt: new Date().toISOString() });
+    const dir = verdictsDir(globalDir);
+    mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${target.component}-${target.version}.json`);
+    writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+    output.appendLine(`reviewer verdict ${verdict} signed for ${target.component} ${target.version} by ${reviewer}`);
+    vscode.window.showInformationMessage(`Reviewer verdict signed: ${verdict.toUpperCase()} for ${target.component} ${target.version}.`);
+    // Announce the signed verdict on the coordination bus (best-effort; a missing lbabus / token never fails signing).
+    await postVerdictToBus(context, output, builder, record, file);
+  } catch (err) {
+    reportUiError(output, 'Render reviewer verdict', err);
+  }
+}
+
+// Announce a signed reviewer verdict on the lbabus coordination bus (LBA-REQ-058, ADR-0038): a semantic post
+// (PASS->RESOLVED / CHANGES->REFINE / FAIL->BLOCKED) carrying the FULL signed verdict JSON, so remote actors see
+// the human's PASS/FAIL. Best-effort -- a missing `lbabus` / GH token is logged, never thrown into the signing.
+async function postVerdictToBus(
+  context: vscode.ExtensionContext,
+  output: vscode.OutputChannel,
+  builder: HandoffVerdictBuilder,
+  record: unknown,
+  verdictFile: string
+): Promise<void> {
+  try {
+    const post = builder.buildVerdictBusPost(record);
+    const { netHosts } = busConfig();
+    const args = busSendArgs(post, verdictFile, netHosts);
+    output.appendLine(`$ ${CLI} ${args.join(' ')}`);
+    try {
+      const { stdout, stderr } = await execFileAsync(CLI, args, { timeout: 30000 });
+      if (stderr.trim().length > 0) output.appendLine(stderr.trimEnd());
+      if (stdout.trim().length > 0) output.appendLine(stdout.trimEnd());
+      output.appendLine(`posted reviewer verdict to the coordination bus: ${post.summary}`);
+    } catch (err) {
+      output.appendLine(`bus post skipped (${CLI} unavailable?): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } catch (err) {
+    output.appendLine(`bus post skipped: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** The peak-write frame index a capture-status beacon points at (0 when absent/invalid) -- the frame the
+ *  correlator opens at so the human + agent land on the evidence instead of scrubbing (LBA-REQ-055). */
+export function peakFrameIndexOf(status: unknown): number {
+  const peak = (status as { peak?: { frameIndex?: unknown } } | undefined)?.peak;
+  const idx = peak ? peak.frameIndex : undefined;
+  return typeof idx === 'number' && Number.isInteger(idx) && idx >= 0 ? idx : 0;
+}
+
+/** Read the peak-write frame index from a capture's capture-status beacon on disk (0 if absent/unreadable). */
+export function readPeakFrameIndex(dir: string): number {
+  const statusPath = path.join(dir, 'capture-status.json');
+  if (!existsSync(statusPath)) return 0;
+  try { return peakFrameIndexOf(JSON.parse(readFileSync(statusPath, 'utf8'))); } catch { return 0; }
+}
+
+/** Clamp a desired frame index into [0, count) (0 when out of range) -- keeps the correlator auto-jump safe. */
+export function clampFrameIndex(index: number, count: number): number {
+  return Number.isInteger(index) && index >= 0 && index < count ? index : 0;
+}
+
+/** Build the frame-correlator webview model (pure): clamps the initial/auto-jump index + carries markers/disks. */
+export function buildCorrelatorModel(
+  framesModel: unknown[],
+  initialIndex: number,
+  markers: unknown,
+  diskNames: unknown
+): { title: string; fps: number; selectedIndex: number; frames: unknown[]; markers: unknown[]; diskNames: unknown } {
+  const frames = Array.isArray(framesModel) ? framesModel : [];
+  const existingMarkers = Array.isArray(markers) ? markers : [];
+  const selectedIndex = clampFrameIndex(initialIndex, frames.length);
+  return { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex, frames, markers: existingMarkers, diskNames };
+}
+
+/** Map one capture frame + its (webview) image src into the correlator's per-frame model (pure). */
+export function buildCorrelatorFrame(f: Record<string, unknown>, imageSrc: string): Record<string, unknown> {
+  return {
+    index: f.index,
+    tMs: f.tMs,
+    cpuPct: f.cpuPct,
+    ramMb: f.ramMb,
+    diskPct: f.diskPct,
+    // per-physical-disk read/write throughput (MB/s) when the sampler captured it (write + read curve per disk).
+    disks: f.disks,
+    // v2: the frame's performance-counter catalog when the capture carries it (else CPU/RAM/disk fallback).
+    counters: f.counters,
+    imageSrc,
+  };
+}
+
 interface ActiveCapture {
   dir: string;
   ffmpeg: ChildProcess;
   sampler: ChildProcess;
   status: vscode.StatusBarItem;
+  startedAt: string;
 }
 let activeCapture: ActiveCapture | undefined;
 
@@ -477,20 +865,42 @@ function resolveFfmpeg(): string {
   return 'ffmpeg';
 }
 
-// PowerShell CIM sampler: instant formatted counters (CPU/disk %) + OS memory -> JSONL every ~200 ms.
+// PowerShell sampler: fast System.Diagnostics.PerformanceCounter reads (NextValue() is sub-ms, unlike the old
+// ~0.8 s CIM loop) frame-locked to ~100 ms. Emits CPU %, used RAM MB, disk % busy (kept for back-compat) AND
+// per-PHYSICAL-DISK write/read THROUGHPUT in MB/s (decimal, bytes/1e6) for every physical disk. A modest
+// sustained write (e.g. ~11 MB/s) registers on the throughput curve even though % Disk Time barely moves.
 export function samplerScript(outFile: string): string {
   const out = outFile.replace(/'/g, "''");
   return [
     "$ErrorActionPreference='SilentlyContinue'",
     `$out='${out}'`,
+    'function NewPC($cat,$ctr,$inst){ try { if ($inst) { New-Object System.Diagnostics.PerformanceCounter $cat,$ctr,$inst } else { New-Object System.Diagnostics.PerformanceCounter $cat,$ctr } } catch { $null } }',
+    '$totalMb=[math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize/1024,0)',
+    "$cpu=NewPC 'Processor' '% Processor Time' '_Total'",
+    "$avail=NewPC 'Memory' 'Available MBytes' $null",
+    "$dt=NewPC 'PhysicalDisk' '% Disk Time' '_Total'",
+    "$insts=@()",
+    "try { $insts=@((New-Object System.Diagnostics.PerformanceCounterCategory 'PhysicalDisk').GetInstanceNames() | Where-Object { $_ -ne '_Total' } | Sort-Object) } catch {}",
+    '$wc=@{}; $rc=@{}',
+    "foreach($i in $insts){ $wc[$i]=NewPC 'PhysicalDisk' 'Disk Write Bytes/sec' $i; $rc[$i]=NewPC 'PhysicalDisk' 'Disk Read Bytes/sec' $i }",
+    'foreach($x in @($cpu,$dt)+$wc.Values+$rc.Values){ if($x){ try{ [void]$x.NextValue() }catch{} } }',
     'while ($true) {',
-    "  $c=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter \"Name='_Total'\").PercentProcessorTime",
-    '  $o=Get-CimInstance Win32_OperatingSystem',
-    '  $r=[math]::Round((($o.TotalVisibleMemorySize-$o.FreePhysicalMemory)/1024),1)',
-    "  $d=(Get-CimInstance Win32_PerfFormattedData_PerfDisk_PhysicalDisk -Filter \"Name='_Total'\").PercentDiskTime",
+    '  $t0=[DateTimeOffset]::UtcNow',
+    '  $c=if($cpu){[math]::Round($cpu.NextValue(),1)}else{0}',
+    '  $am=if($avail){$avail.NextValue()}else{0}',
+    '  $r=[math]::Round($totalMb-$am,1)',
+    '  $d=if($dt){[math]::Round($dt.NextValue(),1)}else{0}',
+    '  $ds=@()',
+    '  foreach($i in $insts){',
+    '    $w=if($wc[$i]){[math]::Round($wc[$i].NextValue()/1000000,3)}else{0}',
+    '    $rd=if($rc[$i]){[math]::Round($rc[$i].NextValue()/1000000,3)}else{0}',
+    '    $nm=$i.Replace(\'"\',\'\')',
+    '    $ds+=("{""name"":"""+$nm+""",""writeMBs"":"+$w+",""readMBs"":"+$rd+"}")',
+    '  }',
     '  $ms=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()',
-    '  Add-Content -Path $out -Value ("{""ms"":"+$ms+",""cpuPct"":"+[double]$c+",""ramMb"":"+$r+",""diskPct"":"+[double]$d+"}")',
-    '  Start-Sleep -Milliseconds 200',
+    '  Add-Content -Path $out -Value ("{""ms"":"+$ms+",""cpuPct"":"+$c+",""ramMb"":"+$r+",""diskPct"":"+$d+",""disks"":["+($ds -join ",")+"]}")',
+    '  $el=([DateTimeOffset]::UtcNow-$t0).TotalMilliseconds',
+    '  $sl=100-$el; if($sl -gt 0){ Start-Sleep -Milliseconds ([int]$sl) }',
     '}',
   ].join('\n');
 }
@@ -515,6 +925,9 @@ async function captureLaunchCommand(context: vscode.ExtensionContext, output: vs
     reportUiError(output, 'Capture LabVIEW Launch', err);
     return;
   }
+  // Handoff beacon: mark the capture in flight so the agent's poll knows one is running (LBA-REQ-055).
+  const startedAt = new Date().toISOString();
+  void writeCaptureStatusBeacon(context.extensionUri, dir, (b) => b.buildCapturingStatus({ runDir: dir, startedAt }), output);
   const framePattern = path.join(dir, 'frame-%05d.png');
   const resourcesFile = path.join(dir, 'resources.jsonl');
 
@@ -558,7 +971,7 @@ async function captureLaunchCommand(context: vscode.ExtensionContext, output: vs
   status.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
   status.show();
 
-  activeCapture = { dir, ffmpeg: ffmpegProc, sampler, status };
+  activeCapture = { dir, ffmpeg: ffmpegProc, sampler, status, startedAt };
   output.appendLine(`capture started: ${dir} (ffmpeg 12fps + CPU/RAM/disk; LabVIEW launching)`);
   void vscode.window
     .showInformationMessage(
@@ -608,11 +1021,19 @@ async function stopCaptureCommand(context: vscode.ExtensionContext, output: vsco
     /* ignore */
   }
 
+  const stoppedAt = new Date().toISOString();
   try {
     const record = await assembleCapture(context, cap.dir);
-    await openCorrelatorForCapture(context, output, cap.dir, record);
-    output.appendLine(`capture stopped: ${record.frameCount} frames -> correlator`);
+    // Handoff beacon FIRST: the rich stop status (which resolves the agent's await poll) also tells us the
+    // peak-write frame, so the correlator opens THERE -- the human + agent land on the evidence, not frame 0.
+    const samples = readResourceSamples(cap.dir);
+    const status = await writeCaptureStatusBeacon(context.extensionUri, cap.dir, (b) => b.buildCaptureStatus(record, samples, { runDir: cap.dir, startedAt: cap.startedAt, stoppedAt }), output);
+    const peakIndex = peakFrameIndexOf(status);
+    await openCorrelatorForCapture(context, output, cap.dir, record, peakIndex);
+    output.appendLine(`capture stopped: ${record.frameCount} frames -> correlator @ frame ${peakIndex + 1} (peak write; beacon written)`);
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await writeCaptureStatusBeacon(context.extensionUri, cap.dir, (b) => b.buildFailedStatus({ runDir: cap.dir, startedAt: cap.startedAt, stoppedAt, error: message }), output);
     reportUiError(output, 'Assemble LabVIEW capture', err);
   }
 }
@@ -668,7 +1089,8 @@ async function openCorrelatorForCapture(
   context: vscode.ExtensionContext,
   output: vscode.OutputChannel,
   dir: string,
-  record: LaunchCaptureRecord
+  record: LaunchCaptureRecord,
+  initialIndex = 0
 ): Promise<void> {
   const correlator = await loadCorrelatorBuilder(context.extensionUri);
   const panel = vscode.window.createWebviewPanel(
@@ -677,19 +1099,11 @@ async function openCorrelatorForCapture(
     vscode.ViewColumn.Active,
     { enableScripts: true, localResourceRoots: [vscode.Uri.file(dir)] }
   );
-  const framesModel = record.frames.map((f) => ({
-    index: f.index,
-    tMs: f.tMs,
-    cpuPct: f.cpuPct,
-    ramMb: f.ramMb,
-    diskPct: f.diskPct,
-    // v2: pass the frame's performance-counter catalog through when the capture carries it (the correlator plots
-    // the counter curves; a legacy flat capture falls back to CPU/RAM/disk).
-    counters: f.counters,
-    imageSrc: panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString(),
-  }));
-  const existingMarkers = Array.isArray(record.markers) ? record.markers : [];
-  const model = { title: 'LabVIEW launch \u2014 frame correlator', fps: 12, selectedIndex: 0, frames: framesModel, markers: existingMarkers };
+  const framesModel = record.frames.map((f) =>
+    buildCorrelatorFrame(f, panel.webview.asWebviewUri(vscode.Uri.file(path.join(dir, String(f.image)))).toString())
+  );
+  // Auto-jump to the beacon's peak-write frame (clamped inside buildCorrelatorModel): open on the evidence, not frame 0.
+  const model = buildCorrelatorModel(framesModel, initialIndex, record.markers, record.diskNames);
   panel.webview.html = correlator.buildFrameCorrelatorHtml(model, getNonce(), panel.webview.cspSource);
 
   // Persist a CLICK marker into the capture metadata ("mouse click -> label in metadata"): the webview posts
@@ -742,7 +1156,8 @@ async function openFrameCorrelatorCommand(
     }
     const dir = path.join(root, runs[runs.length - 1]);
     const record = JSON.parse(readFileSync(path.join(dir, 'capture.json'), 'utf8')) as LaunchCaptureRecord;
-    await openCorrelatorForCapture(context, output, dir, record);
+    // If a capture-status beacon is present, open on its peak-write frame too (not just on a fresh stop).
+    await openCorrelatorForCapture(context, output, dir, record, readPeakFrameIndex(dir));
   } catch (err) {
     reportUiError(output, 'Open Frame Correlator', err);
   }
@@ -1065,9 +1480,11 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('labviewBenchmarkActor.pollBus', () =>
-      runCli(output, ['poll', '--full', '--tail', '10'], 30000)
-    )
+    vscode.commands.registerCommand('labviewBenchmarkActor.pollBus', () => {
+      const { netLog } = busConfig();
+      const args = ['net', 'poll', ...(netLog ? ['--log', netLog] : []), '--tail', '10'];
+      return runCli(output, args, 30000);
+    })
   );
 
   context.subscriptions.push(
@@ -1079,7 +1496,9 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!message) {
         return;
       }
-      await runCli(output, ['post', '--type', 'NOTE', '--message', message], 20000);
+      const { netHosts } = busConfig();
+      const args = ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : ['--skip-if-no-peer']), '--type', 'NOTE', '--message', message];
+      await runCli(output, args, 20000);
     })
   );
 
@@ -1132,6 +1551,16 @@ export function activate(context: vscode.ExtensionContext): void {
       stopCaptureCommand(context, output)
     )
   );
+
+  // Handoff Beacon agent->human request barrier (LBA-REQ-056, ADR-0036): watch handoff/requests/ and surface the
+  // agent's asks as in-VM notifications; the "Mark step done" / "Skip" actions (also palette commands) write the
+  // op-done beacon the agent awaits.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.markStepDone', () => markStepDoneCommand(context, output)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.skipStep', () => skipStepCommand(context, output)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.renderReviewerVerdict', () => renderReviewerVerdictCommand(context, output))
+  );
+  startHandoffWatcher(context, output);
 
   // Extension-embedded AGENTS.md (issue #98): read-only canonical provider + materialize/show/check commands.
   context.subscriptions.push(

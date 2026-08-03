@@ -25,6 +25,20 @@
 | **Open Benchmark Run** | `openBenchmarkRun` | Render one captured LabVIEW-launch run. |
 | **Open Benchmark Trend** | `openBenchmarkTrend` | Render the multi-run launch trend. |
 
+## Handoff Beacon (agent&#8596;human)
+
+> When the agent asks you to perform a manual step in the reviewer VM (run a VI,
+> activate LabVIEW, click Stop), it surfaces as a notification with **Mark step
+> done** / **Skip** buttons; these commands do the same from the palette. Your
+> answer is written as a machine-readable `op-done` beacon the agent awaits, so it
+> resumes without re-asking (LBA-REQ-056, ADR-0036).
+
+| Command | ID | What it does |
+| --- | --- | --- |
+| **Mark Handoff Step Done** | `markStepDone` | Answer the agent's pending handoff request as done (writes the op-done beacon the agent awaits); prompts for an optional note. |
+| **Skip Handoff Step** | `skipStep` | Decline the agent's pending handoff request (writes an op-done beacon with a `skipped` outcome). |
+| **Render Reviewer Verdict** | `renderReviewerVerdict` | Record + Ed25519-sign your visual PASS / CHANGES / FAIL of the release candidate under review, using the enrolled reviewer key (`reviewerId` + `reviewerKeyPath`). Writes a signed reviewer verdict that gates the release. |
+
 ## Cross-plane and resource
 
 | Command | ID | What it does |

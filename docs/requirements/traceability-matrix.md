@@ -19,7 +19,7 @@
 | LBA-REQ-010 | Own-run review, host concentration, and the ollama comparison layer | Proven | §3.6 Analysis | ADR-0006, ADR-0008 | T-010 | 16 |
 | LBA-REQ-011 | CPU/RAM/disk usage correlation with a pre/post-trigger window | Proven | §3.6 Analysis | — | T-011 | 30 |
 | LBA-REQ-012 | Version-pinned agent base instructions | Proven | §3.7 Agentic-infrastructure | — | T-012 | 5 |
-| LBA-REQ-013 | Prioritized, addressable coordination messages | Proven | §3.7 Agentic-infrastructure | — | T-013 | 4 |
+| LBA-REQ-013 | Prioritized, addressable coordination messages | Superseded | §3.7 Agentic-infrastructure | ADR-0048 | T-013 | 2 |
 | LBA-REQ-014 | Cross-plane benchmark comparison | Proven | §3.6 Analysis | — | T-014 | 17 |
 | LBA-REQ-015 | VI Analyzer as a cross-plane benchmark | Proven | §3.6 Analysis | — | T-015 | 17 |
 | LBA-REQ-016 | GitFlow branch governance | Proven | §3.8 Configuration-management & assurance | ADR-0010 | T-016 | 3 |
@@ -61,5 +61,18 @@
 | LBA-REQ-052 | g-cli launcher built from Rust + proven on host | Proven | §3.2 Deployment | ADR-0033 | T-052 | 4 |
 | LBA-REQ-053 | Icon-editor LUnit test benchmark | Proven | §3.2 Deployment | ADR-0033 | T-053 | 4 |
 | LBA-REQ-054 | Benchmark Observatory (suite-wide coverage + determinism map) | Proven | §3.2 Deployment | ADR-0034 | T-054 | 4 |
+| LBA-REQ-055 | Handoff Beacon -- capture-status (human-in-the-loop signal) | Proven | §3.2 Deployment | ADR-0035 | T-055 | 6 |
+| LBA-REQ-056 | Handoff Beacon -- agent->human request (human-step barrier) | Proven | §3.2 Deployment | ADR-0036 | T-056 | 7 |
+| LBA-REQ-057 | Handoff Beacon -- reviewer visual verdict (signed human PASS/FAIL) | Proven | §3.2 Deployment | ADR-0037 | T-057 | 9 |
+| LBA-REQ-058 | Handoff Beacon -- reviewer verdict bus announcement | Proven | §3.2 Deployment | ADR-0038 | T-058 | 6 |
+| LBA-REQ-059 | Host<->VM-agent closed loop over the lbabus net TCP bus | Proven | §3.2 Deployment | ADR-0039 | T-059 | 8 |
+| LBA-REQ-060 | Live-only net coordination -- the receive-log + net poll read side | Proven | §3.2 Deployment | ADR-0040 | T-060 | 4 |
+| LBA-REQ-061 | Bus transport selection in the extension -- Discussion default, net opt-in | Proven | §3.2 Deployment | ADR-0041 | T-061 | 4 |
+| LBA-REQ-062 | MCP coordination tools transport selection -- Discussion default, net opt-in | Proven | §3.2 Deployment | ADR-0042 | T-062 | 4 |
+| LBA-REQ-063 | post-verdict.mjs transport selection -- Discussion default, net opt-in | Proven | §3.2 Deployment | ADR-0043 | T-063 | 2 |
+| LBA-REQ-064 | Drop the release-CI GitHub-Discussion verdict announce | Proven | §3.2 Deployment | ADR-0044 | T-064 | 3 |
+| LBA-REQ-065 | Flip the coordination default to net + graceful no-op when unconfigured | Proven | §3.2 Deployment | ADR-0045 | T-065 | 7 |
+| LBA-REQ-066 | Collapse the coordination product surface to net-only | Proven | §3.2 Deployment | ADR-0046 | T-066 | 8 |
+| LBA-REQ-067 | Remove the GitHub-Discussion transport from the lbabus CLI | Proven | §3.2 Deployment | ADR-0047 | T-067 | 5 |
 
-_Generated for 54 requirements._
+_Generated for 67 requirements._

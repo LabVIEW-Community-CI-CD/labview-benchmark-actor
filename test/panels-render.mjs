@@ -160,6 +160,44 @@ const NONCE = 'render-nonce-000000000000000000ab';
   assert(root.getAttribute('data-selected-index') === '0', 'Home scrubs back to frame 0');
 }
 
+// --- 3a2. frame correlator WITH per-physical-disk throughput -> a write+read MB/s curve per disk ------------
+{
+  const startMs = 1_700_000_000_000;
+  const N = 5;
+  const frames = Array.from({ length: N }, (_, i) => ({ index: i, imageFile: `f-${i}.png`, imageBytes: 1000 + i, ms: startMs + Math.round((i * 1000) / 12) }));
+  // two physical disks; disk "0 C:" streams 11.4 MB/s at frame 2 (the case that % Disk Time would miss).
+  const resourceSamples = Array.from({ length: N }, (_, i) => ({
+    ms: startMs + Math.round((i * 1000) / 12),
+    cpuPct: 20 + i, ramMb: 3000 + i, diskPct: 1,
+    disks: [
+      { name: '0 C:', writeMBs: i === 2 ? 11.4 : 0, readMBs: 0 },
+      { name: '1 D:', writeMBs: 0, readMBs: i * 2 },
+    ],
+  }));
+  const cap = buildLaunchCapture({ frames, resourceSamples, startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'WIN' } });
+  assert(Array.isArray(cap.diskNames) && cap.diskNames.length === 2, `capture exposes 2 disk names, got ${cap.diskNames}`);
+  assert(cap.frames[2].disks && cap.frames[2].disks[0].writeMBs === 11.4, 'capture carries the 11.4 MB/s write onto the frame');
+  const px = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  const model = {
+    title: 'disk throughput', fps: cap.fps, selectedIndex: 2,
+    frames: cap.frames.map((f) => ({ index: f.index, tMs: f.tMs, cpuPct: f.cpuPct, ramMb: f.ramMb, diskPct: f.diskPct, disks: f.disks, imageSrc: px })),
+    diskNames: cap.diskNames,
+  };
+  const html = buildFrameCorrelatorHtml(model, NONCE, 'vscode-webview://render');
+  const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true });
+  const doc = dom.window.document;
+  const svg = doc.getElementById('fc-graph');
+  // 3 base (CPU/RAM/disk%) + 2 disks x {write,read} = 7 metric polylines (the red cursor is a <line>).
+  assert(svg.querySelectorAll('polyline').length === 7, `correlator plots base + per-disk throughput curves, got ${svg.querySelectorAll('polyline').length}`);
+  const legend = doc.getElementById('fc-legend').innerHTML;
+  assert(/Disk 0 C: write MB\/s/.test(legend), 'legend labels the per-disk write throughput curve');
+  assert(/Disk 1 D: read MB\/s/.test(legend), 'legend labels the per-disk read throughput curve');
+  assert(/11\.4/.test(legend), 'legend shows the 11.4 MB/s write value at the streaming frame');
+  // auto-jump: opening with a non-zero selectedIndex (the beacon's peak-write frame) lands THERE, not on frame 0.
+  assert(doc.getElementById('fc-root').getAttribute('data-selected-index') === '2', 'correlator opens AT the given selectedIndex (auto-jump target)');
+  assert(/frame 3\/5/.test(doc.getElementById('fc-readout').textContent), 'readout reflects the auto-jump frame (3/5)');
+}
+
 // --- 3b. frame correlator, EMPTY record -> the no-frames empty state (early return, no graph built) ---------
 {
   const html = buildFrameCorrelatorHtml({ title: 'empty', fps: 12, selectedIndex: 0, frames: [] }, NONCE, 'vscode-webview://render');

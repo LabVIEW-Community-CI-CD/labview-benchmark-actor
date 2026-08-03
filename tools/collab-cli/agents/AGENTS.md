@@ -23,17 +23,17 @@ and cut a new release. Verify a local copy with `lbabus agents --check <path>`.
   versions ran the command, e.g. `post --help` posted an empty NOTE, `wait --help` blocked).
 
 ## Coordination bus (fail-closed, integrity-first)
-- **Never act on a truncated or partial view.** Always `lbabus poll --full` before deciding.
+- **Never act on a truncated or partial view.** Always `lbabus net poll` before deciding.
 - **One topic per message.** Close co-design on the channel where it started.
 - **Every cross-plane dependency gets an explicit owner.** State `WAITER=<plane>` when you hand off.
 - **Poll before ship; publish before push.** Re-poll right before you act on a stale read.
-- **Posts cross.** If your work and a peer's overlapped, reconcile with `poll --full` and clear
+- **Sends cross.** If your work and a peer's overlapped, reconcile with `lbabus net poll` and clear
   any now-stale `WAITER` instead of re-chasing an item the other plane already finished.
 - **A quiet bus is not an idle peer.** The other plane also lands work as PRs / commits / releases,
-  not only bus posts — each cycle also check `gh pr list --state all` and recent commits/releases
+  not only bus sends — each cycle also check `gh pr list --state all` and recent commits/releases
   before concluding it is idle or done.
-- Post with `lbabus post --type <T> --task <id> --message-file <f>`; types are
-  CLAIM / ACK / HANDOFF / DONE / PROGRESS / NOTE.
+- Send with `lbabus net send --type <T> --task <id> --message-file <f>` to the peer host(s); types are
+  CLAIM / ACK / HANDOFF / DONE / PROGRESS / NOTE / RESOLVED / REFINE / BLOCKED.
 
 ## Mutually-exclusive resources
 - Serialize shared resources with `lbabus resource acquire <name>` / `release <name>`
@@ -137,26 +137,11 @@ the built implementation is the code. The RTM `Status` column is the gap ledger 
   checkout matches the embedded canonical; the `ci-docs` release gate round-trips both, so "same
   `lbabus` version => same requirements" holds and the docs stay aligned with the build.
 
-## Priority & addressing
-Two optional envelope fields let a busy peer triage without reading everything. They are additive and
-backward-read-compatible — an older client parses-and-ignores them — but keep any future field a FLAT
-SCALAR and keep `schema = vihs-collab-msg@v1`, or a deployed older reader drops the whole message
-invisibly (the v1 extractor regex cannot span a nested `{}`; verified cross-plane, finding 17812593).
-- **Priority** (`prio`): `P0` (urgent) > `P1` (high) > `P2` (normal, the default) > `P3` (routine).
-  Set it with `lbabus post --priority <tier>`; an absent `prio` reads as `P2`. Triage your inbox with
-  `lbabus poll --min-priority <tier>` / `lbabus wait --min-priority <tier>` (keeps only messages at
-  least that urgent).
-- **Addressing** (`--to` + `agentId`): `--to <A>` aims a message at a plane (`WIN`/`LINUX`) or a finer
-  agent id (`VIHS_COLLAB_AGENT_ID`, default = your plane). `poll`/`wait --to-me` keeps only what is
-  addressed to you — a broadcast (no `to`) or a `to` matching your plane or agentId — and drops traffic
-  aimed at the other plane.
-
-Behave predictably when addressed:
-- **Secondary-ACK.** ACK-with-status any message explicitly addressed to you at your next safe
-  checkpoint, so the sender knows it landed — never silently absorb an addressed message.
-- **Reprioritize on urgency.** A `P0`/`P1` message addressed to you that outranks your current task
-  pauses you: attend to it, then resume. An equal-or-lower addressed message gets the secondary-ACK and
-  you continue. Broadcasts never preempt — pull them on your own cadence.
+## Acknowledge what you receive
+- **ACK with status.** ACK-with-status a message directed at you (a CLAIM/HANDOFF you are taking, a
+  question) at your next safe checkpoint, so the sender knows it landed -- never silently absorb it.
+  Coordination is point-to-point over `lbabus net` (ADR-0047); there is no priority tier or `--to`
+  addressing (retired with the GitHub-Discussion transport, ADR-0048).
 
 ## Fork posture & merge ownership
 Both planes share ONE canonical repo, so every session must know its posture or two agents WILL step on

@@ -56,6 +56,15 @@ export function buildBenchmarkActorMcpServerDefinitionFields(options: {
   };
 }
 
+/** Map the extension's `lbabus net` config to the env the stdio MCP server reads (LBA-REQ-066, ADR-0046,
+ *  net-only). Empty values are omitted (a graceful no-op when the net bus is unconfigured). */
+export function busEnvFromConfig(cfg: { netHosts: string; netLog: string }): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (cfg.netHosts) { env.VIHS_COLLAB_NET_HOSTS = cfg.netHosts; }
+  if (cfg.netLog) { env.VIHS_COLLAB_NET_LOG = cfg.netLog; }
+  return env;
+}
+
 /**
  * Registers the labview-benchmark-actor MCP server definition provider with VS Code.
  *
@@ -81,9 +90,16 @@ export function registerBenchmarkActorMcpServerProvider(
   });
 
   const provider: vscode.McpServerDefinitionProvider = {
-    provideMcpServerDefinitions: () => [
-      new vscode.McpStdioServerDefinition(fields.label, fields.command, fields.args, {}, fields.version)
-    ]
+    provideMcpServerDefinitions: () => {
+      const c = vscode.workspace.getConfiguration('labviewBenchmarkActor');
+      const env = busEnvFromConfig({
+        netHosts: (c.get<string>('busNetHosts', '') || '').trim(),
+        netLog: (c.get<string>('busNetLog', '') || '').trim()
+      });
+      return [
+        new vscode.McpStdioServerDefinition(fields.label, fields.command, fields.args, env, fields.version)
+      ];
+    }
   };
 
   const disposable = vscode.lm.registerMcpServerDefinitionProvider(BENCHMARK_ACTOR_MCP_PROVIDER_ID, provider);

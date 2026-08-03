@@ -50,6 +50,10 @@ import { buildBenchmarkPanelHtml, buildTrendPanelHtml, scrubberModelFromTrend, d
 import { buildBenchmarkFrameScrubberHtml } from './dashboard-slider/buildBenchmarkFrameScrubberHtml.mjs';
 import { buildLaunchCapture } from './mprr-capture-ring/launch-capture.mjs';
 import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.mjs';
+import { buildCaptureStatus, validateCaptureStatus } from './handoff-beacon/captureStatus.mjs';
+import { buildAgentRequest, buildOpDone, validateAgentRequest, validateOpDone, selectPendingRequest } from './handoff-beacon/handoffRequest.mjs';
+import { buildReviewerVerdict, signReviewerVerdict, verifyReviewerVerdict, gateVisualReview, buildVerdictBusPost, generateEnrolledKeypair as generateReviewerKeypair } from './handoff-beacon/reviewerVerdict.mjs';
+import { verifyVisualReview } from '../tools/collab-cli/verify-visual-review.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { verifyDepManifest } from './labview-authoring/verify-dep-manifest.mjs';
@@ -2248,6 +2252,193 @@ check('capture-ring-frame-correlator', () => {
   assert(Array.isArray(v2island.counterKeys) && v2island.counterKeys.length === 3, 'the selected counterKeys are carried into the runtime');
   execFileSync(process.execPath, [join(here, 'mprr-capture-ring', 'verify-launch-capture.mjs')], { stdio: 'pipe' });
   return { record: 'launch-capture@1', frames: N, v2Counters: v2island.counterKeys.length, dualPacket: cap.dualPacket.outcome, suite: 'verify-launch-capture subprocess' };
+});
+
+// LBA-REQ-055 / ADR-0035: the Handoff Beacon capture-status payload -- the machine-readable capture lifecycle the
+// agent polls so a human "run a VI, then Stop the capture" step becomes an AWAITED signal (not a guess/re-ask).
+// Subprocess selftest + an inline integration check that a real launch-capture (with per-disk throughput) yields
+// a coherent stop beacon that points the agent straight at the peak-write frame.
+check('handoff-capture-status', () => {
+  execFileSync(process.execPath, [join(here, 'handoff-beacon', 'captureStatus.selftest.mjs')], { stdio: 'pipe' });
+  const startMs = 1_700_000_000_000;
+  const N = 6;
+  const frames = Array.from({ length: N }, (_, i) => ({ index: i, imageFile: `frame-${String(i).padStart(5, '0')}.png`, imageBytes: 1000 + i, ms: startMs + Math.round((i * 1000) / 12) }));
+  const resourceSamples = Array.from({ length: N }, (_, i) => ({ ms: startMs + Math.round((i * 1000) / 12), cpuPct: 10, ramMb: 2000, diskPct: 1, disks: [{ name: '0 C:', writeMBs: i === 3 ? 11.4 : 0, readMBs: 0 }] }));
+  const cap = buildLaunchCapture({ frames, resourceSamples, startMs, fps: 12, meta: { workload: 'labview-launch', plane: 'WIN' } });
+  const status = buildCaptureStatus(cap, resourceSamples, { runDir: 'C:\\run', startedAt: 'a', stoppedAt: 'b' });
+  assert(validateCaptureStatus(status).ok, 'the stop beacon validates');
+  assert(status.state === 'stopped' && status.peak.writeMBs === 11.4 && status.peak.disk === '0 C:', 'the beacon captures the peak write throughput + disk');
+  assert(status.peak.frameIndex === 3, `the beacon points at the peak-write frame (got ${status.peak.frameIndex})`);
+  assert(status.wroteToDisk === false, 'wroteToDisk stays false below the >=3-sample threshold (only one write sample)');
+  return { schema: status.schema, peakWriteMBs: status.peak.writeMBs, peakFrameIndex: status.peak.frameIndex, selftest: 'capture-status 6/6' };
+});
+
+// LBA-REQ-056 / ADR-0036: the agent->human REQUEST beacon -- the OTHER direction of the Handoff Beacon Protocol.
+// The agent asks the human to do a manual step; the ask surfaces in the VM as a notification with a "Mark step
+// done" action that writes an op-done beacon the agent awaits. Subprocess selftest + an inline round-trip: two
+// requests -> the newest-pending selector -> the human's op-done answer -> the next pending, all validating.
+check('handoff-request', () => {
+  execFileSync(process.execPath, [join(here, 'handoff-beacon', 'handoffRequest.selftest.mjs')], { stdio: 'pipe' });
+  const r1 = buildAgentRequest({ id: 'req-a', title: 'Activate LabVIEW, then confirm', createdAt: '2026-08-03T00:00:00Z' });
+  const r2 = buildAgentRequest({ id: 'req-b', title: 'Run the streaming VI, then Stop', createdAt: '2026-08-03T00:05:00Z' });
+  assert(validateAgentRequest(r1).ok && validateAgentRequest(r2).ok, 'the requests validate');
+  const pending = selectPendingRequest([r1, r2], []);
+  assert(pending && pending.id === 'req-b', `the newest unanswered request is surfaced (got ${pending && pending.id})`);
+  const done = buildOpDone({ requestId: pending.id, outcome: 'done', note: 'ran VI', doneAt: '2026-08-03T00:06:00Z' });
+  assert(validateOpDone(done).ok && done.requestId === 'req-b', 'the op-done answer validates + keys off the request');
+  assert(selectPendingRequest([r1, r2], [done.requestId]).id === 'req-a', 'once answered, the next pending surfaces');
+  return { schema: r1.schema, opDoneSchema: done.schema, selftest: 'handoff-request 5/5' };
+});
+
+// LBA-REQ-057 / ADR-0037: the reviewer VISUAL VERDICT beacon -- the human's PASS/FAIL of a release candidate,
+// signed in the VM with an ENROLLED Ed25519 reviewer key (mapping to acg-human-signoff-v1), gating the visual
+// review of a release. Subprocess selftest + an inline end-to-end: build a pass verdict -> enrolled reviewer
+// signs -> the sign-off verifies + gateVisualReview publishes; a tampered verdict fails closed.
+check('handoff-verdict', () => {
+  execFileSync(process.execPath, [join(here, 'handoff-beacon', 'reviewerVerdict.selftest.mjs')], { stdio: 'pipe' });
+  const { privateKeyPem, publicKeyPem } = generateReviewerKeypair();
+  const reviewer = 'reviewer@example';
+  const allow = { [reviewer]: publicKeyPem };
+  const verdict = buildReviewerVerdict({ target: { component: 'extension', version: '0.5.0', commit: 'c'.repeat(40), vsixSha256: 'd'.repeat(64) }, verdict: 'pass', reviewer, station: 'WINDOWS_VM', evidence: [{ kind: 'capture', ref: 'run-x' }], renderedAt: '2026-08-03T00:00:00Z' });
+  const signed = signReviewerVerdict(verdict, { privateKeyPem, reviewer });
+  assert(verifyReviewerVerdict(verdict, signed, { reviewerAllowlist: allow }).ok, 'the enrolled reviewer sign-off verifies');
+  const decision = gateVisualReview({ verdict, signOffs: [signed], reviewerAllowlist: allow, minReviewers: 1 });
+  assert(decision.publish === true, 'a pass verdict + an enrolled approval publishes the visual review');
+  assert(gateVisualReview({ verdict: { ...verdict, notes: 'tampered' }, signOffs: [signed], reviewerAllowlist: allow }).publish === false, 'a tampered verdict fails closed');
+  // the release-agreement visual-review verifier (tools/collab-cli/verify-visual-review.mjs) reuses the gate over
+  // a { verdict, signOff } record -- so the extension-signed verdict + a plane agreement gate the release together.
+  assert(verifyVisualReview({ record: { verdict, signOff: signed }, reviewerAllowlist: allow, minReviewers: 1 }).publish === true, 'verify-visual-review publishes a signed pass record');
+  assert(verifyVisualReview({ record: { verdict, signOffs: [] }, reviewerAllowlist: allow }).publish === false, 'verify-visual-review fails closed without a sign-off');
+  // LBA-REQ-058: the verdict announces itself on the coordination bus with a semantic lbabus type.
+  const busPost = buildVerdictBusPost({ verdict, signOff: signed });
+  assert(busPost.type === 'RESOLVED' && busPost.task === 'extension-release-0.5.0' && busPost.ref === verdict.target.commit, 'a pass verdict maps to a RESOLVED bus post for the release task');
+  return { schema: verdict.schema, verdict: verdict.verdict, signoffSchema: signed.schema, busType: busPost.type, selftest: 'reviewer-verdict 7/7' };
+});
+
+// LBA-REQ-059 / ADR-0039: the host<->VM-agent CLOSED LOOP over lbabus net TCP. A pure parser self-test (no
+// network/VM), the committed live+loopback receipt, and the semantic verdict types on the net envelope (option A):
+// the host awaits the VM agent's correlated reply over TCP and the reviewer verdict announces as a first-class
+// RESOLVED/REFINE/BLOCKED net frame -- coordination rides TCP, not a GitHub Discussion.
+check('closed-loop-readback', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'await-agent-reply.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'closed-loop-readback-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/closed-loop-readback-receipt@1' && r.requirement === 'LBA-REQ-059', 'committed closed-loop receipt shape');
+  assert(r.loopbackProof.ok === true && r.loopbackProof.matchingTaskClosesLoop === true && r.loopbackProof.wrongTaskFailsClosed === true && r.loopbackProof.semanticVerdictTypeOverNet === true, 'loopback proof: loop closes, wrong task fails closed, semantic verdict type rides net');
+  assert(Array.isArray(r.liveDrives) && r.liveDrives.length === 3 && r.liveDrives.every((d) => d.frame.senderId === 'WIN'), 'three live drives from the reviewer VM (senderId WIN)');
+  assert(r.liveDrives.map((d) => d.frame.type).join(',') === 'DONE,DONE,NOTE', 'live drives: closed loop, release-review, verdict announcement');
+  // option A (ADR-0039): the net envelope type set carries the semantic verdict statuses so a verdict rides net directly.
+  const netSrc = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Net.cs'), 'utf8');
+  const typesLine = netSrc.split('\n').find((l) => l.includes('"CLAIM"') && l.includes('"HELLO"')) || '';
+  for (const t of ['RESOLVED', 'REFINE', 'BLOCKED']) { assert(typesLine.includes(`"${t}"`), `net Types set includes ${t}`); }
+  return { selftest: 'await-agent-reply 7/7', loopback: r.loopbackProof.ok, liveDrives: r.liveDrives.length, netVerdictTypes: 'RESOLVED/REFINE/BLOCKED' };
+});
+
+// LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
+// `net poll` read side that replaces the GitHub-Discussion post/poll. Asserts the committed loopback receipt
+// (post->log->poll round-trip + type filter + fail-closed) + that the CLI source carries the net poll read side.
+check('net-coordination-log', () => {
+  const r = JSON.parse(readFileSync(join(here, 'net-coordination', 'net-coordination-log-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/net-coordination-log-proof@1' && r.requirement === 'LBA-REQ-060', 'committed net-coordination receipt shape');
+  assert(r.cases.postToLogToPollRoundTrip === true && r.cases.typeFilterNote === true && r.cases.typeFilterResolved === true && r.cases.pollWithoutLogGraceful === true && r.ok === true, 'post->log->poll round-trip + type filter + poll-without-log graceful no-op');
+  const netSrc = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Net.cs'), 'utf8');
+  assert(/"poll"\s*=>\s*CmdPoll/.test(netSrc), 'net dispatch routes poll -> CmdPoll');
+  assert(netSrc.includes('private static int CmdPoll(') && netSrc.includes('a.Get("log")'), 'CmdPoll reads the local --log receive-log');
+  return { receipt: r.ok, model: 'live-only net (no GitHub Discussion)', cases: Object.keys(r.cases).length };
+});
+
+// LBA-REQ-066 / ADR-0046: off-Discussions step 7 -- the extension's coordination commands are NET-ONLY (the
+// GitHub-Discussion transport opt-out is removed: no busTransport selection, no Discussion post argv). The
+// runtime busSendArgs + the pollBus/postNote net paths are unit-covered by test/extension-activation.mjs.
+check('bus-transport-select', () => {
+  const ext = readFileSync(join(here, '..', 'src', 'extension.ts'), 'utf8');
+  assert(/export function busSendArgs\(/.test(ext) && ext.includes("['net', 'send']"), 'busSendArgs builds the net send argv');
+  assert(!ext.includes('busPostArgs') && !ext.includes("'busTransport'") && !ext.includes("transport === 'net'"), 'no Discussion busPostArgs / busTransport selection remains (net-only)');
+  assert(/'net', 'poll'/.test(ext) && /'net', 'send'/.test(ext), 'pollBus -> net poll and postNote -> net send (net-only)');
+  const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8'));
+  const props = pkg.contributes.configuration.properties;
+  assert(!props['labviewBenchmarkActor.busTransport'], 'the busTransport selection setting is removed (net-only)');
+  for (const k of ['labviewBenchmarkActor.busNetHosts', 'labviewBenchmarkActor.busNetLog']) {
+    assert(props[k], `package.json contributes ${k}`);
+  }
+  return { transport: 'net-only', discussionOptOut: 'removed' };
+});
+
+// LBA-REQ-066 / ADR-0046: off-Discussions step 7 -- the MCP coordination tools are NET-ONLY (no
+// VIHS_COLLAB_TRANSPORT selection). Source-asserts net-only poll/post argv + the net env-passing provider; the
+// runtime is covered by test/mcp-server.mjs (busEnvFromConfig + the transport-agnostic stdio tools).
+check('mcp-net-transport', () => {
+  const srv = readFileSync(join(here, '..', 'src', 'mcp', 'runBenchmarkActorMcpServer.ts'), 'utf8');
+  assert(/export function pollBusArgs\(/.test(srv) && /export function postNoteArgs\(/.test(srv), 'the MCP server builds the net poll/send argv');
+  assert(!srv.includes('VIHS_COLLAB_TRANSPORT') && srv.includes("'net', 'poll'") && srv.includes("'net', 'send'"), 'poll/post route to net poll/send only (no transport env selection)');
+  const prov = readFileSync(join(here, '..', 'src', 'mcp', 'benchmarkActorMcpServerProvider.ts'), 'utf8');
+  assert(/export function busEnvFromConfig\(/.test(prov) && !prov.includes('VIHS_COLLAB_TRANSPORT') && prov.includes("getConfiguration('labviewBenchmarkActor')"), 'the provider passes only the net bus env (hosts/log) from the extension config');
+  return { server: 'net poll/send only', provider: 'busEnvFromConfig (net-only)' };
+});
+
+// LBA-REQ-066 / ADR-0046: off-Discussions step 7 -- post-verdict.mjs announces the signed verdict NET-ONLY over
+// `lbabus net send` (no Discussion transport). Runs --print-args and asserts the net send argv (semantic
+// RESOLVED type + release task, no --priority); with a peer -> --hosts, without -> a graceful --skip-if-no-peer.
+check('post-verdict-net-transport', () => {
+  const { privateKeyPem } = generateReviewerKeypair();
+  const reviewer = 'reviewer@example';
+  const verdict = buildReviewerVerdict({ target: { component: 'extension', version: '0.5.0', commit: 'a'.repeat(40), vsixSha256: 'b'.repeat(64) }, verdict: 'pass', reviewer, station: 'WINDOWS_VM', evidence: [{ kind: 'capture', ref: 'run-x' }], renderedAt: '2026-08-03T00:00:00Z' });
+  const signOff = signReviewerVerdict(verdict, { privateKeyPem, reviewer });
+  const tmp = join(tmpdir(), `lba-verdict-${Date.now()}.json`);
+  writeFileSync(tmp, JSON.stringify({ verdict, signOff }));
+  const pv = join(here, '..', 'reviewer-workstation', 'post-verdict.mjs');
+  const run = (env) => execFileSync(process.execPath, [pv, '--verdict', tmp, '--print-args'], { encoding: 'utf8', env: { ...process.env, ...env } }).trim();
+  const net = run({ VIHS_COLLAB_NET_HOSTS: '10.0.2.2' });
+  assert(net.startsWith('net send ') && net.includes('--hosts 10.0.2.2') && net.includes('--type RESOLVED') && net.includes('--task extension-release-0.5.0') && net.includes('--message-file') && !net.includes('--priority'), `net send argv with a peer (got: ${net})`);
+  const noPeer = run({});
+  assert(noPeer.startsWith('net send ') && noPeer.includes('--skip-if-no-peer') && !noPeer.includes('--hosts') && !noPeer.includes('post '), `net send graceful no-op without a peer (got: ${noPeer})`);
+  rmSync(tmp, { force: true });
+  return { net: 'net send', discussionOptOut: 'removed' };
+});
+
+// LBA-REQ-064 / ADR-0044: off-Discussions step 5 -- the release publish workflow no longer announces the
+// reviewer verdict to a GitHub Discussion (the committed signed verdict is the durable record). Asserts the
+// workflow carries no `dotnet run LbaBus` / Discussion-announce step, and that the keyless counter-sign of the
+// committed verdict is retained.
+check('release-no-discussion-announce', () => {
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'extension-release.yml'), 'utf8');
+  assert(!/dotnet run .*LbaBus\.csproj/.test(wf), 'no `dotnet run LbaBus` announce remains in the release workflow');
+  assert(!wf.includes('Announce the reviewer verdict on the coordination bus'), 'the GitHub-Discussion verdict-announce step is gone');
+  assert(wf.includes('LBA-REQ-064') && wf.includes('COMMITTED signed verdict'), 'the workflow documents the committed verdict as the durable record (ADR-0044)');
+  assert(wf.includes('Stage the signed reviewer verdict for keyless counter-sign'), 'the keyless counter-sign of the committed verdict is retained');
+  return { announce: 'removed', durableRecord: 'committed verdict + keyless counter-sign' };
+});
+
+// LBA-REQ-065 / ADR-0045: the coordination default is flipped to `net`, with a graceful no-op when unconfigured
+// -- `net poll` with no receive-log + `net send --skip-if-no-peer` both exit 0 with a hint (no error, no dead
+// loopback). Source-asserts the CLI graceful branches + the net default (the runtime net poll graceful is also
+// covered by the net-coordination-log receipt; npm test covers the extension/MCP default flip).
+check('net-default-graceful', () => {
+  const net = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Net.cs'), 'utf8');
+  assert(net.includes('skip-if-no-peer') && /no peer configured/.test(net), 'net send --skip-if-no-peer degrades gracefully (exit 0)');
+  assert(/no receive-log configured/.test(net) && net.includes('ADR-0045'), 'net poll with no receive-log degrades gracefully (exit 0)');
+  const ext = readFileSync(join(here, '..', 'src', 'extension.ts'), 'utf8');
+  assert(ext.includes('--skip-if-no-peer') && /'net', 'send'/.test(ext), 'the extension routes the send side via --skip-if-no-peer (graceful no-op) when no peer is configured');
+  return { gracefulPoll: true, gracefulSend: true };
+});
+
+// LBA-REQ-067 / ADR-0047: off-Discussions step 8 (final) -- the GitHub-Discussion transport is removed from the
+// lbabus CLI itself. Program.cs no longer dispatches init/post/poll/wait/delta; GitHubGraphQL is a REST-only
+// client (releases for selfcheck + issue comments for defect); the live-only net TCP bus is the sole coordination
+// transport. Source-asserts the removal; the CLI build + smoke test cover the runtime.
+check('cli-no-discussion-transport', () => {
+  const prog = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Program.cs'), 'utf8');
+  for (const cmd of ['"init"', '"post"', '"poll"', '"wait"', '"delta"']) {
+    assert(!prog.includes(`${cmd} =>`), `Program.cs no longer dispatches ${cmd} (Discussion transport removed)`);
+  }
+  assert(!/\bCmdPost\b|\bCmdPoll\b|\bCmdWait\b|\bCmdInit\b|\bCmdDelta\b/.test(prog), 'the Discussion command methods are removed from Program.cs');
+  assert(prog.includes('"net" => NetCommands.Run'), 'the live-only net coordination transport is intact');
+  assert(prog.includes('"defect" => CmdDefect') && prog.includes('CmdSelfCheck'), 'the GitHub-API keepers (defect + selfcheck) remain');
+  const gh = readFileSync(join(here, '..', 'tools', 'collab-cli', 'GitHubGraphQL.cs'), 'utf8');
+  assert(!/FindDiscussion|CreateDiscussion|EnsureDiscussion/.test(gh) && !gh.includes('addDiscussionComment') && !gh.includes('DiscussionRef'), 'GitHubGraphQL has no Discussion GraphQL surface');
+  assert(gh.includes('ListReleaseTags') && gh.includes('AddIssueComment'), 'GitHubGraphQL keeps the REST bits for selfcheck (releases) + defect (issue comment)');
+  const cfg = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Config.cs'), 'utf8');
+  assert(!cfg.includes('Category') && !cfg.includes('Title') && !cfg.includes('AddressesMe'), 'Config drops the discussion-only fields (Category/Title/AddressesMe)');
+  return { removed: ['init', 'post', 'poll', 'wait', 'delta'], graphql: 'REST-only', transport: 'net' };
 });
 
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document

@@ -1,0 +1,40 @@
+{
+  "schema": "labview-benchmark-actor/closed-loop-readback-receipt@1",
+  "requirement": "LBA-REQ-059",
+  "adr": "ADR-0039",
+  "transport": "lbabus net -- bus-msg@1, ADR-0003/0004 (TCP 7420; guest->host via VirtualBox NAT 10.0.2.2)",
+  "capability": "the host drives the reviewer VM's Copilot agent (keyboard injection) and AWAITS its correlated reply frame over lbabus net TCP (await-agent-reply) -- coordination + the reviewer-verdict announcement ride TCP, not a GitHub Discussion",
+  "loopbackProof": {
+    "script": "reviewer-workstation/closed-loop-readback-proof.sh",
+    "matchingTaskClosesLoop": true,
+    "wrongTaskFailsClosed": true,
+    "semanticVerdictTypeOverNet": true,
+    "ok": true
+  },
+  "liveDrives": [
+    {
+      "drive": "closed loop",
+      "vm": "actor",
+      "frame": { "type": "DONE", "task": "live-1785753231", "senderId": "WIN", "payload": "lbabus ready on VM" },
+      "hostAckReceivedByVmAgent": true
+    },
+    {
+      "drive": "release-with-review",
+      "vm": "actor",
+      "tool": "lba-benchmark-summary",
+      "frame": { "type": "DONE", "task": "rev-1785753563", "senderId": "WIN", "payload": "ext 0.5.0 launch-to-ready 2604 ms over 5 samples; review OK" }
+    },
+    {
+      "drive": "verdict announcement (off GitHub Discussions)",
+      "vm": "actor",
+      "frame": { "type": "NOTE", "task": "ext-release-0.5.0", "senderId": "WIN", "payload": "RESOLVED: PASS for ext 0.5.0 by reviewer@vi-tech.nl (signed)" }
+    }
+  ],
+  "reviewerVm": {
+    "os": "Windows 11 + LabVIEW 2026 (actor/win11-labview2026)",
+    "agent": "Copilot Agent mode, Claude Opus 4.8",
+    "lbabus": "0.13.0"
+  },
+  "capturedAt": "2026-08-03",
+  "note": "Live drives observed with senderId=WIN (the reviewer VM's bus identity), each correlated by task id; the host --echo ACK reached the VM agent. The loopback proof re-derives the read-back correlation + the semantic verdict type over net deterministically (no VM/network at gate time)."
+}

@@ -79,8 +79,8 @@ export const BENCHMARK_ACTOR_MCP_TOOLS: readonly BenchmarkActorMcpTool[] = [
   {
     name: 'poll_coordination_bus',
     description:
-      'Read the latest cross-plane (WIN <-> LINUX) coordination-bus messages via lbabus poll. The bus is the ' +
-      'authoritative "what is next" channel; its timestamps are the single authoritative server clock.',
+      'Read the latest cross-plane (WIN <-> LINUX) coordination-bus messages from the live-only lbabus net bus ' +
+      '(net poll of the local receive-log). The bus is the authoritative "what is next" channel.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -96,7 +96,7 @@ export const BENCHMARK_ACTOR_MCP_TOOLS: readonly BenchmarkActorMcpTool[] = [
   },
   {
     name: 'post_coordination_note',
-    description: 'Post a NOTE to the cross-plane coordination bus via lbabus post.',
+    description: 'Post a NOTE to the cross-plane coordination bus over the live-only lbabus net bus (net send).',
     inputSchema: {
       type: 'object',
       properties: {

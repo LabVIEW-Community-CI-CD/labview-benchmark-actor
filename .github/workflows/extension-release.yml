@@ -72,6 +72,12 @@ jobs:
       - name: Verify bidirectional WIN <-> LINUX agreement (extension)
         run: node tools/collab-cli/verify-release-agreement.mjs --component extension "${{ steps.ver.outputs.version }}"
 
+      - name: Verify signed reviewer visual verdict (extension, LBA-REQ-057)
+        # Fail-closed: a release publishes only when an ENROLLED reviewer has a passing, signed visual verdict
+        # (reviewer-verdict@1) of the actual built candidate in release-agreement.json -- the human's VISUAL PASS,
+        # layered ON TOP of the machine plane agreement above (ADR-0037).
+        run: node tools/collab-cli/verify-visual-review.mjs --component extension "${{ steps.ver.outputs.version }}"
+
   release:
     needs: [build, agreement]
     runs-on: ubuntu-latest
@@ -149,12 +155,25 @@ jobs:
           cat "$notes_file"
           echo "path=${notes_file}" >> "$GITHUB_OUTPUT"
 
+      - name: Stage the signed reviewer verdict for keyless counter-sign (LBA-REQ-057)
+        # Extract the signed reviewer visual verdict from release-agreement.json into staging so the keyless-attest
+        # step below ALSO counter-signs it (Fulcio cert + public rekor entry) alongside the .vsix -- a
+        # transparency-logged record of the human's PASS. No-op if the release carries no visualReview yet.
+        run: |
+          node -e "const fs=require('fs');const d=require('./tools/collab-cli/release-agreement.json');const rel=(((d.components||{}).extension||{}).releases||{})['${{ steps.ver.outputs.version }}']||{};if(rel.visualReview){fs.writeFileSync('staging/reviewer-verdict-${{ steps.ver.outputs.version }}.json',JSON.stringify(rel.visualReview,null,2));console.log('staged reviewer verdict for keyless counter-sign');}else{console.log('no visualReview to counter-sign');}"
+
       - name: Keyless-attest the release artifacts (Fulcio + public rekor)
         # Sign the staged .vsix keylessly (cosign, Actions OIDC) so the release carries a Fulcio cert + a
         # public rekor entry, attached AT CREATION with the .vsix (immutable-safe). LBA-REQ-025 / ADR-0016.
         uses: ./.github/actions/keyless-attest
         with:
           artifacts-dir: ${{ github.workspace }}/staging
+
+      # The reviewer verdict is NO LONGER announced to a GitHub Discussion here (LBA-REQ-064, ADR-0044):
+      # under the live-only net model (ADR-0040) CI has no bus peer, and the durable record of the human PASS
+      # is the COMMITTED signed verdict (release-agreement.json visualReview, staged above + keyless
+      # counter-signed). A reviewer/actor with a configured peer announces over `net` via post-verdict.mjs
+      # (VIHS_COLLAB_TRANSPORT=net). This drops the last GitHub-Discussion dependency from the publish pipeline.
 
       - name: Upload the keyless-signed release assets (immutable-release + org-ruleset safe)
         # Under the org tag-creation ruleset the in-Actions github.token cannot create the ext-v* tag; only a

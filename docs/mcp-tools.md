@@ -23,7 +23,7 @@ _(no arguments)_
 
 ## `poll_coordination_bus`
 
-Read the latest cross-plane (WIN <-> LINUX) coordination-bus messages via lbabus poll. The bus is the authoritative "what is next" channel; its timestamps are the single authoritative server clock.
+Read the latest cross-plane (WIN <-> LINUX) coordination-bus messages from the live-only lbabus net bus (net poll of the local receive-log). The bus is the authoritative "what is next" channel.
 
 **Arguments:**
 
@@ -31,7 +31,7 @@ Read the latest cross-plane (WIN <-> LINUX) coordination-bus messages via lbabus
 
 ## `post_coordination_note`
 
-Post a NOTE to the cross-plane coordination bus via lbabus post.
+Post a NOTE to the cross-plane coordination bus over the live-only lbabus net bus (net send).
 
 **Arguments:**
 

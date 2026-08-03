@@ -54,6 +54,33 @@ The viewer shows the metric chart with a **vertical cursor line**:
 This keeps the **metric** and the **visual evidence** synchronized at every
 point in time (LBA-REQ-004/005).
 
+## 3.1 Respond to a handoff request
+
+When the agent needs you to perform a manual step in the reviewer VM (run a VI,
+activate LabVIEW, click **Stop**), it appears as a notification with **Mark step
+done** and **Skip** buttons. You can also answer from the Command Palette:
+
+- **LabVIEW Benchmark Actor: Mark Handoff Step Done** — after completing the
+  step (you may add an optional note).
+- **LabVIEW Benchmark Actor: Skip Handoff Step** — to decline it.
+
+Your answer is recorded as a machine-readable `op-done` beacon so the agent
+resumes without re-asking (LBA-REQ-056).
+
+## 3.2 Sign a reviewer verdict (release reviewers)
+
+If you are an enrolled release reviewer, record your **visual verdict** of a
+release candidate from the Command Palette:
+
+- **LabVIEW Benchmark Actor: Render Reviewer Verdict** — choose **Pass**,
+  **Request changes**, or **Fail** and add a note. The extension Ed25519-signs
+  the verdict in the VM with your enrolled key
+  (`labviewBenchmarkActor.reviewerId` + `labviewBenchmarkActor.reviewerKeyPath`;
+  mint one with `reviewer-workstation/enroll-reviewer.mjs`).
+
+A release publishes only when a passing, signed reviewer verdict accompanies the
+machine gates and the WIN↔LINUX plane agreement (LBA-REQ-057).
+
 ## 4. Run across multiple VMs (optional)
 
 1. Spawn the multi-VM topology (N Vagrant VMs), each with the extension

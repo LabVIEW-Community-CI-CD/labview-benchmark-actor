@@ -55,6 +55,26 @@ writeFileSync(
   join(repo, 'media', 'frame-correlator.mjs'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'frame-correlator.mjs'))
 );
+// 1c-iii. Handoff Beacon capture-status builder (LBA-REQ-055): the extension writes capture-status.json at
+//     capture start/stop from this pure, gated payload builder so the agent can await the human's Stop.
+writeFileSync(
+  join(repo, 'media', 'captureStatus.mjs'),
+  readFileSync(join(repo, 'experiments', 'handoff-beacon', 'captureStatus.mjs'))
+);
+// 1c-iv. Handoff Beacon agent->human request payloads (LBA-REQ-056): the extension watches handoff/requests/ and
+//     surfaces each ask as a notification with a "Mark step done" action that writes an op-done beacon, all built
+//     from this pure, gated module (loaded like captureStatus.mjs).
+writeFileSync(
+  join(repo, 'media', 'handoffRequest.mjs'),
+  readFileSync(join(repo, 'experiments', 'handoff-beacon', 'handoffRequest.mjs'))
+);
+// 1c-v. Handoff Beacon reviewer VISUAL VERDICT builder (LBA-REQ-057): the extension builds + Ed25519-SIGNS the
+//     reviewer's PASS/FAIL of a release candidate IN the VM from this pure, dependency-free, gated module
+//     (canonicalize/bundleDigest inlined so it stages cleanly + signs without OIDC).
+writeFileSync(
+  join(repo, 'media', 'reviewerVerdict.mjs'),
+  readFileSync(join(repo, 'experiments', 'handoff-beacon', 'reviewerVerdict.mjs'))
+);
 writeFileSync(
   join(repo, 'media', 'labview-launch-record.json'),
   readFileSync(join(repo, 'experiments', 'mprr-capture-ring', 'fixtures', 'labview-launch-record.json'))
@@ -128,4 +148,4 @@ if (!agents.ok) {
 writeFileSync(join(repo, 'media', 'AGENTS.md'), readFileSync(join(repo, 'extension-agents', 'AGENTS.md')));
 writeFileSync(join(repo, 'media', 'agents.manifest.json'), readFileSync(join(repo, 'extension-agents', 'agents.manifest.json')));
 
-console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/benchmark-panels.mjs + media/launch-capture.mjs + media/frame-correlator.mjs + media/mprr-series.json (${series.length} points) + benchmark fixtures + media/AGENTS.md`);
+console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/benchmark-panels.mjs + media/launch-capture.mjs + media/frame-correlator.mjs + media/captureStatus.mjs + media/mprr-series.json (${series.length} points) + benchmark fixtures + media/AGENTS.md`);

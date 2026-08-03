@@ -383,7 +383,7 @@ try {
   // Capture ASSEMBLY + CIM sampler SCRIPT: pure/file logic extracted from the cleanroom-gated ffmpeg CAPTURE, so
   // they are unit-testable directly (the ffmpeg gdigrab + PowerShell spawns that PRODUCE the frames stay live-
   // proven in the cleanroom, never faked). assembleCaptureFromDir gathers the frame PNGs + resource samples into
-  // a launch-capture record; samplerScript emits the PowerShell CIM sampler.
+  // a launch-capture record; samplerScript emits the PowerShell PerformanceCounter sampler.
   {
     const capBuilder = await import(pathToFileURL(join(repoRoot, 'media', 'launch-capture.mjs')).href);
     const capDir = join(tmpdir(), 'lba-test-capture-assemble-xyz');
@@ -391,14 +391,17 @@ try {
     mkdirSync(capDir, { recursive: true });
     writeFileSync(join(capDir, 'frame-00000.png'), 'x'.repeat(120));
     writeFileSync(join(capDir, 'frame-00001.png'), 'x'.repeat(140));
-    // resources.jsonl: two valid samples + a blank line + a partial (unparseable) line the assembler must skip.
+    // resources.jsonl: two valid samples (incl per-physical-disk throughput) + a blank line + a partial
+    // (unparseable) line the assembler must skip.
     writeFileSync(
       join(capDir, 'resources.jsonl'),
-      '{"ms":1,"cpuPct":10,"ramMb":2000,"diskPct":1}\n\n{bad partial line\n{"ms":2,"cpuPct":12,"ramMb":2010,"diskPct":2}\n'
+      '{"ms":1,"cpuPct":10,"ramMb":2000,"diskPct":1,"disks":[{"name":"0 C:","writeMBs":0,"readMBs":0}]}\n\n{bad partial line\n{"ms":2,"cpuPct":12,"ramMb":2010,"diskPct":2,"disks":[{"name":"0 C:","writeMBs":11.4,"readMBs":0.2}]}\n'
     );
     const rec = ext.assembleCaptureFromDir(capDir, capBuilder);
     assert(Array.isArray(rec.frames) && rec.frames.length === 2, `assembleCaptureFromDir builds a 2-frame record, got ${rec.frames && rec.frames.length}`);
     assert(existsSync(join(capDir, 'capture.json')), 'assembleCaptureFromDir writes capture.json alongside the frames');
+    assert(Array.isArray(rec.diskNames) && rec.diskNames.includes('0 C:'), 'assembleCaptureFromDir exposes the per-physical-disk names');
+    assert(rec.frames[1].disks && rec.frames[1].disks[0].writeMBs === 11.4, 'assembleCaptureFromDir carries per-disk write throughput onto frames');
 
     // empty dir -> fails closed (no frames were captured).
     const capEmpty = join(tmpdir(), 'lba-test-capture-empty-xyz');
@@ -410,13 +413,142 @@ try {
     rmSync(capDir, { recursive: true, force: true });
     rmSync(capEmpty, { recursive: true, force: true });
 
-    // CIM sampler script: the CPU/RAM/disk CIM queries + a single-quote-escaped out path (no injection).
+    // PerformanceCounter sampler script: CPU %, used RAM (TotalVisible - Available), disk % busy, AND
+    // per-physical-disk write/read throughput; plus a single-quote-escaped out path (no injection).
     const script = ext.samplerScript("C:\\lba\\res'ources.jsonl");
     assert(
-      /Win32_PerfFormattedData_PerfOS_Processor/.test(script) && /TotalVisibleMemorySize/.test(script) && /PerfDisk_PhysicalDisk/.test(script),
-      'samplerScript emits the CPU + RAM + disk CIM queries'
+      /% Processor Time/.test(script) && /TotalVisibleMemorySize/.test(script) && /Available MBytes/.test(script) && /% Disk Time/.test(script),
+      'samplerScript emits the CPU + RAM + disk% counters'
+    );
+    assert(
+      /Disk Write Bytes\/sec/.test(script) && /Disk Read Bytes\/sec/.test(script) && /""disks""/.test(script),
+      'samplerScript emits per-physical-disk read/write throughput'
     );
     assert(/res''ources\.jsonl/.test(script), 'samplerScript single-quote-escapes the out path (no injection)');
+  }
+
+  // Coverage: the staged Handoff Beacon capture-status builder (media/captureStatus.mjs is under the c8 floor)
+  // exercised across every lifecycle state + defensive branch (LBA-REQ-055 / ADR-0035).
+  {
+    const cs = await import(pathToFileURL(join(repoRoot, 'media', 'captureStatus.mjs')).href);
+    const startMs = 1_700_000_000_000;
+    const rec = {
+      schema: 'labview-benchmark-actor/launch-capture@1', startMs, frameCount: 4, durationMs: 250, diskNames: ['0 C:'],
+      frames: [0, 1, 2, 3].map((i) => ({ index: i, tMs: Math.round((i * 1000) / 12), ms: startMs + Math.round((i * 1000) / 12) })),
+    };
+    const samples = [
+      { ms: startMs, disks: [{ name: '0 C:', writeMBs: 0, readMBs: 0 }] },
+      { ms: startMs + 100, disks: [{ name: '0 C:', writeMBs: 12, readMBs: 1 }] },
+      { ms: startMs + 200, disks: [{ name: '0 C:', writeMBs: 5, readMBs: 0 }] },
+      { ms: startMs + 300, disks: [{ name: '0 C:', writeMBs: 8, readMBs: 0 }, { name: '0 C:', writeMBs: null }] },
+      { ms: startMs + 400 }, // no disks -> continue branch
+      null,                  // null sample -> skip branch
+    ];
+    const capturing = cs.buildCapturingStatus({ runDir: 'C:\\run', startedAt: 'x' });
+    assert(capturing.state === 'capturing' && capturing.runDir === 'C:\\run', 'capturing beacon');
+    assert(cs.buildCapturingStatus({}).runDir === null, 'capturing beacon null defaults');
+    const stopped = cs.buildCaptureStatus(rec, samples, { runDir: 'C:\\run', startedAt: 'a', stoppedAt: 'b' });
+    assert(stopped.state === 'stopped' && stopped.wroteToDisk === true && stopped.peak.writeMBs === 12 && stopped.peak.disk === '0 C:', 'stopped beacon peak');
+    assert(stopped.peak.frameIndex === 1 && stopped.perDisk[0].peakReadMBs === 1, 'stopped beacon frame + per-disk read');
+    assert(cs.buildCaptureStatus(rec, samples, { writeMinSamples: 10 }).wroteToDisk === false, 'wroteToDisk threshold branch');
+    assert(cs.buildCaptureStatus(rec, [{ ms: startMs, disks: [{ name: '0 C:', writeMBs: 0.5, readMBs: 0 }] }]).peak.frameIndex === 0, 'a tiny write maps the peak to the nearest frame');
+    const empty = cs.buildCaptureStatus({}, []);
+    assert(empty.frameCount === 0 && empty.peak.frameIndex === null && Array.isArray(empty.perDisk) && empty.perDisk.length === 0, 'empty capture defaults + null peak frame');
+    const withNullDisk = cs.buildCaptureStatus(rec, [{ ms: startMs + 100, disks: [{ name: '0 C:', writeMBs: 4 }, { name: null, writeMBs: 999 }, { writeMBs: 5 }] }]);
+    assert(withNullDisk.peak.writeMBs === 4 && withNullDisk.perDisk.length === 1, 'disks with a null/absent name are skipped');
+    const noStartMs = cs.buildCaptureStatus({ frames: [{ index: 0, tMs: 0, ms: 5000 }, { index: 1, tMs: 83, ms: 5083 }] }, [{ ms: 5083, disks: [{ name: '0 C:', writeMBs: 9 }] }]);
+    assert(noStartMs.peak.frameIndex === 1, 'startMs falls back to the first frame ms when the record omits it');
+    const failed = cs.buildFailedStatus({ runDir: 'C:\\run', error: 'boom' });
+    assert(failed.state === 'failed' && /boom/.test(failed.error), 'failed beacon');
+    assert(cs.buildFailedStatus({}).error === 'unknown', 'failed beacon default error');
+    assert(cs.validateCaptureStatus(stopped).ok && cs.validateCaptureStatus(capturing).ok && cs.validateCaptureStatus(failed).ok, 'validate admits good beacons');
+    assert(!cs.validateCaptureStatus({ schema: 'nope', state: 'stopped' }).ok, 'validate rejects bad schema');
+    assert(!cs.validateCaptureStatus({ schema: cs.CAPTURE_STATUS_SCHEMA, state: 'bogus' }).ok, 'validate rejects bad state');
+    assert(!cs.validateCaptureStatus({ schema: cs.CAPTURE_STATUS_SCHEMA, state: 'stopped' }).ok, 'validate rejects stopped w/o payload');
+    assert(!cs.validateCaptureStatus({ schema: cs.CAPTURE_STATUS_SCHEMA, state: 'failed' }).ok, 'validate rejects failed w/o error');
+    assert(!cs.validateCaptureStatus(null).ok, 'validate rejects null');
+    console.log('capture-status-beacon-coverage: PASS -- media/captureStatus.mjs exercised across all states + branches');
+  }
+
+  // Coverage + behavior: the correlator auto-jump helpers (PR2, LBA-REQ-055) -- the correlator opens on the
+  // beacon's peak-write frame so the human + agent land on the evidence.
+  {
+    assert(ext.peakFrameIndexOf({ peak: { frameIndex: 5 } }) === 5, 'peakFrameIndexOf reads a valid frame');
+    assert(ext.peakFrameIndexOf({ peak: { frameIndex: -1 } }) === 0, 'peakFrameIndexOf clamps a negative to 0');
+    assert(ext.peakFrameIndexOf({ peak: { frameIndex: 'x' } }) === 0, 'peakFrameIndexOf rejects a non-number');
+    assert(ext.peakFrameIndexOf({ peak: {} }) === 0, 'peakFrameIndexOf handles a missing frameIndex');
+    assert(ext.peakFrameIndexOf(undefined) === 0, 'peakFrameIndexOf handles an absent beacon');
+    const pdir = join(tmpdir(), 'lba-test-peakframe-xyz');
+    rmSync(pdir, { recursive: true, force: true });
+    mkdirSync(pdir, { recursive: true });
+    assert(ext.readPeakFrameIndex(pdir) === 0, 'readPeakFrameIndex returns 0 with no beacon');
+    writeFileSync(join(pdir, 'capture-status.json'), JSON.stringify({ schema: 'labview-benchmark-actor/capture-status@1', state: 'stopped', peak: { frameIndex: 7 } }));
+    assert(ext.readPeakFrameIndex(pdir) === 7, 'readPeakFrameIndex reads the beacon peak frame');
+    writeFileSync(join(pdir, 'capture-status.json'), '{bad json');
+    assert(ext.readPeakFrameIndex(pdir) === 0, 'readPeakFrameIndex returns 0 on a bad beacon');
+    rmSync(pdir, { recursive: true, force: true });
+    assert(ext.clampFrameIndex(2, 5) === 2 && ext.clampFrameIndex(99, 5) === 0 && ext.clampFrameIndex(-1, 5) === 0 && ext.clampFrameIndex(0, 0) === 0, 'clampFrameIndex bounds the auto-jump target into [0,count)');
+    const cm = ext.buildCorrelatorModel([{ index: 0 }, { index: 1 }, { index: 2 }], 2, [{ frameIndex: 1 }], ['0 C:']);
+    assert(cm.selectedIndex === 2 && cm.frames.length === 3 && cm.markers.length === 1 && cm.diskNames[0] === '0 C:' && cm.fps === 12, 'buildCorrelatorModel builds the model + clamps to the auto-jump index');
+    assert(ext.buildCorrelatorModel(null, 99, null, undefined).selectedIndex === 0 && ext.buildCorrelatorModel(null, 0, null, undefined).frames.length === 0, 'buildCorrelatorModel tolerates non-array frames/markers');
+    const fr = ext.buildCorrelatorFrame({ index: 3, tMs: 250, cpuPct: 10, ramMb: 200, diskPct: 5, disks: [{ name: '0 C:' }], counters: { a: 1 } }, 'vscode-webview://img.png');
+    assert(fr.index === 3 && fr.tMs === 250 && fr.cpuPct === 10 && fr.ramMb === 200 && fr.diskPct === 5 && fr.imageSrc === 'vscode-webview://img.png' && fr.disks[0].name === '0 C:' && fr.counters.a === 1, 'buildCorrelatorFrame maps a capture frame + webview image src');
+    const rdir = join(tmpdir(), 'lba-test-resamples-xyz');
+    rmSync(rdir, { recursive: true, force: true });
+    mkdirSync(rdir, { recursive: true });
+    assert(ext.readResourceSamples(rdir).length === 0, 'readResourceSamples returns [] with no resources.jsonl');
+    writeFileSync(join(rdir, 'resources.jsonl'), '{"ms":1,"cpuPct":10}\n\n  \n{bad json\n{"ms":2,"cpuPct":20}\n');
+    const rsamples = ext.readResourceSamples(rdir);
+    assert(rsamples.length === 2 && rsamples[0].ms === 1 && rsamples[1].cpuPct === 20, 'readResourceSamples parses valid lines + skips blank/partial');
+    rmSync(rdir, { recursive: true, force: true });
+    console.log('correlator-autojump-helpers: PASS -- peakFrameIndexOf + readPeakFrameIndex + clampFrameIndex + buildCorrelatorModel + buildCorrelatorFrame + readResourceSamples across all branches');
+  }
+
+  // Coverage: the staged media/handoffRequest.mjs (agent<->human request payloads, PR3, LBA-REQ-056), exercised
+  // across every builder/validator/selector branch (the extension loads this at runtime; media/** is c8-covered).
+  {
+    const hr = await import(pathToFileURL(join(repoRoot, 'media', 'handoffRequest.mjs')).href);
+    const req = hr.buildAgentRequest({ id: 'r1', title: 'Run the VI', body: 'then Stop', createdAt: 't0' });
+    assert(req.schema === hr.AGENT_REQUEST_SCHEMA && req.kind === 'step' && req.body === 'then Stop', 'agent-request defaults');
+    assert(hr.buildAgentRequest({ id: 'x', title: 't', kind: 'ack' }).kind === 'ack' && hr.buildAgentRequest({ id: 'x', title: 't', kind: 'bad' }).kind === 'step', 'agent-request kind branch');
+    assert(hr.buildAgentRequest({}).id === null && hr.buildAgentRequest({}).body === '', 'agent-request null/empty defaults');
+    const done = hr.buildOpDone({ requestId: 'r1', outcome: 'done', note: 'ok', doneAt: 't1' });
+    assert(done.schema === hr.OP_DONE_SCHEMA && done.id === 'r1' && done.note === 'ok', 'op-done defaults its id to requestId');
+    assert(hr.buildOpDone({ requestId: 'r' }).outcome === 'done' && hr.buildOpDone({ requestId: 'r', outcome: 'skipped' }).outcome === 'skipped' && hr.buildOpDone({ requestId: 'r', outcome: 'z' }).outcome === 'done', 'op-done outcome branch');
+    assert(hr.buildOpDone({ requestId: 'r', note: '' }).note === null, 'op-done empty note -> null');
+    assert(hr.validateAgentRequest(req).ok && !hr.validateAgentRequest({ schema: 'no', id: 'a', title: 't' }).ok, 'validateAgentRequest schema');
+    assert(!hr.validateAgentRequest({ schema: hr.AGENT_REQUEST_SCHEMA, id: '', title: 't' }).ok && !hr.validateAgentRequest({ schema: hr.AGENT_REQUEST_SCHEMA, id: 'a', title: '' }).ok, 'validateAgentRequest id/title');
+    assert(!hr.validateAgentRequest({ schema: hr.AGENT_REQUEST_SCHEMA, id: 'a', title: 't', kind: 'bad' }).ok && !hr.validateAgentRequest(null).ok, 'validateAgentRequest kind/null');
+    assert(hr.validateOpDone(done).ok && !hr.validateOpDone({ schema: 'no', requestId: 'a', outcome: 'done' }).ok, 'validateOpDone schema');
+    assert(!hr.validateOpDone({ schema: hr.OP_DONE_SCHEMA, requestId: '', outcome: 'done' }).ok && !hr.validateOpDone({ schema: hr.OP_DONE_SCHEMA, requestId: 'a', outcome: 'z' }).ok && !hr.validateOpDone(null).ok, 'validateOpDone requestId/outcome/null');
+    const reqs = [hr.buildAgentRequest({ id: 'a', title: 't', createdAt: '1' }), hr.buildAgentRequest({ id: 'b', title: 't', createdAt: '2' }), { schema: 'no', id: 'bad', title: 'x' }];
+    assert(hr.selectPendingRequest(reqs, []).id === 'b' && hr.selectPendingRequest(reqs, ['b']).id === 'a' && hr.selectPendingRequest(reqs, ['a', 'b']) === null, 'selectPendingRequest newest-unanswered');
+    assert(hr.selectPendingRequest([hr.buildAgentRequest({ id: 'a', title: 't', createdAt: '1' }), hr.buildAgentRequest({ id: 'b', title: 't', createdAt: '1' })], []).id === 'b', 'selectPendingRequest id tie-break on equal createdAt');
+    assert(hr.selectPendingRequest('x', 'y') === null && hr.selectPendingRequest([], []) === null, 'selectPendingRequest non-array/empty');
+    console.log('handoff-request-media-coverage: PASS -- media/handoffRequest.mjs exercised across all branches');
+  }
+
+  // Coverage + behavior: the extension's Handoff Beacon fs helpers (PR3, LBA-REQ-056).
+  {
+    const hp = ext.handoffPaths(join('gs', 'root'));
+    assert(hp.root.endsWith('handoff') && hp.requestsDir.endsWith(join('handoff', 'requests')) && hp.doneDir.endsWith(join('handoff', 'done')), 'handoffPaths derives requests/ + done/ under handoff/');
+    const hdir = join(tmpdir(), 'lba-test-handoff-xyz');
+    rmSync(hdir, { recursive: true, force: true });
+    mkdirSync(join(hdir, 'requests'), { recursive: true });
+    mkdirSync(join(hdir, 'done'), { recursive: true });
+    assert(ext.readJsonDir(join(hdir, 'requests')).length === 0, 'readJsonDir empty on an empty dir');
+    assert(ext.readJsonDir(join(hdir, 'missing')).length === 0, 'readJsonDir returns [] for a missing dir');
+    writeFileSync(join(hdir, 'requests', 'r1.json'), JSON.stringify({ schema: 'labview-benchmark-actor/agent-request@1', id: 'r1', title: 'do a thing' }));
+    writeFileSync(join(hdir, 'requests', 'note.txt'), 'ignored');
+    writeFileSync(join(hdir, 'requests', 'bad.json'), '{oops');
+    const jreqs = ext.readJsonDir(join(hdir, 'requests'));
+    assert(jreqs.length === 1 && jreqs[0].id === 'r1', 'readJsonDir parses valid *.json + skips non-json/partial');
+    writeFileSync(join(hdir, 'done', 'r1.json'), JSON.stringify({ schema: 'labview-benchmark-actor/op-done@1', requestId: 'r1', outcome: 'done' }));
+    writeFileSync(join(hdir, 'done', 'nokey.json'), JSON.stringify({ foo: 1 }));
+    const answered = ext.answeredRequestIds(join(hdir, 'done'));
+    assert(answered.length === 1 && answered[0] === 'r1', 'answeredRequestIds returns the request ids that have an op-done');
+    rmSync(hdir, { recursive: true, force: true });
+    console.log('handoff-request-helpers: PASS -- handoffPaths + readJsonDir + answeredRequestIds across all branches');
   }
 
   // createCleanroom input VALIDATION: an invalid name/port/actor is rejected by the validators and aborts the
@@ -664,6 +796,155 @@ try {
   const summaryResult = await summaryTool.tool.invoke({ input: {} }, {});
   const summaryText = summaryResult && summaryResult.content && summaryResult.content[0] && summaryResult.content[0].value;
   assert(typeof summaryText === 'string' && /LabVIEW Benchmark Actor/.test(summaryText), 'the summary LM tool returns text');
+
+  // Handoff Beacon agent->human flow (PR3, LBA-REQ-056): a pending request surfaces via refreshHandoffRequests
+  // as a notification whose action writes the op-done beacon. Deterministic + ISOLATED -- awaits
+  // refreshHandoffRequests directly and stubs the notification/input responses inline (no shared queue, no
+  // fs.watch race) so it is stable on every CI runner. Covers refreshHandoffRequests + mark/skip + writeOpDoneBeacon.
+  {
+    const mkOut = () => ({ appendLine() {}, show() {}, dispose() {} });
+    const ctxFor = (gs) => ({ globalStorageUri: { fsPath: gs }, extensionUri: { path: repoRoot, fsPath: repoRoot } });
+    const seedReq = (gs, id, title, createdAt) => {
+      rmSync(gs, { recursive: true, force: true });
+      mkdirSync(join(gs, 'handoff', 'requests'), { recursive: true });
+      writeFileSync(join(gs, 'handoff', 'requests', `${id}.json`), JSON.stringify({ schema: 'labview-benchmark-actor/agent-request@1', id, title, body: '', kind: 'step', createdAt }));
+    };
+    const savedInfo = mockVscode.window.showInformationMessage;
+    const savedInput = mockVscode.window.showInputBox;
+
+    // (1) "Mark step done" with a note -> op-done { done, note }.
+    const gsDone = join(tmpdir(), 'lba-test-handoff-done-xyz');
+    seedReq(gsDone, 'req-done', 'Run the streaming VI, then Stop', '2026-08-03T00:00:00Z');
+    mockVscode.window.showInformationMessage = () => 'Mark step done';
+    mockVscode.window.showInputBox = async () => 'ran VI #3';
+    await ext.refreshHandoffRequests(ctxFor(gsDone), mkOut());
+    const opDone = JSON.parse(readFileSync(join(gsDone, 'handoff', 'done', 'req-done.json'), 'utf8'));
+    assert(opDone.requestId === 'req-done' && opDone.outcome === 'done' && opDone.note === 'ran VI #3', `handoff: op-done records done + the note (got ${JSON.stringify(opDone)})`);
+
+    // (2) "Skip" -> op-done { skipped, note:null }.
+    const gsSkip = join(tmpdir(), 'lba-test-handoff-skip-xyz');
+    seedReq(gsSkip, 'req-skip', 'Activate LabVIEW', '2026-08-03T00:05:00Z');
+    mockVscode.window.showInformationMessage = () => 'Skip';
+    await ext.refreshHandoffRequests(ctxFor(gsSkip), mkOut());
+    const opSkip = JSON.parse(readFileSync(join(gsSkip, 'handoff', 'done', 'req-skip.json'), 'utf8'));
+    assert(opSkip.outcome === 'skipped' && opSkip.note === null, 'handoff: op-done records skipped');
+
+    // (3) A dismissed notification (no action chosen) writes no answer.
+    const gsDismiss = join(tmpdir(), 'lba-test-handoff-dismiss-xyz');
+    seedReq(gsDismiss, 'req-dismiss', 'Some step', '2026-08-03T00:07:00Z');
+    mockVscode.window.showInformationMessage = () => undefined;
+    await ext.refreshHandoffRequests(ctxFor(gsDismiss), mkOut());
+    assert(!existsSync(join(gsDismiss, 'handoff', 'done', 'req-dismiss.json')), 'handoff: a dismissed notification writes no op-done');
+    mockVscode.window.showInformationMessage = savedInfo;
+    mockVscode.window.showInputBox = savedInput;
+
+    // (4) No pending: refresh with an empty requests dir clears the active request; the mark/skip commands no-op.
+    const gsEmpty = join(tmpdir(), 'lba-test-handoff-empty-xyz');
+    rmSync(gsEmpty, { recursive: true, force: true });
+    mkdirSync(join(gsEmpty, 'handoff', 'requests'), { recursive: true });
+    await ext.refreshHandoffRequests(ctxFor(gsEmpty), mkOut());
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.markStepDone').handler();
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.skipStep').handler();
+    console.log('handoff-request-flow: PASS -- refreshHandoffRequests -> Mark done/Skip/dismiss -> op-done beacon (+ no-pending no-op)');
+  }
+
+  // Reviewer VISUAL VERDICT (PR4, LBA-REQ-057): the staged media/reviewerVerdict.mjs + the extension helpers +
+  // the Render Reviewer Verdict command that Ed25519-signs a verdict IN the VM.
+  const rv = await import(pathToFileURL(join(repoRoot, 'media', 'reviewerVerdict.mjs')).href);
+  const rvKeys = rv.generateEnrolledKeypair();
+  {
+    const target = { component: 'extension', version: '0.5.0', commit: 'a'.repeat(40), vsixSha256: 'b'.repeat(64) };
+    const reviewer = 'rev@x';
+    const allow = { [reviewer]: rvKeys.publicKeyPem };
+    const v = rv.buildReviewerVerdict({ target, verdict: 'pass', reviewer, station: 'WINDOWS_VM', notes: 'ok', evidence: [{ kind: 'capture', ref: 'run-1' }, { kind: 'x' }], renderedAt: 't' });
+    assert(v.schema === rv.REVIEWER_VERDICT_SCHEMA && v.verdict === 'pass' && v.evidence.length === 1, 'buildReviewerVerdict builds + drops evidence without a ref');
+    assert(rv.buildReviewerVerdict({}).verdict === 'fail' && rv.buildReviewerVerdict({ verdict: 'z' }).station === 'WINDOWS_VM', 'reviewer-verdict verdict/station defaults');
+    assert(rv.validateReviewerVerdict(v).ok && !rv.validateReviewerVerdict({ ...v, verdict: 'z' }).ok && !rv.validateReviewerVerdict({ ...v, target: { version: '', commit: '' } }).ok && !rv.validateReviewerVerdict({ ...v, reviewer: '' }).ok && !rv.validateReviewerVerdict({ ...v, station: 'MARS' }).ok && !rv.validateReviewerVerdict(null).ok, 'validateReviewerVerdict fail-closed');
+    const s = rv.signReviewerVerdict(v, { privateKeyPem: rvKeys.privateKeyPem, reviewer, station: 'WINDOWS_VM' });
+    assert(s.schema === rv.SIGNOFF_SCHEMA && s.decision === 'approve' && s.subject.verdictDigest === rv.reviewerVerdictDigest(v), 'signReviewerVerdict -> acg-human-signoff-v1 bound to the digest');
+    assert(rv.signReviewerVerdict(rv.buildReviewerVerdict({ target, verdict: 'fail', reviewer }), { privateKeyPem: rvKeys.privateKeyPem, reviewer }).decision === 'reject', 'a fail verdict -> reject');
+    assert(rv.verifyReviewerVerdict(v, s, { reviewerAllowlist: allow }).ok, 'verifyReviewerVerdict verifies a good sign-off');
+    assert(!rv.verifyReviewerVerdict({ ...v, notes: 'x' }, s, { reviewerAllowlist: allow }).ok && !rv.verifyReviewerVerdict(v, s, { reviewerAllowlist: {} }).ok && !rv.verifyReviewerVerdict(v, { schema: 'no' }, { reviewerAllowlist: allow }).ok, 'verifyReviewerVerdict fail-closed');
+    assert(rv.gateVisualReview({ verdict: v, signOffs: [s], reviewerAllowlist: allow, minReviewers: 1 }).publish === true, 'gateVisualReview publishes on pass + approval');
+    assert(rv.gateVisualReview({ verdict: v, signOffs: [], reviewerAllowlist: allow }).publish === false && rv.gateVisualReview({ verdict: { ...v, verdict: 'fail' }, signOffs: [s], reviewerAllowlist: allow }).publish === false, 'gateVisualReview fail-closed');
+    let threw = false; try { rv.signReviewerVerdict(v, { reviewer }); } catch { threw = true; }
+    assert(threw, 'signReviewerVerdict requires a private key');
+    assert(rv.buildVerdictBusPost({ verdict: v, signOff: s }).type === 'RESOLVED' && rv.buildVerdictBusPost({ verdict: v, signOff: s }).task === 'extension-release-0.5.0' && rv.buildVerdictBusPost({ verdict: v, signOff: s }).priority === 'P2', 'buildVerdictBusPost: pass -> RESOLVED for the release task');
+    assert(rv.buildVerdictBusPost({ verdict: { ...v, verdict: 'changes' } }).type === 'REFINE' && rv.buildVerdictBusPost({ verdict: { ...v, verdict: 'fail' } }).type === 'BLOCKED' && rv.buildVerdictBusPost(null).type === 'BLOCKED', 'buildVerdictBusPost: semantic type + fail-safe default');
+    console.log('reviewer-verdict-media-coverage: PASS -- media/reviewerVerdict.mjs exercised across all branches');
+  }
+
+  {
+    assert(ext.verdictsDir(join('g', 'r')).endsWith(join('handoff', 'verdicts')), 'verdictsDir is handoff/verdicts');
+    const vt = join(tmpdir(), 'lba-test-verdict-target-xyz');
+    rmSync(vt, { recursive: true, force: true });
+    mkdirSync(join(vt, 'handoff'), { recursive: true });
+    assert(ext.readReviewTarget(vt, '9.9.9').version === '9.9.9' && ext.readReviewTarget(vt, '9.9.9').commit === null, 'readReviewTarget defaults when the file is absent');
+    writeFileSync(join(vt, 'handoff', 'review-target.json'), JSON.stringify({ component: 'extension', version: '0.5.0', commit: 'c'.repeat(40), vsixSha256: 'd'.repeat(64), evidence: [{ kind: 'capture', ref: 'run-x' }] }));
+    const t1 = ext.readReviewTarget(vt, '9.9.9');
+    assert(t1.version === '0.5.0' && t1.commit.length === 40 && t1.evidence.length === 1, 'readReviewTarget reads the target file');
+    writeFileSync(join(vt, 'handoff', 'review-target.json'), '{bad');
+    assert(ext.readReviewTarget(vt, '9.9.9').version === '9.9.9', 'readReviewTarget tolerates bad json');
+    const signed = ext.buildSignedVerdict(rv, { target: t1, verdict: 'pass', reviewer: 'rev@x', station: 'WINDOWS_VM', notes: 'ok', evidence: t1.evidence, privateKeyPem: rvKeys.privateKeyPem, renderedAt: 't' });
+    assert(signed.verdict.verdict === 'pass' && signed.signOff.decision === 'approve', 'buildSignedVerdict builds + signs a verdict');
+    let threw = false; try { ext.buildSignedVerdict(rv, { target: { version: '' }, verdict: 'pass', reviewer: 'r', station: 'WINDOWS_VM', notes: '', evidence: [], privateKeyPem: rvKeys.privateKeyPem, renderedAt: 't' }); } catch { threw = true; }
+    assert(threw, 'buildSignedVerdict throws on an invalid verdict');
+    // LBA-REQ-066 (off-Discussions step 7, net-only): busSendArgs builds the `lbabus net send` argv for the verdict over TCP.
+    const bs = ext.busSendArgs({ type: 'RESOLVED', task: 'extension-release-0.5.0' }, '/tmp/v.json', '10.0.2.2');
+    assert(bs[0] === 'net' && bs[1] === 'send' && bs.includes('--hosts') && bs.includes('10.0.2.2') && bs.includes('--type') && bs.includes('RESOLVED') && bs.includes('--task') && bs.includes('extension-release-0.5.0') && bs.includes('--message-file') && bs.includes('/tmp/v.json'), 'busSendArgs builds the lbabus net send argv');
+    const bsNoPeer = ext.busSendArgs({ type: 'BLOCKED', task: 't' }, '/tmp/v.json', '');
+    assert(!bsNoPeer.includes('--hosts') && bsNoPeer.includes('--skip-if-no-peer'), 'busSendArgs uses --skip-if-no-peer (graceful no-op) when no peer is configured');
+    assert(typeof ext.busPostArgs === 'undefined', 'the Discussion busPostArgs builder is removed (net-only)');
+    rmSync(vt, { recursive: true, force: true });
+    console.log('reviewer-verdict-helpers: PASS -- verdictsDir + readReviewTarget + buildSignedVerdict + busSendArgs (net-only)');
+  }
+
+  {
+    const savedInfo = mockVscode.window.showInformationMessage;
+    const savedInput = mockVscode.window.showInputBox;
+    const savedCfg = mockVscode.workspace.getConfiguration;
+    const render = registered.find((r) => r.id === 'labviewBenchmarkActor.renderReviewerVerdict').handler;
+    const reviewer = 'reviewer@vm';
+    const keyFile = join(tmpdir(), 'lba-test-reviewer-key-xyz.pem');
+    writeFileSync(keyFile, rvKeys.privateKeyPem);
+
+    // (1) no reviewerId/keyPath configured -> warns, no verdict.
+    warnMessages.length = 0;
+    await render();
+    assert(warnMessages.some((m) => /reviewerId/.test(m)), 'renderReviewerVerdict warns without config');
+
+    // (2) configured but the key path is missing -> errors.
+    errorMessages.length = 0;
+    mockVscode.workspace.getConfiguration = () => ({ get: (k, d) => (k === 'reviewerId' ? reviewer : k === 'reviewerKeyPath' ? join(tmpdir(), 'lba-no-such-key-xyz.pem') : d) });
+    await render();
+    assert(errorMessages.some((m) => /key not found/i.test(m)), 'renderReviewerVerdict errors on a missing key');
+
+    // (3) configured + a Pass choice + notes -> a signed verdict written that verifies against the enrolled key.
+    mockVscode.workspace.getConfiguration = () => ({ get: (k, d) => (k === 'reviewerId' ? reviewer : k === 'reviewerKeyPath' ? keyFile : d) });
+    mkdirSync(join(gsRoot, 'handoff'), { recursive: true });
+    writeFileSync(join(gsRoot, 'handoff', 'review-target.json'), JSON.stringify({ component: 'extension', version: '0.5.0', commit: 'e'.repeat(40), vsixSha256: 'f'.repeat(64), evidence: [{ kind: 'capture', ref: 'run-live' }] }));
+    mockVscode.window.showInformationMessage = () => 'Pass';
+    mockVscode.window.showInputBox = async () => 'looks right end to end';
+    const savedPath = process.env.PATH;
+    process.env.PATH = ''; // the command's best-effort lbabus bus post must not shell a REAL post during the test
+    await render();
+    process.env.PATH = savedPath;
+    const verdictFile = join(gsRoot, 'handoff', 'verdicts', 'extension-0.5.0.json');
+    assert(existsSync(verdictFile), 'renderReviewerVerdict wrote the signed verdict');
+    const rec = JSON.parse(readFileSync(verdictFile, 'utf8'));
+    assert(rec.verdict.verdict === 'pass' && rec.verdict.target.version === '0.5.0' && rec.signOff.schema === rv.SIGNOFF_SCHEMA && rec.signOff.decision === 'approve' && rec.signOff.reviewer === reviewer, 'the signed verdict records pass + approve + the reviewer');
+    assert(rv.verifyReviewerVerdict(rec.verdict, rec.signOff, { reviewerAllowlist: { [reviewer]: rvKeys.publicKeyPem } }).ok, 'the extension-signed verdict verifies against the enrolled key');
+
+    // (4) a dismissed choice -> no throw.
+    mockVscode.window.showInformationMessage = () => undefined;
+    await render();
+
+    mockVscode.window.showInformationMessage = savedInfo;
+    mockVscode.window.showInputBox = savedInput;
+    mockVscode.workspace.getConfiguration = savedCfg;
+    rmSync(keyFile, { force: true });
+    console.log('reviewer-verdict-command: PASS -- Render Reviewer Verdict -> Ed25519-signed verdict written + verifies');
+  }
 } finally {
   Module._load = originalLoad;
 }

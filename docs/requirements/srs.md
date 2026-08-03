@@ -82,6 +82,19 @@ progressively.
 | LBA-REQ-052 | The system shall build the g-cli launcher from its Rust source and prove it on this host, so a fail-closed gate confirms the committed round-trip is correctly derived and cross-plane comparable. | The 2-actor icon-editor grid's TESTER actor drives LUnit via g-cli; on Linux g-cli ships no prebuilt binary -- its launcher is the rust-proxy crate (G-CLI/G-CLI) that opens a TCP server, launches LabVIEW on the target VI, and streams args/output/exit code back. Building it from source and proving a real LabVIEW round-trip is the enabler for that actor. | `cargo build --release` builds the `g-cli` binary; `gcliProxyBenchmark.mjs` records the machine-independent proof identity (tool + version + source commit + operation + args in + echoed text + exit code + LabVIEW version/bitness); `validateGcliReceipt` fails closed unless the echo matches the args sent, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/g-cli-proxy/verify-g-cli-proxy-proof.selftest.mjs` (7/7); gated by `g-cli-proxy-proof`. Live: g-cli 3.0.1 built from Rust in 6.7s, then drove host LabVIEW 2026 (headless) to echo hello/from/host and exit 0. |
 | LBA-REQ-053 | The system shall run the ni/labview-icon-editor LUnit suite via g-cli as a benchmark, so a fail-closed gate proves the committed test inventory is correctly derived and cross-plane comparable. | This is the TESTER actor of the 2-actor icon-editor grid (companion to the builder, LBA-REQ-051): the Rust-built g-cli (LBA-REQ-052) runs the project's real unit tests, with the LUnit framework from the CORRECT icon-editor-developer.vipc (NOT the CI-runner runner_dependencies.vipc). | `g-cli --lv-ver 2026 --arch 64 lunit -- -r <report.xml> lv_icon_editor.lvproj` discovers + runs the project's LUnit classes and emits a JUnit report; `lunitTestBenchmark.mjs` records the machine-independent test inventory (sorted class/case set + suite structure); `validateLunitReceipt` fails closed unless the inventory matches the total, the resultHash re-derives, the verdict matches, and the digest is intact. | Run `node experiments/lunit-test/verify-lunit-test-benchmark.selftest.mjs` (7/7); gated by `lunit-test-benchmark`. Live: g-cli lunit ran the suite on lba-golden -- 4 classes / 25 cases (10 passed, 2 failed, 8 errored headless, 5 setup), well-formed report. |
 | LBA-REQ-054 | The system shall assemble every committed benchmark receipt into a benchmark-type x plane coverage matrix (the Benchmark Observatory), so a fail-closed gate proves the suite-wide determinism ledger and coverage are correctly derived. | As the suite grows along its axes (benchmark type x plane x OS x hardware), one governed artifact must map what has been measured where, whether it reproduces, and what to measure next -- above the per-benchmark grid. | `benchmarkObservatory.mjs` folds the VI Analyzer + Mass Compile + PPL build + LUnit test receipts into a coverage matrix + determinism ledger + frontier; `validateObservatory` fails closed on a determinism violation, a matrix that contradicts the receipts, a forged verdict, or a tampered digest; the generated `docs/benchmarks/benchmark-observatory.md` is drift-gated. | Run `node experiments/benchmark-observatory/verify-benchmark-observatory.selftest.mjs` (8/8); gated by `benchmark-observatory`. Derived: 4 benchmark types x 5 planes, 2 cross-plane-proven, 0 violations, 13-cell frontier. |
+| LBA-REQ-055 | The system shall emit a machine-readable capture-status beacon for each LabVIEW-launch capture (capturing -> stopped/failed), so a fail-closed gate proves the rich stop payload (wroteToDisk, peak write throughput + its frame, per-disk breakdown) is correctly derived and an agent can await a human-in-the-loop step. | The reviewer/agentic flow has human-in-the-loop steps (run a VI, then Stop the capture); without a signal the agent guesses or re-asks. A capture-status beacon makes the human's Stop an awaited, machine-observable event that also carries a pointer straight to the evidence. | `captureStatus.mjs` derives the beacon (wroteToDisk thresholded, peak write MB/s + the frame index where it peaked, per-physical-disk peaks) from the capture's samples; the extension writes `capture-status.json` at capture start (capturing) + stop (stopped) or assembly failure (failed); `reviewer-workstation/await-handoff.sh` polls it; `validateCaptureStatus` fails closed on a bad schema/state/missing payload. | Run `node experiments/handoff-beacon/captureStatus.selftest.mjs` (6/6); gated by `handoff-capture-status`. Live: the operator's streaming VI produced a stopped beacon (wroteToDisk=true, peak 134 MB/s @ frame 1122) the agent's poll resolved. |
+| LBA-REQ-056 | The system shall surface an agent's request for a human step as an in-VM VS Code notification whose "Mark step done" / "Skip" actions emit a machine-readable op-done beacon, so a fail-closed gate proves the request/answer payloads are correctly derived and the agent can await a human-in-the-loop step it initiated. | The capture-status beacon (LBA-REQ-055) let the agent AWAIT a human step; the agent's own ASK ("run this VI", "activate LabVIEW") was invisible except via chat, so it re-asked. Making the ask a first-class, in-VM, machine-observable event (a reusable human-step barrier) lets the agent request a manual step and resume when the human answers. | `handoffRequest.mjs` derives `agent-request@1` + `op-done@1` (validated fail-closed) + `selectPendingRequest` (newest unanswered); the extension watches `handoff/requests/` and surfaces the ask as a notification with "Mark step done" (optional note) / "Skip" -- also palette commands -- writing `handoff/done/<id>.json`; `reviewer-workstation/request-step.sh` drops the request + polls the answer ONCE. | Run `node experiments/handoff-beacon/handoffRequest.selftest.mjs` (5/5); gated by `handoff-request`. Live: the agent asked the human in the reviewer VM + resumed on the op-done beacon. |
+| LBA-REQ-057 | The system shall emit a signed reviewer visual verdict (`reviewer-verdict@1` mapping to `acg-human-signoff-v1`) for an extension release candidate, so a fail-closed gate proves the human's PASS/FAIL of the built candidate is Ed25519-signed by an enrolled reviewer and gates the release alongside the plane agreement. | The reviewer VM exists for the human's VISUAL PASS/FAIL of a candidate; that verdict was informal (chat / a hand-edited signoff). Making it a signed, candidate-bound artifact turns the human gate into a governed, verifiable release input, signable IN the VM (enrolled Ed25519 needs no OIDC). | `reviewerVerdict.mjs` (dependency-free, staged) builds + Ed25519-signs the verdict IN the VM; `gateVisualReview` publishes only on a pass + verified enrolled approvals; `release-with-review.mjs` composes it with the ADR-0018 machine gate; `verify-visual-review.mjs` gates a release's visualReview block; CI keyless-cosign counter-signs. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (6/6); gated by `handoff-verdict`. Live: the reviewer signs a pass verdict for ext 0.5.0 in the VM that verifies against the enrolled allowlist. |
+| LBA-REQ-058 | The system shall announce a signed reviewer verdict on the `lbabus` coordination bus with a semantic message type (pass -> RESOLVED, changes -> REFINE, fail -> BLOCKED) carrying the full signed verdict, so a fail-closed gate proves the announcement is correctly derived and remote actors see the human's PASS/FAIL. | The reviewer's signed verdict (LBA-REQ-057) stayed local; the `lbabus` bus is how the planes coordinate, so a remote actor could not see that a human reviewed + PASSED a candidate. Announcing it makes the verdict a coordination event. | `buildVerdictBusPost` derives the semantic `lbabus` post (type/task/ref/priority) from a signed verdict record; the extension posts it from the VM after signing (best-effort) + the release CI posts it after `verify-visual-review`; the full signed verdict JSON is the message body. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (7/7); gated by `handoff-verdict`. Live: the ext 0.5.0 PASS verdict maps to a RESOLVED post on the extension-release-0.5.0 task. |
+| LBA-REQ-059 | The system shall close the host<->VM-agent coordination loop over the `lbabus net` TCP bus -- after driving the reviewer VM's Copilot agent, the host awaits the agent's reply frame correlated by task id (fail-closed on mismatch/timeout) and the signed reviewer verdict announces with a semantic net type (RESOLVED/REFINE/BLOCKED), so a fail-closed gate proves the read-back + the semantic types are correctly derived and coordination rides TCP, not a GitHub Discussion. | `drive-agent-chat.sh` drove the VM's chat fire-and-screenshot with no programmatic read-back, and the verdict announcement (LBA-REQ-058) rode a GitHub Discussion; an operator directive moves coordination onto the private TCP bus (`lbabus net`, LBA-REQ-007) and deprecates Discussions. | `await-agent-reply.mjs` runs `lbabus net listen` + correlates the VM agent's reply by task/type (fail-closed); `drive-agent-closed-loop.sh` composes inject (`drive-agent-chat.sh`) + await; the net type set gains RESOLVED/REFINE/BLOCKED (option A); guest->host proven in `provider-delegation/vm-run-evidence.json`. | Run `node reviewer-workstation/await-agent-reply.selftest.mjs` (7/7); gated by `closed-loop-readback`. Live: 3 drives from the reviewer VM (senderId WIN) -- loop, benchmark review (2604 ms/5 PASS), verdict RESOLVED -- all over TCP. |
+| LBA-REQ-060 | The system shall provide a live-only net coordination read side -- a per-actor local receive-log written by `lbabus net listen --log` and read by `lbabus net poll` (filtered by type/task; fail-closed without a log) -- so a fail-closed gate proves post->log->poll round-trips over TCP and coordination reads no longer depend on a GitHub Discussion. | ADR-0039 moved the host<->VM-agent loop + verdict announcement onto net; an operator directive moves the REST of coordination off Discussions with a LIVE-ONLY model (no async store). The send side (`net send`) existed; the read side was missing. | `net listen --log <file>` appends received frames to a per-actor JSONL receive-log; `net poll` reads + filters it (BusWire.ToJson/FromJson); no central/async store -- an offline peer misses the frame (accepted). | Run `bash experiments/net-coordination/net-coordination-log-proof.sh`; gated by `net-coordination-log` (committed loopback receipt + Net.cs source). Loopback: post->log->poll round-trip + type filter + poll-without-log fails closed. |
+| LBA-REQ-061 | The system shall let the extension select the coordination-bus transport -- GitHub Discussion (default) or the live-only `lbabus net` TCP bus (opt-in via busTransport/busNetHosts/busNetLog) -- so postNote/pollBus/the reviewer-verdict announcement ride `net send`/`net poll` when configured, and a fail-closed gate proves the switch + the Discussion-safe default. | ADR-0040 gave net a live-only model; the extension still shelled the GitHub-Discussion post/poll. Step 2 lets it select the transport WITHOUT breaking existing users (Discussion stays default). | `busConfig` reads the settings; `busSendArgs` builds the net send argv; postNote->net send, pollBus->net poll, the verdict->net send --message-file under net; Discussion default keeps busPostArgs/post + poll. | Extension tests (busSendArgs + activation) in test/extension-activation.mjs; gated by `bus-transport-select` (source + package.json config assertion; Discussion default). |
+| LBA-REQ-062 | The system shall let the extension's MCP coordination tools select the transport -- the provider passes the bus-transport config as env (VIHS_COLLAB_TRANSPORT/NET_HOSTS/NET_LOG) and the stdio server routes poll_coordination_bus/post_coordination_note to `net poll`/`net send` under net (Discussion default) -- so the agent tool surface coordinates over TCP when configured, proven by a fail-closed gate. | ADR-0041 migrated the extension commands; the MCP server (a separate stdio process) still shelled the Discussion poll/post. | `busEnvFromConfig` maps busTransport/busNetHosts/busNetLog -> env on the McpStdioServerDefinition; `pollBusArgs`/`postNoteArgs` route to net poll/send under net; Discussion default keeps poll/post. | test/mcp-server.mjs (busEnvFromConfig + stdio tools); gated by `mcp-net-transport` (src/mcp source assertion). |
+| LBA-REQ-063 | The system shall let the reviewer-workstation verdict announcer (post-verdict.mjs) select the transport -- GitHub Discussion (default) or the live-only lbabus net TCP bus (opt-in via VIHS_COLLAB_TRANSPORT/NET_HOSTS) -- so a signed verdict announces via `net send` with the same semantic type when configured, and a fail-closed gate proves the argv under both transports. | ADR-0041/0042 migrated the extension + MCP; post-verdict.mjs (used by the release CI + by hand) still built only the Discussion post argv. | post-verdict.mjs reads VIHS_COLLAB_TRANSPORT/NET_HOSTS: net -> `net send --hosts --type --task --message-file`, else `post` (unchanged); --print-args honors it so the release CI is unchanged at the default. | Gated by `post-verdict-net-transport` (runs --print-args under both transports + asserts the argv). |
+| LBA-REQ-064 | The system shall NOT announce the reviewer verdict to a GitHub Discussion from the release publish workflow -- the durable record of the human PASS is the committed signed verdict (release-agreement visualReview, keyless counter-signed); under the live-only net model CI has no bus peer -- so a fail-closed gate proves the publish workflow carries no GitHub-Discussion announce. | ADR-0038 had the release CI announce the verdict to a GitHub Discussion; under live-only (ADR-0040) CI has no net peer + the committed verdict is already durable, so the CI announce is dropped. | The Set up .NET + Announce steps are removed from extension-release.yml; the committed verdict (staged + keyless counter-signed) is the durable record; off-CI live announce stays via post-verdict.mjs/extension over net. | Gated by `release-no-discussion-announce` (the workflow carries no dotnet-run-LbaBus / announce step + keeps the keyless counter-sign). |
+| LBA-REQ-065 | The system shall default the coordination-bus transport to the live-only `lbabus net` TCP bus (GitHub Discussion becomes a legacy opt-out) AND degrade gracefully when net is unconfigured -- `net poll` with no receive-log and `net send --skip-if-no-peer` with no peer both exit 0 with a hint (no error, no dead loopback) -- so a fresh install coordinates over TCP once a peer/log is set and does nothing quietly until then, proven by a gate. | Steps 1-5 (ADR-0040..0044) made net available everywhere but kept Discussion the default (opt-in net) during the transition; with the net loop proven live (ADR-0039) the last thing pinning Discussion is inertia. Flipping naively would error/hang an unconfigured install, so the flip is paired with a graceful no-op. | busTransport defaults to net across the extension/MCP/post-verdict; `net poll` no-log softened from fail-closed to graceful (exit 0); the send side passes --skip-if-no-peer so `net send` with no peer exits 0; Discussion is `busTransport: discussion` / VIHS_COLLAB_TRANSPORT=discussion. | npm test (extension + MCP default flip) + the net-coordination-log receipt (graceful poll); gated by `net-default-graceful` (Net.cs graceful branches + net default in package.json/extension) + `bus-transport-select` (default === 'net'). |
+| LBA-REQ-066 | The system shall coordinate over the live-only `lbabus net` TCP bus ONLY across its product surface (the extension commands + the MCP coordination tools + the reviewer verdict announcer) -- the GitHub-Discussion transport opt-out is removed (no `busTransport` selection, no consumer builds a Discussion `post`/`poll` argv) -- so a fail-closed gate proves the product surface is net-only. | Steps 1-6 (ADR-0040..0045) made net the default with Discussion a legacy opt-out, but the product still carried the Discussion arms (busPostArgs, the busTransport selection, VIHS_COLLAB_TRANSPORT, the post/--priority branch). With net proven + default, the opt-out is dead weight on the surface users + agents touch. | Removed the busTransport setting; busConfig returns {netHosts,netLog}; pollBus->net poll, postNote/verdict->net send unconditionally; busEnvFromConfig maps only NET_HOSTS/NET_LOG; post-verdict.mjs is net send only. The graceful no-op (--skip-if-no-peer / net poll exit 0) is preserved. | npm test (extension + MCP net-only) + gates `bus-transport-select`/`mcp-net-transport`/`post-verdict-net-transport` (now net-only) + `net-default-graceful`. |
+| LBA-REQ-067 | The system shall NOT expose a GitHub-Discussion coordination transport from the `lbabus` CLI -- the `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion client are removed (GitHubGraphQL keeps only the REST release-tag + issue-comment calls for `selfcheck`/`defect`), leaving the live-only `lbabus net` TCP bus as the sole coordination transport -- so a fail-closed gate proves the CLI carries no Discussion transport. | Step 7 (ADR-0046) made the product net-only, leaving the CLI's Discussion commands dead. Removing them + the GraphQL client completes the off-Discussions teardown; GitHubGraphQL was shared with selfcheck (release tags) + defect (issue comment), which stay on REST. | Program.cs drops init/post/poll/wait/delta + EnforceVersionOrNull + ParseAll/SeedBody/Eq/Dur; GitHubGraphQL is REST-only; Config drops Category/Title/AgentId/Counterpart/AddressesMe; the 12 discussion/version-guard ci cases are retired. | dotnet build + a CLI smoke test (removed cmds exit 1; net intact); gated by `cli-no-discussion-transport`. |
 
 ---
 
@@ -352,29 +365,22 @@ progressively.
 
 ### LBA-REQ-013: Prioritized, addressable coordination messages
 
-- Status: Proposed
+- Status: Superseded (ADR-0048 -- retired with the GitHub-Discussion transport, off-Discussions step 8b)
 - Area: Agentic infrastructure (extends LBA-REQ-007, LBA-REQ-012)
-- Statement: The coordination bus shall let a sender tag a message with a
-  priority tier and an explicit addressee, and shall let a reader filter its
-  inbox by both, so a busy agent can triage which messages to attend to first
-  without reading every message. The fields shall be additive and
-  backward-read-compatible so an older client parses and ignores them.
-- Acceptance Criteria:
-  - `lbabus post --priority <P0|P1|P2|P3>` stamps a flat `prio` tier on the
-    message (most-urgent first, default `P2`); an absent `prio` reads as `P2`.
-  - `lbabus post` stamps the sender's `agentId` (env `VIHS_COLLAB_AGENT_ID`,
-    default the plane label); `--to <A>` addresses a plane or an `agentId`.
-  - `lbabus poll`/`wait --to-me` keeps only messages addressed to the reader (a
-    broadcast, or a `to` matching the reader's plane or `agentId`) and drops
-    messages aimed at the other plane.
-  - `lbabus poll`/`wait --min-priority <tier>` keeps only messages at least that
-    urgent.
-  - The additive fields are flat scalars and the wire `schema` is unchanged
-    (`vihs-collab-msg@v1`), so a prior-version reader parses the known fields and
-    ignores the new ones; a nested-object or schema-bumped envelope is rejected.
-- Change Guidance: Keep any future envelope field a flat scalar and keep the
-  schema at `vihs-collab-msg@v1`; a nested field or a schema bump silently drops
-  the message on already-deployed readers (verified cross-plane, finding 17812593).
+- Supersession: RETIRED. This capability -- message priority triage (`P0`-`P3`, `--min-priority`) + plane
+  addressing (`--to`/`--to-me`) -- lived entirely in the GitHub-Discussion transport's `lbabus post`/`poll`/`wait`
+  commands + the `CollabMessage`/`Priority` model, all removed under the off-Discussions migration (ADR-0040
+  live-only net, ADR-0047 CLI transport removal). Under the live-only `lbabus net` TCP model there is no async
+  inbox to triage (messages are live + point-to-point) and `net send --hosts` already targets a specific peer,
+  so priority + plane-addressing are moot; the net `BusEnvelope` (`bus-msg@1`) deliberately carries neither.
+  Operator decision 2026-08-03 (retire, option B). A future net-envelope priority/addressing feature would be a
+  NEW requirement, not a revival of this one.
+- Historical statement (no longer implemented): The coordination bus shall let a sender tag a message with a
+  priority tier and an explicit addressee, and shall let a reader filter its inbox by both. It was implemented
+  via `lbabus post --priority`/`--to` + `poll`/`wait --min-priority`/`--to-me` over the additive, flat-scalar,
+  back-read-compatible `vihs-collab-msg@v1` envelope (verified cross-plane, finding 17812593).
+- Change Guidance: retired -- do not re-add priority/addressing to the removed Discussion path. If wanted on
+  `net`, govern it as a new requirement + ADR on the `bus-msg@1` envelope.
 
 ### LBA-REQ-014: Cross-plane benchmark comparison
 
@@ -1661,6 +1667,398 @@ progressively.
 
 ---
 
+### LBA-REQ-055: Handoff Beacon -- capture-status (human-in-the-loop signal)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0035 -- the Handoff Beacon Protocol)
+- Statement: The system shall emit a machine-readable capture-status beacon for each
+  LabVIEW-launch capture (capturing -> stopped/failed), so a fail-closed gate proves the rich
+  stop payload (wroteToDisk, peak write throughput + its frame, per-disk breakdown) is
+  correctly derived and an agent can await a human-in-the-loop step.
+- Rationale: The reviewer VM exists because some steps need a human -- run a VI, then click
+  Stop. Those steps are invisible to the agent except through chat, so it guesses or re-asks.
+  A capture-status beacon turns the human's Stop into an AWAITED, machine-observable event and
+  carries a pointer straight to the evidence (the peak-write frame), so human assistance is
+  leveraged efficiently. This is the first instance of the Handoff Beacon Protocol (ADR-0035).
+- Acceptance Criteria:
+  - `buildCaptureStatus` derives, from the capture's resource samples, `wroteToDisk` (a
+    per-disk write rate above a threshold for a minimum number of samples), the peak write
+    MB/s + the disk + the frame index where it peaked, and a per-physical-disk write/read peak
+    breakdown; `buildCapturingStatus` / `buildFailedStatus` cover the other lifecycle states.
+  - The extension writes `capture-status.json` into the run dir at capture START and STOP (or
+    FAILED on assembly error), best-effort (never perturbing the capture).
+  - `reviewer-workstation/await-handoff.sh` runs the guest poll ONCE and blocks until the
+    beacon resolves (stopped|failed) or a timeout, printing the resolved payload -- the one
+    sanctioned poll in the agentic flow.
+  - `validateCaptureStatus` fails closed on a wrong schema, an unknown state, or a stopped/
+    failed beacon missing its payload.
+  - On STOP the Frame Correlator opens on the beacon's peak-write frame (derived via
+    `peakFrameIndexOf` / `readPeakFrameIndex`, clamped into range by `clampFrameIndex` and
+    carried into the correlator model by `buildCorrelatorModel`), so the human + agent land on
+    the evidence rather than scrubbing from frame 0.
+- Change Guidance: The `experiments/handoff-beacon/` payload builder + self-test are gated by
+  `handoff-capture-status` in `verify-local-gates` and mapped in the RTM; the builder is staged
+  into `media/` and loaded by `src/extension.ts`. The protocol extends (ADR-0035) with an
+  agent->human request beacon, a keyless-signed reviewer verdict beacon, and a bus post; each
+  ships as its own governed slice. Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-056: Handoff Beacon -- agent->human request (human-step barrier)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0036 -- agent->human request beacon, under the Handoff Beacon Protocol ADR-0035)
+- Statement: The system shall surface an agent's request for a human step as an in-VM VS Code
+  notification whose "Mark step done" / "Skip" actions emit a machine-readable op-done beacon,
+  so a fail-closed gate proves the request/answer payloads are correctly derived and the agent
+  can await a human-in-the-loop step it initiated.
+- Rationale: The capture-status beacon (LBA-REQ-055) let the agent AWAIT a human step (Stop).
+  This closes the OTHER direction: the agent's ASK -- "run this VI", "activate LabVIEW", "log in
+  to VIPM" -- was invisible except through chat, so it re-asked and wasted turns. Making the ask
+  a first-class, in-VM, machine-observable event (a reusable human-step BARRIER) lets the agent
+  request a manual step and resume exactly when the human answers.
+- Acceptance Criteria:
+  - `buildAgentRequest` / `buildOpDone` derive the `agent-request@1` / `op-done@1` payloads;
+    `validateAgentRequest` / `validateOpDone` fail closed on a wrong schema, an empty id/title,
+    or an unknown outcome; `selectPendingRequest` returns the newest unanswered request
+    (deterministic), so an answered ask is never re-surfaced.
+  - The extension watches `handoff/requests/` and surfaces the newest pending request as a
+    `showInformationMessage` with "Mark step done" (prompts an optional note) and "Skip"; both
+    actions are also palette commands (`labviewBenchmarkActor.markStepDone` / `.skipStep`), so
+    the barrier is answerable without a mouse; the answer is written to `handoff/done/<id>.json`.
+  - `reviewer-workstation/request-step.sh` writes the request beacon into the VM (via the same
+    pure builder) and runs the guest poll ONCE, blocking until the op-done answer resolves
+    (`done|skipped`) or a bounded timeout -- the one sanctioned poll in the flow.
+- Change Guidance: The `experiments/handoff-beacon/handoffRequest.mjs` builder + self-test are
+  gated by `handoff-request` in `verify-local-gates` and mapped in the RTM; the builder is staged
+  into `media/` and loaded by `src/extension.ts`. This is the agent->human tier of the Handoff
+  Beacon Protocol (ADR-0035); the keyless-signed reviewer verdict beacon + the bus post ship as
+  their own governed slices. Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-057: Handoff Beacon -- reviewer visual verdict (signed human PASS/FAIL)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0037 -- reviewer visual verdict beacon, under the Handoff Beacon Protocol ADR-0035)
+- Statement: The system shall emit a signed reviewer visual verdict (`reviewer-verdict@1` mapping to
+  `acg-human-signoff-v1`) for an extension release candidate, so a fail-closed gate proves the human's
+  PASS/FAIL of the built candidate is Ed25519-signed by an enrolled reviewer and gates the release
+  alongside the plane agreement.
+- Rationale: The reviewer VM exists for the human's VISUAL PASS/FAIL of a candidate -- the thing the
+  whole reviewer gate is for. That verdict was informal (a chat "looks good" or a hand-edited
+  release-agreement signoff). Making it a signed, candidate-bound, verifiable artifact turns the human
+  gate into a governed release input, and -- because enrolled Ed25519 needs no OIDC -- it is signed IN
+  the VM where the human is (keyless cosign layers on in CI).
+- Acceptance Criteria:
+  - `buildReviewerVerdict` / `validateReviewerVerdict` derive the candidate-bound verdict (target
+    component/version/commit/vsixSha256 + evidence), fail-closed; `reviewerVerdict.mjs` is
+    dependency-free so it stages into the extension's `media/` and signs headless.
+  - `signReviewerVerdict` maps the verdict to an `acg-human-signoff-v1` bound to its canonical digest
+    (a `pass` is an `approve`); `verifyReviewerVerdict` fails closed on a wrong schema, a tampered
+    verdict, an un-enrolled reviewer, a mismatched key, or a bad signature.
+  - `gateVisualReview` publishes only on a `pass` verdict with >= minReviewers verified enrolled
+    approvals; `release-with-review.mjs`'s `gateReleaseWithReview` composes it with the ADR-0018
+    `gateReleasePublish` so the machine corroboration and the human's PASS are independently required.
+  - The extension's Render Reviewer Verdict command signs the verdict in the VM (enrolled reviewer
+    key) into `handoff/verdicts/`; `reviewer-workstation/render-verdict.sh` sets the target + collects
+    it; `tools/collab-cli/verify-visual-review.mjs` gates a release's `visualReview` block against the
+    committed `reviewer-allowlist.json`; CI keyless-cosign counter-signs the verdict bundle.
+- Change Guidance: `experiments/handoff-beacon/reviewerVerdict.mjs` + its self-test are gated by
+  `handoff-verdict` and mapped in the RTM; the builder is staged into `media/` + loaded by
+  `src/extension.ts`. Reviewer keys are enrolled via `reviewer-workstation/enroll-reviewer.mjs` (the
+  private key stays local; the public key is committed to `reviewer-allowlist.json`). This is the
+  verdict tier of the Handoff Beacon Protocol (ADR-0035); the `lbabus` post ships as its own governed
+  slice. Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-058: Handoff Beacon -- reviewer verdict bus announcement
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0038 -- reviewer verdict bus announcement, under the Handoff Beacon Protocol ADR-0035)
+- Statement: The system shall announce a signed reviewer verdict on the `lbabus` coordination bus with
+  a semantic message type (pass -> RESOLVED, changes -> REFINE, fail -> BLOCKED) carrying the full
+  signed verdict, so a fail-closed gate proves the announcement is correctly derived and remote actors
+  see the human's PASS/FAIL.
+- Rationale: The reviewer's signed verdict (LBA-REQ-057) stayed local (a file + the release-agreement);
+  the `lbabus` bus (a GitHub Discussion the WIN + LINUX planes read) is how the actors coordinate, so a
+  remote actor had no way to see that a human reviewed + PASSED (or blocked) a candidate. Announcing the
+  verdict makes it an actionable coordination event -- the final tier of the Handoff Beacon Protocol.
+- Acceptance Criteria:
+  - `buildVerdictBusPost` derives the `lbabus post` from a signed verdict record `{ verdict, signOff }`:
+    a SEMANTIC `type` by verdict (RESOLVED/REFINE/BLOCKED), `task` = `<component>-release-<version>`,
+    `ref` = the candidate commit, `priority`; an unknown/malformed record fails safe to BLOCKED.
+  - The message BODY posted is the FULL signed verdict JSON (`--message-file`), so the bus carries the
+    verifiable `acg-human-signoff-v1` + `reviewer-verdict@1`, not just a summary.
+  - The extension posts the verdict from the reviewer VM immediately after signing, BEST-EFFORT (a
+    missing `lbabus` / GH token is logged, never thrown into the signing flow); the release CI posts it
+    automatically after `verify-visual-review` (`post-verdict.mjs`, `continue-on-error`). Both derive
+    the post from the same `buildVerdictBusPost`.
+- Change Guidance: `buildVerdictBusPost` lives in the staged, gated `reviewerVerdict.mjs` (gate
+  `handoff-verdict`, self-test 7/7); `src/extension.ts` (`busPostArgs` + `postVerdictToBus`) +
+  `reviewer-workstation/post-verdict.mjs` + the `extension-release.yml` bus step are mapped in the RTM.
+  This is the FINAL tier of the Handoff Beacon Protocol (ADR-0035). Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-059: Host<->VM-agent closed loop over the lbabus net TCP bus
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0039 -- host<->VM-agent closed loop over TCP, off GitHub Discussions)
+- Statement: The system shall close the host<->VM-agent coordination loop over the `lbabus net` TCP bus --
+  after driving the reviewer VM's Copilot agent, the host awaits the agent's reply frame correlated by task
+  id (fail-closed on mismatch/timeout), and the signed reviewer verdict announces with a semantic net type
+  (RESOLVED/REFINE/BLOCKED) -- so a fail-closed gate proves the read-back + the semantic types are correctly
+  derived and coordination rides TCP, not a GitHub Discussion.
+- Rationale: `drive-agent-chat.sh` drove the VM's chat FIRE-AND-SCREENSHOT (a human read PNGs); there was no
+  programmatic read-back, so the host agent could not close the loop. The verdict announcement (LBA-REQ-058)
+  rode a GitHub Discussion; an operator directive ("TCP, deprecate the use of github discussions") moves
+  coordination onto the private TCP bus that already exists (`lbabus net`, LBA-REQ-007, ADR-0003/0004).
+- Acceptance Criteria:
+  - `await-agent-reply.mjs` runs `lbabus net listen`, parses the rendered frame, and returns the VM agent's
+    reply CORRELATED by `--task` + `--type`; it FAILS CLOSED on a task mismatch or a timeout (never accepts an
+    uncorrelated frame as the answer).
+  - `drive-agent-closed-loop.sh` composes the two halves: it starts the awaiter, then keyboard-injects the
+    prompt PLUS a deterministic report-back line (single-line; a newline would submit early) so the VM agent
+    replies over TCP.
+  - The `net` envelope type set carries RESOLVED/REFINE/BLOCKED (option A), so a signed verdict announces over
+    `net` as a first-class semantic event (pass->RESOLVED), preserving ADR-0038's semantics off the Discussion bus.
+  - Comms-only holds (ADR-0003): the reply/announcement is a one-line status only, never run data.
+- Change Guidance: `await-agent-reply.mjs` (+ `.selftest.mjs`), `drive-agent-closed-loop.sh`, and
+  `closed-loop-readback-proof.sh` live under `reviewer-workstation/`; the net type set is `BusWire.Types` in
+  `tools/collab-cli/Net.cs`. The FULL retirement of the GitHub-Discussion transport is deferred (ADR-0039
+  Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-060: Live-only net coordination -- the receive-log + net poll read side
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0040 -- live-only net coordination, off GitHub Discussions)
+- Statement: The system shall provide a live-only net coordination read side -- a per-actor local receive-log
+  written by `lbabus net listen --log` and read by `lbabus net poll` (filtered by type/task; fail-closed
+  without a log) -- so a fail-closed gate proves post->log->poll round-trips over TCP and coordination reads no
+  longer depend on a GitHub Discussion.
+- Rationale: ADR-0039 moved the host<->VM-agent loop + the reviewer-verdict announcement onto `net` TCP; an
+  operator directive ("TCP, deprecate the use of github discussions") moves the rest of coordination off
+  Discussions. A Discussion did two jobs -- live relay + async persistence; `net send`/`listen` already cover
+  the live relay, but the READ side (poll) had no net equivalent. The operator chose a LIVE-ONLY model (no
+  central/async store): each actor logs what it hears while online.
+- Acceptance Criteria:
+  - `net listen --log <file>` appends every received frame to a per-actor JSONL receive-log (BusWire.ToJson),
+    best-effort (a log error never breaks the listener).
+  - `net poll [--log <file>] [--tail N] [--type T] [--task T]` reads + filters the local receive-log
+    (BusWire.FromJson), mirroring the Discussion `poll` UX; with no log it prints nothing + exits 0; with no
+    `--log`/`VIHS_COLLAB_NET_LOG` it FAILS CLOSED.
+  - Comms-only holds (ADR-0003): the receive-log stores only small coordination frames, never run data.
+  - Accepted tradeoff: a peer offline at post time misses the frame -- no async catch-up.
+- Change Guidance: `CmdListen --log` + `CmdPoll` + `BusWire.ToJson`/`FromJson` live in
+  `tools/collab-cli/Net.cs`; the loopback proof is `experiments/net-coordination/net-coordination-log-proof.sh`
+  (committed receipt `net-coordination-log-receipt.json`). This is the FIRST increment of retiring the
+  GitHub-Discussion transport (ADR-0040); the call-site migrations + removal are deferred. Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-061: Bus transport selection in the extension -- Discussion default, net opt-in
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0041 -- bus transport selection, off GitHub Discussions step 2)
+- Statement: The system shall let the extension select the coordination-bus transport -- GitHub Discussion
+  (default) or the live-only `lbabus net` TCP bus (opt-in via `busTransport`/`busNetHosts`/`busNetLog`) -- so
+  `postNote`/`pollBus`/the reviewer-verdict announcement ride `net send`/`net poll` when configured, and a
+  fail-closed gate proves the switch + the Discussion-safe default.
+- Rationale: ADR-0040 gave `net` a live-only coordination model; the extension still shelled the
+  GitHub-Discussion `post`/`poll` for `pollBus`/`postNote`/the verdict announcement. Step 2 of the
+  off-Discussions migration lets the extension select the transport WITHOUT breaking existing users -- the
+  Discussion stays the default; `net` is opt-in during the transition.
+- Acceptance Criteria:
+  - Config `labviewBenchmarkActor.busTransport` (`discussion` default | `net`) + `busNetHosts` (CSV peer
+    host(s)) + `busNetLog` (local receive-log path).
+  - Under `net`: `postNote` -> `net send --hosts <hosts> --type NOTE`; `pollBus` -> `net poll --log <log>`;
+    the verdict announcement -> `busSendArgs` (`net send --type <RESOLVED/...> --task <release-task>
+    --message-file <verdict>`), reusing the semantic net types (ADR-0039).
+  - The Discussion default is unchanged (no user-facing change; the remediation-on-ENOENT + `busPostArgs`
+    tests still hold); the verdict announcement stays best-effort.
+- Change Guidance: `busConfig` + `busSendArgs` + the transport branches live in `src/extension.ts`; the config
+  is in `package.json`; `busSendArgs` + the branches are unit-covered in `test/extension-activation.mjs`; gate
+  `bus-transport-select`. The MCP tools + `post-verdict.mjs` + the release CI are the NEXT increments (ADR-0041
+  Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-062: MCP coordination tools transport selection -- Discussion default, net opt-in
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0042 -- MCP transport selection, off GitHub Discussions step 3)
+- Statement: The system shall let the extension's MCP coordination tools select the transport -- the provider
+  passes the bus-transport config as env (`VIHS_COLLAB_TRANSPORT`/`VIHS_COLLAB_NET_HOSTS`/`VIHS_COLLAB_NET_LOG`)
+  and the stdio server routes `poll_coordination_bus`/`post_coordination_note` to `net poll`/`net send` under
+  `net` (Discussion default) -- so the agent tool surface coordinates over TCP when configured, proven by a
+  fail-closed gate.
+- Rationale: ADR-0041 migrated the extension's own commands to a selectable transport; the extension's MCP
+  server -- a separate stdio process that cannot read vscode config directly -- still shelled the
+  GitHub-Discussion `poll`/`post`. Step 3 migrates the agent tool surface too, via env passed at launch.
+- Acceptance Criteria:
+  - `busEnvFromConfig` (provider) maps `busTransport`/`busNetHosts`/`busNetLog` to `VIHS_COLLAB_TRANSPORT`/
+    `VIHS_COLLAB_NET_HOSTS`/`VIHS_COLLAB_NET_LOG`, set on the launched `McpStdioServerDefinition` env; empty
+    values omitted (Discussion default).
+  - `pollBusArgs`/`postNoteArgs` (server) route `poll_coordination_bus` -> `net poll --log` and
+    `post_coordination_note` -> `net send --hosts` under `net`, else the Discussion `poll`/`post`.
+  - The tool schemas + the MCP tool doc are unchanged; tools stay soft-`isError` on a missing CLI.
+- Change Guidance: `busTransport`/`pollBusArgs`/`postNoteArgs` in `src/mcp/runBenchmarkActorMcpServer.ts`;
+  `busEnvFromConfig` + the env-passing `provideMcpServerDefinitions` in
+  `src/mcp/benchmarkActorMcpServerProvider.ts`; unit-covered in `test/mcp-server.mjs`; gate
+  `mcp-net-transport`. `post-verdict.mjs` + the release CI + the Discussion-transport removal are the NEXT
+  increments (ADR-0042 Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-063: post-verdict.mjs transport selection -- Discussion default, net opt-in
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0043 -- post-verdict transport selection, off GitHub Discussions step 4)
+- Statement: The system shall let the reviewer-workstation verdict announcer (`post-verdict.mjs`) select the
+  transport -- GitHub Discussion (default) or the live-only `lbabus net` TCP bus (opt-in via
+  `VIHS_COLLAB_TRANSPORT`/`VIHS_COLLAB_NET_HOSTS`) -- so a signed verdict announces via `net send` with the same
+  semantic type when configured, and a fail-closed gate proves the argv under both transports.
+- Rationale: ADR-0041/0042 migrated the extension's own commands + its MCP tools; the reviewer verdict is also
+  announced via `post-verdict.mjs` (the release CI calls it `--print-args`; a reviewer can run it by hand),
+  which still built only the Discussion `post` argv. Step 4 makes it transport-selectable too.
+- Acceptance Criteria:
+  - Under `VIHS_COLLAB_TRANSPORT=net`, `post-verdict.mjs` emits `net send [--hosts <peers>] --type <RESOLVED/...>
+    --task <release-task> --message-file <verdict>` (the net envelope carries no priority/ref -- they live in
+    the signed verdict JSON); else the Discussion `post` argv (with `--priority`/`--ref`).
+  - `--print-args` / `--dry-run` / the default post all honor the transport.
+  - The Discussion default is unchanged, so the release CI (which runs `--print-args`) is unchanged.
+- Change Guidance: the transport branch is in `reviewer-workstation/post-verdict.mjs`; gate
+  `post-verdict-net-transport`. The release-CI announce under live-only (no net peer in CI; the committed signed
+  verdict is the durable record) + deprecating/removing the Discussion transport are the NEXT increments
+  (ADR-0043 Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-064: Drop the release-CI GitHub-Discussion verdict announce
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0044 -- drop the release-CI Discussion announce, off GitHub Discussions step 5)
+- Statement: The system shall NOT announce the reviewer verdict to a GitHub Discussion from the release publish
+  workflow -- the durable record of the human PASS is the committed signed verdict (release-agreement
+  `visualReview`, keyless counter-signed); under the live-only net model CI has no bus peer -- so a fail-closed
+  gate proves the publish workflow carries no GitHub-Discussion announce.
+- Rationale: ADR-0038 had the release CI announce the signed verdict to the `lbabus` GitHub-Discussion bus. The
+  off-Discussions migration (ADR-0040..0043) moved coordination onto the live-only `net` bus, but CI runs in
+  ephemeral Actions with no persistent `net` peer -- a net announce there has no listener. The human PASS is
+  already durably recorded as the committed signed verdict (gated by verify-visual-review + keyless
+  counter-signed), so the CI announce is redundant + is dropped.
+- Acceptance Criteria:
+  - The `Set up .NET` + `Announce the reviewer verdict on the coordination bus` steps are removed from
+    `.github/workflows/extension-release.yml`; the publish pipeline touches no GitHub Discussion.
+  - The committed signed verdict (staged for keyless counter-sign + committed in the release-agreement) remains
+    the durable record; `verify-visual-review` still gates the release.
+  - Off-CI, the live announce stays available via `post-verdict.mjs`/the extension over `net` (ADR-0041/0043).
+- Change Guidance: the removal is in `.github/workflows/extension-release.yml`; gate
+  `release-no-discussion-announce`. Supersedes the CI-announce portion of ADR-0038/LBA-REQ-058. The FINAL step
+  -- deprecating + removing the Discussion transport (Program.cs + GraphQL) + the CI mock GraphQL harness -- is
+  deferred (ADR-0044 Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-065: Flip the coordination default to net + graceful no-op when unconfigured
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0045 -- flip the coordination default to net, off GitHub Discussions step 6)
+- Statement: The system shall default the coordination-bus transport to the live-only `lbabus net` TCP bus
+  (GitHub Discussion becomes a legacy opt-out) AND degrade gracefully when net is unconfigured -- `net poll`
+  with no receive-log and `net send --skip-if-no-peer` with no peer both exit 0 with a hint (no error, no dead
+  loopback) -- so a fresh install coordinates over TCP once a peer/log is set and does nothing quietly until then.
+- Rationale: off-Discussions steps 1-5 (ADR-0040..0044) made `net` available in the extension, the MCP surface,
+  and post-verdict.mjs, and dropped the release-CI Discussion announce -- but each kept Discussion the DEFAULT
+  (opt-in net) during the transition. With the net loop proven live (ADR-0039) + no CI Discussion use, the only
+  thing pinning Discussion as the default is inertia. Flipping naively would error/hang an unconfigured install
+  (net poll no-log was fail-closed; net send no-peer sat in a dead loopback), so the flip is paired with a
+  graceful no-op.
+- Acceptance Criteria:
+  - `labviewBenchmarkActor.busTransport` defaults to `net`; the extension, the MCP provider + stdio server, and
+    post-verdict.mjs all default to `net`; Discussion is the legacy opt-out (`busTransport: "discussion"` /
+    `VIHS_COLLAB_TRANSPORT=discussion`).
+  - `net poll` with no receive-log exits 0 with a hint (softened from fail-closed); `net send --skip-if-no-peer`
+    with no peer exits 0 with a hint; the extension/MCP/post-verdict callers pass `--skip-if-no-peer` when no
+    host is configured -- an unconfigured net-default install is a silent no-op.
+  - `npm test` proves the extension + MCP default flip; the net-coordination-log receipt proves the graceful
+    poll (`pollWithoutLogGraceful`).
+- Change Guidance: the flip is in package.json + src/extension.ts + src/mcp/* + reviewer-workstation/post-verdict.mjs;
+  the graceful branches are in tools/collab-cli/Net.cs. Gates `net-default-graceful` + `bus-transport-select`
+  (default === 'net'). Updates the ADR-0041/0042/0043 defaults + softens the ADR-0040 poll fail-closed. The FINAL
+  step -- deprecating + removing the Discussion transport (Program.cs + GraphQL) + the CI mock GraphQL harness --
+  is deferred (ADR-0045 Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-066: Collapse the coordination product surface to net-only
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0046 -- collapse the product surface to net-only, off GitHub Discussions step 7)
+- Statement: The system shall coordinate over the live-only `lbabus net` TCP bus ONLY across its product surface
+  (the extension commands + the MCP coordination tools + the reviewer verdict announcer) -- the GitHub-Discussion
+  transport opt-out is removed (no `busTransport` selection, no consumer builds a Discussion `post`/`poll` argv)
+  -- so a fail-closed gate proves the product surface is net-only.
+- Rationale: off-Discussions steps 1-6 (ADR-0040..0045) made `net` the default with Discussion a legacy opt-out,
+  but the product surface still carried the Discussion arms (the extension's busPostArgs + busTransport
+  selection, the MCP tools' VIHS_COLLAB_TRANSPORT selection, post-verdict.mjs's post --priority/--ref branch).
+  With net proven live (ADR-0039) + the default (ADR-0045), the opt-out is dead weight on the surface users +
+  agents actually touch. Removing it is the first half of the final teardown, split from the CLI transport
+  removal (step 8) because the CLI's Discussion commands share GitHubGraphQL.cs with selfcheck/defect + the ci
+  mock harness.
+- Acceptance Criteria:
+  - The `labviewBenchmarkActor.busTransport` setting is removed; `busNetHosts`/`busNetLog` remain.
+  - The extension (`busConfig` -> {netHosts, netLog}; pollBus -> `net poll`, postNote + verdict -> `net send`;
+    no `busPostArgs`), the MCP provider + stdio server (`busEnvFromConfig` maps only NET_HOSTS/NET_LOG;
+    `pollBusArgs`/`postNoteArgs` net-only; no `VIHS_COLLAB_TRANSPORT`), and `post-verdict.mjs` (`net send` only,
+    no `--priority`/`--ref`) build only the net argv.
+  - The graceful no-op (ADR-0045) is preserved (`--skip-if-no-peer`; `net poll` no-log exits 0).
+- Change Guidance: the collapse is in package.json + src/extension.ts + src/mcp/* + reviewer-workstation/post-verdict.mjs;
+  gates `bus-transport-select` + `mcp-net-transport` + `post-verdict-net-transport` (now net-only) +
+  `net-default-graceful`, unit-covered by test/extension-activation.mjs + test/mcp-server.mjs. Supersedes the
+  transport-selection portion of ADR-0041/0042/0043. The FINAL step -- removing the Discussion transport from
+  the CLI (Program.cs post/poll/wait/init/delta + GitHubGraphQL Discussion methods) + the ci mock GraphQL
+  harness + collab-cli docs -- is deferred (ADR-0046 Consequences, step 8). Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
+### LBA-REQ-067: Remove the GitHub-Discussion transport from the lbabus CLI
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0047 -- remove the CLI Discussion transport, off GitHub Discussions step 8 / final)
+- Statement: The system shall NOT expose a GitHub-Discussion coordination transport from the `lbabus` CLI -- the
+  `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion client are removed (GitHubGraphQL
+  keeps only the REST release-tag + issue-comment calls for `selfcheck`/`defect`), leaving the live-only
+  `lbabus net` TCP bus as the sole coordination transport -- so a fail-closed gate proves the CLI carries no
+  Discussion transport.
+- Rationale: step 7 (ADR-0046) made the coordination product surface net-only, leaving the CLI's own Discussion
+  commands (init/post/poll/wait/delta) reachable by nothing in the product. This final step removes them + the
+  GraphQL Discussion client, completing the off-Discussions migration (steps 1-8). GitHubGraphQL.cs was shared:
+  selfcheck reads release tags (REST) + defect appends an issue comment (REST) -- those keepers stay.
+- Acceptance Criteria:
+  - `Program.cs` no longer dispatches `init`/`post`/`poll`/`wait`/`delta` (the `Cmd*` methods + help entries +
+    the `EnforceVersionOrNull` guard + the `ParseAll`/`SeedBody`/`Eq`/`Dur` helpers are gone); `version`/
+    `capabilities`/`selfcheck`/`grep`/`defect`/`net`/`resource`/`agents`/`docs` remain.
+  - `GitHubGraphQL.cs` is REST-only (drops the Discussion records + `Query`/`ResolveContext`/`FindDiscussion`/
+    `CreateDiscussion`/`EnsureDiscussion`/`ListComments`/`AddComment`; keeps `ListReleaseTags` + `AddIssueComment`);
+    `Config.cs` drops the discussion-only fields (`Category`/`Title`/`AgentId`/`Counterpart`/`AddressesMe`).
+  - The 12 discussion / version-guard ci cases are retired (the grep + defect + runner-meta cases remain); the
+    build + a CLI smoke test verify the removal.
+- Change Guidance: the removal is in tools/collab-cli/{Program.cs, GitHubGraphQL.cs, Config.cs} + the ci cases;
+  gate `cli-no-discussion-transport`. A doc/cleanup follow-up (step 8b) sweeps the stale docs (collab-cli
+  README/AGENTS.md, ci/README.md, docs/mcp-tools.md, reviewer-manual-test-plan.md, root README.md) + trims the
+  ci mock's vestigial GraphQL/release handlers + retires experiments/ollama-bus/bus-agent.mjs -- none block a
+  gate. Completes the off-Discussions migration. Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1719,3 +2117,16 @@ progressively.
 | LBA-REQ-052 | Deployment (g-cli launcher built from Rust) | T-052 |
 | LBA-REQ-053 | Deployment (icon-editor LUnit test) | T-053 |
 | LBA-REQ-054 | Deployment (benchmark observatory) | T-054 |
+| LBA-REQ-055 | Deployment (handoff beacon) | T-055 |
+| LBA-REQ-056 | Deployment (handoff beacon -- agent->human request) | T-056 |
+| LBA-REQ-057 | Deployment (handoff beacon -- reviewer visual verdict) | T-057 |
+| LBA-REQ-058 | Deployment (handoff beacon -- reviewer verdict bus announcement) | T-058 |
+| LBA-REQ-059 | Deployment (host<->VM-agent closed loop over TCP) | T-059 |
+| LBA-REQ-060 | Deployment (live-only net coordination read side) | T-060 |
+| LBA-REQ-061 | Deployment (extension bus transport selection) | T-061 |
+| LBA-REQ-062 | Deployment (MCP tools transport selection) | T-062 |
+| LBA-REQ-063 | Deployment (post-verdict transport selection) | T-063 |
+| LBA-REQ-064 | Deployment (drop release-CI Discussion announce) | T-064 |
+| LBA-REQ-065 | Deployment (flip coordination default to net + graceful no-op) | T-065 |
+| LBA-REQ-066 | Deployment (collapse coordination product to net-only) | T-066 |
+| LBA-REQ-067 | Deployment (remove CLI Discussion transport) | T-067 |

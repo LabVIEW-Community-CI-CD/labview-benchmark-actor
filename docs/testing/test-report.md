@@ -21,7 +21,7 @@ the `LBA Local Gates verify` CI job.
 
 ## 2. Executed verification evidence (ISO/IEC/IEEE 29119-3)
 
-### 2.1 Local gate suite — 152 fail-closed checks
+### 2.1 Local gate suite — 163 fail-closed checks
 
 Run by `node experiments/verify-local-gates.mjs`. All must pass. The full gate inventory (the executed
 test items at the gate granularity) is:
@@ -61,6 +61,7 @@ boot-benchmark-seal-spans-and-fail-closed
 boot-benchmark-vmware-vnc-backend
 bootbench-cross-plane-diff-receipt
 bus-prototype-receipt-green
+bus-transport-select
 capability-aware-routing
 capture-ring-benchmark-panels
 capture-ring-combined-visual-dual-clock
@@ -86,6 +87,8 @@ capture-ring-workload-trend
 cleanroom-bootstrap-is-winget-free
 cleanroom-gate-suite-shared-in-sync
 cleanroom-provisioner-scripts-pure-ascii
+cli-no-discussion-transport
+closed-loop-readback
 codespace-witness-bootstrap-valid
 codespace-witness-prebuild-workflow-wired
 collab-cli-embeds-canonical-requirements
@@ -112,6 +115,9 @@ frame-correlator-click-marker
 frame-markers-image-grab
 g-cli-proxy-proof
 gitflow-branch-governance-documented
+handoff-capture-status
+handoff-request
+handoff-verdict
 host-concentration-core-receipt-green
 image-derived-timing-colon-ocr-fidelity
 in-guest-sampler-v2
@@ -119,6 +125,7 @@ information-for-users-26514
 live-v2-capture-real
 lunit-test-benchmark
 mass-compile-benchmark
+mcp-net-transport
 mcp-server-surface-contract
 mesh-actor-registration-requires-activation
 mesh-board-view
@@ -136,10 +143,13 @@ mprr-packet-harness-profiles-green
 mprr-short-ring-model-green
 multi-vm-corpus-export-receipt-green
 multi-vm-topology-receipt-green
+net-coordination-log
+net-default-graceful
 ocr-primitive-engine-and-readback
 ollama-comparison-core-receipt-green
 performance-counter-correlation-live-trigger
 performance-counter-correlation-real
+post-verdict-net-transport
 ppl-build-benchmark
 provider-delegation-claim-tasking
 provider-delegation-coverage-lift
@@ -156,6 +166,7 @@ provisioner-installs-labview-and-vipm
 readme-marketplace-safe-links
 real-corpus-wiring-green
 release-lanes-keyless-attested
+release-no-discussion-announce
 release-procedure-references-resolve
 requirements-quality-29148
 resource-usage-correlation-receipt-green
@@ -213,12 +224,13 @@ The controlled state of the repository's configuration items, derived from the r
 
 | Configuration item class | Count | Register |
 | --- | --- | --- |
-| Requirements (total) | 54 | docs/requirements/srs.md, rtm.csv |
-| — Status: Proven | 54 | rtm.csv |
-| Architecture decisions (ADRs) | 34 | docs/architecture/adr/README.md |
-| Governed gates | 152 | experiments/verify-local-gates.mjs |
+| Requirements (total) | 67 | docs/requirements/srs.md, rtm.csv |
+| — Status: Proven | 66 | rtm.csv |
+| — Status: Superseded | 1 | rtm.csv |
+| Architecture decisions (ADRs) | 48 | docs/architecture/adr/README.md |
+| Governed gates | 163 | experiments/verify-local-gates.mjs |
 | Correspondence rules | 7 | experiments/reqs-coverage/verify-correspondences.mjs |
-| Governed test items | 54 | docs/testing/test-plan.md |
+| Governed test items | 67 | docs/testing/test-plan.md |
 
 Baselines are cut on the `main` branch via SemVer tags (GitFlow); each release is keyless-signed and
 corroborated across planes before publication (see `docs/cm/cm-plan.md` and the release procedure).
@@ -235,4 +247,4 @@ the same correspondence graph (ADR-0013).
 `node experiments/reqs-coverage/generate-test-report.mjs` rewrites this file; `--check` (the
 `test-report-current` gate) fails closed on drift, so the report can never silently lag the apparatus.
 
-_Generated from 152 gates, 7 correspondence rules, 54 requirements, 34 ADRs, 54 test items._
+_Generated from 163 gates, 7 correspondence rules, 67 requirements, 48 ADRs, 67 test items._

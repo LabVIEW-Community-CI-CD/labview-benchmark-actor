@@ -83,12 +83,34 @@ export async function getBenchmarkSeries(root: string = repoRoot): Promise<McpTo
   }
 }
 
+/** The live-only `lbabus net` bus config for the MCP tools (LBA-REQ-066, ADR-0046, net-only), from env passed by
+ *  the extension at server launch (busEnvFromConfig): VIHS_COLLAB_NET_HOSTS + VIHS_COLLAB_NET_LOG. The
+ *  GitHub-Discussion transport opt-out was removed off-Discussions step 7. */
+function busNetConfig(): { netHosts: string; netLog: string } {
+  return {
+    netHosts: (process.env.VIHS_COLLAB_NET_HOSTS ?? '').trim(),
+    netLog: (process.env.VIHS_COLLAB_NET_LOG ?? '').trim()
+  };
+}
+
+/** The `lbabus net poll` argv for polling the local receive-log (net-only). */
+export function pollBusArgs(tail: number): string[] {
+  const { netLog } = busNetConfig();
+  return ['net', 'poll', ...(netLog ? ['--log', netLog] : []), '--tail', String(tail)];
+}
+
+/** The `lbabus net send` argv for posting a coordination note to the peer host(s) (net-only; graceful no-op). */
+export function postNoteArgs(message: string): string[] {
+  const { netHosts } = busNetConfig();
+  return ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : ['--skip-if-no-peer']), '--type', 'NOTE', '--message', message];
+}
+
 const serverDeps: BenchmarkActorMcpToolDeps = {
   serverVersion: readServerVersion(),
   getHostCapabilities: () => runLbabus(['capabilities'], 15000),
   getBenchmarkSeries,
-  pollCoordinationBus: ({ tail }) => runLbabus(['poll', '--full', '--tail', String(tail)], 30000),
-  postCoordinationNote: ({ message }) => runLbabus(['post', '--type', 'NOTE', '--message', message], 20000)
+  pollCoordinationBus: ({ tail }) => runLbabus(pollBusArgs(tail), 30000),
+  postCoordinationNote: ({ message }) => runLbabus(postNoteArgs(message), 20000)
 };
 
 // Fold the ACG corroboration-grid tools into THIS server from the bundled dep-free engines

@@ -67,22 +67,10 @@ agent drives.
 big agent (Claude) --intent + iterate model--> lba-coordinator (ollama) --collab-cli--> bus <--> WIN ollama
 ```
 
-`bus-agent.mjs` is that layer:
-
-```bash
-# dry-run: the engine reads the bus + drafts the message (the big agent reviews / iterates the model):
-node bus-agent.mjs "<intent>" --type NOTE --tail 3
-# send it (the engine posts via collab-cli):
-node bus-agent.mjs "<intent>" --type NOTE --prio P1 --post
-# autonomous watch (the constantly-iterated engine): monitor the peer + draft a governed reply to each NEW
-# message. Draft-only by default; --post autoposts (capped by --max-posts):
-node bus-agent.mjs "<standing intent>" --watch --interval 30 --rounds 0
-```
-
-It reads the peer's recent posts (`lbabus poll --agent <peer>`), feeds them + the intent to `lba-coordinator`
-(`/api/generate`), sanitizes the reply to a single ASCII bus line, and posts it (`lbabus post`). Dry-run by
-default so the big agent reviews before the engine speaks; iterate the `lba-coordinator` model to change the
-engine's voice.
+> **Retired:** `bus-agent.mjs` was the `collab-cli` `poll`/`post` harness layer. Coordination is now live-only
+> over `lbabus net` (ADR-0047 removed the GitHub-Discussion `poll`/`post` transport it used), so the harness
+> was removed. To revive the ollama coordinator, port the pattern to `lbabus net send` / `net poll`; the
+> net-based scripts (`gov-send.sh`, `run-coordinator.sh`) remain.
 
 ## Proven (see `receipt.json`)
 
