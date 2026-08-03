@@ -1689,10 +1689,10 @@ check('cross-plane-launch-parity', () => {
   assert(r.schema === 'labview-benchmark-actor/cross-plane-launch-parity-receipt@1' && r.requirement === 'LBA-REQ-072', 'committed launch-parity receipt shape');
   assert(r.verdict.parityProven === true && r.parity.identityMatch === true && r.parity.crossPlane === true, 'cross-plane launch parity proven (same benchmark, one LINUX + one WIN)');
   assert(r.benchmark.metric === 'launchMs' && r.benchmark.workload === 'labview-ide-launch', 'the flagship launch-to-ready benchmark');
-  // GROUNDED: the parity receipt is derived from the REAL committed launch trends (not fabricated).
-  const linux = JSON.parse(readFileSync(join(here, '..', 'media', 'labview-launch-trend.json'), 'utf8'));
-  const win = JSON.parse(readFileSync(join(here, '..', 'media', 'labview-launch-trend-win.json'), 'utf8'));
-  assert(r.planes.LINUX.meanMs === linux.stats.mean && r.planes.WIN.meanMs === win.stats.mean, 'the parity receipt reflects the real committed launch trend means');
+  // GROUNDED: the parity receipt is derived from the committed launch-trend fixtures (not fabricated).
+  const linux = JSON.parse(readFileSync(join(dir, 'fixtures', 'linux-launch-trend.json'), 'utf8'));
+  const win = JSON.parse(readFileSync(join(dir, 'fixtures', 'win-launch-trend.json'), 'utf8'));
+  assert(r.planes.LINUX.meanMs === linux.stats.mean && r.planes.WIN.meanMs === win.stats.mean, 'the parity receipt reflects the committed launch trend means');
   assert(linux.metric === win.metric && linux.workload === win.workload && linux.n === win.n, 'the two committed launch trends share the launch identity');
   return { identity: r.launchIdentity.slice(0, 12), linuxMs: r.performance.linuxMeanMs, winMs: r.performance.winMeanMs, faster: r.performance.fasterPlane };
 });

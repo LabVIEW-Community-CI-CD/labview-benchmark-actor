@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-08-03
 - Deciders: roadmap Phase 2/4 (the real benchmark suite + Linux⇄Windows parity — the §8 success metric "identical identity for the same benchmark across planes") + agent
-- Relates to: LBA-REQ-072 (realized here), LBA-REQ-014 (mprr cross-plane parity via `seriesHash` — the sibling, but a deterministic memory series), LBA-REQ-015 / LBA-REQ-043 (VI Analyzer parity via `resultHash`), LBA-REQ-050 (the cross-plane benchmark grid), LBA-REQ-054 (the Benchmark Observatory), LBA-REQ-055 (the launch-capture beacon), the committed launch trends `media/labview-launch-trend{,-win}.json` (`workload-trend@1`)
+- Relates to: LBA-REQ-072 (realized here), LBA-REQ-014 (mprr cross-plane parity via `seriesHash` — the sibling, but a deterministic memory series), LBA-REQ-015 / LBA-REQ-043 (VI Analyzer parity via `resultHash`), LBA-REQ-050 (the cross-plane benchmark grid), LBA-REQ-054 (the Benchmark Observatory), LBA-REQ-055 (the launch-capture beacon), the committed launch-trend fixtures `experiments/launch-parity/fixtures/{linux,win}-launch-trend.json` (`workload-trend@1`, snapshots of the real launch captures)
 
 ## Context
 
@@ -33,7 +33,7 @@ makes their timings legitimately comparable.
   LINUX + one WIN), and their launch identities match. It fails closed on an identity mismatch (a different
   metric/workload/sample-count = a different benchmark), a non-cross-plane pair, an invalid trend, or a tampered
   digest.
-- The committed receipt is **derived from the real committed launch trends** (`media/labview-launch-trend{,-win}.json`);
+- The committed receipt is **derived from the committed launch-trend fixtures** (`experiments/launch-parity/fixtures/{linux,win}-launch-trend.json`, snapshots of the real launch captures);
   the gate re-derives it and asserts the plane means equal the real trend means, so the parity receipt cannot be
   fabricated apart from the real launch data.
 

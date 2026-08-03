@@ -12,8 +12,8 @@ import { buildReceipt, validateReceipt, RECEIPT_SCHEMA, REQUIREMENT } from './la
 
 const here = dirname(fileURLToPath(import.meta.url));
 const committed = JSON.parse(readFileSync(join(here, 'cross-plane-launch-parity-receipt.json'), 'utf8'));
-const linux = JSON.parse(readFileSync(join(here, '..', '..', 'media', 'labview-launch-trend.json'), 'utf8'));
-const win = JSON.parse(readFileSync(join(here, '..', '..', 'media', 'labview-launch-trend-win.json'), 'utf8'));
+const linux = JSON.parse(readFileSync(join(here, 'fixtures', 'linux-launch-trend.json'), 'utf8'));
+const win = JSON.parse(readFileSync(join(here, 'fixtures', 'win-launch-trend.json'), 'utf8'));
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 const cases = [];
