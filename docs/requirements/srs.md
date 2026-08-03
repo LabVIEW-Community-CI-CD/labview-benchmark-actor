@@ -111,6 +111,7 @@ progressively.
 | LBA-REQ-081 | The system shall prove cross-plane VI Analyzer performance parity by validating that a LINUX and a WIN VI Analyzer run share the same benchmark identity and deterministic resultHash, so a fail-closed gate proves the planes ran the SAME benchmark and their run times are comparable performance witnesses. | Cross-plane parity (roadmap §8) was proven only for the launch benchmark (LBA-REQ-072); Phase 2 is the SUITE. VI Analyzer has real 2-plane evidence + governed determinism (LBA-REQ-043, the resultHash), but not performance parity (same identity -> comparable timing). The LBA-REQ-072 engine is benchmark-generic + should extend. | `viAnalyzerParity.mjs` REUSES the LBA-REQ-072 core (`launchIdentity`/`decideParity`/`planeSummary`/`performanceWitness`) via a `trendFromEvidence` adapter over the committed `vi-analyzer-trend-live-evidence@1` captures; a run is parity-proven only when the planes share the identity AND the resultHash. | `node experiments/vi-analyzer/viAnalyzerParity.selftest.mjs` (7/7) + the committed receipt (via the CLI, re-derived from the two evidence files) + identity + resultHash + cross-plane; gated by `cross-plane-vi-analyzer-parity`. |
 | LBA-REQ-082 | The system shall fold the benchmark suite's cross-plane parity receipts into one coverage matrix, so a fail-closed gate proves which benchmark families have proven cross-plane parity and records their LINUX-vs-WIN timing. | The suite has two parity families (launch LBA-REQ-072 + VI Analyzer LBA-REQ-081), each a separate gate with its own schema, but no single view of which families are cross-plane parity-proven -- the roadmap Phase 2 capstone + Phase 4 (comparison at scale) bridge; the mesh observatory (LBA-REQ-075) is the pattern to mirror. | `suiteParityObservatory.mjs` folds the committed parity receipts into a `benchmark-suite-parity-observatory@1` coverage matrix (family + identity + parity flags + LINUX/WIN performance), re-derived byte-stably from the source receipts (currency); it EXTENDS with no new machinery as families land. | `node experiments/benchmark-suite/suiteParityObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `benchmark-suite-parity-observatory`. |
 | LBA-REQ-083 | The system shall fulfill the VI Analyzer benchmark through the mesh fulfillment engine as a benchmark distinct from launch, so a fail-closed gate proves the mesh carries more than one benchmark family (the engine is benchmark-generic). | The mesh (Phase 3) had only ever fulfilled the launch benchmark; the fulfillment engine (LBA-REQ-073) is written generically but nothing PROVED it carries the suite. VI Analyzer now has real 2-plane captures + a proven identity (LBA-REQ-081), so it is the natural 2nd family -- the Phase 2 <-> Phase 3 convergence. | `viAnalyzerMeshRun.mjs` REUSES `meshFulfillment` (073) + `trendFromEvidence` (081): two golden actors return their VI Analyzer trend from the real evidence, the 073 engine fulfills the run, and a `mesh-benchmark-family-run@1` proves it is a distinct family from launch. | `node experiments/mesh-fulfillment/viAnalyzerMeshRun.selftest.mjs` (7/7) + the committed run (via the CLI, re-derived from the evidence) + the fulfillment + the distinct-from-launch identity; gated by `mesh-benchmark-family-vi-analyzer`. |
+| LBA-REQ-084 | The system shall assign each benchmark measurement a stress-quality weight from the mesh-stress calibration and discount a measurement captured on a stressed actor, so a fail-closed gate proves a cross-plane comparison down-weights results captured under contention. | Cross-plane comparison (LBA-REQ-072/081, grid LBA-REQ-050) treats each actor's result at face value, but the roadmap Phase 4 requires the mesh-stress calibration to DISCOUNT a result captured on a stressed actor -- a contended actor's timing is not a fair sample. The calibration exists (LBA-REQ-032, monotone/separable/repeatable ladder + independent per-actor stress recovery) but nothing turned it into a per-measurement discount. | `stressDiscountedComparison.mjs` folds the committed real ladder (calibration authority) + concurrent-actors capture (recovered per-actor stress) into a `stress-discounted-comparison@1`: each measurement gets a stress-quality weight (idle 1.0 .. saturate 0.0) + is discounted at/above heavy; grounded in the real captures. | `node experiments/mesh-stress-signature/stressDiscountedComparison.selftest.mjs` (7/7) + the committed comparison (via the CLI) + the idle-full/saturate-discounted grounding; gated by `stress-discounted-comparison`. |
 
 ---
 
@@ -2570,6 +2571,41 @@ progressively.
   `verify-local-gates`. A mass-compile / unit-test mesh run is the same adapter + `buildFamilyRun` once real
   two-plane captures exist. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-084: The stress-discounted cross-plane comparison (discount a result captured on a stressed actor)
+
+- Status: Proven
+- Area: Analysis / cross-plane comparison (ADR-0065 -- the stress-discounted comparison, roadmap Phase 4)
+- Statement: The system shall assign each benchmark measurement a stress-quality weight from the mesh-stress
+  calibration and discount a measurement captured on a stressed actor, so a fail-closed gate proves a cross-plane
+  comparison down-weights results captured under contention.
+- Rationale: cross-plane comparison is built out (launch parity LBA-REQ-072, VI Analyzer parity LBA-REQ-081, the
+  benchmark grid LBA-REQ-050, the observatory LBA-REQ-054), but every comparison treats each actor's result at
+  face value. The roadmap Phase 4 is explicit that this is not enough at scale: the mesh-stress-signature
+  calibration must let a run DISCOUNT a result captured on a stressed actor (a contended actor's timing is
+  inflated). The calibration exists (LBA-REQ-032 -- a monotone/separable/repeatable ladder + independent per-actor
+  stress recovery); what was missing is the governed step that turns it into a per-measurement discount.
+- Acceptance Criteria:
+  - `stressDiscountedComparison.mjs` trusts the committed ladder (`mesh-stress-live-ladder@1`) as the calibration
+    authority only when its invariants hold (monotone + separable + repeatable), and takes the committed
+    concurrent-actors capture (`mesh-concurrent-actors@1`, `allActorsRecovered`) as the measurements whose stress
+    was independently recovered.
+  - Each measurement is assigned a stress-quality weight -- a linear confidence from the recovered level (idle 1.0,
+    light 0.75, medium 0.5, heavy 0.25, saturate 0.0) -- and flagged discounted at or above heavy. This is a
+    confidence weight, NOT a fabricated millisecond correction.
+  - Discounting is applied iff the calibration is trustworthy, every actor was recovered, at least one stressed
+    measurement is discounted, and at least one clean measurement is kept at full confidence. `validateComparison`
+    re-derives the comparison byte-stably from the two committed mesh-stress receipts and fails closed on an
+    invalid calibration, an unrecovered actor, a weight/flag that does not match the rule, a miscounted coverage
+    statistic, or a tampered digest.
+  - The gate `stress-discounted-comparison` proves offline: the selftest (7/7); the committed comparison re-derives
+    from the ladder + concurrent captures; the idle actor is kept at full confidence and the saturate actor is
+    discounted to zero weight; and a clean/discounted split exists.
+- Change Guidance: the verifier + selftest + committed comparison live under `experiments/mesh-stress-signature/`
+  (`stressDiscountedComparison.mjs` / `.selftest.mjs` / `stress-discounted-comparison-receipt.json`), grounded in
+  the committed `fixtures/mesh-live-ladder-receipt.json` + `fixtures/mesh-concurrent-actors-receipt.json`; gate
+  `stress-discounted-comparison` in `verify-local-gates`. Folding the discount weight into the benchmark grid /
+  observatory is a follow-on. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2659,3 +2695,4 @@ progressively.
 | LBA-REQ-081 | Deployment (cross-plane VI Analyzer benchmark parity) | T-081 |
 | LBA-REQ-082 | Deployment (benchmark-suite parity observatory) | T-082 |
 | LBA-REQ-083 | Deployment (mesh carries VI Analyzer benchmark) | T-083 |
+| LBA-REQ-084 | Analysis (stress-discounted comparison) | T-084 |
