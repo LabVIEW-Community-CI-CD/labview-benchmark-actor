@@ -1697,6 +1697,23 @@ check('cross-plane-launch-parity', () => {
   return { identity: r.launchIdentity.slice(0, 12), linuxMs: r.performance.linuxMeanMs, winMs: r.performance.winMeanMs, faster: r.performance.fasterPlane };
 });
 
+// LBA-REQ-073 / ADR-0054: mesh-run cross-plane FULFILLMENT (roadmap Phase 3, the North Star loop) -- a dispatched
+// benchmark run is proven fulfilled by >= N independent enrolled actors from DISTINCT planes, each returning a
+// valid plane-tagged receipt for the SAME benchmark identity (reuses the LBA-REQ-072 launch identity). No central
+// DB -- the returned receipts ARE the result. Asserts the selftest (7/7) + the committed receipt via the verifier
+// main + the fulfillment shape (>= 2 distinct actors, both planes covered, identity agreement).
+check('mesh-run-cross-plane-fulfillment', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshFulfillment.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshFulfillment.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(dir, 'mesh-run-fulfillment-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/mesh-run-fulfillment-receipt@1' && r.requirement === 'LBA-REQ-073', 'committed mesh-run fulfillment receipt shape');
+  assert(r.verdict.fulfilled === true && r.fulfillment.identityAgreement === true && r.fulfillment.planesCovered === true, 'the dispatched run is fulfilled (identity agreement + planes covered)');
+  assert(r.fulfillment.distinctActors >= 2 && r.fulfillment.planes.includes('LINUX') && r.fulfillment.planes.includes('WIN'), '>= 2 distinct actors across the LINUX + WIN planes');
+  assert(Array.isArray(r.actors) && r.actors.length >= 2 && r.actors.every((a) => a.receipt && a.receipt.schema === 'labview-benchmark-actor/workload-trend@1'), 'each actor returned a plane-tagged workload-trend receipt');
+  return { benchmarkId: r.dispatch.benchmarkId, actors: r.fulfillment.distinctActors, planes: r.fulfillment.planes.join('+'), identity: r.identity.slice(0, 12) };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch

@@ -100,6 +100,7 @@ progressively.
 | LBA-REQ-070 | The system shall record, as a committed fail-closed receipt, that a release candidate publishes ONLY when BOTH the machine corroboration gate (a quorum verdict + an enrolled sign-off over it, ADR-0018) AND the human visual gate (an enrolled signed PASS of the built candidate, LBA-REQ-057) pass, AND both name the SAME net-staged candidate (LBA-REQ-068/069) -- so a fail-closed gate proves the machine quorum, the human visual verdict, and the net stage all name one candidate (no machine-PASS-A + human-PASS-B). | `gateReleaseWithReview` already ANDs the machine + visual gates, but ANDs two INDEPENDENT decisions -- nothing checks that the machine quorum consensus, the visual verdict target, and the net-staged candidate are the SAME candidate, so a machine PASS of A could be published with a human PASS of B. | A pure rg-free verifier (`composite-release-decision.mjs`) REUSES gateReleaseWithReview + adds the cross-gate binding (quorum consensus.version/sourceCommit == candidate == visual target, staged over net by a WIN drive); seals one real round (ext 0.5.0: passing quorum + enrolled sign-off + signed visual PASS + net stage) into a committed receipt; digest + verdict re-derive deterministically. | `node reviewer-workstation/composite-release-decision.selftest.mjs` (7/7) + the committed receipt (both gates + binding + digest via the verifier main); gated by `composite-release-decision`. |
 | LBA-REQ-071 | The extension release workflow shall block publishing a `.vsix` unless a committed composite release-decision proves BOTH gates pass for the tagged candidate version -- the `agreement` job runs `verify-composite-release.mjs` (fail-closed) and the publish `release` job depends on `agreement` -- so no extension release publishes without the bound composite decision (LBA-REQ-070). | LBA-REQ-070/ADR-0051 GOVERNED the composite decision as a committed receipt + a CI gate, but that only proved the pattern in the local-gate suite; nothing BLOCKED a real publish. extension-release.yml already enforces the plane agreement + the human visual verdict in its agreement job (release needs agreement); the composite decision was not yet in that chain. | `verify-composite-release.mjs` REUSES the gated composite `validateReceipt` to require the committed receipt to name the tagged candidate + be proven (exit 0 clear / 1 fail-closed); the extension-release.yml agreement job runs it after verify-visual-review; the release job `needs: [build, agreement]`. | The gate `composite-release-enforced` asserts (offline) the CLI clears ext 0.5.0 + fails closed for a version with no decision, and that extension-release.yml wires the CLI in the publish-gating agreement job. |
 | LBA-REQ-072 | The system shall prove that a Linux and a Windows launch-to-ready benchmark receipt measure the SAME benchmark via a machine-independent launch identity (metric + workload + sample count) -- so their plane-specific timings are legitimately comparable -- and a fail-closed gate rejects an identity mismatch, a non-cross-plane pair, or a tampered receipt. | Cross-plane PARITY is governed for deterministic benchmarks whose value is plane-independent (mprr seriesHash LBA-REQ-014; VI Analyzer resultHash LBA-REQ-015/043), but the flagship exact-12-FPS launch-to-ready benchmark measures a plane-DEPENDENT quantity (~2604 ms Linux vs ~2410 ms Windows), so there is no identical series to anchor -- today's launch cross-plane receipts compare timing deltas as witnesses, proving nothing about whether the two planes ran the SAME benchmark. | `launchParity.mjs` anchors on the launch SPEC (`launchIdentity` = sha256 over metric + workload + n), records the plane-specific timing (mean/delta/faster-plane) as witnesses, and seals a committed `cross-plane-launch-parity-receipt@1` derived from the real committed launch trends; the gate re-derives it + checks it reflects the real trend means. | `node experiments/launch-parity/launchParity.selftest.mjs` (7/7) + the committed receipt (identity + digest via the verifier main, grounded in the committed fixtures experiments/launch-parity/fixtures/{linux,win}-launch-trend.json); gated by `cross-plane-launch-parity`. |
+| LBA-REQ-073 | The system shall prove fulfillment of a DISPATCHED cross-plane benchmark run by validating that >= N distinct enrolled mesh actors from the requested planes each returned a valid plane-tagged receipt for the SAME benchmark identity -- so a fail-closed gate proves the mesh run was fulfilled by enough independent cross-plane actors, with no central results database (the returned receipts ARE the result). | The North Star is an actor mesh where a requester dispatches a cross-plane benchmark + independent volunteer golden-VM actors return plane-tagged receipts. The pieces exist (mesh-actor registration LBA-REQ-039; provider-delegation CLAIM/ACK/DONE LBA-REQ-018; cross-plane launch identity LBA-REQ-072) but nothing composed them into a FULFILLMENT proof -- the roadmap Phase 3 / section-8 mesh metric. | `meshFulfillment.mjs` REUSES the LBA-REQ-072 launch identity as the cross-actor agreement invariant + seals a committed `mesh-run-fulfillment-receipt@1`: a dispatched labview-ide-launch run fulfilled by 2 golden-VM actors (golden-linux LINUX + golden-win WIN) each returning its real plane-tagged launch-trend receipt. | `node experiments/mesh-fulfillment/meshFulfillment.selftest.mjs` (7/7) + the committed receipt (fulfillment + identity agreement + digest via the verifier main); gated by `mesh-run-cross-plane-fulfillment`. |
 
 ---
 
@@ -2215,6 +2216,38 @@ progressively.
   same `{ metric, workload, n }`. Complements (does not duplicate) the deterministic-series parity of
   LBA-REQ-014/015/043. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-073: Mesh-run cross-plane fulfillment (the North Star loop)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0054 -- mesh-run cross-plane fulfillment, roadmap Phase 3)
+- Statement: The system shall prove fulfillment of a DISPATCHED cross-plane benchmark run by validating that
+  >= N distinct enrolled mesh actors from the requested planes each returned a valid plane-tagged receipt for the
+  SAME benchmark identity -- so a fail-closed gate proves the mesh run was fulfilled by enough independent
+  cross-plane actors, with no central results database (the returned receipts ARE the result).
+- Rationale: the North Star is a horizontally-scaled, sandbox-isolated actor mesh -- a requester dispatches a
+  cross-plane benchmark run and independent volunteer golden-VM actors return plane-tagged receipts (roadmap
+  Phase 3, the section-8 metric "a requester dispatches a run and receives >= 2 independent, plane-tagged receipts
+  from volunteer actors"). The pieces existed but were uncomposed: LBA-REQ-039 enrolls an actor (not fulfillment);
+  LBA-REQ-040/041 prove distributed shards + routing among ripgrep-only instances (not benchmark receipts);
+  LBA-REQ-018 proves CLAIM/ACK/DONE dispatch for uplift/doc/test domains (not benchmark-mesh fulfillment).
+- Acceptance Criteria:
+  - A committed receipt (`experiments/mesh-fulfillment/mesh-run-fulfillment-receipt.json`, schema
+    `mesh-run-fulfillment-receipt@1`) records a dispatch (`benchmarkId` + benchmark spec + `minActors` +
+    `requestedPlanes`) and the actors' returned runs; it is FULFILLED iff >= `minActors` DISTINCT enrolled actors
+    responded, the requested planes are covered, each returned a valid plane-tagged `workload-trend@1` (plane
+    matching the actor), and all actors share the dispatched benchmark identity.
+  - `meshFulfillment.mjs` REUSES the LBA-REQ-072 `launchIdentity` (`sha256` over metric + workload + n) as the
+    cross-actor agreement invariant, and FAILS CLOSED on too few actors, a duplicate actor, an uncovered plane, an
+    invalid receipt, an identity disagreement, or a tampered digest (selftest 7/7); the verdict + digest re-derive
+    DETERMINISTICALLY (no VM / network / central DB at gate time).
+  - The committed receipt seals a REAL run: `labview-ide-launch` fulfilled by `golden-linux` (LINUX) + `golden-win`
+    (WIN), each embedding its real plane-tagged launch-trend receipt.
+- Change Guidance: the verifier + selftest + receipt live under `experiments/mesh-fulfillment/`
+  (`meshFulfillment.mjs` / `.selftest.mjs` / `mesh-run-fulfillment-receipt.json`); gate
+  `mesh-run-cross-plane-fulfillment` in `verify-local-gates`. Composes LBA-REQ-039 (actor identity) + LBA-REQ-018
+  (dispatch primitives) + LBA-REQ-072 (benchmark identity). The GitHub-native `repository_dispatch` transport is
+  the next Phase-3 increment. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2293,3 +2326,4 @@ progressively.
 | LBA-REQ-070 | Deployment (composite release decision) | T-070 |
 | LBA-REQ-071 | Deployment (enforce composite release decision) | T-071 |
 | LBA-REQ-072 | Deployment (cross-plane launch benchmark parity) | T-072 |
+| LBA-REQ-073 | Deployment (mesh-run cross-plane fulfillment) | T-073 |
