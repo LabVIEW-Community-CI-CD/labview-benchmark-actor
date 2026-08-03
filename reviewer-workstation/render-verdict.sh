@@ -58,8 +58,9 @@ case "$sub" in
   collect)
     [[ -n "$out" ]] || { echo "render-verdict: collect requires --out <file.json>" >&2; exit 2; }
     src="${guest_handoff}\\verdicts\\${component}-${version}.json"
-    gc copyfrom --target-directory "$(dirname "$out")" "$src" >/dev/null
-    mv -f "$(dirname "$out")/${component}-${version}.json" "$out"
+    # Two-arg copyfrom (guest-source -> host-dest FILE); --target-directory is mis-parsed as a file dest by
+    # some VBoxManage builds ("Destination ... already exists and is a directory").
+    gc copyfrom "$src" "$out" >/dev/null
     echo "[render-verdict] collected the signed verdict -> ${out}" >&2
     ;;
   *)
