@@ -6,7 +6,16 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-03
+
 ### Added
+- **Marketplace v1.0 — the LabVIEW Benchmark Actor extension ships free** (roadmap Phase 5). The first public
+  Marketplace release: a product-facing README + a governed "join the mesh" quickstart, on top of the governed
+  actor mesh (dispatch -> fulfillment -> verified tier -> transparency log -> append-only -> composite
+  fully-attested verdict, LBA-REQ-072..080), the cross-plane benchmark parity suite (launch + VI Analyzer) + suite
+  observatory (LBA-REQ-081..083), and the stress-discounted cross-plane comparison that discounts a result captured
+  on a contended actor (roadmap Phase 4, LBA-REQ-084). 180+ fail-closed gates green on `develop`; publish is gated
+  behind the human reviewer-VM visual sign-off (LBA-REQ-057) + the composite release decision (LBA-REQ-071).
 - **Retire message priority + addressing (LBA-REQ-013) — off GitHub Discussions, step 8b cleanup** (ADR-0048).
   The message priority tier (`P0`–`P3`, `--min-priority`) + plane addressing (`--to`/`--to-me`) were features
   of the removed GitHub-Discussion transport (`post`/`poll` + the `CollabMessage`/`Priority` model). Under the

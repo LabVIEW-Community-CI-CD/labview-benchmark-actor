@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 export const REQUIRED_ITEMS = Object.freeze([
   'navigation-and-search', 'getting-started', 'user-guide', 'command-reference', 'glossary',
-  'faq', 'audience-and-task-model', 'delivery-profile', 'plan', 'conformance-boundary',
+  'faq', 'audience-and-task-model', 'delivery-profile', 'plan', 'conformance-boundary', 'join-the-mesh',
 ]);
 const MIN_NONEMPTY_LINES = 12;
 
