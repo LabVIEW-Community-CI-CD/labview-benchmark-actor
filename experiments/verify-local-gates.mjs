@@ -1739,6 +1739,27 @@ check('benchmark-suite-parity-observatory', () => {
   return { families: obs.coverage.familyCount, proven: obs.coverage.parityProvenCount, list: obs.coverage.families.join('+') };
 });
 
+// LBA-REQ-083 / ADR-0064: the mesh carries a SECOND benchmark family -- the convergence of the mesh (Phase 3) +
+// the benchmark suite (Phase 2). Proves the mesh fulfillment engine (LBA-REQ-073) is BENCHMARK-GENERIC by
+// fulfilling the VI Analyzer benchmark (LBA-REQ-081 identity, DISTINCT from launch) through the same engine,
+// grounded in the real committed VI Analyzer captures. Asserts the selftest (7/7) + the committed run (via the
+// CLI, re-derived from the evidence) + that the mesh carried a distinct benchmark + fulfillment holds.
+check('mesh-benchmark-family-vi-analyzer', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'viAnalyzerMeshRun.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'viAnalyzerMeshRun.mjs')], { stdio: 'pipe' });
+  const run = JSON.parse(readFileSync(join(dir, 'mesh-run-vi-analyzer-family.json'), 'utf8'));
+  const via = JSON.parse(readFileSync(join(here, 'vi-analyzer', 'cross-plane-vi-analyzer-parity-receipt.json'), 'utf8'));
+  assert(run.schema === 'labview-benchmark-actor/mesh-benchmark-family-run@1' && run.requirement === 'LBA-REQ-083', 'committed mesh-run family record shape');
+  assert(run.verdict.carried === true && run.distinctFromLaunch === true, 'the mesh carried a benchmark distinct from launch');
+  assert(run.family === 'vi-analyzer' && run.benchmark.metric === 'viAnalyzerMs' && run.identity === via.benchmarkIdentity, 'the carried benchmark is VI Analyzer (same identity as the LBA-REQ-081 parity)');
+  // the embedded fulfillment is a real LBA-REQ-073 cross-plane fulfillment (>= 2 actors, both planes, same identity).
+  const f = run.fulfillment;
+  assert(f.schema === 'labview-benchmark-actor/mesh-run-fulfillment-receipt@1' && f.verdict.fulfilled === true && f.identity === run.identity, 'the mesh fulfilled the VI Analyzer run via the LBA-REQ-073 engine');
+  assert(f.fulfillment.distinctActors >= 2 && f.fulfillment.planes.includes('LINUX') && f.fulfillment.planes.includes('WIN'), '>= 2 distinct actors across the LINUX + WIN planes');
+  return { family: run.family, identity: run.identity.slice(0, 12), actors: f.fulfillment.distinctActors, distinctFromLaunch: run.distinctFromLaunch };
+});
+
 // LBA-REQ-073 / ADR-0054: mesh-run cross-plane FULFILLMENT (roadmap Phase 3, the North Star loop) -- a dispatched
 // benchmark run is proven fulfilled by >= N independent enrolled actors from DISTINCT planes, each returning a
 // valid plane-tagged receipt for the SAME benchmark identity (reuses the LBA-REQ-072 launch identity). No central
