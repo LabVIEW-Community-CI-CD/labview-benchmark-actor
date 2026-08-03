@@ -83,31 +83,26 @@ export async function getBenchmarkSeries(root: string = repoRoot): Promise<McpTo
   }
 }
 
-/** Coordination-bus transport for the MCP tools (LBA-REQ-062, ADR-0042), from env passed by the extension at
- *  server launch (busEnvFromConfig): VIHS_COLLAB_TRANSPORT (discussion default | net) + VIHS_COLLAB_NET_HOSTS
- *  + VIHS_COLLAB_NET_LOG. Discussion stays the default. */
-function busTransport(): { transport: string; netHosts: string; netLog: string } {
+/** The live-only `lbabus net` bus config for the MCP tools (LBA-REQ-066, ADR-0046, net-only), from env passed by
+ *  the extension at server launch (busEnvFromConfig): VIHS_COLLAB_NET_HOSTS + VIHS_COLLAB_NET_LOG. The
+ *  GitHub-Discussion transport opt-out was removed off-Discussions step 7. */
+function busNetConfig(): { netHosts: string; netLog: string } {
   return {
-    transport: process.env.VIHS_COLLAB_TRANSPORT === 'discussion' ? 'discussion' : 'net',
     netHosts: (process.env.VIHS_COLLAB_NET_HOSTS ?? '').trim(),
     netLog: (process.env.VIHS_COLLAB_NET_LOG ?? '').trim()
   };
 }
 
-/** The `lbabus` argv for polling the bus, transport-selected (net -> `net poll` the local receive-log). */
+/** The `lbabus net poll` argv for polling the local receive-log (net-only). */
 export function pollBusArgs(tail: number): string[] {
-  const { transport, netLog } = busTransport();
-  return transport === 'net'
-    ? ['net', 'poll', ...(netLog ? ['--log', netLog] : []), '--tail', String(tail)]
-    : ['poll', '--full', '--tail', String(tail)];
+  const { netLog } = busNetConfig();
+  return ['net', 'poll', ...(netLog ? ['--log', netLog] : []), '--tail', String(tail)];
 }
 
-/** The `lbabus` argv for posting a coordination note, transport-selected (net -> `net send` to the peer host(s)). */
+/** The `lbabus net send` argv for posting a coordination note to the peer host(s) (net-only; graceful no-op). */
 export function postNoteArgs(message: string): string[] {
-  const { transport, netHosts } = busTransport();
-  return transport === 'net'
-    ? ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : ['--skip-if-no-peer']), '--type', 'NOTE', '--message', message]
-    : ['post', '--type', 'NOTE', '--message', message];
+  const { netHosts } = busNetConfig();
+  return ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : ['--skip-if-no-peer']), '--type', 'NOTE', '--message', message];
 }
 
 const serverDeps: BenchmarkActorMcpToolDeps = {

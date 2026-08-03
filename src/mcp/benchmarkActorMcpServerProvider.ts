@@ -56,11 +56,10 @@ export function buildBenchmarkActorMcpServerDefinitionFields(options: {
   };
 }
 
-/** Map the extension's bus-transport config to the env the stdio MCP server reads to select its coordination
- *  transport (LBA-REQ-062, ADR-0042). Empty values are omitted so the server keeps the Discussion default. */
-export function busEnvFromConfig(cfg: { transport: string; netHosts: string; netLog: string }): Record<string, string> {
+/** Map the extension's `lbabus net` config to the env the stdio MCP server reads (LBA-REQ-066, ADR-0046,
+ *  net-only). Empty values are omitted (a graceful no-op when the net bus is unconfigured). */
+export function busEnvFromConfig(cfg: { netHosts: string; netLog: string }): Record<string, string> {
   const env: Record<string, string> = {};
-  if (cfg.transport === 'net') { env.VIHS_COLLAB_TRANSPORT = 'net'; }
   if (cfg.netHosts) { env.VIHS_COLLAB_NET_HOSTS = cfg.netHosts; }
   if (cfg.netLog) { env.VIHS_COLLAB_NET_LOG = cfg.netLog; }
   return env;
@@ -94,7 +93,6 @@ export function registerBenchmarkActorMcpServerProvider(
     provideMcpServerDefinitions: () => {
       const c = vscode.workspace.getConfiguration('labviewBenchmarkActor');
       const env = busEnvFromConfig({
-        transport: c.get<string>('busTransport', 'net'),
         netHosts: (c.get<string>('busNetHosts', '') || '').trim(),
         netLog: (c.get<string>('busNetLog', '') || '').trim()
       });

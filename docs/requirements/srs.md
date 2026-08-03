@@ -93,6 +93,7 @@ progressively.
 | LBA-REQ-063 | The system shall let the reviewer-workstation verdict announcer (post-verdict.mjs) select the transport -- GitHub Discussion (default) or the live-only lbabus net TCP bus (opt-in via VIHS_COLLAB_TRANSPORT/NET_HOSTS) -- so a signed verdict announces via `net send` with the same semantic type when configured, and a fail-closed gate proves the argv under both transports. | ADR-0041/0042 migrated the extension + MCP; post-verdict.mjs (used by the release CI + by hand) still built only the Discussion post argv. | post-verdict.mjs reads VIHS_COLLAB_TRANSPORT/NET_HOSTS: net -> `net send --hosts --type --task --message-file`, else `post` (unchanged); --print-args honors it so the release CI is unchanged at the default. | Gated by `post-verdict-net-transport` (runs --print-args under both transports + asserts the argv). |
 | LBA-REQ-064 | The system shall NOT announce the reviewer verdict to a GitHub Discussion from the release publish workflow -- the durable record of the human PASS is the committed signed verdict (release-agreement visualReview, keyless counter-signed); under the live-only net model CI has no bus peer -- so a fail-closed gate proves the publish workflow carries no GitHub-Discussion announce. | ADR-0038 had the release CI announce the verdict to a GitHub Discussion; under live-only (ADR-0040) CI has no net peer + the committed verdict is already durable, so the CI announce is dropped. | The Set up .NET + Announce steps are removed from extension-release.yml; the committed verdict (staged + keyless counter-signed) is the durable record; off-CI live announce stays via post-verdict.mjs/extension over net. | Gated by `release-no-discussion-announce` (the workflow carries no dotnet-run-LbaBus / announce step + keeps the keyless counter-sign). |
 | LBA-REQ-065 | The system shall default the coordination-bus transport to the live-only `lbabus net` TCP bus (GitHub Discussion becomes a legacy opt-out) AND degrade gracefully when net is unconfigured -- `net poll` with no receive-log and `net send --skip-if-no-peer` with no peer both exit 0 with a hint (no error, no dead loopback) -- so a fresh install coordinates over TCP once a peer/log is set and does nothing quietly until then, proven by a gate. | Steps 1-5 (ADR-0040..0044) made net available everywhere but kept Discussion the default (opt-in net) during the transition; with the net loop proven live (ADR-0039) the last thing pinning Discussion is inertia. Flipping naively would error/hang an unconfigured install, so the flip is paired with a graceful no-op. | busTransport defaults to net across the extension/MCP/post-verdict; `net poll` no-log softened from fail-closed to graceful (exit 0); the send side passes --skip-if-no-peer so `net send` with no peer exits 0; Discussion is `busTransport: discussion` / VIHS_COLLAB_TRANSPORT=discussion. | npm test (extension + MCP default flip) + the net-coordination-log receipt (graceful poll); gated by `net-default-graceful` (Net.cs graceful branches + net default in package.json/extension) + `bus-transport-select` (default === 'net'). |
+| LBA-REQ-066 | The system shall coordinate over the live-only `lbabus net` TCP bus ONLY across its product surface (the extension commands + the MCP coordination tools + the reviewer verdict announcer) -- the GitHub-Discussion transport opt-out is removed (no `busTransport` selection, no consumer builds a Discussion `post`/`poll` argv) -- so a fail-closed gate proves the product surface is net-only. | Steps 1-6 (ADR-0040..0045) made net the default with Discussion a legacy opt-out, but the product still carried the Discussion arms (busPostArgs, the busTransport selection, VIHS_COLLAB_TRANSPORT, the post/--priority branch). With net proven + default, the opt-out is dead weight on the surface users + agents touch. | Removed the busTransport setting; busConfig returns {netHosts,netLog}; pollBus->net poll, postNote/verdict->net send unconditionally; busEnvFromConfig maps only NET_HOSTS/NET_LOG; post-verdict.mjs is net send only. The graceful no-op (--skip-if-no-peer / net poll exit 0) is preserved. | npm test (extension + MCP net-only) + gates `bus-transport-select`/`mcp-net-transport`/`post-verdict-net-transport` (now net-only) + `net-default-graceful`. |
 
 ---
 
@@ -2002,6 +2003,38 @@ progressively.
 
 ---
 
+### LBA-REQ-066: Collapse the coordination product surface to net-only
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0046 -- collapse the product surface to net-only, off GitHub Discussions step 7)
+- Statement: The system shall coordinate over the live-only `lbabus net` TCP bus ONLY across its product surface
+  (the extension commands + the MCP coordination tools + the reviewer verdict announcer) -- the GitHub-Discussion
+  transport opt-out is removed (no `busTransport` selection, no consumer builds a Discussion `post`/`poll` argv)
+  -- so a fail-closed gate proves the product surface is net-only.
+- Rationale: off-Discussions steps 1-6 (ADR-0040..0045) made `net` the default with Discussion a legacy opt-out,
+  but the product surface still carried the Discussion arms (the extension's busPostArgs + busTransport
+  selection, the MCP tools' VIHS_COLLAB_TRANSPORT selection, post-verdict.mjs's post --priority/--ref branch).
+  With net proven live (ADR-0039) + the default (ADR-0045), the opt-out is dead weight on the surface users +
+  agents actually touch. Removing it is the first half of the final teardown, split from the CLI transport
+  removal (step 8) because the CLI's Discussion commands share GitHubGraphQL.cs with selfcheck/defect + the ci
+  mock harness.
+- Acceptance Criteria:
+  - The `labviewBenchmarkActor.busTransport` setting is removed; `busNetHosts`/`busNetLog` remain.
+  - The extension (`busConfig` -> {netHosts, netLog}; pollBus -> `net poll`, postNote + verdict -> `net send`;
+    no `busPostArgs`), the MCP provider + stdio server (`busEnvFromConfig` maps only NET_HOSTS/NET_LOG;
+    `pollBusArgs`/`postNoteArgs` net-only; no `VIHS_COLLAB_TRANSPORT`), and `post-verdict.mjs` (`net send` only,
+    no `--priority`/`--ref`) build only the net argv.
+  - The graceful no-op (ADR-0045) is preserved (`--skip-if-no-peer`; `net poll` no-log exits 0).
+- Change Guidance: the collapse is in package.json + src/extension.ts + src/mcp/* + reviewer-workstation/post-verdict.mjs;
+  gates `bus-transport-select` + `mcp-net-transport` + `post-verdict-net-transport` (now net-only) +
+  `net-default-graceful`, unit-covered by test/extension-activation.mjs + test/mcp-server.mjs. Supersedes the
+  transport-selection portion of ADR-0041/0042/0043. The FINAL step -- removing the Discussion transport from
+  the CLI (Program.cs post/poll/wait/init/delta + GitHubGraphQL Discussion methods) + the ci mock GraphQL
+  harness + collab-cli docs -- is deferred (ADR-0046 Consequences, step 8). Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -2071,3 +2104,4 @@ progressively.
 | LBA-REQ-063 | Deployment (post-verdict transport selection) | T-063 |
 | LBA-REQ-064 | Deployment (drop release-CI Discussion announce) | T-064 |
 | LBA-REQ-065 | Deployment (flip coordination default to net + graceful no-op) | T-065 |
+| LBA-REQ-066 | Deployment (collapse coordination product to net-only) | T-066 |

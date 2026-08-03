@@ -2346,38 +2346,38 @@ check('net-coordination-log', () => {
   return { receipt: r.ok, model: 'live-only net (no GitHub Discussion)', cases: Object.keys(r.cases).length };
 });
 
-// LBA-REQ-061 / ADR-0041: off-Discussions step 2 -- the extension's coordination commands select the transport
-// (Discussion default, `net` opt-in). Source-asserts the switch + the config surface; the runtime busSendArgs +
-// the pollBus/postNote net branches are unit-covered by test/extension-activation.mjs (the extension-tests job).
+// LBA-REQ-066 / ADR-0046: off-Discussions step 7 -- the extension's coordination commands are NET-ONLY (the
+// GitHub-Discussion transport opt-out is removed: no busTransport selection, no Discussion post argv). The
+// runtime busSendArgs + the pollBus/postNote net paths are unit-covered by test/extension-activation.mjs.
 check('bus-transport-select', () => {
   const ext = readFileSync(join(here, '..', 'src', 'extension.ts'), 'utf8');
   assert(/export function busSendArgs\(/.test(ext) && ext.includes("['net', 'send']"), 'busSendArgs builds the net send argv');
-  assert(ext.includes("'busTransport'") && ext.includes("transport === 'net'"), 'the bus commands select discussion vs net');
-  assert(/'net', 'poll'/.test(ext) && /'net', 'send'/.test(ext), 'pollBus -> net poll and postNote -> net send under the net transport');
+  assert(!ext.includes('busPostArgs') && !ext.includes("'busTransport'") && !ext.includes("transport === 'net'"), 'no Discussion busPostArgs / busTransport selection remains (net-only)');
+  assert(/'net', 'poll'/.test(ext) && /'net', 'send'/.test(ext), 'pollBus -> net poll and postNote -> net send (net-only)');
   const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8'));
   const props = pkg.contributes.configuration.properties;
-  for (const k of ['labviewBenchmarkActor.busTransport', 'labviewBenchmarkActor.busNetHosts', 'labviewBenchmarkActor.busNetLog']) {
+  assert(!props['labviewBenchmarkActor.busTransport'], 'the busTransport selection setting is removed (net-only)');
+  for (const k of ['labviewBenchmarkActor.busNetHosts', 'labviewBenchmarkActor.busNetLog']) {
     assert(props[k], `package.json contributes ${k}`);
   }
-  assert(props['labviewBenchmarkActor.busTransport'].default === 'net', 'default transport is net (LBA-REQ-065/ADR-0045); discussion is legacy opt-out');
-  return { config: 3, default: 'net', netDefault: true };
+  return { transport: 'net-only', discussionOptOut: 'removed' };
 });
 
-// LBA-REQ-062 / ADR-0042: off-Discussions step 3 -- the MCP coordination tools select the transport via env
-// passed by the extension at server launch (Discussion default, net opt-in). Source-asserts the switch; the
+// LBA-REQ-066 / ADR-0046: off-Discussions step 7 -- the MCP coordination tools are NET-ONLY (no
+// VIHS_COLLAB_TRANSPORT selection). Source-asserts net-only poll/post argv + the net env-passing provider; the
 // runtime is covered by test/mcp-server.mjs (busEnvFromConfig + the transport-agnostic stdio tools).
 check('mcp-net-transport', () => {
   const srv = readFileSync(join(here, '..', 'src', 'mcp', 'runBenchmarkActorMcpServer.ts'), 'utf8');
-  assert(/export function pollBusArgs\(/.test(srv) && /export function postNoteArgs\(/.test(srv), 'the MCP server builds transport-selected poll/post argv');
-  assert(srv.includes('VIHS_COLLAB_TRANSPORT') && srv.includes("'net', 'poll'") && srv.includes("'net', 'send'"), 'net transport reads the env + routes to net poll/send');
+  assert(/export function pollBusArgs\(/.test(srv) && /export function postNoteArgs\(/.test(srv), 'the MCP server builds the net poll/send argv');
+  assert(!srv.includes('VIHS_COLLAB_TRANSPORT') && srv.includes("'net', 'poll'") && srv.includes("'net', 'send'"), 'poll/post route to net poll/send only (no transport env selection)');
   const prov = readFileSync(join(here, '..', 'src', 'mcp', 'benchmarkActorMcpServerProvider.ts'), 'utf8');
-  assert(/export function busEnvFromConfig\(/.test(prov) && prov.includes('VIHS_COLLAB_TRANSPORT') && prov.includes("getConfiguration('labviewBenchmarkActor')"), 'the provider passes the transport env from the extension config');
-  return { server: 'poll/postArgs env-selected', provider: 'busEnvFromConfig', default: 'discussion' };
+  assert(/export function busEnvFromConfig\(/.test(prov) && !prov.includes('VIHS_COLLAB_TRANSPORT') && prov.includes("getConfiguration('labviewBenchmarkActor')"), 'the provider passes only the net bus env (hosts/log) from the extension config');
+  return { server: 'net poll/send only', provider: 'busEnvFromConfig (net-only)' };
 });
 
-// LBA-REQ-063 / ADR-0043: off-Discussions step 4 -- post-verdict.mjs announces the signed verdict over the
-// selected transport (Discussion default, net opt-in via VIHS_COLLAB_TRANSPORT/NET_HOSTS). Runs --print-args
-// under both transports + asserts the argv (post vs net send, same semantic RESOLVED type + release task).
+// LBA-REQ-066 / ADR-0046: off-Discussions step 7 -- post-verdict.mjs announces the signed verdict NET-ONLY over
+// `lbabus net send` (no Discussion transport). Runs --print-args and asserts the net send argv (semantic
+// RESOLVED type + release task, no --priority); with a peer -> --hosts, without -> a graceful --skip-if-no-peer.
 check('post-verdict-net-transport', () => {
   const { privateKeyPem } = generateReviewerKeypair();
   const reviewer = 'reviewer@example';
@@ -2387,12 +2387,12 @@ check('post-verdict-net-transport', () => {
   writeFileSync(tmp, JSON.stringify({ verdict, signOff }));
   const pv = join(here, '..', 'reviewer-workstation', 'post-verdict.mjs');
   const run = (env) => execFileSync(process.execPath, [pv, '--verdict', tmp, '--print-args'], { encoding: 'utf8', env: { ...process.env, ...env } }).trim();
-  const disc = run({ VIHS_COLLAB_TRANSPORT: 'discussion' });
-  assert(disc.startsWith('post ') && disc.includes('--type RESOLVED') && disc.includes('--task extension-release-0.5.0') && disc.includes('--message-file'), `discussion default -> post argv (got: ${disc})`);
-  const net = run({ VIHS_COLLAB_TRANSPORT: 'net', VIHS_COLLAB_NET_HOSTS: '10.0.2.2' });
-  assert(net.startsWith('net send ') && net.includes('--hosts 10.0.2.2') && net.includes('--type RESOLVED') && net.includes('--task extension-release-0.5.0') && net.includes('--message-file') && !net.includes('--priority'), `net transport -> net send argv (got: ${net})`);
+  const net = run({ VIHS_COLLAB_NET_HOSTS: '10.0.2.2' });
+  assert(net.startsWith('net send ') && net.includes('--hosts 10.0.2.2') && net.includes('--type RESOLVED') && net.includes('--task extension-release-0.5.0') && net.includes('--message-file') && !net.includes('--priority'), `net send argv with a peer (got: ${net})`);
+  const noPeer = run({});
+  assert(noPeer.startsWith('net send ') && noPeer.includes('--skip-if-no-peer') && !noPeer.includes('--hosts') && !noPeer.includes('post '), `net send graceful no-op without a peer (got: ${noPeer})`);
   rmSync(tmp, { force: true });
-  return { discussion: 'post', net: 'net send', default: 'discussion' };
+  return { net: 'net send', discussionOptOut: 'removed' };
 });
 
 // LBA-REQ-064 / ADR-0044: off-Discussions step 5 -- the release publish workflow no longer announces the
@@ -2416,11 +2416,9 @@ check('net-default-graceful', () => {
   const net = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Net.cs'), 'utf8');
   assert(net.includes('skip-if-no-peer') && /no peer configured/.test(net), 'net send --skip-if-no-peer degrades gracefully (exit 0)');
   assert(/no receive-log configured/.test(net) && net.includes('ADR-0045'), 'net poll with no receive-log degrades gracefully (exit 0)');
-  const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8'));
-  assert(pkg.contributes.configuration.properties['labviewBenchmarkActor.busTransport'].default === 'net', 'busTransport defaults to net');
   const ext = readFileSync(join(here, '..', 'src', 'extension.ts'), 'utf8');
-  assert(ext.includes("'busTransport', 'net'") && ext.includes('--skip-if-no-peer'), 'the extension defaults to net + routes the send side via --skip-if-no-peer when no peer is configured');
-  return { default: 'net', gracefulPoll: true, gracefulSend: true };
+  assert(ext.includes('--skip-if-no-peer') && /'net', 'send'/.test(ext), 'the extension routes the send side via --skip-if-no-peer (graceful no-op) when no peer is configured');
+  return { gracefulPoll: true, gracefulSend: true };
 });
 
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document

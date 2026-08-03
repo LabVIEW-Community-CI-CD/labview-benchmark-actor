@@ -72,5 +72,6 @@
 | LBA-REQ-063 | post-verdict.mjs transport selection -- Discussion default, net opt-in | Proven | §3.2 Deployment | ADR-0043 | T-063 | 2 |
 | LBA-REQ-064 | Drop the release-CI GitHub-Discussion verdict announce | Proven | §3.2 Deployment | ADR-0044 | T-064 | 3 |
 | LBA-REQ-065 | Flip the coordination default to net + graceful no-op when unconfigured | Proven | §3.2 Deployment | ADR-0045 | T-065 | 7 |
+| LBA-REQ-066 | Collapse the coordination product surface to net-only | Proven | §3.2 Deployment | ADR-0046 | T-066 | 8 |
 
-_Generated for 65 requirements._
+_Generated for 66 requirements._
