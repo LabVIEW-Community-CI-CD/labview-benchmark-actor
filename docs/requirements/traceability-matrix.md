@@ -85,5 +85,6 @@
 | LBA-REQ-076 | The live fan-out contract (actor-tasking + receipt-collection) | Proven | §3.2 Deployment | ADR-0057 | T-076 | 6 |
 | LBA-REQ-077 | The opt-in verified tier (enrolled-actor receipt attestations) | Proven | §3.2 Deployment | ADR-0058 | T-077 | 7 |
 | LBA-REQ-078 | Transparency-log the mesh-actor attestations (public auditability) | Proven | §3.2 Deployment | ADR-0059 | T-078 | 7 |
+| LBA-REQ-079 | The append-only consistency proof (the mesh transparency log only grows) | Proven | §3.2 Deployment | ADR-0060 | T-079 | 7 |
 
-_Generated for 78 requirements._
+_Generated for 79 requirements._

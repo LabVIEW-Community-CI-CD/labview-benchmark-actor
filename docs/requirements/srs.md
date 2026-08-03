@@ -106,6 +106,7 @@ progressively.
 | LBA-REQ-076 | The system shall expand a validated mesh-run dispatch into per-plane actor tasking and validate the returned-receipt collection that feeds fulfillment, both identity-bound to the dispatch -- so a fail-closed gate proves every collected receipt provably descends from the dispatched tasks and ran the SAME benchmark. | The mesh dispatch->fulfill loop is governed at its ends (LBA-REQ-074 dispatch + LBA-REQ-073 fulfillment) but the MIDDLE -- how a dispatch tasks actors + how their receipts are collected -- was ungoverned, so an assembled receipt set could bypass the fan-out. The roadmap live fan-out needs an identity-bound tasking + collection contract. | `meshFanout.mjs` derives an `actor-tasking@1` set from the dispatch (one identity-bound task per requested plane) + validates a `receipt-collection@1` mapping returned receipts back to tasks; the committed tasking re-derives from the dispatch + the collection reconstructs the committed LBA-REQ-073 fulfillment; `.github/workflows/mesh-run.yml` runs the fan-out step. | `node experiments/mesh-fulfillment/meshFanout.selftest.mjs` (7/7) + the committed tasking + collection (via the CLI) + the tasking currency + the fulfillment reconstruction + the mesh-run.yml wiring; gated by `mesh-live-fanout-wired`. |
 | LBA-REQ-077 | The system shall admit a returned mesh-actor receipt into a verified collection only when it carries a valid attestation from its declared, enrolled actor -- so a fail-closed gate proves each collected receipt provably came from a REAL enrolled actor (not a fabricated trend). | The fan-out (LBA-REQ-076) proves a receipt is identity-bound + structurally valid but not that it came from a real enrolled actor -- a rogue participant could fabricate a plausible trend. A public volunteer mesh needs each receipt cryptographically bound to the enrolled actor that produced it; the ADR-0016 enrolled-key engine already exists to reuse. | `meshVerifiedTier.mjs` REUSES acg-provenance `signBundle`/`verifyWitnessAttestation` (Ed25519, ADR-0016): each returned receipt is signed by the actor's enrolled key, and a `verified-receipt-collection@1` admits it only when the attestation verifies against the enrolled `mesh-actor-keys.json` allowlist; the committed verified collection re-verifies its attestations offline. | `node experiments/mesh-fulfillment/meshVerifiedTier.selftest.mjs` (7/7) + the committed verified collection (via the CLI) + every collected receipt attested by its declared enrolled actor + the mesh-run.yml wiring; gated by `mesh-verified-tier-attested`. |
 | LBA-REQ-078 | The system shall admit a verified mesh-actor attestation only when it carries an inclusion proof against a transparency-log tree head signed by the enrolled log key -- so a fail-closed gate proves the mesh receipts are enrolled-signed AND publicly auditable (append-only, tamper-evident). | The verified tier (LBA-REQ-077) binds a receipt to its enrolled actor, but the set of attestations is not publicly auditable -- a compromised key could sign + nothing records the attestations in an append-only log. Release provenance already solved this (the ADR-0022 signed Merkle transparency log); the mesh should reuse it. | `meshTransparency.mjs` REUSES the acg-transparency engine (`recordRelease`/`verifyReleaseInclusion`, RFC-6962): each verified-tier attestation is recorded into a signed Merkle tree, and a `logged-verified-collection@1` admits it only when its inclusion proof reconstructs the enrolled-key-signed tree head; the committed logged collection re-verifies offline. | `node experiments/mesh-fulfillment/meshTransparency.selftest.mjs` (7/7) + the committed logged collection (via the CLI) + the signed tree head + every inclusion proof + the mesh-run.yml wiring; gated by `mesh-attestations-transparency-logged`. |
+| LBA-REQ-079 | The system shall admit the mesh transparency log's current tree head only when a consistency proof proves it contains an earlier signed tree head unchanged -- so a fail-closed gate proves the log is APPEND-ONLY (no logged attestation removed or rewritten as it grew). | ADR-0059 records + proves INCLUSION of each attestation and calls the log append-only, but inclusion alone does not prove the log only GROWS -- a log operator could publish a head that silently drops an earlier entry. The RFC-6962 consistency proof (already in the acg-transparency engine) closes that. | `meshLogHistory.mjs` REUSES `consistencyProof`/`verifyConsistency` (ADR-0022): a `logged-collection-history@1` binds an earlier + the current signed tree head + a consistency proof, admitted only when the later tree provably contains the earlier unchanged + the current head matches the committed LBA-REQ-078 log root. | `node experiments/mesh-fulfillment/meshLogHistory.selftest.mjs` (7/7) + the committed history (via the CLI) + the strict growth + the consistency proof + the 078-log binding + the mesh-run.yml wiring; gated by `mesh-log-append-only`. |
 
 ---
 
@@ -2409,6 +2410,38 @@ progressively.
   heads (the engine already provides it) extends this to an append-only history. Authored under the
   singular-requirement directive (one `shall`).
 
+### LBA-REQ-079: The append-only consistency proof (the mesh transparency log only grows)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0060 -- the append-only consistency proof, roadmap Phase 3)
+- Statement: The system shall admit the mesh transparency log's current tree head only when a consistency proof
+  proves it contains an earlier signed tree head unchanged -- so a fail-closed gate proves the log is APPEND-ONLY
+  (no logged attestation removed or rewritten as it grew).
+- Rationale: ADR-0059 records the attestations into a signed Merkle log and proves each is INCLUDED, and calls the
+  log append-only -- but inclusion alone does not prove the log only GROWS: a malicious or buggy log operator could
+  publish a new tree head that silently drops or rewrites an earlier entry, and each inclusion proof against that
+  head would still verify. The RFC-6962 consistency proof (already in the ADR-0022 acg-transparency engine) proves
+  a later tree head extends an earlier one with no entry removed or altered.
+- Acceptance Criteria:
+  - `meshLogHistory.mjs` builds a `logged-collection-history@1` binding an EARLIER signed tree head (the log at
+    `firstSize`) + the CURRENT signed tree head (the full log) + the RFC-6962 consistency proof between them, over
+    the real attestation entry leaves, by REUSING the ADR-0022 `signTreeHead` / `consistencyProof`.
+  - `validateHistory` requires both tree heads to verify against the enrolled log key + share the log identity, the
+    log to have STRICTLY GROWN (`firstSize < secondSize`), the consistency proof to prove append-only extension
+    (`verifyConsistency`), and the current tree head to be the real attestation set AND to match the committed
+    LBA-REQ-078 log by Merkle root + size. It fails closed on an unsigned/wrong-key tree head, a non-growing or
+    shrinking log, a consistency proof that does not verify (a rewritten/forked log), a current head that does not
+    match the committed log, or a tampered digest.
+  - The gate `mesh-log-append-only` proves offline: the selftest (7/7); the committed history re-verifies (both
+    signed tree heads + the consistency proof); the log strictly grew; the current tree head is the committed
+    LBA-REQ-078 log (same Merkle root + size); and `mesh-run.yml` runs the append-only step. The enrolled log PUBLIC
+    key is committed; the private key is not.
+- Change Guidance: the verifier + selftest + committed history + log-history key live under
+  `experiments/mesh-fulfillment/` (`meshLogHistory.mjs` / `.selftest.mjs` / `mesh-run-log-history.json` /
+  `mesh-log-history-key.json`); the workflow step is in `.github/workflows/mesh-run.yml`; gate
+  `mesh-log-append-only` in `verify-local-gates`. Inclusion (LBA-REQ-078) + consistency (here) are the full RFC-6962
+  transparency guarantee for the mesh. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2493,3 +2526,4 @@ progressively.
 | LBA-REQ-076 | Deployment (live fan-out contract) | T-076 |
 | LBA-REQ-077 | Deployment (opt-in verified tier) | T-077 |
 | LBA-REQ-078 | Deployment (mesh attestation transparency log) | T-078 |
+| LBA-REQ-079 | Deployment (mesh log append-only proof) | T-079 |

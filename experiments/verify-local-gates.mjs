@@ -1826,6 +1826,28 @@ check('mesh-attestations-transparency-logged', () => {
   return { logged: logged.inclusions.length, treeSize: logged.signedTreeHead.size, root: logged.signedTreeHead.root.slice(0, 12) };
 });
 
+// LBA-REQ-079 / ADR-0060: the APPEND-ONLY consistency proof -- closes the "append-only" claim of ADR-0059. A
+// consistency proof (RFC-6962, reusing the ADR-0022 acg-transparency engine) binds an earlier signed tree head +
+// the current one, admitted only when the later tree provably CONTAINS the earlier one unchanged. Asserts the
+// selftest (7/7) + the committed history (via the CLI) + that the log strictly grew + that the current head is
+// the committed LBA-REQ-078 log (by root) + that mesh-run.yml wires the step.
+check('mesh-log-append-only', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshLogHistory.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshLogHistory.mjs')], { stdio: 'pipe' });
+  const logged = JSON.parse(readFileSync(join(dir, 'mesh-run-logged-collection.json'), 'utf8'));
+  const history = JSON.parse(readFileSync(join(dir, 'mesh-run-log-history.json'), 'utf8'));
+  assert(history.schema === 'labview-benchmark-actor/logged-collection-history@1' && history.requirement === 'LBA-REQ-079', 'committed history shape');
+  // the log strictly grew, and the current tree head IS the committed LBA-REQ-078 log (same Merkle root + size).
+  assert(history.firstTreeHead.size >= 1 && history.firstTreeHead.size < history.secondTreeHead.size, 'the log strictly grew (append happened)');
+  assert(history.secondTreeHead.root === logged.signedTreeHead.root && history.secondTreeHead.size === logged.signedTreeHead.size, 'the current tree head is the committed LBA-REQ-078 log');
+  assert(Array.isArray(history.consistencyProof) && history.firstTreeHead.algorithm === 'ed25519' && history.secondTreeHead.algorithm === 'ed25519', 'both tree heads are Ed25519-signed with a consistency proof');
+  // mesh-run.yml wires the append-only step.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/meshLogHistory\.mjs/.test(wf), 'mesh-run.yml proves the log is append-only (meshLogHistory.mjs)');
+  return { grew: `${history.firstTreeHead.size}->${history.secondTreeHead.size}`, root: history.secondTreeHead.root.slice(0, 12) };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch
