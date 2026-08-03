@@ -1,0 +1,54 @@
+{
+  "schema": "labview-benchmark-actor/cross-plane-vi-analyzer-parity-receipt@1",
+  "requirement": "LBA-REQ-081",
+  "adr": "ADR-0062",
+  "benchmark": {
+    "metric": "viAnalyzerMs",
+    "workload": "vi-analyzer-labviewcli-example",
+    "n": 6
+  },
+  "benchmarkIdentity": "27d0e17368d1a7ae3096388f0a0e01594644c8e751e101e669a2b4f5e668aefe",
+  "planes": {
+    "LINUX": {
+      "plane": "LINUX",
+      "hypervisor": "virtualbox",
+      "n": 6,
+      "meanMs": 4733.5,
+      "medianMs": 4188,
+      "verdict": "PASS",
+      "identity": "27d0e17368d1a7ae3096388f0a0e01594644c8e751e101e669a2b4f5e668aefe"
+    },
+    "WIN": {
+      "plane": "WIN",
+      "hypervisor": "virtualbox",
+      "n": 6,
+      "meanMs": 20957.7,
+      "medianMs": 5921.5,
+      "verdict": "PASS",
+      "identity": "27d0e17368d1a7ae3096388f0a0e01594644c8e751e101e669a2b4f5e668aefe"
+    }
+  },
+  "determinism": {
+    "linuxResultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+    "winResultHash": "0419a44941941102b5289f8a2e37ad59756d84edaa961dedb9258d3ccf7d3c12",
+    "resultHashMatch": true
+  },
+  "parity": {
+    "crossPlane": true,
+    "identityMatch": true,
+    "resultHashMatch": true,
+    "parityProven": true
+  },
+  "performance": {
+    "linuxMeanMs": 4733.5,
+    "winMeanMs": 20957.7,
+    "deltaMs": 16224.2,
+    "pctOfLinux": 342.8,
+    "fasterPlane": "LINUX"
+  },
+  "verdict": {
+    "parityProven": true,
+    "reason": "LINUX and WIN ran the same VI Analyzer benchmark (viAnalyzerMs / vi-analyzer-labviewcli-example / n=6; identical resultHash 0419a4494194); run times are comparable performance witnesses (LINUX median 4188 ms vs WIN median 5921.5 ms)"
+  },
+  "digest": "5ca3e93f6138f820c8c99be5dc94b5012c7459beca922dd17e926adfc3e6ab67"
+}

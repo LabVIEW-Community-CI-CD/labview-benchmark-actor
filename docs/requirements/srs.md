@@ -108,6 +108,7 @@ progressively.
 | LBA-REQ-078 | The system shall admit a verified mesh-actor attestation only when it carries an inclusion proof against a transparency-log tree head signed by the enrolled log key -- so a fail-closed gate proves the mesh receipts are enrolled-signed AND publicly auditable (append-only, tamper-evident). | The verified tier (LBA-REQ-077) binds a receipt to its enrolled actor, but the set of attestations is not publicly auditable -- a compromised key could sign + nothing records the attestations in an append-only log. Release provenance already solved this (the ADR-0022 signed Merkle transparency log); the mesh should reuse it. | `meshTransparency.mjs` REUSES the acg-transparency engine (`recordRelease`/`verifyReleaseInclusion`, RFC-6962): each verified-tier attestation is recorded into a signed Merkle tree, and a `logged-verified-collection@1` admits it only when its inclusion proof reconstructs the enrolled-key-signed tree head; the committed logged collection re-verifies offline. | `node experiments/mesh-fulfillment/meshTransparency.selftest.mjs` (7/7) + the committed logged collection (via the CLI) + the signed tree head + every inclusion proof + the mesh-run.yml wiring; gated by `mesh-attestations-transparency-logged`. |
 | LBA-REQ-079 | The system shall admit the mesh transparency log's current tree head only when a consistency proof proves it contains an earlier signed tree head unchanged -- so a fail-closed gate proves the log is APPEND-ONLY (no logged attestation removed or rewritten as it grew). | ADR-0059 records + proves INCLUSION of each attestation and calls the log append-only, but inclusion alone does not prove the log only GROWS -- a log operator could publish a head that silently drops an earlier entry. The RFC-6962 consistency proof (already in the acg-transparency engine) closes that. | `meshLogHistory.mjs` REUSES `consistencyProof`/`verifyConsistency` (ADR-0022): a `logged-collection-history@1` binds an earlier + the current signed tree head + a consistency proof, admitted only when the later tree provably contains the earlier unchanged + the current head matches the committed LBA-REQ-078 log root. | `node experiments/mesh-fulfillment/meshLogHistory.selftest.mjs` (7/7) + the committed history (via the CLI) + the strict growth + the consistency proof + the 078-log binding + the mesh-run.yml wiring; gated by `mesh-log-append-only`. |
 | LBA-REQ-080 | The system shall decide a mesh run FULLY ATTESTED only when its fulfillment, cross-plane parity, verified-tier signatures, transparency inclusion, and append-only proof all hold and name the SAME run identity -- so a fail-closed gate gives a consumer ONE verdict to trust a mesh run end-to-end. | The mesh sub-proofs (LBA-REQ-072..079) are each a separate fail-closed gate, but a consumer wanting to trust a run had no single decision + had to confirm by hand that the receipts all refer to the same run. The composite-release-decision (LBA-REQ-071) is the pattern to mirror. | `meshAttested.mjs` REUSES every sub-verifier (`decideFulfillment`/`validateReceipt`(parity)/`validateVerifiedCollection`/`validateLoggedCollection`/`validateHistory`) + binds them to one identity, emitting a `mesh-run-attested@1` verdict; the committed decision re-derives from every source receipt (currency). | `node experiments/mesh-fulfillment/meshAttested.selftest.mjs` (7/7, one break per sub-proof) + the committed decision (via the CLI) + all five gates + the identity binding + the mesh-run.yml wiring; gated by `mesh-run-attested`. |
+| LBA-REQ-081 | The system shall prove cross-plane VI Analyzer performance parity by validating that a LINUX and a WIN VI Analyzer run share the same benchmark identity and deterministic resultHash, so a fail-closed gate proves the planes ran the SAME benchmark and their run times are comparable performance witnesses. | Cross-plane parity (roadmap §8) was proven only for the launch benchmark (LBA-REQ-072); Phase 2 is the SUITE. VI Analyzer has real 2-plane evidence + governed determinism (LBA-REQ-043, the resultHash), but not performance parity (same identity -> comparable timing). The LBA-REQ-072 engine is benchmark-generic + should extend. | `viAnalyzerParity.mjs` REUSES the LBA-REQ-072 core (`launchIdentity`/`decideParity`/`planeSummary`/`performanceWitness`) via a `trendFromEvidence` adapter over the committed `vi-analyzer-trend-live-evidence@1` captures; a run is parity-proven only when the planes share the identity AND the resultHash. | `node experiments/vi-analyzer/viAnalyzerParity.selftest.mjs` (7/7) + the committed receipt (via the CLI, re-derived from the two evidence files) + identity + resultHash + cross-plane; gated by `cross-plane-vi-analyzer-parity`. |
 
 ---
 
@@ -2474,6 +2475,37 @@ progressively.
   composite-release-decision (LBA-REQ-071); the mesh subsystem (072-080) is complete. Authored under the
   singular-requirement directive (one `shall`).
 
+### LBA-REQ-081: Cross-plane VI Analyzer performance parity (the second benchmark family)
+
+- Status: Proven
+- Area: Deployment / benchmark suite (ADR-0062 -- cross-plane VI Analyzer parity, roadmap Phase 2)
+- Statement: The system shall prove cross-plane VI Analyzer performance parity by validating that a LINUX and a WIN
+  VI Analyzer run share the same benchmark identity and deterministic resultHash, so a fail-closed gate proves the
+  planes ran the SAME benchmark and their run times are comparable performance witnesses.
+- Rationale: the cross-plane parity metric (roadmap §8) was proven only for the IDE launch benchmark (LBA-REQ-072);
+  Phase 2 is the SUITE (VI Analyzer, mass-compile, unit-test). VI Analyzer already has real two-plane evidence
+  (`vi-analyzer-trend-live-evidence@1`, LINUX + WIN) and governed cross-plane DETERMINISM (LBA-REQ-043 -- the
+  resultHash matches, i.e. the answer), but not cross-plane PERFORMANCE parity (the same identity so timings are
+  comparable). The LBA-REQ-072 parity engine's core is benchmark-generic and extends to VI Analyzer with no new
+  parity logic.
+- Acceptance Criteria:
+  - `viAnalyzerParity.mjs` REUSES the LBA-REQ-072 engine (`launchIdentity` / `trendOk` / `decideParity` /
+    `planeSummary` / `performanceWitness`) via a `trendFromEvidence` adapter that turns a committed
+    `vi-analyzer-trend-live-evidence@1` capture into a `workload-trend@1` (the per-run `wallMs` become the trend;
+    PASS iff every run exited 0 with no failed/errored tests). The benchmark identity is
+    `{ viAnalyzerMs, vi-analyzer-labviewcli-example, n }`.
+  - A run is parity-proven only when the planes are cross-plane (one LINUX + one WIN), share the benchmark identity,
+    AND share the deterministic resultHash (the LBA-REQ-043 determinism link). `validateReceipt` re-derives the
+    receipt from the two committed evidence captures (currency) and fails closed on an identity mismatch, a
+    non-cross-plane pair, a differing resultHash, an invalid trend, or a tampered digest.
+  - The gate `cross-plane-vi-analyzer-parity` proves offline: the selftest (7/7); the committed receipt re-derives
+    from the two evidence captures; parity is proven; and the receipt reflects the real captures.
+- Change Guidance: the verifier + selftest + committed receipt live under `experiments/vi-analyzer/`
+  (`viAnalyzerParity.mjs` / `.selftest.mjs` / `cross-plane-vi-analyzer-parity-receipt.json`), grounded in the two
+  committed `vi-analyzer-trend-live-evidence@1` captures; gate `cross-plane-vi-analyzer-parity` in
+  `verify-local-gates`. Adding mass-compile / unit-test parity is a new adapter + receipt once real two-plane timing
+  exists. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2560,3 +2592,4 @@ progressively.
 | LBA-REQ-078 | Deployment (mesh attestation transparency log) | T-078 |
 | LBA-REQ-079 | Deployment (mesh log append-only proof) | T-079 |
 | LBA-REQ-080 | Deployment (composite mesh-run-attested decision) | T-080 |
+| LBA-REQ-081 | Deployment (cross-plane VI Analyzer benchmark parity) | T-081 |
