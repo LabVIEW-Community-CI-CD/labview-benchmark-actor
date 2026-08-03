@@ -2365,6 +2365,21 @@ check('release-with-review-drive', () => {
   return { selftest: 'release-with-review-drive 7/7', candidate: `${r.candidate.component} ${r.candidate.version}`, announce: r.announce.type, bound: true };
 });
 
+// LBA-REQ-070 / ADR-0051: composite release decision -- the CAPSTONE. A candidate publishes only when BOTH the
+// machine corroboration gate (gateReleasePublish, ADR-0018) AND the human visual gate (gateVisualReview,
+// LBA-REQ-057) pass AND both name the SAME net-staged candidate (LBA-REQ-068/069). Asserts the selftest (7/7) +
+// the committed receipt via the verifier main (both gates + cross-binding + digest, fail-closed) + the shape.
+check('composite-release-decision', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'composite-release-decision.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'composite-release-decision.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'composite-release-decision-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/composite-release-decision-receipt@1' && r.requirement === 'LBA-REQ-070', 'committed composite-release-decision receipt shape');
+  assert(r.verdict.compositeReleaseProven === true && r.decision.publish === true, 'composite release decision publishes');
+  assert(r.binding.machinePublish === true && r.binding.visualPublish === true, 'both the machine + human gates publish');
+  assert(r.binding.machineConsensusBound === true && r.binding.visualTargetBound === true && r.binding.stagedOverNet === true, 'machine quorum + visual verdict both bound to the same net-staged candidate');
+  return { selftest: 'composite-release-decision 7/7', candidate: `${r.candidate.component} ${r.candidate.version}`, machine: r.binding.machinePublish, visual: r.binding.visualPublish, bound: true };
+});
+
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
 // `net poll` read side that replaces the GitHub-Discussion post/poll. Asserts the committed loopback receipt
 // (post->log->poll round-trip + type filter + fail-closed) + that the CLI source carries the net poll read side.
