@@ -75,5 +75,6 @@
 | LBA-REQ-066 | Collapse the coordination product surface to net-only | Proven | §3.2 Deployment | ADR-0046 | T-066 | 8 |
 | LBA-REQ-067 | Remove the GitHub-Discussion transport from the lbabus CLI | Proven | §3.2 Deployment | ADR-0047 | T-067 | 5 |
 | LBA-REQ-068 | Net-only live VM-agent drive (govern the released-CLI closed loop as a committed receipt) | Proven | §3.2 Deployment | ADR-0049 | T-068 | 6 |
+| LBA-REQ-069 | Release-with-review drive (bind the net-staged candidate to the signed + announced verdict) | Proven | §3.2 Deployment | ADR-0050 | T-069 | 5 |
 
-_Generated for 68 requirements._
+_Generated for 69 requirements._
