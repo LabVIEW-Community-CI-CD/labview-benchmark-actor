@@ -78,6 +78,14 @@ jobs:
         # layered ON TOP of the machine plane agreement above (ADR-0037).
         run: node tools/collab-cli/verify-visual-review.mjs --component extension "${{ steps.ver.outputs.version }}"
 
+      - name: Verify composite release decision (extension, LBA-REQ-071)
+        # Fail-closed: a release publishes only when the COMPOSITE decision passes for this candidate -- the
+        # machine corroboration gate (gateReleasePublish, ADR-0018) AND the human visual gate (gateVisualReview,
+        # LBA-REQ-057) both pass AND both name the SAME net-staged candidate (LBA-REQ-068/069). Layered ON TOP of
+        # the plane agreement + visual-review gates above; the release job depends on this agreement job, so the
+        # composite decision gates the publish (ADR-0052 enforces ADR-0051/LBA-REQ-070).
+        run: node tools/collab-cli/verify-composite-release.mjs --component extension "${{ steps.ver.outputs.version }}"
+
   release:
     needs: [build, agreement]
     runs-on: ubuntu-latest

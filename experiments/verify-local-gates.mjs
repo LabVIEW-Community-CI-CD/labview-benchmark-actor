@@ -2380,6 +2380,26 @@ check('composite-release-decision', () => {
   return { selftest: 'composite-release-decision 7/7', candidate: `${r.candidate.component} ${r.candidate.version}`, machine: r.binding.machinePublish, visual: r.binding.visualPublish, bound: true };
 });
 
+// LBA-REQ-071 / ADR-0052: composite release ENFORCEMENT -- the extension release workflow blocks publishing
+// unless a committed composite release-decision proves both gates pass for the tagged candidate. Asserts (offline)
+// that the enforcement CLI clears the committed candidate + fails closed for a version with no decision, AND that
+// extension-release.yml runs the CLI in the publish-gating agreement job (release needs: [build, agreement]).
+check('composite-release-enforced', () => {
+  const cli = join(here, '..', 'tools', 'collab-cli', 'verify-composite-release.mjs');
+  // the committed composite receipt (ext 0.5.0) clears the release gate...
+  execFileSync(process.execPath, [cli, '--component', 'extension', '0.5.0'], { stdio: 'pipe' });
+  // ...and a version with no proven composite decision fails closed (exit 1).
+  let blocked = false;
+  try { execFileSync(process.execPath, [cli, '--component', 'extension', '0.9.9-none'], { stdio: 'pipe' }); }
+  catch { blocked = true; }
+  assert(blocked, 'the composite-release gate fails closed for a version with no proven composite decision');
+  // the extension release workflow WIRES the enforcement into the publish-gating agreement job.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'extension-release.yml'), 'utf8');
+  assert(/verify-composite-release\.mjs --component extension/.test(wf), 'extension-release.yml runs the composite-release enforcement CLI');
+  assert(/needs:\s*\[build,\s*agreement\]/.test(wf), 'the release job needs the agreement job, so the composite gate blocks the publish');
+  return { cli: 'verify-composite-release', clears: 'extension 0.5.0', failsClosed: true, wired: true };
+});
+
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
 // `net poll` read side that replaces the GitHub-Discussion post/poll. Asserts the committed loopback receipt
 // (post->log->poll round-trip + type filter + fail-closed) + that the CLI source carries the net poll read side.

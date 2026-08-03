@@ -98,6 +98,7 @@ progressively.
 | LBA-REQ-068 | The system shall record, as a committed fail-closed receipt, that the host drove the reviewer VM's Copilot agent to run the RELEASED net-only `lbabus` (collab-cli 0.15.0, pulled from the immutable `collab-cli-v0.15.0` release) and the VM reported task-correlated results back over the `lbabus net` TCP bus -- the sole coordination path, since the released CLI rejects the retired `init`/`post`/`poll`/`wait`/`delta` Discussion commands -- so a fail-closed gate proves the end-to-end net-only drive loop is reproducible off any GitHub-Discussion dependency. | LBA-REQ-059 proved the read-back CORRELATION while the CLI still shipped the Discussion transport; the off-Discussions migration then completed (LBA-REQ-060..067) and collab-cli 0.15.0 shipped net-only, and the host drove the VM to install + validate that released binary over net -- proven live but ungoverned (receipts in /tmp). | A pure rg-free verifier (`net-only-live-drive.mjs`: schema + digest + build + validate) seals the real drives (senderId WIN) + the released-CLI net-only proof (collab-cli-v0.15.0 rejects init/post/poll/wait/delta, observed on the VM) into a committed receipt; the digest + verdict re-derive deterministically at gate time. | `node reviewer-workstation/net-only-live-drive.selftest.mjs` (7/7) + the committed receipt (digest re-derivation via the verifier main); gated by `net-only-live-drive`. |
 | LBA-REQ-069 | The system shall record, as a committed fail-closed receipt, that ONE release-with-review loop is bound to a single candidate over the net-only bus -- the reviewer VM staged the candidate over `lbabus net`, a human Ed25519-signed a visual PASS/FAIL of THAT candidate (component/version/commit/vsixSha256), and the signed verdict announced over `net` with its semantic type -- so a fail-closed gate proves the staged, signed, and announced candidate are the SAME (no stage-one / sign-another / announce-a-third). | LBA-REQ-068 (stage over net), LBA-REQ-057 (signed visual verdict), and LBA-REQ-058 (bus announce) were each proven in isolation; nothing bound them to one candidate in one loop, so the staging, the signed verdict, and the announce could drift apart. `gateReleaseWithReview` composes visual review with the MACHINE gate, not with a net-staged candidate. | A pure rg-free verifier (`release-with-review-drive.mjs`) REUSES verifyReviewerVerdict/gateVisualReview/buildVerdictBusPost + adds the binding (staged WIN drive <-> verdict target <-> derived announce), sealing one real round (ext 0.5.0 staged over net, signed PASS, announced RESOLVED) into a committed receipt; the digest + verdict re-derive deterministically. | `node reviewer-workstation/release-with-review-drive.selftest.mjs` (7/7) + the committed receipt (binding + digest via the verifier main); gated by `release-with-review-drive`. |
 | LBA-REQ-070 | The system shall record, as a committed fail-closed receipt, that a release candidate publishes ONLY when BOTH the machine corroboration gate (a quorum verdict + an enrolled sign-off over it, ADR-0018) AND the human visual gate (an enrolled signed PASS of the built candidate, LBA-REQ-057) pass, AND both name the SAME net-staged candidate (LBA-REQ-068/069) -- so a fail-closed gate proves the machine quorum, the human visual verdict, and the net stage all name one candidate (no machine-PASS-A + human-PASS-B). | `gateReleaseWithReview` already ANDs the machine + visual gates, but ANDs two INDEPENDENT decisions -- nothing checks that the machine quorum consensus, the visual verdict target, and the net-staged candidate are the SAME candidate, so a machine PASS of A could be published with a human PASS of B. | A pure rg-free verifier (`composite-release-decision.mjs`) REUSES gateReleaseWithReview + adds the cross-gate binding (quorum consensus.version/sourceCommit == candidate == visual target, staged over net by a WIN drive); seals one real round (ext 0.5.0: passing quorum + enrolled sign-off + signed visual PASS + net stage) into a committed receipt; digest + verdict re-derive deterministically. | `node reviewer-workstation/composite-release-decision.selftest.mjs` (7/7) + the committed receipt (both gates + binding + digest via the verifier main); gated by `composite-release-decision`. |
+| LBA-REQ-071 | The extension release workflow shall block publishing a `.vsix` unless a committed composite release-decision proves BOTH gates pass for the tagged candidate version -- the `agreement` job runs `verify-composite-release.mjs` (fail-closed) and the publish `release` job depends on `agreement` -- so no extension release publishes without the bound composite decision (LBA-REQ-070). | LBA-REQ-070/ADR-0051 GOVERNED the composite decision as a committed receipt + a CI gate, but that only proved the pattern in the local-gate suite; nothing BLOCKED a real publish. extension-release.yml already enforces the plane agreement + the human visual verdict in its agreement job (release needs agreement); the composite decision was not yet in that chain. | `verify-composite-release.mjs` REUSES the gated composite `validateReceipt` to require the committed receipt to name the tagged candidate + be proven (exit 0 clear / 1 fail-closed); the extension-release.yml agreement job runs it after verify-visual-review; the release job `needs: [build, agreement]`. | The gate `composite-release-enforced` asserts (offline) the CLI clears ext 0.5.0 + fails closed for a version with no decision, and that extension-release.yml wires the CLI in the publish-gating agreement job. |
 
 ---
 
@@ -2152,6 +2153,36 @@ progressively.
   the candidate-binding helpers (`reviewer-workstation/release-with-review-drive.mjs`) are all REUSED unchanged.
   Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-071: Enforce the composite release decision in the extension release workflow
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0052 -- enforce the composite release decision, off GitHub Discussions -- productized)
+- Statement: The extension release workflow shall block publishing a `.vsix` unless a committed composite
+  release-decision proves BOTH gates pass for the tagged candidate version -- the `agreement` job runs
+  `verify-composite-release.mjs` (fail-closed) and the publish `release` job depends on `agreement` -- so no
+  extension release publishes without the bound composite decision (LBA-REQ-070).
+- Rationale: LBA-REQ-070 (ADR-0051) GOVERNED the composite decision (machine + human gates, bound to one
+  net-staged candidate) as a committed receipt + a CI gate, but that only proves the PATTERN in the local-gate
+  suite; nothing BLOCKED a real publish. `extension-release.yml` already enforces the WIN<->LINUX plane agreement
+  (`verify-release-agreement.mjs`) + the human visual verdict (`verify-visual-review.mjs`) in its `agreement`
+  job, with `release` `needs: [build, agreement]`; the composite decision was not yet in that publish-gating chain.
+- Acceptance Criteria:
+  - `tools/collab-cli/verify-composite-release.mjs --component <name> <version>` REUSES the gated composite
+    `validateReceipt` and requires the committed composite receipt to NAME the tagged candidate AND be a proven
+    composite decision; it exits 0 (cleared to publish) or 1 (fail-closed) -- e.g. a version with no matching
+    proven decision is blocked.
+  - `extension-release.yml`'s `agreement` job runs `verify-composite-release.mjs --component extension <version>`
+    (after `verify-visual-review`), and the `release` (publish) job `needs: [build, agreement]`, so the composite
+    decision gates the publish.
+  - The gate `composite-release-enforced` proves both DETERMINISTICALLY (no network): the CLI clears the
+    committed ext 0.5.0 candidate + fails closed for a version with no decision, and the workflow wires the CLI in
+    the publish-gating agreement job.
+- Change Guidance: the enforcement CLI is `tools/collab-cli/verify-composite-release.mjs` (REUSES
+  `reviewer-workstation/composite-release-decision.mjs`); the workflow step is in
+  `.github/workflows/extension-release.yml`; gate `composite-release-enforced` in `verify-local-gates`. A future
+  release adds its own committed composite receipt before it can publish. Authored under the singular-requirement
+  directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2228,3 +2259,4 @@ progressively.
 | LBA-REQ-068 | Deployment (net-only live VM-agent drive) | T-068 |
 | LBA-REQ-069 | Deployment (release-with-review drive) | T-069 |
 | LBA-REQ-070 | Deployment (composite release decision) | T-070 |
+| LBA-REQ-071 | Deployment (enforce composite release decision) | T-071 |
