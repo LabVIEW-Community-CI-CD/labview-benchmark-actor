@@ -1,0 +1,7 @@
+{
+  "note": "The enrolled Ed25519 PUBLIC signing keys of the mesh actors (LBA-REQ-039 / LBA-REQ-077). Private keys stay with each actor VM and are never committed. A verified-receipt-collection@1 admits a returned receipt only when it carries a valid acg-witness-attestation-v1 from its declared, enrolled actor here.",
+  "enrolled": {
+    "golden-linux": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABMz+0scMInXtJWEdHEFJcvWLCWNSWgOE8WEnXVqiUY8=\n-----END PUBLIC KEY-----\n",
+    "golden-win": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAV0N7ytRfHFtej3w1cSlAtVLO8yvxE1jbKSUNhQUqUe4=\n-----END PUBLIC KEY-----\n"
+  }
+}
