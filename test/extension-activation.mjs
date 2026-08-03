@@ -504,6 +504,53 @@ try {
     console.log('correlator-autojump-helpers: PASS -- peakFrameIndexOf + readPeakFrameIndex + clampFrameIndex + buildCorrelatorModel + buildCorrelatorFrame + readResourceSamples across all branches');
   }
 
+  // Coverage: the staged media/handoffRequest.mjs (agent<->human request payloads, PR3, LBA-REQ-056), exercised
+  // across every builder/validator/selector branch (the extension loads this at runtime; media/** is c8-covered).
+  {
+    const hr = await import(pathToFileURL(join(repoRoot, 'media', 'handoffRequest.mjs')).href);
+    const req = hr.buildAgentRequest({ id: 'r1', title: 'Run the VI', body: 'then Stop', createdAt: 't0' });
+    assert(req.schema === hr.AGENT_REQUEST_SCHEMA && req.kind === 'step' && req.body === 'then Stop', 'agent-request defaults');
+    assert(hr.buildAgentRequest({ id: 'x', title: 't', kind: 'ack' }).kind === 'ack' && hr.buildAgentRequest({ id: 'x', title: 't', kind: 'bad' }).kind === 'step', 'agent-request kind branch');
+    assert(hr.buildAgentRequest({}).id === null && hr.buildAgentRequest({}).body === '', 'agent-request null/empty defaults');
+    const done = hr.buildOpDone({ requestId: 'r1', outcome: 'done', note: 'ok', doneAt: 't1' });
+    assert(done.schema === hr.OP_DONE_SCHEMA && done.id === 'r1' && done.note === 'ok', 'op-done defaults its id to requestId');
+    assert(hr.buildOpDone({ requestId: 'r' }).outcome === 'done' && hr.buildOpDone({ requestId: 'r', outcome: 'skipped' }).outcome === 'skipped' && hr.buildOpDone({ requestId: 'r', outcome: 'z' }).outcome === 'done', 'op-done outcome branch');
+    assert(hr.buildOpDone({ requestId: 'r', note: '' }).note === null, 'op-done empty note -> null');
+    assert(hr.validateAgentRequest(req).ok && !hr.validateAgentRequest({ schema: 'no', id: 'a', title: 't' }).ok, 'validateAgentRequest schema');
+    assert(!hr.validateAgentRequest({ schema: hr.AGENT_REQUEST_SCHEMA, id: '', title: 't' }).ok && !hr.validateAgentRequest({ schema: hr.AGENT_REQUEST_SCHEMA, id: 'a', title: '' }).ok, 'validateAgentRequest id/title');
+    assert(!hr.validateAgentRequest({ schema: hr.AGENT_REQUEST_SCHEMA, id: 'a', title: 't', kind: 'bad' }).ok && !hr.validateAgentRequest(null).ok, 'validateAgentRequest kind/null');
+    assert(hr.validateOpDone(done).ok && !hr.validateOpDone({ schema: 'no', requestId: 'a', outcome: 'done' }).ok, 'validateOpDone schema');
+    assert(!hr.validateOpDone({ schema: hr.OP_DONE_SCHEMA, requestId: '', outcome: 'done' }).ok && !hr.validateOpDone({ schema: hr.OP_DONE_SCHEMA, requestId: 'a', outcome: 'z' }).ok && !hr.validateOpDone(null).ok, 'validateOpDone requestId/outcome/null');
+    const reqs = [hr.buildAgentRequest({ id: 'a', title: 't', createdAt: '1' }), hr.buildAgentRequest({ id: 'b', title: 't', createdAt: '2' }), { schema: 'no', id: 'bad', title: 'x' }];
+    assert(hr.selectPendingRequest(reqs, []).id === 'b' && hr.selectPendingRequest(reqs, ['b']).id === 'a' && hr.selectPendingRequest(reqs, ['a', 'b']) === null, 'selectPendingRequest newest-unanswered');
+    assert(hr.selectPendingRequest([hr.buildAgentRequest({ id: 'a', title: 't', createdAt: '1' }), hr.buildAgentRequest({ id: 'b', title: 't', createdAt: '1' })], []).id === 'b', 'selectPendingRequest id tie-break on equal createdAt');
+    assert(hr.selectPendingRequest('x', 'y') === null && hr.selectPendingRequest([], []) === null, 'selectPendingRequest non-array/empty');
+    console.log('handoff-request-media-coverage: PASS -- media/handoffRequest.mjs exercised across all branches');
+  }
+
+  // Coverage + behavior: the extension's Handoff Beacon fs helpers (PR3, LBA-REQ-056).
+  {
+    const hp = ext.handoffPaths(join('gs', 'root'));
+    assert(hp.root.endsWith('handoff') && hp.requestsDir.endsWith(join('handoff', 'requests')) && hp.doneDir.endsWith(join('handoff', 'done')), 'handoffPaths derives requests/ + done/ under handoff/');
+    const hdir = join(tmpdir(), 'lba-test-handoff-xyz');
+    rmSync(hdir, { recursive: true, force: true });
+    mkdirSync(join(hdir, 'requests'), { recursive: true });
+    mkdirSync(join(hdir, 'done'), { recursive: true });
+    assert(ext.readJsonDir(join(hdir, 'requests')).length === 0, 'readJsonDir empty on an empty dir');
+    assert(ext.readJsonDir(join(hdir, 'missing')).length === 0, 'readJsonDir returns [] for a missing dir');
+    writeFileSync(join(hdir, 'requests', 'r1.json'), JSON.stringify({ schema: 'labview-benchmark-actor/agent-request@1', id: 'r1', title: 'do a thing' }));
+    writeFileSync(join(hdir, 'requests', 'note.txt'), 'ignored');
+    writeFileSync(join(hdir, 'requests', 'bad.json'), '{oops');
+    const jreqs = ext.readJsonDir(join(hdir, 'requests'));
+    assert(jreqs.length === 1 && jreqs[0].id === 'r1', 'readJsonDir parses valid *.json + skips non-json/partial');
+    writeFileSync(join(hdir, 'done', 'r1.json'), JSON.stringify({ schema: 'labview-benchmark-actor/op-done@1', requestId: 'r1', outcome: 'done' }));
+    writeFileSync(join(hdir, 'done', 'nokey.json'), JSON.stringify({ foo: 1 }));
+    const answered = ext.answeredRequestIds(join(hdir, 'done'));
+    assert(answered.length === 1 && answered[0] === 'r1', 'answeredRequestIds returns the request ids that have an op-done');
+    rmSync(hdir, { recursive: true, force: true });
+    console.log('handoff-request-helpers: PASS -- handoffPaths + readJsonDir + answeredRequestIds across all branches');
+  }
+
   // createCleanroom input VALIDATION: an invalid name/port/actor is rejected by the validators and aborts the
   // command early (each `if (!x) return`). The mock treats a validation failure as the user cancelling (VS Code
   // blocks OK on an invalid value), so no cloner command is sent.
@@ -749,6 +796,57 @@ try {
   const summaryResult = await summaryTool.tool.invoke({ input: {} }, {});
   const summaryText = summaryResult && summaryResult.content && summaryResult.content[0] && summaryResult.content[0].value;
   assert(typeof summaryText === 'string' && /LabVIEW Benchmark Actor/.test(summaryText), 'the summary LM tool returns text');
+
+  // Handoff Beacon agent->human flow (PR3, LBA-REQ-056): a pending request surfaces via refreshHandoffRequests
+  // as a notification whose action writes the op-done beacon. Deterministic + ISOLATED -- awaits
+  // refreshHandoffRequests directly and stubs the notification/input responses inline (no shared queue, no
+  // fs.watch race) so it is stable on every CI runner. Covers refreshHandoffRequests + mark/skip + writeOpDoneBeacon.
+  {
+    const mkOut = () => ({ appendLine() {}, show() {}, dispose() {} });
+    const ctxFor = (gs) => ({ globalStorageUri: { fsPath: gs }, extensionUri: { path: repoRoot, fsPath: repoRoot } });
+    const seedReq = (gs, id, title, createdAt) => {
+      rmSync(gs, { recursive: true, force: true });
+      mkdirSync(join(gs, 'handoff', 'requests'), { recursive: true });
+      writeFileSync(join(gs, 'handoff', 'requests', `${id}.json`), JSON.stringify({ schema: 'labview-benchmark-actor/agent-request@1', id, title, body: '', kind: 'step', createdAt }));
+    };
+    const savedInfo = mockVscode.window.showInformationMessage;
+    const savedInput = mockVscode.window.showInputBox;
+
+    // (1) "Mark step done" with a note -> op-done { done, note }.
+    const gsDone = join(tmpdir(), 'lba-test-handoff-done-xyz');
+    seedReq(gsDone, 'req-done', 'Run the streaming VI, then Stop', '2026-08-03T00:00:00Z');
+    mockVscode.window.showInformationMessage = () => 'Mark step done';
+    mockVscode.window.showInputBox = async () => 'ran VI #3';
+    await ext.refreshHandoffRequests(ctxFor(gsDone), mkOut());
+    const opDone = JSON.parse(readFileSync(join(gsDone, 'handoff', 'done', 'req-done.json'), 'utf8'));
+    assert(opDone.requestId === 'req-done' && opDone.outcome === 'done' && opDone.note === 'ran VI #3', `handoff: op-done records done + the note (got ${JSON.stringify(opDone)})`);
+
+    // (2) "Skip" -> op-done { skipped, note:null }.
+    const gsSkip = join(tmpdir(), 'lba-test-handoff-skip-xyz');
+    seedReq(gsSkip, 'req-skip', 'Activate LabVIEW', '2026-08-03T00:05:00Z');
+    mockVscode.window.showInformationMessage = () => 'Skip';
+    await ext.refreshHandoffRequests(ctxFor(gsSkip), mkOut());
+    const opSkip = JSON.parse(readFileSync(join(gsSkip, 'handoff', 'done', 'req-skip.json'), 'utf8'));
+    assert(opSkip.outcome === 'skipped' && opSkip.note === null, 'handoff: op-done records skipped');
+
+    // (3) A dismissed notification (no action chosen) writes no answer.
+    const gsDismiss = join(tmpdir(), 'lba-test-handoff-dismiss-xyz');
+    seedReq(gsDismiss, 'req-dismiss', 'Some step', '2026-08-03T00:07:00Z');
+    mockVscode.window.showInformationMessage = () => undefined;
+    await ext.refreshHandoffRequests(ctxFor(gsDismiss), mkOut());
+    assert(!existsSync(join(gsDismiss, 'handoff', 'done', 'req-dismiss.json')), 'handoff: a dismissed notification writes no op-done');
+    mockVscode.window.showInformationMessage = savedInfo;
+    mockVscode.window.showInputBox = savedInput;
+
+    // (4) No pending: refresh with an empty requests dir clears the active request; the mark/skip commands no-op.
+    const gsEmpty = join(tmpdir(), 'lba-test-handoff-empty-xyz');
+    rmSync(gsEmpty, { recursive: true, force: true });
+    mkdirSync(join(gsEmpty, 'handoff', 'requests'), { recursive: true });
+    await ext.refreshHandoffRequests(ctxFor(gsEmpty), mkOut());
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.markStepDone').handler();
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.skipStep').handler();
+    console.log('handoff-request-flow: PASS -- refreshHandoffRequests -> Mark done/Skip/dismiss -> op-done beacon (+ no-pending no-op)');
+  }
 } finally {
   Module._load = originalLoad;
 }

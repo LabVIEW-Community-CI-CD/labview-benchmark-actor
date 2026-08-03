@@ -65,7 +65,7 @@ multi-VM / Codespace topology.
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
 
-### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051, LBA-REQ-052, LBA-REQ-053, LBA-REQ-054, LBA-REQ-055
+### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051, LBA-REQ-052, LBA-REQ-053, LBA-REQ-054, LBA-REQ-055, LBA-REQ-056
 - One artifact, two install targets (Codespace, Vagrant golden VM).
 - A declarative topology spawns N VMs, each activating the extension with a
   unique participant identity; teardown is clean.
@@ -294,6 +294,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-48 | Complete the 2-actor icon-editor grid with the LUnit tester -- run `g-cli lunit` on the project with the LUnit framework from the correct `icon-editor-developer.vipc` (not the CI-runner `runner_dependencies.vipc`) | The Rust-built g-cli (AD-47) drives the icon-editor's real unit-test suite; the benchmark's machine-independent identity is the test inventory (cross-plane comparable) while pass/fail outcomes are environment-dependent (ADR-0033, roadmap Phase 2) | LBA-REQ-053 |
 | AD-49 | Assemble the whole benchmark suite into one Benchmark Observatory -- a benchmark-type x plane coverage matrix + determinism ledger + data-driven frontier, above the per-benchmark grid | As the suite grows along its axes (type x plane x OS x hardware), one governed, fail-closed artifact maps what has been measured where, whether it reproduces, and what to measure next; derived from committed receipts (ADR-0034, roadmap Phase 2) | LBA-REQ-054 |
 | AD-50 | Make the human-in-the-loop a machine-observable signal -- the Handoff Beacon capture-status: the extension emits capture-status.json (capturing -> stopped/failed with a rich payload) that the agent polls (await-handoff.sh) so a human "run a VI, then Stop" step is AWAITED, not guessed, and the agent jumps straight to the peak-write evidence | The reviewer VM exists because some steps need a human; without a signal those steps are invisible to the agent except via chat. A beacon turns the Stop into an awaited event + evidence pointer (ADR-0035, first instance of the Handoff Beacon Protocol) | LBA-REQ-055 |
+| AD-51 | Close the OTHER direction of the Handoff Beacon Protocol -- the agent->human REQUEST beacon: the agent's ask surfaces IN the VM as a notification with "Mark step done" / "Skip" actions (also palette commands) that emit an op-done beacon the agent awaits, a reusable human-step barrier | The capture-status beacon (AD-50) let the agent await a human step; the agent's own ask was invisible except via chat. Making the ask a machine-observable, in-VM event lets the agent request a manual step + resume when answered (ADR-0036, under the Handoff Beacon Protocol ADR-0035) | LBA-REQ-056 |
 
 ## 5. Risks and open questions
 

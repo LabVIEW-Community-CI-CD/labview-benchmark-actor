@@ -7,6 +7,15 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Handoff Beacon — agent→human request** (`agent-request@1` / `op-done@1`,
+  ADR-0036, LBA-REQ-056). The agent can now ask the human to perform a manual
+  step in the reviewer VM; the ask surfaces as a VS Code notification with
+  **Mark step done** / **Skip** actions (also the `Mark Handoff Step Done` /
+  `Skip Handoff Step` palette commands), and the answer is written as a
+  machine-readable `op-done` beacon the agent awaits — a reusable human-step
+  barrier, the other direction of the capture-status beacon. A committed host
+  wrapper (`reviewer-workstation/request-step.sh`) drops the request into the VM
+  and polls the answer once.
 - **Frame Correlator auto-jump to the peak-write frame** (ADR-0035, LBA-REQ-055).
   On Stop, the correlator now opens on the capture-status beacon's peak-write
   frame (clamped into range) instead of frame 0, so the human and the agent land

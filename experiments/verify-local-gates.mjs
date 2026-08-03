@@ -51,6 +51,7 @@ import { buildBenchmarkFrameScrubberHtml } from './dashboard-slider/buildBenchma
 import { buildLaunchCapture } from './mprr-capture-ring/launch-capture.mjs';
 import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.mjs';
 import { buildCaptureStatus, validateCaptureStatus } from './handoff-beacon/captureStatus.mjs';
+import { buildAgentRequest, buildOpDone, validateAgentRequest, validateOpDone, selectPendingRequest } from './handoff-beacon/handoffRequest.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
 import { verifyDepManifest } from './labview-authoring/verify-dep-manifest.mjs';
@@ -2268,6 +2269,23 @@ check('handoff-capture-status', () => {
   assert(status.peak.frameIndex === 3, `the beacon points at the peak-write frame (got ${status.peak.frameIndex})`);
   assert(status.wroteToDisk === false, 'wroteToDisk stays false below the >=3-sample threshold (only one write sample)');
   return { schema: status.schema, peakWriteMBs: status.peak.writeMBs, peakFrameIndex: status.peak.frameIndex, selftest: 'capture-status 6/6' };
+});
+
+// LBA-REQ-056 / ADR-0036: the agent->human REQUEST beacon -- the OTHER direction of the Handoff Beacon Protocol.
+// The agent asks the human to do a manual step; the ask surfaces in the VM as a notification with a "Mark step
+// done" action that writes an op-done beacon the agent awaits. Subprocess selftest + an inline round-trip: two
+// requests -> the newest-pending selector -> the human's op-done answer -> the next pending, all validating.
+check('handoff-request', () => {
+  execFileSync(process.execPath, [join(here, 'handoff-beacon', 'handoffRequest.selftest.mjs')], { stdio: 'pipe' });
+  const r1 = buildAgentRequest({ id: 'req-a', title: 'Activate LabVIEW, then confirm', createdAt: '2026-08-03T00:00:00Z' });
+  const r2 = buildAgentRequest({ id: 'req-b', title: 'Run the streaming VI, then Stop', createdAt: '2026-08-03T00:05:00Z' });
+  assert(validateAgentRequest(r1).ok && validateAgentRequest(r2).ok, 'the requests validate');
+  const pending = selectPendingRequest([r1, r2], []);
+  assert(pending && pending.id === 'req-b', `the newest unanswered request is surfaced (got ${pending && pending.id})`);
+  const done = buildOpDone({ requestId: pending.id, outcome: 'done', note: 'ran VI', doneAt: '2026-08-03T00:06:00Z' });
+  assert(validateOpDone(done).ok && done.requestId === 'req-b', 'the op-done answer validates + keys off the request');
+  assert(selectPendingRequest([r1, r2], [done.requestId]).id === 'req-a', 'once answered, the next pending surfaces');
+  return { schema: r1.schema, opDoneSchema: done.schema, selftest: 'handoff-request 5/5' };
 });
 
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document

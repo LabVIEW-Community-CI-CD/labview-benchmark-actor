@@ -104,6 +104,14 @@
         "title": "LabVIEW Benchmark Actor: Stop LabVIEW Capture"
       },
       {
+        "command": "labviewBenchmarkActor.markStepDone",
+        "title": "LabVIEW Benchmark Actor: Mark Handoff Step Done"
+      },
+      {
+        "command": "labviewBenchmarkActor.skipStep",
+        "title": "LabVIEW Benchmark Actor: Skip Handoff Step"
+      },
+      {
         "command": "labviewBenchmarkActor.writeAgents",
         "title": "LabVIEW Benchmark Actor: Write Agent Instructions"
       },

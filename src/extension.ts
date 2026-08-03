@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { execFile, spawn, ChildProcess } from 'node:child_process';
-import { readFileSync, mkdirSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, mkdirSync, readdirSync, statSync, writeFileSync, existsSync, watch } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
@@ -456,6 +456,47 @@ function loadCaptureStatusBuilder(extensionUri: vscode.Uri): Promise<CaptureStat
   return captureStatusBuilderPromise;
 }
 
+// Handoff Beacon agent->human request (LBA-REQ-056, ADR-0036): the request/op-done payload builders + the
+// pending-request selector, staged into media/ + loaded like the capture-status builder.
+interface HandoffRequestBuilder {
+  buildAgentRequest(opts: unknown): { id: string; title: string; body: string; kind: string; createdAt: string | null };
+  buildOpDone(opts: unknown): unknown;
+  validateAgentRequest(req: unknown): { ok: boolean; errors: string[] };
+  validateOpDone(done: unknown): { ok: boolean; errors: string[] };
+  selectPendingRequest(requests: unknown, answeredIds: unknown): { id: string; title: string; body?: string } | null;
+}
+let handoffRequestBuilderPromise: Promise<HandoffRequestBuilder> | undefined;
+function loadHandoffRequestBuilder(extensionUri: vscode.Uri): Promise<HandoffRequestBuilder> {
+  if (!handoffRequestBuilderPromise) {
+    handoffRequestBuilderPromise = importEsm(mediaEsmUrl(extensionUri, 'handoffRequest.mjs')) as unknown as Promise<HandoffRequestBuilder>;
+  }
+  return handoffRequestBuilderPromise;
+}
+
+/** The Handoff Beacon dirs under globalStorage: requests/ (agent asks) + done/ (human answers). */
+export function handoffPaths(globalDir: string): { root: string; requestsDir: string; doneDir: string } {
+  const root = path.join(globalDir, 'handoff');
+  return { root, requestsDir: path.join(root, 'requests'), doneDir: path.join(root, 'done') };
+}
+
+/** Read + JSON-parse every *.json in a dir (skipping a missing dir / unreadable / partial files). */
+export function readJsonDir(dir: string): Array<Record<string, unknown>> {
+  const out: Array<Record<string, unknown>> = [];
+  if (!existsSync(dir)) return out;
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith('.json')) continue;
+    try { out.push(JSON.parse(readFileSync(path.join(dir, name), 'utf8')) as Record<string, unknown>); } catch { /* skip partial */ }
+  }
+  return out;
+}
+
+/** The request ids that already have an op-done answer in done/, so an answered ask is never re-surfaced. */
+export function answeredRequestIds(doneDir: string): string[] {
+  return readJsonDir(doneDir)
+    .map((d) => (typeof d.requestId === 'string' ? d.requestId : null))
+    .filter((x): x is string => !!x);
+}
+
 /** Parse a capture's resources.jsonl into the raw sample array (skipping blank/partial lines). */
 export function readResourceSamples(dir: string): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [];
@@ -485,6 +526,102 @@ async function writeCaptureStatusBeacon(
   } catch (err) {
     output.appendLine(`capture-status beacon skipped: ${err instanceof Error ? err.message : String(err)}`);
     return undefined;
+  }
+}
+
+// --- Handoff Beacon agent->human request barrier (LBA-REQ-056, ADR-0036) -------------------------------------
+// The agent drops an agent-request@1 beacon in handoff/requests/; the extension watches that dir and surfaces the
+// newest unanswered ask as a VS Code notification with 'Mark step done' / 'Skip' actions (also palette commands).
+// The human's answer is an op-done@1 beacon written into handoff/done/<id>.json that the agent awaits -- a reusable
+// human-step barrier for any manual op (activate LabVIEW, run a VI, VIPM login, ...).
+let activeHandoffRequest: { id: string; title: string; body?: string } | undefined;
+let lastNotifiedRequestId: string | undefined;
+
+async function writeOpDoneBeacon(
+  context: vscode.ExtensionContext,
+  output: vscode.OutputChannel,
+  outcome: 'done' | 'skipped',
+  note: string | null
+): Promise<void> {
+  const request = activeHandoffRequest;
+  if (!request) {
+    vscode.window.showInformationMessage('No pending handoff request to answer.');
+    return;
+  }
+  try {
+    const { doneDir } = handoffPaths(context.globalStorageUri.fsPath);
+    mkdirSync(doneDir, { recursive: true });
+    const builder = await loadHandoffRequestBuilder(context.extensionUri);
+    const done = builder.buildOpDone({ requestId: request.id, outcome, note, doneAt: new Date().toISOString() });
+    writeFileSync(path.join(doneDir, `${request.id}.json`), `${JSON.stringify(done, null, 2)}\n`);
+    output.appendLine(`handoff ${outcome}: ${request.id}${note ? ` (${note})` : ''}`);
+    vscode.window.showInformationMessage(`Handoff step ${outcome}: ${request.title}`);
+    activeHandoffRequest = undefined;
+  } catch (err) {
+    reportUiError(output, 'Answer handoff request', err);
+  }
+}
+
+async function markStepDoneCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  if (!activeHandoffRequest) {
+    vscode.window.showInformationMessage('No pending handoff request to mark done.');
+    return;
+  }
+  const note = await vscode.window.showInputBox({
+    prompt: `Optional note for the handoff step: ${activeHandoffRequest.title}`,
+    placeHolder: '(optional) what you did / observed',
+  });
+  // showInputBox returns undefined when dismissed -> still mark done (the note is optional).
+  await writeOpDoneBeacon(context, output, 'done', note && note.length ? note : null);
+}
+
+async function skipStepCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  await writeOpDoneBeacon(context, output, 'skipped', null);
+}
+
+export async function refreshHandoffRequests(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const { requestsDir, doneDir } = handoffPaths(context.globalStorageUri.fsPath);
+    const builder = await loadHandoffRequestBuilder(context.extensionUri);
+    const pending = builder.selectPendingRequest(readJsonDir(requestsDir), answeredRequestIds(doneDir));
+    if (!pending) {
+      activeHandoffRequest = undefined;
+      return;
+    }
+    activeHandoffRequest = pending;
+    if (pending.id === lastNotifiedRequestId) {
+      return; // already surfaced this ask (avoid duplicate toasts on repeated fs events)
+    }
+    lastNotifiedRequestId = pending.id;
+    const detail = pending.body ? `${pending.title} \u2014 ${pending.body}` : pending.title;
+    output.appendLine(`handoff request ${pending.id}: ${detail}`);
+    const choice = await vscode.window.showInformationMessage(`Agent request: ${detail}`, 'Mark step done', 'Skip');
+    if (choice === 'Mark step done') {
+      await markStepDoneCommand(context, output);
+    } else if (choice === 'Skip') {
+      await skipStepCommand(context, output);
+    }
+  } catch (err) {
+    output.appendLine(`handoff request refresh skipped: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+function startHandoffWatcher(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
+  const globalDir = context.globalStorageUri?.fsPath;
+  if (!globalDir) {
+    return; // no globalStorage (e.g. a minimal host/test context) -> nothing to watch
+  }
+  const { requestsDir, doneDir } = handoffPaths(globalDir);
+  try {
+    mkdirSync(requestsDir, { recursive: true });
+    mkdirSync(doneDir, { recursive: true });
+  } catch { /* best-effort: the dirs are also created on demand when answering */ }
+  void refreshHandoffRequests(context, output); // surface any ask already waiting at startup
+  try {
+    const watcher = watch(requestsDir, () => { void refreshHandoffRequests(context, output); });
+    context.subscriptions.push({ dispose: () => watcher.close() });
+  } catch (err) {
+    output.appendLine(`handoff watcher not started: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -1255,6 +1392,15 @@ export function activate(context: vscode.ExtensionContext): void {
       stopCaptureCommand(context, output)
     )
   );
+
+  // Handoff Beacon agent->human request barrier (LBA-REQ-056, ADR-0036): watch handoff/requests/ and surface the
+  // agent's asks as in-VM notifications; the "Mark step done" / "Skip" actions (also palette commands) write the
+  // op-done beacon the agent awaits.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('labviewBenchmarkActor.markStepDone', () => markStepDoneCommand(context, output)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.skipStep', () => skipStepCommand(context, output))
+  );
+  startHandoffWatcher(context, output);
 
   // Extension-embedded AGENTS.md (issue #98): read-only canonical provider + materialize/show/check commands.
   context.subscriptions.push(
