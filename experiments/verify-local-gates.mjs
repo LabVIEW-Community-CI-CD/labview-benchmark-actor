@@ -2395,6 +2395,19 @@ check('post-verdict-net-transport', () => {
   return { discussion: 'post', net: 'net send', default: 'discussion' };
 });
 
+// LBA-REQ-064 / ADR-0044: off-Discussions step 5 -- the release publish workflow no longer announces the
+// reviewer verdict to a GitHub Discussion (the committed signed verdict is the durable record). Asserts the
+// workflow carries no `dotnet run LbaBus` / Discussion-announce step, and that the keyless counter-sign of the
+// committed verdict is retained.
+check('release-no-discussion-announce', () => {
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'extension-release.yml'), 'utf8');
+  assert(!/dotnet run .*LbaBus\.csproj/.test(wf), 'no `dotnet run LbaBus` announce remains in the release workflow');
+  assert(!wf.includes('Announce the reviewer verdict on the coordination bus'), 'the GitHub-Discussion verdict-announce step is gone');
+  assert(wf.includes('LBA-REQ-064') && wf.includes('COMMITTED signed verdict'), 'the workflow documents the committed verdict as the durable record (ADR-0044)');
+  assert(wf.includes('Stage the signed reviewer verdict for keyless counter-sign'), 'the keyless counter-sign of the committed verdict is retained');
+  return { announce: 'removed', durableRecord: 'committed verdict + keyless counter-sign' };
+});
+
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
 // embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
 // runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops
