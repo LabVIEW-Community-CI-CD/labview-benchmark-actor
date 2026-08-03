@@ -7,6 +7,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Retire message priority + addressing (LBA-REQ-013) — off GitHub Discussions, step 8b cleanup** (ADR-0048).
+  The message priority tier (`P0`–`P3`, `--min-priority`) + plane addressing (`--to`/`--to-me`) were features
+  of the removed GitHub-Discussion transport (`post`/`poll` + the `CollabMessage`/`Priority` model). Under the
+  live-only `lbabus net` bus there is no async inbox to triage and `net send --hosts` targets a specific peer,
+  so both are moot; LBA-REQ-013 is superseded and the dead `CollabMessage.cs`/`Priority.cs` are removed.
 - **Remove the GitHub-Discussion transport from the `lbabus` CLI — off GitHub Discussions, step 8 (final)**
   (ADR-0047, LBA-REQ-067). The CLI's `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion
   client are gone; `GitHubGraphQL` is now a REST-only client (release tags for `selfcheck`, issue comments for
