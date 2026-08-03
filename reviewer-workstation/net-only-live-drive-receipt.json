@@ -1,0 +1,66 @@
+{
+  "schema": "labview-benchmark-actor/net-only-live-drive-receipt@1",
+  "requirement": "LBA-REQ-068",
+  "adr": "ADR-0049",
+  "transport": "lbabus net -- bus-msg@1, ADR-0003/0004 (TCP 7420; guest->host via VirtualBox NAT 10.0.2.2). NET-ONLY: the released CLI has no GitHub-Discussion transport (ADR-0047).",
+  "capability": "the host drives the reviewer VM's Copilot agent (keyboard injection, drive-agent-closed-loop.sh) to run the RELEASED net-only lbabus (collab-cli 0.15.0, pulled from the immutable collab-cli-v0.15.0 GitHub Release) and AWAITS its task-correlated reply over the lbabus net TCP bus (await-agent-reply, fail-closed) -- the SOLE coordination path, since the released CLI has no GitHub-Discussion transport (init/post/poll/wait/delta are gone, ADR-0047/LBA-REQ-067). Builds on the read-back mechanism of LBA-REQ-059/ADR-0039.",
+  "reviewerVm": {
+    "os": "Windows 11 + LabVIEW 2026 (actor/win11-labview2026)",
+    "agent": "Copilot Agent mode, Claude Opus 4.8",
+    "lbabus": "0.15.0 (installed on the VM from the collab-cli-v0.15.0 release)"
+  },
+  "cliNetOnly": {
+    "releasedVersion": "0.15.0",
+    "releaseTag": "collab-cli-v0.15.0",
+    "retiredCommandsRejected": [
+      "init",
+      "post",
+      "poll",
+      "wait",
+      "delta"
+    ],
+    "observedOnVm": "lbabus post -> 'lbabus: unknown command post' (exit 1); lbabus version -> 0.15.0"
+  },
+  "drives": [
+    {
+      "drive": "net-only install (the net-only build replaces the old Discussion CLI on the VM)",
+      "vm": "actor",
+      "matched": true,
+      "frame": {
+        "type": "DONE",
+        "task": "vminstall-1785769894",
+        "senderId": "WIN",
+        "payload": "Installed net-only lbabus on WIN VM: downloaded, smoke-tested, backed up the old 0.13.0, replaced lbabus.exe. Verified net-only: 'lbabus post' now returns 'lbabus: unknown command post' (exit 1). VERDICT: PASS."
+      }
+    },
+    {
+      "drive": "release-with-review benchmark re-drive (on the net-only VM)",
+      "vm": "actor",
+      "matched": true,
+      "frame": {
+        "type": "DONE",
+        "task": "netdrive-1785769424",
+        "senderId": "WIN",
+        "payload": "launch-to-ready: mean-ms 2604.2 over sample-count 5 runs (verdict PASS, baseline 2664ms)"
+      }
+    },
+    {
+      "drive": "release sign-off drive (collab-cli 0.15.0 -- the WIN plane sign-off)",
+      "vm": "actor",
+      "matched": true,
+      "frame": {
+        "type": "DONE",
+        "task": "winsignoff-1785770657",
+        "senderId": "WIN",
+        "payload": "collab-cli 0.15.0 installed on WIN VM: downloaded, backed up prior to lbabus.prev.exe, swapped; net-only verify: version=0.15.0, post=unknown command post (exit 1); verdict PASS"
+      }
+    }
+  ],
+  "capturedAt": "2026-08-03",
+  "note": "Live net-only drives observed with senderId=WIN (the reviewer VM bus identity), each correlated by task id over the lbabus net TCP bus (guest->host via VirtualBox NAT 10.0.2.2:7420); the released collab-cli-v0.15.0 CLI on the VM rejects the retired GitHub-Discussion commands, so net is the SOLE coordination path. The verifier re-derives the digest + verdict deterministically at gate time (no VM / network). Source drives: /tmp/vm-drive/{install,loop,signoff}/reply-receipt.json (closed-loop-readback@1, matched:true).",
+  "verdict": {
+    "netOnlyDriveProven": true,
+    "reason": "3 task-correlated drive(s) from the reviewer VM (senderId WIN) over lbabus net; the released collab-cli-v0.15.0 CLI rejects init/post/poll/wait/delta"
+  },
+  "digest": "a0b3d6d1231eca5916e2e9a595605a0cc86a57d7bd1733edaa2dc4b4fc3bf32c"
+}

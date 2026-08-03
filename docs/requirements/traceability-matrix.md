@@ -74,5 +74,6 @@
 | LBA-REQ-065 | Flip the coordination default to net + graceful no-op when unconfigured | Proven | §3.2 Deployment | ADR-0045 | T-065 | 7 |
 | LBA-REQ-066 | Collapse the coordination product surface to net-only | Proven | §3.2 Deployment | ADR-0046 | T-066 | 8 |
 | LBA-REQ-067 | Remove the GitHub-Discussion transport from the lbabus CLI | Proven | §3.2 Deployment | ADR-0047 | T-067 | 5 |
+| LBA-REQ-068 | Net-only live VM-agent drive (govern the released-CLI closed loop as a committed receipt) | Proven | §3.2 Deployment | ADR-0049 | T-068 | 6 |
 
-_Generated for 67 requirements._
+_Generated for 68 requirements._

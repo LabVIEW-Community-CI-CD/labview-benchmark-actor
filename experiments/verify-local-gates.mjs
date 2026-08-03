@@ -2333,6 +2333,23 @@ check('closed-loop-readback', () => {
   return { selftest: 'await-agent-reply 7/7', loopback: r.loopbackProof.ok, liveDrives: r.liveDrives.length, netVerdictTypes: 'RESOLVED/REFINE/BLOCKED' };
 });
 
+// LBA-REQ-068 / ADR-0049: net-only live VM-agent drive -- the host drives the reviewer VM's agent to run the
+// RELEASED net-only lbabus (collab-cli 0.15.0, from the collab-cli-v0.15.0 release) and the VM reports
+// task-correlated results back over lbabus net, the SOLE coordination path (the released CLI rejects the retired
+// Discussion commands). Asserts the selftest (7/7) + the committed receipt via the verifier main (schema +
+// verdict + digest re-derivation, fail-closed) + the drive / net-only shape.
+check('net-only-live-drive', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'net-only-live-drive.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'net-only-live-drive.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'net-only-live-drive-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/net-only-live-drive-receipt@1' && r.requirement === 'LBA-REQ-068', 'committed net-only-live-drive receipt shape');
+  assert(r.verdict.netOnlyDriveProven === true, 'net-only live drive proven');
+  assert(Array.isArray(r.drives) && r.drives.length >= 1 && r.drives.every((d) => d.matched === true && d.frame.senderId === 'WIN'), 'live drives from the reviewer VM (senderId WIN), loop closed over net');
+  assert(['init', 'post', 'poll', 'wait', 'delta'].every((k) => r.cliNetOnly.retiredCommandsRejected.includes(k)), 'released CLI rejects all retired Discussion commands');
+  assert(r.cliNetOnly.releaseTag === 'collab-cli-v0.15.0' && /unknown command/.test(r.cliNetOnly.observedOnVm), 'net-only observed on the VM from the released CLI');
+  return { selftest: 'net-only-live-drive 7/7', drives: r.drives.length, releaseTag: r.cliNetOnly.releaseTag, netOnly: true };
+});
+
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
 // `net poll` read side that replaces the GitHub-Discussion post/poll. Asserts the committed loopback receipt
 // (post->log->poll round-trip + type filter + fail-closed) + that the CLI source carries the net poll read side.

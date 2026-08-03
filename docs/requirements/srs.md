@@ -95,6 +95,7 @@ progressively.
 | LBA-REQ-065 | The system shall default the coordination-bus transport to the live-only `lbabus net` TCP bus (GitHub Discussion becomes a legacy opt-out) AND degrade gracefully when net is unconfigured -- `net poll` with no receive-log and `net send --skip-if-no-peer` with no peer both exit 0 with a hint (no error, no dead loopback) -- so a fresh install coordinates over TCP once a peer/log is set and does nothing quietly until then, proven by a gate. | Steps 1-5 (ADR-0040..0044) made net available everywhere but kept Discussion the default (opt-in net) during the transition; with the net loop proven live (ADR-0039) the last thing pinning Discussion is inertia. Flipping naively would error/hang an unconfigured install, so the flip is paired with a graceful no-op. | busTransport defaults to net across the extension/MCP/post-verdict; `net poll` no-log softened from fail-closed to graceful (exit 0); the send side passes --skip-if-no-peer so `net send` with no peer exits 0; Discussion is `busTransport: discussion` / VIHS_COLLAB_TRANSPORT=discussion. | npm test (extension + MCP default flip) + the net-coordination-log receipt (graceful poll); gated by `net-default-graceful` (Net.cs graceful branches + net default in package.json/extension) + `bus-transport-select` (default === 'net'). |
 | LBA-REQ-066 | The system shall coordinate over the live-only `lbabus net` TCP bus ONLY across its product surface (the extension commands + the MCP coordination tools + the reviewer verdict announcer) -- the GitHub-Discussion transport opt-out is removed (no `busTransport` selection, no consumer builds a Discussion `post`/`poll` argv) -- so a fail-closed gate proves the product surface is net-only. | Steps 1-6 (ADR-0040..0045) made net the default with Discussion a legacy opt-out, but the product still carried the Discussion arms (busPostArgs, the busTransport selection, VIHS_COLLAB_TRANSPORT, the post/--priority branch). With net proven + default, the opt-out is dead weight on the surface users + agents touch. | Removed the busTransport setting; busConfig returns {netHosts,netLog}; pollBus->net poll, postNote/verdict->net send unconditionally; busEnvFromConfig maps only NET_HOSTS/NET_LOG; post-verdict.mjs is net send only. The graceful no-op (--skip-if-no-peer / net poll exit 0) is preserved. | npm test (extension + MCP net-only) + gates `bus-transport-select`/`mcp-net-transport`/`post-verdict-net-transport` (now net-only) + `net-default-graceful`. |
 | LBA-REQ-067 | The system shall NOT expose a GitHub-Discussion coordination transport from the `lbabus` CLI -- the `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion client are removed (GitHubGraphQL keeps only the REST release-tag + issue-comment calls for `selfcheck`/`defect`), leaving the live-only `lbabus net` TCP bus as the sole coordination transport -- so a fail-closed gate proves the CLI carries no Discussion transport. | Step 7 (ADR-0046) made the product net-only, leaving the CLI's Discussion commands dead. Removing them + the GraphQL client completes the off-Discussions teardown; GitHubGraphQL was shared with selfcheck (release tags) + defect (issue comment), which stay on REST. | Program.cs drops init/post/poll/wait/delta + EnforceVersionOrNull + ParseAll/SeedBody/Eq/Dur; GitHubGraphQL is REST-only; Config drops Category/Title/AgentId/Counterpart/AddressesMe; the 12 discussion/version-guard ci cases are retired. | dotnet build + a CLI smoke test (removed cmds exit 1; net intact); gated by `cli-no-discussion-transport`. |
+| LBA-REQ-068 | The system shall record, as a committed fail-closed receipt, that the host drove the reviewer VM's Copilot agent to run the RELEASED net-only `lbabus` (collab-cli 0.15.0, pulled from the immutable `collab-cli-v0.15.0` release) and the VM reported task-correlated results back over the `lbabus net` TCP bus -- the sole coordination path, since the released CLI rejects the retired `init`/`post`/`poll`/`wait`/`delta` Discussion commands -- so a fail-closed gate proves the end-to-end net-only drive loop is reproducible off any GitHub-Discussion dependency. | LBA-REQ-059 proved the read-back CORRELATION while the CLI still shipped the Discussion transport; the off-Discussions migration then completed (LBA-REQ-060..067) and collab-cli 0.15.0 shipped net-only, and the host drove the VM to install + validate that released binary over net -- proven live but ungoverned (receipts in /tmp). | A pure rg-free verifier (`net-only-live-drive.mjs`: schema + digest + build + validate) seals the real drives (senderId WIN) + the released-CLI net-only proof (collab-cli-v0.15.0 rejects init/post/poll/wait/delta, observed on the VM) into a committed receipt; the digest + verdict re-derive deterministically at gate time. | `node reviewer-workstation/net-only-live-drive.selftest.mjs` (7/7) + the committed receipt (digest re-derivation via the verifier main); gated by `net-only-live-drive`. |
 
 ---
 
@@ -2057,6 +2058,36 @@ progressively.
   ci mock's vestigial GraphQL/release handlers + retires experiments/ollama-bus/bus-agent.mjs -- none block a
   gate. Completes the off-Discussions migration. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-068: Net-only live VM-agent drive (govern the released-CLI closed loop as a committed receipt)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0049 -- net-only live VM-agent drive, off GitHub Discussions -- productized)
+- Statement: The system shall record, as a committed fail-closed receipt, that the host drove the reviewer VM's
+  Copilot agent to run the RELEASED net-only `lbabus` (collab-cli 0.15.0, pulled from the immutable
+  `collab-cli-v0.15.0` GitHub Release) and the VM reported task-correlated results back over the `lbabus net`
+  TCP bus -- the sole coordination path, since the released CLI rejects the retired
+  `init`/`post`/`poll`/`wait`/`delta` Discussion commands -- so a fail-closed gate proves the end-to-end
+  net-only drive loop is reproducible off any GitHub-Discussion dependency.
+- Rationale: LBA-REQ-059 (ADR-0039) proved the host<->VM-agent read-back CORRELATION, but while the CLI still
+  shipped a GitHub-Discussion transport (the VM ran lbabus 0.13.0). The off-Discussions migration then completed
+  (LBA-REQ-060..067) and collab-cli 0.15.0 shipped net-only (`collab-cli-v0.15.0`); the host drove the reviewer
+  VM to INSTALL + VALIDATE that released binary over `net` (install, benchmark re-drive 2604.2 ms/5 PASS, and
+  the WIN 0.15.0 sign-off). That capability was proven live but ungoverned -- the receipts lived in `/tmp`.
+- Acceptance Criteria:
+  - A committed receipt (`reviewer-workstation/net-only-live-drive-receipt.json`, schema
+    `net-only-live-drive-receipt@1`) seals >=1 drive from the reviewer VM (senderId `WIN`, matched) over `net`
+    plus the released-CLI net-only proof (`releaseTag: collab-cli-v0.15.0`; `init`/`post`/`poll`/`wait`/`delta`
+    recorded rejected; an observed `unknown command` on the VM).
+  - The verifier (`net-only-live-drive.mjs`) re-derives the digest + verdict DETERMINISTICALLY (no VM / network)
+    and FAILS CLOSED on a drive that did not close the loop (a non-`WIN` sender, a disallowed net type, an
+    unmatched reply), an incomplete net-only proof, a forged verdict, or a tampered digest (selftest 7/7).
+  - Comms-only holds (ADR-0003): each VM reply is a one-line status only, never run data.
+- Change Guidance: the verifier + selftest + receipt live under `reviewer-workstation/`
+  (`net-only-live-drive.mjs` / `.selftest.mjs` / `net-only-live-drive-receipt.json`); gate `net-only-live-drive`
+  in `verify-local-gates`. Refreshing to a future release = re-run the drives (`drive-agent-closed-loop.sh` +
+  `await-agent-reply.mjs`) against the new binary + rebuild the receipt with the new `releaseTag`. Authored
+  under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2130,3 +2161,4 @@ progressively.
 | LBA-REQ-065 | Deployment (flip coordination default to net + graceful no-op) | T-065 |
 | LBA-REQ-066 | Deployment (collapse coordination product to net-only) | T-066 |
 | LBA-REQ-067 | Deployment (remove CLI Discussion transport) | T-067 |
+| LBA-REQ-068 | Deployment (net-only live VM-agent drive) | T-068 |
