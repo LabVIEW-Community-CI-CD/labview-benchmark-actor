@@ -1,0 +1,45 @@
+{
+  "schema": "labview-benchmark-actor/actor-tasking@1",
+  "requirement": "LBA-REQ-076",
+  "adr": "ADR-0057",
+  "dispatchId": "mesh-run-labview-ide-launch-2026-08-03",
+  "benchmarkId": "labview-ide-launch",
+  "benchmark": {
+    "metric": "launchMs",
+    "workload": "labview-ide-launch",
+    "n": 5
+  },
+  "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+  "minActors": 2,
+  "requestedPlanes": [
+    "LINUX",
+    "WIN"
+  ],
+  "tasks": [
+    {
+      "taskId": "mesh-run-labview-ide-launch-2026-08-03::LINUX",
+      "dispatchId": "mesh-run-labview-ide-launch-2026-08-03",
+      "benchmarkId": "labview-ide-launch",
+      "benchmark": {
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "n": 5
+      },
+      "plane": "LINUX",
+      "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c"
+    },
+    {
+      "taskId": "mesh-run-labview-ide-launch-2026-08-03::WIN",
+      "dispatchId": "mesh-run-labview-ide-launch-2026-08-03",
+      "benchmarkId": "labview-ide-launch",
+      "benchmark": {
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "n": 5
+      },
+      "plane": "WIN",
+      "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c"
+    }
+  ],
+  "digest": "77de92f2152830d71f126df9517c98b375c1e4005a8701242bbe54a68cbb352c"
+}

@@ -103,6 +103,7 @@ progressively.
 | LBA-REQ-073 | The system shall prove fulfillment of a DISPATCHED cross-plane benchmark run by validating that >= N distinct enrolled mesh actors from the requested planes each returned a valid plane-tagged receipt for the SAME benchmark identity -- so a fail-closed gate proves the mesh run was fulfilled by enough independent cross-plane actors, with no central results database (the returned receipts ARE the result). | The North Star is an actor mesh where a requester dispatches a cross-plane benchmark + independent volunteer golden-VM actors return plane-tagged receipts. The pieces exist (mesh-actor registration LBA-REQ-039; provider-delegation CLAIM/ACK/DONE LBA-REQ-018; cross-plane launch identity LBA-REQ-072) but nothing composed them into a FULFILLMENT proof -- the roadmap Phase 3 / section-8 mesh metric. | `meshFulfillment.mjs` REUSES the LBA-REQ-072 launch identity as the cross-actor agreement invariant + seals a committed `mesh-run-fulfillment-receipt@1`: a dispatched labview-ide-launch run fulfilled by 2 golden-VM actors (golden-linux LINUX + golden-win WIN) each returning its real plane-tagged launch-trend receipt. | `node experiments/mesh-fulfillment/meshFulfillment.selftest.mjs` (7/7) + the committed receipt (fulfillment + identity agreement + digest via the verifier main); gated by `mesh-run-cross-plane-fulfillment`. |
 | LBA-REQ-074 | The system shall dispatch a cross-plane benchmark run GitHub-natively via a `repository_dispatch` event carrying a validated `mesh-run-dispatch@1` request bound to its fulfillment, and gate the returned receipts on cross-plane fulfillment -- so a fail-closed gate proves the dispatch->fulfill loop is wired with no central server (the repo IS the queue). | LBA-REQ-073 governs mesh-run FULFILLMENT, but the GitHub-native DISPATCH transport did not exist -- no repository_dispatch workflow, no committed dispatch-request contract binding a dispatch to its fulfillment (the roadmap Phase 3 GitHub-native queue). | `meshDispatch.mjs` validates a `mesh-run-dispatch@1` request (benchmarkId + spec + minActors + planes + dispatchId, carrying the LBA-REQ-072 identity) fail-closed; `.github/workflows/mesh-run.yml` triggers on `repository_dispatch[mesh-run]`, validates the dispatch, then gates `meshFulfillment`; the committed request binds to the LBA-REQ-073 fulfillment (same identity). | `node experiments/mesh-fulfillment/meshDispatch.selftest.mjs` (7/7) + the committed request (via the CLI) + the dispatch<->fulfillment binding + the mesh-run.yml wiring; gated by `mesh-run-dispatch-wired`. |
 | LBA-REQ-075 | The system shall fold the governed mesh-run receipts (dispatch, fulfillment, cross-plane parity) into a coverage matrix + a consistency ledger -- which benchmarks x which planes x how many actors fulfilled, and whether each run's dispatch/fulfillment/parity name the SAME identity -- so a fail-closed gate proves the operator-facing mesh dashboard reflects the receipts it summarizes. | The mesh dispatch->fulfill loop is closed (LBA-REQ-072/073/074) but those receipts are three separate artifacts with no single governed view of which benchmarks are fulfilled, across which planes, by how many actors -- the roadmap Phase 3->4 cross-plane-comparison-at-scale dashboard (the benchmark observatory LBA-REQ-054 is the single-plane precedent). | `meshObservatory.mjs` folds the committed dispatch + fulfillment + parity receipts into a `mesh-coverage-observatory@1` matrix + ledger, re-derived byte-stably from the source receipts (currency) + grounded in the real fulfillment (identity + actors + planes). | `node experiments/mesh-fulfillment/meshObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `mesh-coverage-observatory`. |
+| LBA-REQ-076 | The system shall expand a validated mesh-run dispatch into per-plane actor tasking and validate the returned-receipt collection that feeds fulfillment, both identity-bound to the dispatch -- so a fail-closed gate proves every collected receipt provably descends from the dispatched tasks and ran the SAME benchmark. | The mesh dispatch->fulfill loop is governed at its ends (LBA-REQ-074 dispatch + LBA-REQ-073 fulfillment) but the MIDDLE -- how a dispatch tasks actors + how their receipts are collected -- was ungoverned, so an assembled receipt set could bypass the fan-out. The roadmap live fan-out needs an identity-bound tasking + collection contract. | `meshFanout.mjs` derives an `actor-tasking@1` set from the dispatch (one identity-bound task per requested plane) + validates a `receipt-collection@1` mapping returned receipts back to tasks; the committed tasking re-derives from the dispatch + the collection reconstructs the committed LBA-REQ-073 fulfillment; `.github/workflows/mesh-run.yml` runs the fan-out step. | `node experiments/mesh-fulfillment/meshFanout.selftest.mjs` (7/7) + the committed tasking + collection (via the CLI) + the tasking currency + the fulfillment reconstruction + the mesh-run.yml wiring; gated by `mesh-live-fanout-wired`. |
 
 ---
 
@@ -2309,6 +2310,39 @@ progressively.
   `mesh-coverage-observatory` in `verify-local-gates`. Folding additional fulfilled runs extends the matrix with
   no new machinery. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-076: The live fan-out contract (actor-tasking + receipt-collection)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0057 -- the live fan-out contract, roadmap Phase 3)
+- Statement: The system shall expand a validated mesh-run dispatch into per-plane actor tasking and validate the
+  returned-receipt collection that feeds fulfillment, both identity-bound to the dispatch -- so a fail-closed gate
+  proves every collected receipt provably descends from the dispatched tasks and ran the SAME benchmark.
+- Rationale: the mesh dispatch->fulfill loop is governed at its two ends (dispatch LBA-REQ-074 + fulfillment
+  LBA-REQ-073) but the MIDDLE was not -- nothing governed how a validated dispatch is expanded into per-actor
+  tasking, nor how the actors' returned plane-tagged receipts are collected back into the fulfillment input. The
+  roadmap live fan-out (task volunteer actors through the repo, collect their receipts as run artifacts) needs an
+  identity-bound, fail-closed contract for the tasking + the collection.
+- Acceptance Criteria:
+  - `meshFanout.mjs` DERIVES an `actor-tasking@1` set from a validated dispatch: one task per requested plane,
+    each carrying the `dispatchId`, the `benchmarkId` + `{ metric, workload, n }` spec, the plane, and the
+    dispatched `launchIdentity` (LBA-REQ-072). `validateTasking` fails closed on an unbound task, an invalid or
+    duplicate plane, a non-canonical `taskId`, a spec that does not hash to the identity, uncovered planes, or a
+    tampered digest.
+  - `meshFanout.mjs` maps a `receipt-collection@1` -- each returned plane-tagged receipt back to its task,
+    producing the `{ actorId, plane, receipt }` set `meshFulfillment` consumes. `validateCollection` fails closed
+    on a collected receipt with no matching task, a plane mismatch, an invalid trend, an identity mismatch, a
+    duplicate actor, an uncovered tasked plane, or a tampered digest.
+  - The gate `mesh-live-fanout-wired` proves offline: the selftest (7/7); the committed tasking + collection
+    validate; the tasking re-derives from the committed dispatch (currency); the fan-out is identity-bound
+    end-to-end; the collection RECONSTRUCTS the committed LBA-REQ-073 fulfillment (grounding); and `mesh-run.yml`
+    runs the fan-out step.
+- Change Guidance: the verifier + selftest + committed tasking/collection live under
+  `experiments/mesh-fulfillment/` (`meshFanout.mjs` / `.selftest.mjs` / `mesh-run-tasking.json` /
+  `mesh-run-collection.json`); the workflow step is in `.github/workflows/mesh-run.yml`; gate
+  `mesh-live-fanout-wired` in `verify-local-gates`. Wiring the actors to actually run their task + upload their
+  receipt slots into the collection contract with no new governance. Authored under the singular-requirement
+  directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2390,3 +2424,4 @@ progressively.
 | LBA-REQ-073 | Deployment (mesh-run cross-plane fulfillment) | T-073 |
 | LBA-REQ-074 | Deployment (GitHub-native mesh-run dispatch) | T-074 |
 | LBA-REQ-075 | Deployment (mesh coverage observatory) | T-075 |
+| LBA-REQ-076 | Deployment (live fan-out contract) | T-076 |

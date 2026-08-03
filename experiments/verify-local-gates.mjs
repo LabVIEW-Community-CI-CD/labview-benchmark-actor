@@ -1756,6 +1756,33 @@ check('mesh-coverage-observatory', () => {
   return { benchmarks: obs.coverage.benchmarks, planes: obs.coverage.planes.join('+'), actorRuns: obs.coverage.totalDistinctActors, coherent: obs.verdict.observatoryOk };
 });
 
+// LBA-REQ-076 / ADR-0057: the LIVE FAN-OUT contract -- the two contracts BETWEEN a mesh-run dispatch (074) and
+// its fulfillment (073): how the dispatch TASKS actors (actor-tasking@1) + how their returned receipts are
+// COLLECTED back into the fulfillment input (receipt-collection@1), both IDENTITY-BOUND to the dispatch. Asserts
+// the selftest (7/7) + the committed tasking + collection (via the CLI) + that the tasking DERIVES from the
+// dispatch (currency) + that the collection RECONSTRUCTS the committed LBA-REQ-073 fulfillment (grounding) + that
+// mesh-run.yml wires the fan-out step.
+check('mesh-live-fanout-wired', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshFanout.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshFanout.mjs')], { stdio: 'pipe' });
+  const dispatch = JSON.parse(readFileSync(join(dir, 'mesh-run-dispatch-request.json'), 'utf8'));
+  const tasking = JSON.parse(readFileSync(join(dir, 'mesh-run-tasking.json'), 'utf8'));
+  const collection = JSON.parse(readFileSync(join(dir, 'mesh-run-collection.json'), 'utf8'));
+  const ful = JSON.parse(readFileSync(join(dir, 'mesh-run-fulfillment-receipt.json'), 'utf8'));
+  assert(tasking.schema === 'labview-benchmark-actor/actor-tasking@1' && tasking.requirement === 'LBA-REQ-076', 'committed tasking shape');
+  assert(collection.schema === 'labview-benchmark-actor/receipt-collection@1' && collection.requirement === 'LBA-REQ-076', 'committed collection shape');
+  // identity-bound: the tasking + collection carry the dispatched benchmark identity end-to-end.
+  assert(tasking.identity === dispatch.identity && collection.identity === dispatch.identity && collection.identity === ful.identity, 'the fan-out is identity-bound to the dispatch + fulfillment');
+  // the tasking covers the requested planes; the collection maps every returned receipt back to a task + is grounded.
+  assert(tasking.tasks.length === dispatch.requestedPlanes.length && dispatch.requestedPlanes.every((p) => tasking.tasks.some((t) => t.plane === p)), 'the tasking covers exactly the requested planes');
+  assert(collection.collected.length === ful.actors.length && collection.actors.every((a) => ful.actors.some((fa) => fa.actorId === a.actorId && fa.plane === a.plane)), 'the collection is the fulfillment actor set');
+  // the mesh-run.yml workflow wires the fan-out step.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/meshFanout\.mjs/.test(wf), 'mesh-run.yml runs the fan-out contract (meshFanout.mjs)');
+  return { tasks: tasking.tasks.length, collected: collection.collected.length, identity: collection.identity.slice(0, 12), wired: true };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch
