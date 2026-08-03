@@ -99,6 +99,7 @@ progressively.
 | LBA-REQ-069 | The system shall record, as a committed fail-closed receipt, that ONE release-with-review loop is bound to a single candidate over the net-only bus -- the reviewer VM staged the candidate over `lbabus net`, a human Ed25519-signed a visual PASS/FAIL of THAT candidate (component/version/commit/vsixSha256), and the signed verdict announced over `net` with its semantic type -- so a fail-closed gate proves the staged, signed, and announced candidate are the SAME (no stage-one / sign-another / announce-a-third). | LBA-REQ-068 (stage over net), LBA-REQ-057 (signed visual verdict), and LBA-REQ-058 (bus announce) were each proven in isolation; nothing bound them to one candidate in one loop, so the staging, the signed verdict, and the announce could drift apart. `gateReleaseWithReview` composes visual review with the MACHINE gate, not with a net-staged candidate. | A pure rg-free verifier (`release-with-review-drive.mjs`) REUSES verifyReviewerVerdict/gateVisualReview/buildVerdictBusPost + adds the binding (staged WIN drive <-> verdict target <-> derived announce), sealing one real round (ext 0.5.0 staged over net, signed PASS, announced RESOLVED) into a committed receipt; the digest + verdict re-derive deterministically. | `node reviewer-workstation/release-with-review-drive.selftest.mjs` (7/7) + the committed receipt (binding + digest via the verifier main); gated by `release-with-review-drive`. |
 | LBA-REQ-070 | The system shall record, as a committed fail-closed receipt, that a release candidate publishes ONLY when BOTH the machine corroboration gate (a quorum verdict + an enrolled sign-off over it, ADR-0018) AND the human visual gate (an enrolled signed PASS of the built candidate, LBA-REQ-057) pass, AND both name the SAME net-staged candidate (LBA-REQ-068/069) -- so a fail-closed gate proves the machine quorum, the human visual verdict, and the net stage all name one candidate (no machine-PASS-A + human-PASS-B). | `gateReleaseWithReview` already ANDs the machine + visual gates, but ANDs two INDEPENDENT decisions -- nothing checks that the machine quorum consensus, the visual verdict target, and the net-staged candidate are the SAME candidate, so a machine PASS of A could be published with a human PASS of B. | A pure rg-free verifier (`composite-release-decision.mjs`) REUSES gateReleaseWithReview + adds the cross-gate binding (quorum consensus.version/sourceCommit == candidate == visual target, staged over net by a WIN drive); seals one real round (ext 0.5.0: passing quorum + enrolled sign-off + signed visual PASS + net stage) into a committed receipt; digest + verdict re-derive deterministically. | `node reviewer-workstation/composite-release-decision.selftest.mjs` (7/7) + the committed receipt (both gates + binding + digest via the verifier main); gated by `composite-release-decision`. |
 | LBA-REQ-071 | The extension release workflow shall block publishing a `.vsix` unless a committed composite release-decision proves BOTH gates pass for the tagged candidate version -- the `agreement` job runs `verify-composite-release.mjs` (fail-closed) and the publish `release` job depends on `agreement` -- so no extension release publishes without the bound composite decision (LBA-REQ-070). | LBA-REQ-070/ADR-0051 GOVERNED the composite decision as a committed receipt + a CI gate, but that only proved the pattern in the local-gate suite; nothing BLOCKED a real publish. extension-release.yml already enforces the plane agreement + the human visual verdict in its agreement job (release needs agreement); the composite decision was not yet in that chain. | `verify-composite-release.mjs` REUSES the gated composite `validateReceipt` to require the committed receipt to name the tagged candidate + be proven (exit 0 clear / 1 fail-closed); the extension-release.yml agreement job runs it after verify-visual-review; the release job `needs: [build, agreement]`. | The gate `composite-release-enforced` asserts (offline) the CLI clears ext 0.5.0 + fails closed for a version with no decision, and that extension-release.yml wires the CLI in the publish-gating agreement job. |
+| LBA-REQ-072 | The system shall prove that a Linux and a Windows launch-to-ready benchmark receipt measure the SAME benchmark via a machine-independent launch identity (metric + workload + sample count) -- so their plane-specific timings are legitimately comparable -- and a fail-closed gate rejects an identity mismatch, a non-cross-plane pair, or a tampered receipt. | Cross-plane PARITY is governed for deterministic benchmarks whose value is plane-independent (mprr seriesHash LBA-REQ-014; VI Analyzer resultHash LBA-REQ-015/043), but the flagship exact-12-FPS launch-to-ready benchmark measures a plane-DEPENDENT quantity (~2604 ms Linux vs ~2410 ms Windows), so there is no identical series to anchor -- today's launch cross-plane receipts compare timing deltas as witnesses, proving nothing about whether the two planes ran the SAME benchmark. | `launchParity.mjs` anchors on the launch SPEC (`launchIdentity` = sha256 over metric + workload + n), records the plane-specific timing (mean/delta/faster-plane) as witnesses, and seals a committed `cross-plane-launch-parity-receipt@1` derived from the real committed launch trends; the gate re-derives it + checks it reflects the real trend means. | `node experiments/launch-parity/launchParity.selftest.mjs` (7/7) + the committed receipt (identity + digest via the verifier main, grounded in the committed fixtures experiments/launch-parity/fixtures/{linux,win}-launch-trend.json); gated by `cross-plane-launch-parity`. |
 
 ---
 
@@ -2183,6 +2184,37 @@ progressively.
   release adds its own committed composite receipt before it can publish. Authored under the singular-requirement
   directive (one `shall`).
 
+### LBA-REQ-072: Cross-plane launch-benchmark parity (identity is the spec, not the series)
+
+- Status: Proven
+- Area: Deployment / benchmark (ADR-0053 -- cross-plane launch-benchmark parity, roadmap Phase 2/4)
+- Statement: The system shall prove that a Linux and a Windows launch-to-ready benchmark receipt measure the SAME
+  benchmark via a machine-independent launch identity (metric + workload + sample count) -- so their
+  plane-specific timings are legitimately comparable -- and a fail-closed gate rejects an identity mismatch, a
+  non-cross-plane pair, or a tampered receipt.
+- Rationale: cross-plane PARITY is governed for benchmarks whose measured value is deterministic + plane-INDEPENDENT
+  (the mprr ring-buffer `seriesHash`, LBA-REQ-014; the VI Analyzer `resultHash`, LBA-REQ-015/043). The flagship
+  exact-12-FPS launch-to-ready benchmark (`workload-trend@1`, metric `launchMs`) measures a plane-DEPENDENT quantity
+  (~2604 ms Linux vs ~2410 ms Windows), so there is no identical series/result to anchor -- and the existing launch
+  cross-plane receipts compare timing/resource deltas as WITNESSES, proving nothing about whether the two planes ran
+  the SAME benchmark (the precondition that makes their timings comparable).
+- Acceptance Criteria:
+  - `launchParity.mjs`'s `launchIdentity` = sha256 over `{ metric, workload, n }` (the benchmark spec),
+    deliberately EXCLUDING the plane-dependent timing, the plane, and the hypervisor; two planes running the same
+    launch benchmark share it.
+  - A committed receipt (`experiments/launch-parity/cross-plane-launch-parity-receipt.json`, schema
+    `cross-plane-launch-parity-receipt@1`) proves parity iff both receipts are valid `workload-trend@1`, they are
+    cross-plane (one LINUX + one WIN), and their launch identities match; it records the plane means + the signed
+    delta + the faster plane as performance WITNESSES. It fails closed on an identity mismatch, a non-cross-plane
+    pair, an invalid trend, or a tampered digest (selftest 7/7).
+  - The committed receipt is DERIVED FROM the committed launch-trend fixtures (`experiments/launch-parity/fixtures/{linux,win}-launch-trend.json`);
+    the gate re-derives it and asserts the plane means equal the real trend means (non-fabricable).
+- Change Guidance: the verifier + selftest + receipt live under `experiments/launch-parity/`
+  (`launchParity.mjs` / `.selftest.mjs` / `cross-plane-launch-parity-receipt.json`); gate
+  `cross-plane-launch-parity` in `verify-local-gates`. A new plane joins by emitting a `workload-trend@1` with the
+  same `{ metric, workload, n }`. Complements (does not duplicate) the deterministic-series parity of
+  LBA-REQ-014/015/043. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2260,3 +2292,4 @@ progressively.
 | LBA-REQ-069 | Deployment (release-with-review drive) | T-069 |
 | LBA-REQ-070 | Deployment (composite release decision) | T-070 |
 | LBA-REQ-071 | Deployment (enforce composite release decision) | T-071 |
+| LBA-REQ-072 | Deployment (cross-plane launch benchmark parity) | T-072 |
