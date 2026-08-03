@@ -48,7 +48,7 @@ node "$here/build-agent-request.mjs" --id "$id" --title "$title" --body "$body" 
 
 # 2. Drop it into the guest handoff/requests/ dir (create it first; the extension also creates + watches it).
 guest_req="C:\\Users\\${user}\\AppData\\Roaming\\Code\\User\\globalStorage\\labview-community-ci-cd.labview-benchmark-actor\\handoff\\requests"
-gc run --exe 'C:\Windows\System32\cmd.exe' --wait-stdout -- cmd /c "if not exist \"${guest_req}\" mkdir \"${guest_req}\"" >/dev/null 2>&1 || true
+gc run --exe 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' --wait-stdout -- powershell -Command "New-Item -ItemType Directory -Force -Path '${guest_req}' | Out-Null" >/dev/null 2>&1 || true
 gc copyto --target-directory "${guest_req}\\" "$tmp/$id.json" >/dev/null
 echo "[request-step] asked the human in the VM: ${title} (id=${id}); awaiting op-done (poll ${interval}s, timeout ${timeout}s) ..." >&2
 
