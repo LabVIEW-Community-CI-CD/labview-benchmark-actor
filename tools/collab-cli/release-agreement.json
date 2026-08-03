@@ -1,7 +1,10 @@
 {
   "schema": "release-agreement@v2",
   "policy": "Publishing any component release (collab-cli-vX.Y.Z bus CLI, or ext-vX.Y.Z VS Code extension .vsix) requires an explicit, committed sign-off from BOTH the WIN and LINUX planes for that exact version. Each component's release workflow fails closed (blocks its publish job) unless both planes have recorded agreed:true. This encodes the operator directive: publishing shall occur only after bidirectional WIN<->LINUX agreement. Neither plane may unilaterally ship a shared release. collab-cli sign-offs live under the top-level `releases` map (backward-compatible); other components live under `components.<name>.releases`.",
-  "requiredPlanes": ["WIN", "LINUX"],
+  "requiredPlanes": [
+    "WIN",
+    "LINUX"
+  ],
   "releases": {
     "0.15.0": {
       "summary": "lbabus 0.15.0 -- BREAKING net-only release. Removes the GitHub-Discussion coordination transport entirely: the discussion-backed commands init/post/poll/wait/delta + their config (category/title/agent-id/counterpart/addresses-me) are gone (ADR-0047), and the message priority + explicit-addressing model is retired (ADR-0048; LBA-REQ-013 superseded). The live `lbabus net` TCP bus is now the SOLE cross-plane coordination transport (net send / net listen). GitHubGraphQL is REST-only, retained just for selfcheck (release-tag listing) + defect (issue-comment); the GraphQL discussion client + the CollabMessage/Priority types are deleted, and the CI mock server keeps only the issue-comment REST route. Help text, the embedded AGENTS.md, and the MCP tool descriptions describe the net-only model. Delivered off-Discussions across #340-#344 (all merged to develop); LbaBus.csproj 0.14.0 -> 0.15.0 + CHANGELOG [0.15.0]. NOTE: 0.14.0 already released with the OLD discussion CLI, so this net-only build ships as a NEW version (0.15.0, a breaking bump), it does not re-release 0.14.0.",
@@ -260,6 +263,23 @@
               "reviewedCommit": "88b87f7ca3b0ae9209cf63720b8ee5eafe61e6ff",
               "at": "2026-08-02T21:06:06Z",
               "note": "Independently validated on the WIN plane (native Windows, win32-x64, node v24.16.0, dotnet 8.0.423) at develop HEAD 88b87f7 (LINUX reviewed 48b59c4; 88b87f7 = 48b59c4 + the collab-cli 0.14.0 agreement-only merge #322, so the shipped extension surface is byte-identical to LINUX's reviewed 48b59c4). npm test GREEN: extension-activation registers 21 commands + 2 LM tools + prerequisite remediation + clean deactivate (the +2 vs 0.4.0 are openMeshCalibration + openMeshBoard); viewer-render/viewer-plain-render/panels-render render + scrub in jsdom; mcp-core/mcp-activation/mcp-stdio(+life/corrupt/noenv)/mcp-server/mcp-tool-doc all PASS (the folded 4 core + 9 grid = 13-tool stdio surface intact). ENVIRONMENTAL NOTE: the one activation assertion 'captureLaunch surfaces the LabVIEW-not-found guard' is written for the Linux test host where LabVIEW.exe is absent; this WIN host has real LabVIEW 2026 at both candidate paths so resolveLabview() legitimately returns a real path and the not-found guard does not fire -- the extension is behaving correctly, the assertion is simply not applicable on a real-LabVIEW host. Reproduced the intended no-LabVIEW condition via a transient node --import shim masking ONLY those two exact LabVIEW.exe paths in fs.existsSync (no repo/source/test change) and the full activation suite then passes 21 commands + 2 LM tools clean. agent-last-gate --skip-tests PASS 8/8 on win32-x64: local-gates 152/152, vsix-allow-set clean (39 runtime files), vsix-size 95.8 KB (ceiling 1024), icon 128x128, manifest-changelog has 0.5.0, marketplace-safe README, metadata complete. npm run package -> labview-benchmark-actor.vsix 41 files / 95.77 KB; code --install-extension --force installed it into real Windows VS Code -> registers as labview-community-ci-cd.labview-benchmark-actor@0.5.0. WIN agrees to publish extension 0.5.0 at 88b87f7; the human reviewer-VM visual judgment pass remains an operator/reviewer action before tagging ext-v0.5.0."
+            }
+          }
+        },
+        "1.0.0": {
+          "summary": "LabVIEW Benchmark Actor 1.0.0 -- the Marketplace v1.0 release (roadmap Phase 5). Reframes README.md from an originating-specification package into a product-facing Marketplace listing; adds a governed \"join the mesh\" quickstart (docs/information-for-users/join-the-mesh.md, registered in the ISO/IEC/IEEE 26514 REQUIRED_ITEMS set + navigation); bumps version 0.5.0 -> 1.0.0 + a CHANGELOG [1.0.0] section. Docs/packaging only -- no change to the shipped extension source surface from 0.5.0. This is the culmination of the governed actor mesh (LBA-REQ-072..080), the cross-plane benchmark parity suite (LBA-REQ-081..083), and the stress-discounted cross-plane comparison (LBA-REQ-084).",
+          "signoffs": {
+            "LINUX": {
+              "agreed": true,
+              "reviewedCommit": "237532781f593c4d9e6d8b97059188c9447c50dc",
+              "at": "2026-08-03T21:07:37Z",
+              "note": "Validated on the LINUX plane (node v22.22.1) at develop 2375327 -- the 1.0.0 Marketplace release: product-facing README (all links absolute/marketplace-safe; retains the repo-standards-review v0.2.19 / d44f210d stamp + the absorbed-mprr/ADR-0009 citation the gates require), the governed join-the-mesh quickstart (26514 set + navigation), and version 0.5.0 -> 1.0.0 + CHANGELOG [1.0.0]. Docs/packaging only -- no src change from 0.5.0, so the shipped .vsix surface is unchanged (the agreement file is tools/, excluded from the .vsix). lba verify 180/180 on linux-x64; agent-last-gate PASS 8/8 (npm run package -> labview-benchmark-actor.vsix 116.4 KB, vsix-allow-set clean, icon 128x128, manifest-changelog has 1.0.0, marketplace-safe README, metadata complete); npm test green (compile + activation + viewer + mcp-stdio + mcp-doc-drift). LINUX agrees to publish extension 1.0.0 at 2375327; the WIN plane sign-off + the human reviewer-VM visual judgment pass remain before tagging ext-v1.0.0."
+            },
+            "WIN": {
+              "agreed": false,
+              "reviewedCommit": null,
+              "at": null,
+              "note": "WIN sign-off pending -- awaiting independent validation on the WIN plane (native Windows) before tagging ext-v1.0.0. The bidirectional agreement gate fails closed until this is agreed:true."
             }
           }
         }
