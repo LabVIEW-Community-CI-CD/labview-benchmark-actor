@@ -7,6 +7,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Collapse the coordination product surface to net-only — off GitHub Discussions, step 7** (ADR-0046,
+  LBA-REQ-066). The extension commands, the MCP coordination tools, and the reviewer verdict announcer
+  (`post-verdict.mjs`) now coordinate over the live-only `lbabus net` TCP bus ONLY — the `busTransport`
+  selection setting is removed and no consumer builds a GitHub-Discussion `post`/`poll` argv (the extension's
+  `busPostArgs` + the `--priority`/`--ref` branch are gone). `busNetHosts`/`busNetLog` still configure the net
+  bus, and the ADR-0045 graceful no-op (`--skip-if-no-peer`; `net poll` no-log exits 0) is preserved. The CLI's
+  Discussion transport is removed next (step 8). Gated by `bus-transport-select` + `mcp-net-transport` +
+  `post-verdict-net-transport` (now net-only).
 - **Flip the coordination default to `net` + graceful no-op — off GitHub Discussions, step 6** (ADR-0045,
   LBA-REQ-065). `labviewBenchmarkActor.busTransport` now defaults to the live-only `lbabus net` TCP bus across
   the extension, the MCP tools, and `post-verdict.mjs`; GitHub Discussion becomes a legacy opt-out

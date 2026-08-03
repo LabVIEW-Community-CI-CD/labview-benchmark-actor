@@ -557,17 +557,10 @@ export function buildSignedVerdict(
   return { verdict, signOff };
 }
 
-/** Build the `lbabus post` argv for a verdict bus post (pure): the FULL signed verdict JSON is the message body
- *  (via --message-file); the semantic type/task/ref/priority come from the verdict (LBA-REQ-058, ADR-0038). */
-export function busPostArgs(post: { type: string; task: string; ref: string | null; priority: string }, verdictFile: string): string[] {
-  const args = ['post', '--type', post.type, '--task', post.task, '--priority', post.priority, '--message-file', verdictFile];
-  if (post.ref) args.push('--ref', post.ref);
-  return args;
-}
-
-/** Build the `lbabus net send` argv for a verdict announcement over TCP (pure, LBA-REQ-061/ADR-0041): the
- *  semantic type + release task + the FULL signed verdict JSON (--message-file). The net envelope has no
- *  priority/ref fields (those live inside the verdict JSON); host(s) are the configured peer(s). */
+/** Build the `lbabus net send` argv for a verdict announcement over TCP (pure, LBA-REQ-066/ADR-0046, net-only):
+ *  the semantic type + release task + the FULL signed verdict JSON (--message-file). The net envelope has no
+ *  priority/ref fields (those live inside the verdict JSON); host(s) are the configured peer(s), else a graceful
+ *  no-op via --skip-if-no-peer. */
 export function busSendArgs(post: { type: string; task: string }, verdictFile: string, netHosts: string): string[] {
   const args = ['net', 'send'];
   if (netHosts) { args.push('--hosts', netHosts); } else { args.push('--skip-if-no-peer'); }
@@ -575,13 +568,12 @@ export function busSendArgs(post: { type: string; task: string }, verdictFile: s
   return args;
 }
 
-/** The coordination-bus transport selection (LBA-REQ-061, ADR-0041): 'discussion' (GitHub Discussion, the
- *  legacy default) or 'net' (live-only `lbabus net` TCP). `net` sends to the configured peer host(s) and polls
- *  the local receive-log written by `lbabus net listen --log`. Off-Discussions migration, step 2. */
-function busConfig(): { transport: string; netHosts: string; netLog: string } {
+/** The live-only `lbabus net` TCP coordination bus config (LBA-REQ-066, ADR-0046, net-only): the peer host(s)
+ *  that `net send` targets (else a graceful no-op) + the local receive-log written by `lbabus net listen --log`
+ *  that `net poll` reads. The GitHub-Discussion transport opt-out was removed off-Discussions step 7. */
+function busConfig(): { netHosts: string; netLog: string } {
   const c = vscode.workspace.getConfiguration('labviewBenchmarkActor');
   return {
-    transport: c.get<string>('busTransport', 'net'),
     netHosts: (c.get<string>('busNetHosts', '') || '').trim(),
     netLog: (c.get<string>('busNetLog', '') || '').trim(),
   };
@@ -772,8 +764,8 @@ async function postVerdictToBus(
 ): Promise<void> {
   try {
     const post = builder.buildVerdictBusPost(record);
-    const { transport, netHosts } = busConfig();
-    const args = transport === 'net' ? busSendArgs(post, verdictFile, netHosts) : busPostArgs(post, verdictFile);
+    const { netHosts } = busConfig();
+    const args = busSendArgs(post, verdictFile, netHosts);
     output.appendLine(`$ ${CLI} ${args.join(' ')}`);
     try {
       const { stdout, stderr } = await execFileAsync(CLI, args, { timeout: 30000 });
@@ -1489,10 +1481,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('labviewBenchmarkActor.pollBus', () => {
-      const { transport, netLog } = busConfig();
-      const args = transport === 'net'
-        ? ['net', 'poll', ...(netLog ? ['--log', netLog] : []), '--tail', '10']
-        : ['poll', '--full', '--tail', '10'];
+      const { netLog } = busConfig();
+      const args = ['net', 'poll', ...(netLog ? ['--log', netLog] : []), '--tail', '10'];
       return runCli(output, args, 30000);
     })
   );
@@ -1506,10 +1496,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!message) {
         return;
       }
-      const { transport, netHosts } = busConfig();
-      const args = transport === 'net'
-        ? ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : ['--skip-if-no-peer']), '--type', 'NOTE', '--message', message]
-        : ['post', '--type', 'NOTE', '--message', message];
+      const { netHosts } = busConfig();
+      const args = ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : ['--skip-if-no-peer']), '--type', 'NOTE', '--message', message];
       await runCli(output, args, 20000);
     })
   );

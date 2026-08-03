@@ -259,11 +259,11 @@ assert(
 const providerMod = require(join(root, 'out', 'mcp', 'benchmarkActorMcpServerProvider.js'));
 const fExplicit = providerMod.buildBenchmarkActorMcpServerDefinitionFields({ extensionPath: '/x', execPath: '/node', scriptPath: '/explicit/server.js' });
 assert(fExplicit.args[0] === '/explicit/server.js' && fExplicit.version === undefined, 'buildFields honors an explicit scriptPath and an absent version');
-// LBA-REQ-062 (off-Discussions step 3): busEnvFromConfig maps the transport config to the MCP server's env.
-const envNet = providerMod.busEnvFromConfig({ transport: 'net', netHosts: '10.0.2.2', netLog: '/tmp/bus.jsonl' });
-assert(envNet.VIHS_COLLAB_TRANSPORT === 'net' && envNet.VIHS_COLLAB_NET_HOSTS === '10.0.2.2' && envNet.VIHS_COLLAB_NET_LOG === '/tmp/bus.jsonl', 'busEnvFromConfig maps net transport + hosts + log to env');
-const envDisc = providerMod.busEnvFromConfig({ transport: 'discussion', netHosts: '', netLog: '' });
-assert(Object.keys(envDisc).length === 0, 'busEnvFromConfig yields no env for the Discussion default');
+// LBA-REQ-066 (off-Discussions step 7, net-only): busEnvFromConfig maps only the net bus config to the MCP server's env.
+const envNet = providerMod.busEnvFromConfig({ netHosts: '10.0.2.2', netLog: '/tmp/bus.jsonl' });
+assert(envNet.VIHS_COLLAB_NET_HOSTS === '10.0.2.2' && envNet.VIHS_COLLAB_NET_LOG === '/tmp/bus.jsonl' && !('VIHS_COLLAB_TRANSPORT' in envNet), 'busEnvFromConfig maps net hosts + log to env (net-only, no transport env)');
+const envNone = providerMod.busEnvFromConfig({ netHosts: '', netLog: '' });
+assert(Object.keys(envNone).length === 0, 'busEnvFromConfig yields no env when the net bus is unconfigured (graceful no-op)');
 const fDefault = providerMod.buildBenchmarkActorMcpServerDefinitionFields({ extensionPath: '/x', execPath: '/node', version: '1.2.3' });
 assert(fDefault.args[0] === providerMod.resolveBenchmarkActorMcpServerScriptPath('/x') && fDefault.version === '1.2.3', 'buildFields resolves the default script path + carries the version');
 const capturedDirect = [];

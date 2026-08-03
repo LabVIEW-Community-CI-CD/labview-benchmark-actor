@@ -260,21 +260,15 @@
           "default": "",
           "markdownDescription": "Path to the enrolled reviewer's Ed25519 **private** key (PKCS#8 PEM) used to sign a reviewer visual verdict IN the VM. Keep this file local to the reviewer station; never commit it. Required by **Render Reviewer Verdict**."
         },
-        "labviewBenchmarkActor.busTransport": {
-          "type": "string",
-          "enum": ["net", "discussion"],
-          "default": "net",
-          "markdownDescription": "Coordination-bus transport. `net` (default, LBA-REQ-065/ADR-0045) uses the live-only `lbabus net` TCP bus -- **Post Note** + verdict announcements `net send` to `busNetHosts` (a graceful no-op if unset), and **Poll Bus** reads `busNetLog`. `discussion` posts/polls a GitHub Discussion (legacy, being retired)."
-        },
         "labviewBenchmarkActor.busNetHosts": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Peer host(s) (comma-separated) that `net send` targets when `busTransport` is `net` (e.g. `10.0.2.2` for the VM->host bridge). Empty = loopback."
+          "markdownDescription": "Peer host(s) (comma-separated) that the `lbabus net` coordination bus `net send`s to (e.g. `10.0.2.2` for the VM->host bridge). Empty = a graceful no-op (nothing is announced). **Post Note** + verdict announcements use this."
         },
         "labviewBenchmarkActor.busNetLog": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to this actor's local `lbabus net` receive-log (written by `net listen --log`) that **Poll Bus** reads when `busTransport` is `net`. Empty = the CLI default."
+          "markdownDescription": "Path to this actor's local `lbabus net` receive-log (written by `net listen --log`) that **Poll Bus** reads. Empty = the CLI default."
         }
       }
     }
