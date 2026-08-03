@@ -25,7 +25,7 @@ dotnet build -c Release tools/collab-cli/ci/LbaBus.Ci/LbaBus.Ci.csproj
 dotnet tools/collab-cli/ci/LbaBus.Ci/bin/Release/net8.0/lbabus-ci.dll \
   --repo-root "$PWD" --lbabus tools/collab-cli/bin/Release/net8.0/lbabus.dll
 
-# ...or with the in-container mock wired (flips the version-guard-* / defect-* cases from SKIP to RUN):
+# ...or with the in-container mock wired (flips the defect-* cases from SKIP to RUN):
 dotnet build -c Release tools/collab-cli/ci/LbaBus.Ci.Mock/LbaBus.Ci.Mock.csproj
 dotnet tools/collab-cli/ci/LbaBus.Ci.Mock/bin/Release/net8.0/lbabus-mock.dll run-harness --port 8099 \
   --repo-root "$PWD" --lbabus tools/collab-cli/bin/Release/net8.0/lbabus.dll \
@@ -78,32 +78,20 @@ declares the fixture repo it targets via `VIHS_COLLAB_OWNER` / `VIHS_COLLAB_REPO
 ## Mock contract (`LBABUS_GITHUB_API`)
 
 > Implemented by `ci/LbaBus.Ci.Mock` (`lbabus-mock`) — a dependency-free `System.Net.HttpListener`
-> server, routed as a pure function of the request path + GraphQL variables, per fixture repo.
+> server, routed as a pure function of the request path.
 
-`lbabus` sends **every** GitHub call to `LBABUS_GITHUB_API` as its base URL. There are exactly two
-surfaces — this answers the REST-vs-GraphQL question directly:
+After the off-Discussions migration (ADR-0047/0048) `lbabus` uses exactly **one** GitHub-API surface, so
+the mock serves only it:
 
-- **GraphQL** (discussions) — `POST {base}/graphql`
-  - `ResolveContext` → `repository { id, discussionCategories(first:30){ nodes{ id name } } }`
-  - `FindDiscussion` → `repository { discussions(first:50, orderBy:{field:CREATED_AT,direction:DESC}) { nodes{ number title id url } } }`
-  - `ListComments` → `repository { discussion(number:$n) { comments(last:$k){ nodes{ createdAt body author{ login } } } } }`
-  - `CreateDiscussion` (mutation) → `createDiscussion(input:{repositoryId,categoryId,title,body}){ discussion{ number url id } }`
-  - `AddComment` (mutation) → `addDiscussionComment(input:{discussionId,body}){ comment{ url } }`
-- **REST** — `{base}/repos/{owner}/{repo}/...` *(these two are REST, NOT GraphQL)*
-  - `GET  {base}/repos/{owner}/{repo}/releases?per_page=100` → `[{ "tag_name": "collab-cli-vX.Y.Z" }, ...]` (drives the version-currency guard)
-  - `POST {base}/repos/{owner}/{repo}/issues/{n}/comments` (body `{ "body": "..." }`) → `{ "html_url": "..." }` (the defect sink)
-
-When `LBABUS_GITHUB_API` is set but unreachable, a version-gated command (`post`/`wait`) **fails closed
-(exit 3)** rather than falling back to the real api.github.com.
+- **REST** — `POST {base}/repos/{owner}/{repo}/issues/{n}/comments` (body `{ "body": "..." }`) →
+  `{ "html_url": "..." }` (the `lbabus defect` sink). Every other path returns 404.
 
 ### Fixture routing
 
-The mock is a pure function of the request path/vars — route by `{owner}/{repo}`:
+The mock is a pure function of the request path — route by `{owner}/{repo}`:
 
 | Fixture repo | Serves | Exercises |
 |--------------|--------|-----------|
-| `lbabus-ci/fixture-stale` | `releases` with a `tag_name` far ahead of the build (e.g. `collab-cli-v99.0.0`) | `version-guard-stale-fails-closed` → exit 3 (STALE) |
-| `lbabus-ci/fixture-current` | `releases` with `collab-cli-v<current>` **and** a discussion with no matching LINUX comments | `version-guard-current-proceeds` → exit 2 (timeout, not stale) |
 | `lbabus-ci/fixture-defect` | accepts the issue-#7 comment POST, returns `{ html_url }` | `defect-posts-to-issue` → exit 0 |
 
 `GH_TOKEN` is a dummy in these cases — the mock must not validate it.

@@ -16,7 +16,7 @@
     - ci-docs         : embed round-trip + drift detection for the `lbabus docs` bundle (guide + srs + rtm).
     - ci-harness      : the in-container GitHub mock + declarative case runner (cases/*.json). Ripgrep
                         is absent here, so requiresRipgrep cases SKIP (the ci-no-rg equivalent) while
-                        the mock-requiring version-guard / defect cases RUN.
+                        the mock-requiring defect cases RUN.
 
   Every gate is inspected via its process exit code; a failure is recorded and the script exits 1 after
   running them all (so one run surfaces the full picture). Used BOTH as a build-time RUN gate in

@@ -85,7 +85,7 @@ COPY ci/verify-linux.sh /verify-linux.sh
 RUN chmod +x /verify-linux.sh
 # build-time gate: the exact verification `docker run` re-runs, so a broken lbabus fails the image build.
 # ripgrep is intentionally ABSENT here, so requiresRipgrep harness cases SKIP (the ci-no-rg equivalent)
-# while the mock-requiring version-guard / defect cases RUN.
+# while the mock-requiring defect cases RUN.
 RUN /verify-linux.sh --out /out --repo /repo
 ENTRYPOINT ["bash", "/verify-linux.sh"]
 CMD ["--out", "/out", "--repo", "/repo"]
