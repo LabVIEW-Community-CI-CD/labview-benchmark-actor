@@ -10,6 +10,28 @@ so the WIN and LINUX planes install the exact same pinned version and cannot dri
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-08-03
+
+### Removed
+
+- **BREAKING: the GitHub-Discussion coordination transport is gone.** `lbabus` is now
+  **net-only** — the live `lbabus net` TCP bus is the sole cross-plane coordination transport.
+  The discussion-backed commands `init`, `post`, `poll`, `wait`, and `delta` and their
+  configuration (category / title / agent-id / counterpart / addresses-me) have been removed
+  (ADR-0047). Coordinate with `lbabus net send` / `lbabus net listen`.
+- **BREAKING: the message priority + explicit-addressing model is retired.** The `Priority` /
+  `CollabMessage` types and the priority + addressing surface are gone (ADR-0048); `LBA-REQ-013`
+  (message prioritization) is superseded. Net frames carry a small fixed type set.
+- `GitHubGraphQL` no longer speaks GraphQL — it is REST-only, retained solely for `selfcheck`
+  (release-tag listing) and `defect` (issue-comment). The GraphQL discussion client is removed.
+
+### Changed
+
+- Help text, the embedded `AGENTS.md`, and the MCP tool descriptions now describe the net-only
+  coordination model; the CI mock server keeps only the issue-comment REST route.
+- Re-snapshot of the version-pinned documentation + requirements bundle (`docs show srs|rtm`,
+  `agents`) so “same version =&gt; same requirements” holds against the current repo.
+
 ## [0.14.0] — 2026-08-02
 
 ### Changed
@@ -250,7 +272,8 @@ so the published release notes are self-complete.
 
 - Shared versioned .NET CLI (`lbabus`) for the WIN↔LINUX coordination bus (#6).
 
-[Unreleased]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.8.2...HEAD
+[Unreleased]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.15.0...HEAD
+[0.15.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.14.0...collab-cli-v0.15.0
 [0.8.2]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.8.0...collab-cli-v0.8.2
 [0.8.1]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/pull/97
 [0.8.0]: https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/compare/collab-cli-v0.7.0...collab-cli-v0.8.0
