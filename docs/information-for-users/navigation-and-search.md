@@ -7,6 +7,7 @@
 ## Start here
 
 - **New?** → [Getting Started](./getting-started.md)
+- **Joining the mesh?** → [Join the Mesh](./join-the-mesh.md)
 - **Looking up a command?** → [Command Reference](./command-reference.md)
 - **Stuck?** → [FAQ](./faq.md)
 - **Unsure of a term?** → [Glossary](./glossary.md)
@@ -17,6 +18,7 @@
 | --- | --- | --- |
 | [Getting Started](./getting-started.md) | reach a first benchmark fast | community member |
 | [User Guide](./user-guide.md) | learn the review workflow in depth | community member |
+| [Join the Mesh](./join-the-mesh.md) | contribute cross-plane results to the mesh | community member |
 | [Command Reference](./command-reference.md) | find any of the 21 commands | member, agent, maintainer |
 | [Glossary](./glossary.md) | define a domain term | all |
 | [FAQ](./faq.md) | answer a recurring question | all |
