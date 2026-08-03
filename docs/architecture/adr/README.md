@@ -49,6 +49,7 @@
 | [ADR-0039](ADR-0039-host-vm-agent-closed-loop-tcp.md) | Host<->VM-agent closed loop over the lbabus net TCP bus -- the host awaits the VM agent's correlated reply (await-agent-reply) after driving its chat, and the reviewer verdict announces with a semantic net type (RESOLVED/REFINE/BLOCKED), off GitHub Discussions | LINUX | Accepted | LBA-REQ-059 |
 | [ADR-0040](ADR-0040-live-only-net-coordination.md) | Live-only net coordination -- a per-actor `net listen --log` receive-log + `net poll` read side replaces the GitHub-Discussion post/poll (no central/async store; offline peers miss a post), the first increment of retiring Discussions | LINUX | Accepted | LBA-REQ-060 |
 | [ADR-0041](ADR-0041-bus-transport-selection.md) | Bus transport selection in the extension -- Discussion (default) or the live-only `lbabus net` TCP bus (opt-in); postNote/pollBus/verdict announcement ride net send/net poll when configured, off-Discussions step 2 | LINUX | Accepted | LBA-REQ-061 |
+| [ADR-0042](ADR-0042-mcp-transport-selection.md) | MCP coordination tools transport selection -- the provider passes the transport config as env and the stdio server routes poll_coordination_bus/post_coordination_note to net poll/net send under net (Discussion default), off-Discussions step 3 | LINUX | Accepted | LBA-REQ-062 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
 LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0022, 0023, 0024). Add new ADRs by extending your own range.

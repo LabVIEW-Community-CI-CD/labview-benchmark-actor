@@ -2363,6 +2363,18 @@ check('bus-transport-select', () => {
   return { config: 3, default: 'discussion', netOptIn: true };
 });
 
+// LBA-REQ-062 / ADR-0042: off-Discussions step 3 -- the MCP coordination tools select the transport via env
+// passed by the extension at server launch (Discussion default, net opt-in). Source-asserts the switch; the
+// runtime is covered by test/mcp-server.mjs (busEnvFromConfig + the transport-agnostic stdio tools).
+check('mcp-net-transport', () => {
+  const srv = readFileSync(join(here, '..', 'src', 'mcp', 'runBenchmarkActorMcpServer.ts'), 'utf8');
+  assert(/export function pollBusArgs\(/.test(srv) && /export function postNoteArgs\(/.test(srv), 'the MCP server builds transport-selected poll/post argv');
+  assert(srv.includes('VIHS_COLLAB_TRANSPORT') && srv.includes("'net', 'poll'") && srv.includes("'net', 'send'"), 'net transport reads the env + routes to net poll/send');
+  const prov = readFileSync(join(here, '..', 'src', 'mcp', 'benchmarkActorMcpServerProvider.ts'), 'utf8');
+  assert(/export function busEnvFromConfig\(/.test(prov) && prov.includes('VIHS_COLLAB_TRANSPORT') && prov.includes("getConfiguration('labviewBenchmarkActor')"), 'the provider passes the transport env from the extension config');
+  return { server: 'poll/postArgs env-selected', provider: 'busEnvFromConfig', default: 'discussion' };
+});
+
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
 // embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
 // runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops

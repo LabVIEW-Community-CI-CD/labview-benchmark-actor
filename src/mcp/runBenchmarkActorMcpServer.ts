@@ -83,12 +83,39 @@ export async function getBenchmarkSeries(root: string = repoRoot): Promise<McpTo
   }
 }
 
+/** Coordination-bus transport for the MCP tools (LBA-REQ-062, ADR-0042), from env passed by the extension at
+ *  server launch (busEnvFromConfig): VIHS_COLLAB_TRANSPORT (discussion default | net) + VIHS_COLLAB_NET_HOSTS
+ *  + VIHS_COLLAB_NET_LOG. Discussion stays the default. */
+function busTransport(): { transport: string; netHosts: string; netLog: string } {
+  return {
+    transport: process.env.VIHS_COLLAB_TRANSPORT === 'net' ? 'net' : 'discussion',
+    netHosts: (process.env.VIHS_COLLAB_NET_HOSTS ?? '').trim(),
+    netLog: (process.env.VIHS_COLLAB_NET_LOG ?? '').trim()
+  };
+}
+
+/** The `lbabus` argv for polling the bus, transport-selected (net -> `net poll` the local receive-log). */
+export function pollBusArgs(tail: number): string[] {
+  const { transport, netLog } = busTransport();
+  return transport === 'net'
+    ? ['net', 'poll', ...(netLog ? ['--log', netLog] : []), '--tail', String(tail)]
+    : ['poll', '--full', '--tail', String(tail)];
+}
+
+/** The `lbabus` argv for posting a coordination note, transport-selected (net -> `net send` to the peer host(s)). */
+export function postNoteArgs(message: string): string[] {
+  const { transport, netHosts } = busTransport();
+  return transport === 'net'
+    ? ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : []), '--type', 'NOTE', '--message', message]
+    : ['post', '--type', 'NOTE', '--message', message];
+}
+
 const serverDeps: BenchmarkActorMcpToolDeps = {
   serverVersion: readServerVersion(),
   getHostCapabilities: () => runLbabus(['capabilities'], 15000),
   getBenchmarkSeries,
-  pollCoordinationBus: ({ tail }) => runLbabus(['poll', '--full', '--tail', String(tail)], 30000),
-  postCoordinationNote: ({ message }) => runLbabus(['post', '--type', 'NOTE', '--message', message], 20000)
+  pollCoordinationBus: ({ tail }) => runLbabus(pollBusArgs(tail), 30000),
+  postCoordinationNote: ({ message }) => runLbabus(postNoteArgs(message), 20000)
 };
 
 // Fold the ACG corroboration-grid tools into THIS server from the bundled dep-free engines

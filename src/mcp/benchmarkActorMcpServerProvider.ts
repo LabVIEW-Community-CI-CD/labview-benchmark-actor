@@ -56,6 +56,16 @@ export function buildBenchmarkActorMcpServerDefinitionFields(options: {
   };
 }
 
+/** Map the extension's bus-transport config to the env the stdio MCP server reads to select its coordination
+ *  transport (LBA-REQ-062, ADR-0042). Empty values are omitted so the server keeps the Discussion default. */
+export function busEnvFromConfig(cfg: { transport: string; netHosts: string; netLog: string }): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (cfg.transport === 'net') { env.VIHS_COLLAB_TRANSPORT = 'net'; }
+  if (cfg.netHosts) { env.VIHS_COLLAB_NET_HOSTS = cfg.netHosts; }
+  if (cfg.netLog) { env.VIHS_COLLAB_NET_LOG = cfg.netLog; }
+  return env;
+}
+
 /**
  * Registers the labview-benchmark-actor MCP server definition provider with VS Code.
  *
@@ -81,9 +91,17 @@ export function registerBenchmarkActorMcpServerProvider(
   });
 
   const provider: vscode.McpServerDefinitionProvider = {
-    provideMcpServerDefinitions: () => [
-      new vscode.McpStdioServerDefinition(fields.label, fields.command, fields.args, {}, fields.version)
-    ]
+    provideMcpServerDefinitions: () => {
+      const c = vscode.workspace.getConfiguration('labviewBenchmarkActor');
+      const env = busEnvFromConfig({
+        transport: c.get<string>('busTransport', 'discussion'),
+        netHosts: (c.get<string>('busNetHosts', '') || '').trim(),
+        netLog: (c.get<string>('busNetLog', '') || '').trim()
+      });
+      return [
+        new vscode.McpStdioServerDefinition(fields.label, fields.command, fields.args, env, fields.version)
+      ];
+    }
   };
 
   const disposable = vscode.lm.registerMcpServerDefinitionProvider(BENCHMARK_ACTOR_MCP_PROVIDER_ID, provider);
