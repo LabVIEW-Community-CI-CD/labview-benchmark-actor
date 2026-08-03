@@ -1803,6 +1803,29 @@ check('mesh-verified-tier-attested', () => {
   return { attestations: verified.attestations.length, enrolledActors: Object.keys(keys).length, identity: verified.identity.slice(0, 12) };
 });
 
+// LBA-REQ-078 / ADR-0059: transparency-log the verified-tier attestations -- each attestation is recorded in an
+// RFC-6962 Merkle transparency log (reusing the ADR-0022 acg-transparency engine) whose tree head is signed by
+// the enrolled log key, and a logged-verified-collection@1 is admitted only when EVERY attestation carries an
+// inclusion proof against that signed root. Asserts the selftest (7/7) + the committed logged collection (via the
+// CLI) + that the signed tree head verifies + that every attestation is included + that mesh-run.yml wires the step.
+check('mesh-attestations-transparency-logged', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshTransparency.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshTransparency.mjs')], { stdio: 'pipe' });
+  const verified = JSON.parse(readFileSync(join(dir, 'mesh-run-verified-collection.json'), 'utf8'));
+  const logged = JSON.parse(readFileSync(join(dir, 'mesh-run-logged-collection.json'), 'utf8'));
+  const logKey = JSON.parse(readFileSync(join(dir, 'mesh-log-key.json'), 'utf8'));
+  assert(logged.schema === 'labview-benchmark-actor/logged-verified-collection@1' && logged.requirement === 'LBA-REQ-078', 'committed logged collection shape');
+  // the log records every verified-tier attestation, bound to the verified collection.
+  assert(logged.verifiedDigest && logged.identity === verified.identity && logged.dispatchId === verified.dispatchId, 'the logged collection binds to the verified collection');
+  assert(logged.signedTreeHead && logged.signedTreeHead.size === verified.attestations.length && Array.isArray(logged.inclusions) && logged.inclusions.length === verified.attestations.length, 'the signed tree logs every attestation with an inclusion proof');
+  assert(logged.signedTreeHead.algorithm === 'ed25519' && typeof logKey.publicKeyPem === 'string', 'the tree head is Ed25519-signed by the enrolled log key');
+  // mesh-run.yml wires the transparency step.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/meshTransparency\.mjs/.test(wf), 'mesh-run.yml transparency-logs the attestations (meshTransparency.mjs)');
+  return { logged: logged.inclusions.length, treeSize: logged.signedTreeHead.size, root: logged.signedTreeHead.root.slice(0, 12) };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch

@@ -1,0 +1,40 @@
+{
+  "schema": "labview-benchmark-actor/logged-verified-collection@1",
+  "requirement": "LBA-REQ-078",
+  "adr": "ADR-0059",
+  "dispatchId": "mesh-run-labview-ide-launch-2026-08-03",
+  "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+  "verifiedDigest": "293cab99795e33f93d9b8a46d91f61ea44c8f9de932144da0a7654d4435d6e4a",
+  "logIdentity": "mesh-transparency-log@labview-benchmark-actor",
+  "signedTreeHead": {
+    "schema": "labview-benchmark-actor/acg-signed-tree-head-v1",
+    "logIdentity": "mesh-transparency-log@labview-benchmark-actor",
+    "size": 2,
+    "root": "1cf0f5b3b119a7a461f2f60a02257a45e898102f90905f2a12239b534c9fbe73",
+    "timestamp": "2026-08-03T00:00:00.000Z",
+    "algorithm": "ed25519",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAjrYu2L0JAFRWtB4mt2pMY4yptfSkteIRPu2IYe8NM8g=\n-----END PUBLIC KEY-----\n",
+    "signature": "3DG/jJa5mbetfpENeWlIu4ZAkh7zpiXjG4+ACbjtkRBre0YgPMLE99o5dyq0ePjyR5o5bH9rAHHboHRl4C7CBw=="
+  },
+  "inclusions": [
+    {
+      "witnessIdentity": "golden-linux",
+      "index": 0,
+      "treeSize": 2,
+      "leaf": "0aece7152bfaf2feccd161fee5ccbf7d64f3a3703d5bde6d6d3f1b329da15d2b",
+      "proof": [
+        "b6c79304d187321fea05e32c4921aa98f3c52599a14b6a7e17054106649a4ae6"
+      ]
+    },
+    {
+      "witnessIdentity": "golden-win",
+      "index": 1,
+      "treeSize": 2,
+      "leaf": "b6c79304d187321fea05e32c4921aa98f3c52599a14b6a7e17054106649a4ae6",
+      "proof": [
+        "0aece7152bfaf2feccd161fee5ccbf7d64f3a3703d5bde6d6d3f1b329da15d2b"
+      ]
+    }
+  ],
+  "digest": "77e177cad15736ca71922bd413db83beaf1418148d7a5050431087da6e128e26"
+}

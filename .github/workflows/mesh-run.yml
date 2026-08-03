@@ -57,6 +57,14 @@ jobs:
         # unsigned/forged receipt, an un-enrolled actor, or a wrong-actor signature.
         run: node experiments/mesh-fulfillment/meshVerifiedTier.mjs
 
+      - name: Transparency-log the enrolled-actor attestations (fail-closed)
+        # The public-auditability layer (LBA-REQ-078): each verified-tier attestation is recorded in an RFC-6962
+        # Merkle transparency log (ADR-0022) whose tree head is signed by the enrolled log key, and a logged
+        # collection is admitted only when EVERY attestation carries an inclusion proof against that signed root --
+        # so the mesh receipts are enrolled-signed AND publicly auditable. Fail-closed on an unsigned/wrong-key
+        # tree head or a missing/non-reconstructing inclusion proof.
+        run: node experiments/mesh-fulfillment/meshTransparency.mjs
+
       - name: Gate the returned receipts on cross-plane fulfillment (fail-closed)
         # Volunteer actors return plane-tagged receipts; the run is fulfilled ONLY when >= N distinct cross-plane
         # actors returned a valid receipt for the SAME benchmark identity (LBA-REQ-073). No central results DB.
