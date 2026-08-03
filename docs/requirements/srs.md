@@ -365,29 +365,22 @@ progressively.
 
 ### LBA-REQ-013: Prioritized, addressable coordination messages
 
-- Status: Proposed
+- Status: Superseded (ADR-0048 -- retired with the GitHub-Discussion transport, off-Discussions step 8b)
 - Area: Agentic infrastructure (extends LBA-REQ-007, LBA-REQ-012)
-- Statement: The coordination bus shall let a sender tag a message with a
-  priority tier and an explicit addressee, and shall let a reader filter its
-  inbox by both, so a busy agent can triage which messages to attend to first
-  without reading every message. The fields shall be additive and
-  backward-read-compatible so an older client parses and ignores them.
-- Acceptance Criteria:
-  - `lbabus post --priority <P0|P1|P2|P3>` stamps a flat `prio` tier on the
-    message (most-urgent first, default `P2`); an absent `prio` reads as `P2`.
-  - `lbabus post` stamps the sender's `agentId` (env `VIHS_COLLAB_AGENT_ID`,
-    default the plane label); `--to <A>` addresses a plane or an `agentId`.
-  - `lbabus poll`/`wait --to-me` keeps only messages addressed to the reader (a
-    broadcast, or a `to` matching the reader's plane or `agentId`) and drops
-    messages aimed at the other plane.
-  - `lbabus poll`/`wait --min-priority <tier>` keeps only messages at least that
-    urgent.
-  - The additive fields are flat scalars and the wire `schema` is unchanged
-    (`vihs-collab-msg@v1`), so a prior-version reader parses the known fields and
-    ignores the new ones; a nested-object or schema-bumped envelope is rejected.
-- Change Guidance: Keep any future envelope field a flat scalar and keep the
-  schema at `vihs-collab-msg@v1`; a nested field or a schema bump silently drops
-  the message on already-deployed readers (verified cross-plane, finding 17812593).
+- Supersession: RETIRED. This capability -- message priority triage (`P0`-`P3`, `--min-priority`) + plane
+  addressing (`--to`/`--to-me`) -- lived entirely in the GitHub-Discussion transport's `lbabus post`/`poll`/`wait`
+  commands + the `CollabMessage`/`Priority` model, all removed under the off-Discussions migration (ADR-0040
+  live-only net, ADR-0047 CLI transport removal). Under the live-only `lbabus net` TCP model there is no async
+  inbox to triage (messages are live + point-to-point) and `net send --hosts` already targets a specific peer,
+  so priority + plane-addressing are moot; the net `BusEnvelope` (`bus-msg@1`) deliberately carries neither.
+  Operator decision 2026-08-03 (retire, option B). A future net-envelope priority/addressing feature would be a
+  NEW requirement, not a revival of this one.
+- Historical statement (no longer implemented): The coordination bus shall let a sender tag a message with a
+  priority tier and an explicit addressee, and shall let a reader filter its inbox by both. It was implemented
+  via `lbabus post --priority`/`--to` + `poll`/`wait --min-priority`/`--to-me` over the additive, flat-scalar,
+  back-read-compatible `vihs-collab-msg@v1` envelope (verified cross-plane, finding 17812593).
+- Change Guidance: retired -- do not re-add priority/addressing to the removed Discussion path. If wanted on
+  `net`, govern it as a new requirement + ADR on the `bus-msg@1` envelope.
 
 ### LBA-REQ-014: Cross-plane benchmark comparison
 

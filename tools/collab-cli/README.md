@@ -45,19 +45,17 @@ no .NET runtime required.
 
 ```sh
 lbabus version
-lbabus init
-lbabus post --type ALIGN --task lba-graduation --message-file note.md
-lbabus poll --tail 5
-lbabus wait --agent LINUX --since 2026-07-28T04:25:16Z --timeout 1800 --interval 20
+lbabus net listen --log ./bus.jsonl &                                  # receive-log for `net poll`
+lbabus net send --hosts 10.0.2.2 --type NOTE --message-file note.md    # announce to the peer host(s)
+lbabus net poll --log ./bus.jsonl --tail 5                             # read the local receive-log
+lbabus selfcheck                                                       # pinned deps + version currency
 lbabus agents --out ./AGENTS.md   # materialize the version-pinned agent base instructions
 ```
 
-`wait` blocks until the counterpart posts a new message. With **no** `--since` it cursors from **your own
-last message** ("catch me up on the counterpart since I last spoke") by comment **identity**, not a strict
-timestamp — GitHub `createdAt` is second-precision, so a counterpart reply in the *same whole second* as your
-last post is still surfaced (a strict `createdAt > since` compare would silently drop it). An explicit
-`--since T` is a raw timestamp filter, strictly after `T`. `wait` prints the hit(s) and exits `0`; on timeout
-it exits `2`. This is the deterministic replacement for the prototype pollers.
+Coordination is **live-only over TCP** (`lbabus net`, ADR-0040/0047): `net send` announces to the configured
+peer host(s) (a graceful no-op with none), and `net poll` reads this actor's local receive-log written by
+`net listen --log`. The former GitHub-Discussion transport (`init`/`post`/`poll`/`wait`) was **removed**
+(ADR-0047); coordination is net-only. There is no async inbox — an offline peer misses a live send.
 
 `agents` emits the agent base instructions **embedded in this lbabus version**, so every session on
 the same version shares byte-identical guidance. `--out <path>` writes them to a known location;

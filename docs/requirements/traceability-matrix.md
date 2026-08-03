@@ -19,7 +19,7 @@
 | LBA-REQ-010 | Own-run review, host concentration, and the ollama comparison layer | Proven | §3.6 Analysis | ADR-0006, ADR-0008 | T-010 | 16 |
 | LBA-REQ-011 | CPU/RAM/disk usage correlation with a pre/post-trigger window | Proven | §3.6 Analysis | — | T-011 | 30 |
 | LBA-REQ-012 | Version-pinned agent base instructions | Proven | §3.7 Agentic-infrastructure | — | T-012 | 5 |
-| LBA-REQ-013 | Prioritized, addressable coordination messages | Proven | §3.7 Agentic-infrastructure | — | T-013 | 4 |
+| LBA-REQ-013 | Prioritized, addressable coordination messages | Superseded | §3.7 Agentic-infrastructure | ADR-0048 | T-013 | 2 |
 | LBA-REQ-014 | Cross-plane benchmark comparison | Proven | §3.6 Analysis | — | T-014 | 17 |
 | LBA-REQ-015 | VI Analyzer as a cross-plane benchmark | Proven | §3.6 Analysis | — | T-015 | 17 |
 | LBA-REQ-016 | GitFlow branch governance | Proven | §3.8 Configuration-management & assurance | ADR-0010 | T-016 | 3 |

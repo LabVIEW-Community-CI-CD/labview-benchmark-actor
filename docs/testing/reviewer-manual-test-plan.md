@@ -109,7 +109,7 @@ workspace root.
 - **Steps:**
   1. Run **LabVIEW Benchmark Actor: Poll Coordination Bus**.
 - **Expected:** the **"LabVIEW Benchmark Actor"** output channel shows the last ~10 bus messages
-  (the command runs `lbabus poll --full --tail 10`); no error. If auth/CLI is missing, the channel
+  (the command runs `lbabus net poll --tail 10`); no error. If the CLI is missing, the channel
   shows a clear error (record it).
 - **Result:** _____
 
@@ -118,8 +118,8 @@ workspace root.
 - **Steps:**
   1. Run **LabVIEW Benchmark Actor: Post Coordination Note**.
   2. At the prompt, enter an ASCII note, e.g. `NOTE reviewer VM smoke test`.
-- **Expected:** the note is posted (`lbabus post --type NOTE`); the output channel confirms it;
-  polling (TC-04) then shows the note. Empty input cancels with no post.
+- **Expected:** the note is announced (`lbabus net send --type NOTE`); the output channel confirms it;
+  polling (TC-04) then shows the note. Empty input cancels with no send.
 - **Result:** _____
 
 ### TC-06 — Open Benchmark Viewer
