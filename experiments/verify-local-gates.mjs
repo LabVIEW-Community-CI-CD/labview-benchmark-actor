@@ -1697,6 +1697,28 @@ check('cross-plane-launch-parity', () => {
   return { identity: r.launchIdentity.slice(0, 12), linuxMs: r.performance.linuxMeanMs, winMs: r.performance.winMeanMs, faster: r.performance.fasterPlane };
 });
 
+// LBA-REQ-081 / ADR-0062: cross-plane VI Analyzer PERFORMANCE PARITY -- the second benchmark family in the parity
+// suite (roadmap Phase 2). REUSES the LBA-REQ-072 launch-parity engine (launchIdentity/decideParity) on the real
+// committed vi-analyzer-trend-live-evidence@1 wall times: LINUX + WIN ran the SAME VI Analyzer benchmark identity
+// (so run times are comparable) AND share the deterministic resultHash (the LBA-REQ-043 determinism link).
+// Asserts the selftest (7/7) + the committed receipt (via the CLI, which re-derives from the two evidence files) +
+// that parity is proven + grounded in the real captures.
+check('cross-plane-vi-analyzer-parity', () => {
+  const dir = join(here, 'vi-analyzer');
+  execFileSync(process.execPath, [join(dir, 'viAnalyzerParity.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'viAnalyzerParity.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(dir, 'cross-plane-vi-analyzer-parity-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/cross-plane-vi-analyzer-parity-receipt@1' && r.requirement === 'LBA-REQ-081', 'committed VI Analyzer parity receipt shape');
+  assert(r.verdict.parityProven === true && r.parity.identityMatch === true && r.parity.crossPlane === true && r.parity.resultHashMatch === true, 'cross-plane VI Analyzer parity proven (same identity + same resultHash, LINUX + WIN)');
+  assert(r.benchmark.metric === 'viAnalyzerMs' && r.benchmark.workload === 'vi-analyzer-labviewcli-example', 'the VI Analyzer LabVIEWCLIExampleProject benchmark');
+  // GROUNDED: the receipt is derived from the two committed vi-analyzer-trend-live-evidence@1 captures.
+  const lin = JSON.parse(readFileSync(join(dir, 'vi-analyzer-trend-live-evidence.json'), 'utf8'));
+  const win = JSON.parse(readFileSync(join(dir, 'vi-analyzer-trend-live-evidence-WIN.json'), 'utf8'));
+  assert(lin.cleanroom.plane === 'LINUX' && win.cleanroom.plane === 'WIN' && lin.runs.length === win.runs.length, 'the two committed captures are a cross-plane pair with equal sample counts');
+  assert(r.determinism.linuxResultHash === lin.determinism.resultHash && r.determinism.winResultHash === win.determinism.resultHash, 'the parity receipt reflects the committed evidence resultHashes');
+  return { identity: r.benchmarkIdentity.slice(0, 12), linuxMs: r.performance.linuxMeanMs, winMs: r.performance.winMeanMs, faster: r.performance.fasterPlane };
+});
+
 // LBA-REQ-073 / ADR-0054: mesh-run cross-plane FULFILLMENT (roadmap Phase 3, the North Star loop) -- a dispatched
 // benchmark run is proven fulfilled by >= N independent enrolled actors from DISTINCT planes, each returning a
 // valid plane-tagged receipt for the SAME benchmark identity (reuses the LBA-REQ-072 launch identity). No central
