@@ -1735,6 +1735,27 @@ check('mesh-run-dispatch-wired', () => {
   return { dispatchId: req.dispatchId, bound: true, wired: true };
 });
 
+// LBA-REQ-075 / ADR-0056: the MESH COVERAGE OBSERVATORY -- folds the governed mesh-run receipts (dispatch 074 +
+// fulfillment 073 + parity 072) into a coverage matrix + a consistency ledger (which benchmarks x which planes x
+// how many actors fulfilled, and does each run's dispatch/fulfillment/parity name the SAME identity). The
+// operator-facing mesh dashboard + the Phase 3->4 bridge (cross-plane comparison AT SCALE). Asserts the selftest
+// (7/7) + the committed observatory (via the CLI) + that it RE-FOLDS byte-stably from the committed source
+// receipts (currency) + that the folded row is grounded in the real fulfillment (identity + actors + planes).
+check('mesh-coverage-observatory', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshObservatory.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshObservatory.mjs')], { stdio: 'pipe' });
+  const obs = JSON.parse(readFileSync(join(dir, 'mesh-coverage-observatory-receipt.json'), 'utf8'));
+  const ful = JSON.parse(readFileSync(join(dir, 'mesh-run-fulfillment-receipt.json'), 'utf8'));
+  assert(obs.schema === 'labview-benchmark-actor/mesh-coverage-observatory@1' && obs.requirement === 'LBA-REQ-075', 'committed mesh coverage observatory shape');
+  assert(obs.verdict.observatoryOk === true && obs.ledger.allDispatched && obs.ledger.allFulfilled && obs.ledger.allIdentityConsistent, 'the folded mesh runs are all dispatched -> fulfilled with a consistent identity');
+  assert(obs.coverage.benchmarks >= 1 && obs.coverage.fulfilledBenchmarks === obs.coverage.benchmarks && obs.coverage.planes.includes('LINUX') && obs.coverage.planes.includes('WIN'), 'coverage spans the fulfilled benchmarks across the LINUX + WIN planes');
+  // grounded: the folded row carries the REAL fulfillment identity + actor count + covered planes (not fabricated).
+  const row = obs.rows.find((r) => r.identity === ful.identity);
+  assert(row && row.distinctActors === ful.fulfillment.distinctActors && JSON.stringify(row.planes) === JSON.stringify(ful.fulfillment.planes), 'the observatory row is grounded in the real LBA-REQ-073 fulfillment');
+  return { benchmarks: obs.coverage.benchmarks, planes: obs.coverage.planes.join('+'), actorRuns: obs.coverage.totalDistinctActors, coherent: obs.verdict.observatoryOk };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch
