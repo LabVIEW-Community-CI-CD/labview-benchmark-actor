@@ -88,5 +88,6 @@
 | LBA-REQ-079 | The append-only consistency proof (the mesh transparency log only grows) | Proven | §3.2 Deployment | ADR-0060 | T-079 | 7 |
 | LBA-REQ-080 | The composite mesh-run-attested decision (one verdict to trust a run) | Proven | §3.2 Deployment | ADR-0061 | T-080 | 4 |
 | LBA-REQ-081 | Cross-plane VI Analyzer performance parity (the second benchmark family) | Proven | §3.2 Deployment | ADR-0062 | T-081 | 7 |
+| LBA-REQ-082 | The benchmark-suite parity observatory (one view over the parity families) | Proven | §3.2 Deployment | ADR-0063 | T-082 | 6 |
 
-_Generated for 81 requirements._
+_Generated for 82 requirements._

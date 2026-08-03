@@ -109,6 +109,7 @@ progressively.
 | LBA-REQ-079 | The system shall admit the mesh transparency log's current tree head only when a consistency proof proves it contains an earlier signed tree head unchanged -- so a fail-closed gate proves the log is APPEND-ONLY (no logged attestation removed or rewritten as it grew). | ADR-0059 records + proves INCLUSION of each attestation and calls the log append-only, but inclusion alone does not prove the log only GROWS -- a log operator could publish a head that silently drops an earlier entry. The RFC-6962 consistency proof (already in the acg-transparency engine) closes that. | `meshLogHistory.mjs` REUSES `consistencyProof`/`verifyConsistency` (ADR-0022): a `logged-collection-history@1` binds an earlier + the current signed tree head + a consistency proof, admitted only when the later tree provably contains the earlier unchanged + the current head matches the committed LBA-REQ-078 log root. | `node experiments/mesh-fulfillment/meshLogHistory.selftest.mjs` (7/7) + the committed history (via the CLI) + the strict growth + the consistency proof + the 078-log binding + the mesh-run.yml wiring; gated by `mesh-log-append-only`. |
 | LBA-REQ-080 | The system shall decide a mesh run FULLY ATTESTED only when its fulfillment, cross-plane parity, verified-tier signatures, transparency inclusion, and append-only proof all hold and name the SAME run identity -- so a fail-closed gate gives a consumer ONE verdict to trust a mesh run end-to-end. | The mesh sub-proofs (LBA-REQ-072..079) are each a separate fail-closed gate, but a consumer wanting to trust a run had no single decision + had to confirm by hand that the receipts all refer to the same run. The composite-release-decision (LBA-REQ-071) is the pattern to mirror. | `meshAttested.mjs` REUSES every sub-verifier (`decideFulfillment`/`validateReceipt`(parity)/`validateVerifiedCollection`/`validateLoggedCollection`/`validateHistory`) + binds them to one identity, emitting a `mesh-run-attested@1` verdict; the committed decision re-derives from every source receipt (currency). | `node experiments/mesh-fulfillment/meshAttested.selftest.mjs` (7/7, one break per sub-proof) + the committed decision (via the CLI) + all five gates + the identity binding + the mesh-run.yml wiring; gated by `mesh-run-attested`. |
 | LBA-REQ-081 | The system shall prove cross-plane VI Analyzer performance parity by validating that a LINUX and a WIN VI Analyzer run share the same benchmark identity and deterministic resultHash, so a fail-closed gate proves the planes ran the SAME benchmark and their run times are comparable performance witnesses. | Cross-plane parity (roadmap §8) was proven only for the launch benchmark (LBA-REQ-072); Phase 2 is the SUITE. VI Analyzer has real 2-plane evidence + governed determinism (LBA-REQ-043, the resultHash), but not performance parity (same identity -> comparable timing). The LBA-REQ-072 engine is benchmark-generic + should extend. | `viAnalyzerParity.mjs` REUSES the LBA-REQ-072 core (`launchIdentity`/`decideParity`/`planeSummary`/`performanceWitness`) via a `trendFromEvidence` adapter over the committed `vi-analyzer-trend-live-evidence@1` captures; a run is parity-proven only when the planes share the identity AND the resultHash. | `node experiments/vi-analyzer/viAnalyzerParity.selftest.mjs` (7/7) + the committed receipt (via the CLI, re-derived from the two evidence files) + identity + resultHash + cross-plane; gated by `cross-plane-vi-analyzer-parity`. |
+| LBA-REQ-082 | The system shall fold the benchmark suite's cross-plane parity receipts into one coverage matrix, so a fail-closed gate proves which benchmark families have proven cross-plane parity and records their LINUX-vs-WIN timing. | The suite has two parity families (launch LBA-REQ-072 + VI Analyzer LBA-REQ-081), each a separate gate with its own schema, but no single view of which families are cross-plane parity-proven -- the roadmap Phase 2 capstone + Phase 4 (comparison at scale) bridge; the mesh observatory (LBA-REQ-075) is the pattern to mirror. | `suiteParityObservatory.mjs` folds the committed parity receipts into a `benchmark-suite-parity-observatory@1` coverage matrix (family + identity + parity flags + LINUX/WIN performance), re-derived byte-stably from the source receipts (currency); it EXTENDS with no new machinery as families land. | `node experiments/benchmark-suite/suiteParityObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `benchmark-suite-parity-observatory`. |
 
 ---
 
@@ -2506,6 +2507,37 @@ progressively.
   `verify-local-gates`. Adding mass-compile / unit-test parity is a new adapter + receipt once real two-plane timing
   exists. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-082: The benchmark-suite parity observatory (one view over the parity families)
+
+- Status: Proven
+- Area: Deployment / benchmark suite (ADR-0063 -- the benchmark-suite parity observatory, roadmap Phase 2 -> 4)
+- Statement: The system shall fold the benchmark suite's cross-plane parity receipts into one coverage matrix, so a
+  fail-closed gate proves which benchmark families have proven cross-plane parity and records their LINUX-vs-WIN
+  timing.
+- Rationale: the benchmark suite has two cross-plane parity families -- launch (LBA-REQ-072) and VI Analyzer
+  (LBA-REQ-081) -- each a separate fail-closed gate over its own parity receipt with its own schema, but there is no
+  single view answering which families are cross-plane parity-proven and what their Linux-vs-Windows timing is. The
+  mesh already has its analogue (the mesh coverage observatory LBA-REQ-075); the benchmark suite needs the same
+  folded, governed view -- the Phase 2 capstone + the Phase 4 (comparison at scale) bridge.
+- Acceptance Criteria:
+  - `suiteParityObservatory.mjs` `foldParity` normalizes each family's parity receipt (different schemas:
+    `cross-plane-launch-parity-receipt@1`, `cross-plane-vi-analyzer-parity-receipt@1`) into a uniform coverage row:
+    the family (from the schema), the benchmark spec, the identity (`launchIdentity` or `benchmarkIdentity`), the
+    parity flags (`crossPlane`, `identityMatch`, and `resultHashMatch` where present), the `parityProven` verdict,
+    and the LINUX-vs-WIN performance witness.
+  - `buildObservatory` derives the coverage (family count, parity-proven count, family list) + `observatoryOk` iff
+    every folded family is parity-proven; `validateObservatory` fails closed on a row claiming parity without
+    cross-plane + identity match, a miscounted coverage statistic, a verdict that contradicts the rows, or a
+    tampered digest.
+  - The gate `benchmark-suite-parity-observatory` proves offline: the selftest (7/7); the committed observatory
+    validates + the whole suite is parity-proven; it re-folds byte-stably from the committed launch + VI Analyzer
+    parity receipts (currency); and each folded row is grounded in a real parity receipt identity.
+- Change Guidance: the verifier + selftest + committed observatory live under `experiments/benchmark-suite/`
+  (`suiteParityObservatory.mjs` / `.selftest.mjs` / `benchmark-suite-parity-observatory-receipt.json`), folded from
+  the committed `experiments/launch-parity/` + `experiments/vi-analyzer/` parity receipts; gate
+  `benchmark-suite-parity-observatory` in `verify-local-gates`. Folding a mass-compile / unit-test parity family
+  extends the matrix with no new machinery. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2593,3 +2625,4 @@ progressively.
 | LBA-REQ-079 | Deployment (mesh log append-only proof) | T-079 |
 | LBA-REQ-080 | Deployment (composite mesh-run-attested decision) | T-080 |
 | LBA-REQ-081 | Deployment (cross-plane VI Analyzer benchmark parity) | T-081 |
+| LBA-REQ-082 | Deployment (benchmark-suite parity observatory) | T-082 |

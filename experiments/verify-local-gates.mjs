@@ -1719,6 +1719,26 @@ check('cross-plane-vi-analyzer-parity', () => {
   return { identity: r.benchmarkIdentity.slice(0, 12), linuxMs: r.performance.linuxMeanMs, winMs: r.performance.winMeanMs, faster: r.performance.fasterPlane };
 });
 
+// LBA-REQ-082 / ADR-0063: the BENCHMARK-SUITE PARITY OBSERVATORY -- folds the committed cross-plane parity receipts
+// (launch 072 + VI Analyzer 081) into ONE suite coverage matrix (which families have proven cross-plane parity +
+// their LINUX vs WIN timing). Mirrors the mesh observatory (075) but for the benchmark suite. Asserts the selftest
+// (7/7) + the committed observatory (via the CLI) + that it RE-FOLDS byte-stably from the committed parity receipts
+// (currency) + that every folded family is grounded in a real parity receipt.
+check('benchmark-suite-parity-observatory', () => {
+  const dir = join(here, 'benchmark-suite');
+  execFileSync(process.execPath, [join(dir, 'suiteParityObservatory.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'suiteParityObservatory.mjs')], { stdio: 'pipe' });
+  const obs = JSON.parse(readFileSync(join(dir, 'benchmark-suite-parity-observatory-receipt.json'), 'utf8'));
+  assert(obs.schema === 'labview-benchmark-actor/benchmark-suite-parity-observatory@1' && obs.requirement === 'LBA-REQ-082', 'committed suite parity observatory shape');
+  assert(obs.verdict.observatoryOk === true && obs.coverage.parityProvenCount === obs.coverage.familyCount && obs.coverage.familyCount >= 2, 'the whole suite (>= 2 families) is cross-plane parity-proven');
+  assert(obs.coverage.families.includes('launch') && obs.coverage.families.includes('vi-analyzer'), 'the suite folds the launch + VI Analyzer parity families');
+  // grounded: each folded row carries the REAL identity of its committed parity receipt.
+  const launch = JSON.parse(readFileSync(join(here, 'launch-parity', 'cross-plane-launch-parity-receipt.json'), 'utf8'));
+  const via = JSON.parse(readFileSync(join(here, 'vi-analyzer', 'cross-plane-vi-analyzer-parity-receipt.json'), 'utf8'));
+  assert(obs.rows.some((r) => r.identity === launch.launchIdentity) && obs.rows.some((r) => r.identity === via.benchmarkIdentity), 'the observatory rows are grounded in the real parity receipts');
+  return { families: obs.coverage.familyCount, proven: obs.coverage.parityProvenCount, list: obs.coverage.families.join('+') };
+});
+
 // LBA-REQ-073 / ADR-0054: mesh-run cross-plane FULFILLMENT (roadmap Phase 3, the North Star loop) -- a dispatched
 // benchmark run is proven fulfilled by >= N independent enrolled actors from DISTINCT planes, each returning a
 // valid plane-tagged receipt for the SAME benchmark identity (reuses the LBA-REQ-072 launch identity). No central
