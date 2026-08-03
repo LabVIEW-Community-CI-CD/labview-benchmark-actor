@@ -2350,6 +2350,21 @@ check('net-only-live-drive', () => {
   return { selftest: 'net-only-live-drive 7/7', drives: r.drives.length, releaseTag: r.cliNetOnly.releaseTag, netOnly: true };
 });
 
+// LBA-REQ-069 / ADR-0050: release-with-review drive -- ONE BOUND loop where the reviewer VM stages a release
+// candidate over net (LBA-REQ-068), a human signs a visual verdict of THAT candidate (LBA-REQ-057), and the
+// signed verdict announces over net (LBA-REQ-058) -- all bound to the SAME candidate. Asserts the selftest (7/7)
+// + the committed receipt via the verifier main (schema + binding + verdict + digest, fail-closed) + the shape.
+check('release-with-review-drive', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'release-with-review-drive.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'release-with-review-drive.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'release-with-review-drive-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/release-with-review-drive-receipt@1' && r.requirement === 'LBA-REQ-069', 'committed release-with-review-drive receipt shape');
+  assert(r.verdict.releaseWithReviewProven === true, 'release-with-review loop proven');
+  assert(r.binding.stagedOverNet === true && r.binding.candidateMatchesVerdictTarget === true && r.binding.verdictVerified === true && r.binding.gatePublish === true && r.binding.announceDerivedOk === true, 'the full binding holds (stage<->sign<->announce bound to one candidate)');
+  assert(r.staged.frame.senderId === 'WIN' && r.announce.frame.senderId === 'WIN' && r.announce.task === `${r.candidate.component}-release-${r.candidate.version}`, 'staged + announced over net, correlated to the candidate');
+  return { selftest: 'release-with-review-drive 7/7', candidate: `${r.candidate.component} ${r.candidate.version}`, announce: r.announce.type, bound: true };
+});
+
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
 // `net poll` read side that replaces the GitHub-Discussion post/poll. Asserts the committed loopback receipt
 // (post->log->poll round-trip + type filter + fail-closed) + that the CLI source carries the net poll read side.
