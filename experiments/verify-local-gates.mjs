@@ -1714,6 +1714,27 @@ check('mesh-run-cross-plane-fulfillment', () => {
   return { benchmarkId: r.dispatch.benchmarkId, actors: r.fulfillment.distinctActors, planes: r.fulfillment.planes.join('+'), identity: r.identity.slice(0, 12) };
 });
 
+// LBA-REQ-074 / ADR-0055: GitHub-native mesh-run DISPATCH transport -- a repository_dispatch(mesh-run) workflow
+// fans a mesh-run-dispatch@1 request out to volunteer actors + gates the returned receipts with meshFulfillment.
+// Asserts the dispatch selftest (7/7) + the committed request (via the CLI) + that it BINDS to the LBA-REQ-073
+// fulfillment (same benchmarkId + identity) + that mesh-run.yml is wired (repository_dispatch + both verifiers).
+check('mesh-run-dispatch-wired', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshDispatch.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshDispatch.mjs')], { stdio: 'pipe' });
+  const req = JSON.parse(readFileSync(join(dir, 'mesh-run-dispatch-request.json'), 'utf8'));
+  const ful = JSON.parse(readFileSync(join(dir, 'mesh-run-fulfillment-receipt.json'), 'utf8'));
+  assert(req.schema === 'labview-benchmark-actor/mesh-run-dispatch@1' && req.requirement === 'LBA-REQ-074', 'committed dispatch request shape');
+  // the dispatch BINDS to the fulfillment: same run (benchmarkId + benchmark identity + minActors + planes).
+  assert(req.benchmarkId === ful.dispatch.benchmarkId && req.identity === ful.identity, 'the dispatch request binds to the LBA-REQ-073 fulfillment (same benchmarkId + identity)');
+  assert(req.minActors === ful.dispatch.minActors && JSON.stringify(req.requestedPlanes) === JSON.stringify(ful.dispatch.requestedPlanes), 'the dispatch request + fulfillment agree on minActors + requested planes');
+  // the GitHub-native workflow is wired: repository_dispatch(mesh-run) -> validate dispatch -> gate fulfillment.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/repository_dispatch:/.test(wf) && /types:\s*\[mesh-run\]/.test(wf), 'mesh-run.yml triggers on repository_dispatch type mesh-run');
+  assert(/meshDispatch\.mjs/.test(wf) && /meshFulfillment\.mjs/.test(wf), 'mesh-run.yml validates the dispatch + gates the fulfillment');
+  return { dispatchId: req.dispatchId, bound: true, wired: true };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch
