@@ -43,6 +43,13 @@ jobs:
             node experiments/mesh-fulfillment/meshDispatch.mjs
           fi
 
+      - name: Derive actor tasking + validate the returned-receipt collection (fail-closed)
+        # The LIVE FAN-OUT contract (LBA-REQ-076): the validated dispatch is expanded into per-plane actor tasking
+        # (actor-tasking@1), volunteer actors run their task + return plane-tagged receipts, and the collection
+        # (receipt-collection@1) maps them back to their tasks -- both IDENTITY-BOUND to the dispatch. Fail-closed
+        # on an unbound task, a collected receipt with no matching task, or a plane/identity mismatch.
+        run: node experiments/mesh-fulfillment/meshFanout.mjs
+
       - name: Gate the returned receipts on cross-plane fulfillment (fail-closed)
         # Volunteer actors return plane-tagged receipts; the run is fulfilled ONLY when >= N distinct cross-plane
         # actors returned a valid receipt for the SAME benchmark identity (LBA-REQ-073). No central results DB.
