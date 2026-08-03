@@ -102,6 +102,7 @@ progressively.
 | LBA-REQ-072 | The system shall prove that a Linux and a Windows launch-to-ready benchmark receipt measure the SAME benchmark via a machine-independent launch identity (metric + workload + sample count) -- so their plane-specific timings are legitimately comparable -- and a fail-closed gate rejects an identity mismatch, a non-cross-plane pair, or a tampered receipt. | Cross-plane PARITY is governed for deterministic benchmarks whose value is plane-independent (mprr seriesHash LBA-REQ-014; VI Analyzer resultHash LBA-REQ-015/043), but the flagship exact-12-FPS launch-to-ready benchmark measures a plane-DEPENDENT quantity (~2604 ms Linux vs ~2410 ms Windows), so there is no identical series to anchor -- today's launch cross-plane receipts compare timing deltas as witnesses, proving nothing about whether the two planes ran the SAME benchmark. | `launchParity.mjs` anchors on the launch SPEC (`launchIdentity` = sha256 over metric + workload + n), records the plane-specific timing (mean/delta/faster-plane) as witnesses, and seals a committed `cross-plane-launch-parity-receipt@1` derived from the real committed launch trends; the gate re-derives it + checks it reflects the real trend means. | `node experiments/launch-parity/launchParity.selftest.mjs` (7/7) + the committed receipt (identity + digest via the verifier main, grounded in the committed fixtures experiments/launch-parity/fixtures/{linux,win}-launch-trend.json); gated by `cross-plane-launch-parity`. |
 | LBA-REQ-073 | The system shall prove fulfillment of a DISPATCHED cross-plane benchmark run by validating that >= N distinct enrolled mesh actors from the requested planes each returned a valid plane-tagged receipt for the SAME benchmark identity -- so a fail-closed gate proves the mesh run was fulfilled by enough independent cross-plane actors, with no central results database (the returned receipts ARE the result). | The North Star is an actor mesh where a requester dispatches a cross-plane benchmark + independent volunteer golden-VM actors return plane-tagged receipts. The pieces exist (mesh-actor registration LBA-REQ-039; provider-delegation CLAIM/ACK/DONE LBA-REQ-018; cross-plane launch identity LBA-REQ-072) but nothing composed them into a FULFILLMENT proof -- the roadmap Phase 3 / section-8 mesh metric. | `meshFulfillment.mjs` REUSES the LBA-REQ-072 launch identity as the cross-actor agreement invariant + seals a committed `mesh-run-fulfillment-receipt@1`: a dispatched labview-ide-launch run fulfilled by 2 golden-VM actors (golden-linux LINUX + golden-win WIN) each returning its real plane-tagged launch-trend receipt. | `node experiments/mesh-fulfillment/meshFulfillment.selftest.mjs` (7/7) + the committed receipt (fulfillment + identity agreement + digest via the verifier main); gated by `mesh-run-cross-plane-fulfillment`. |
 | LBA-REQ-074 | The system shall dispatch a cross-plane benchmark run GitHub-natively via a `repository_dispatch` event carrying a validated `mesh-run-dispatch@1` request bound to its fulfillment, and gate the returned receipts on cross-plane fulfillment -- so a fail-closed gate proves the dispatch->fulfill loop is wired with no central server (the repo IS the queue). | LBA-REQ-073 governs mesh-run FULFILLMENT, but the GitHub-native DISPATCH transport did not exist -- no repository_dispatch workflow, no committed dispatch-request contract binding a dispatch to its fulfillment (the roadmap Phase 3 GitHub-native queue). | `meshDispatch.mjs` validates a `mesh-run-dispatch@1` request (benchmarkId + spec + minActors + planes + dispatchId, carrying the LBA-REQ-072 identity) fail-closed; `.github/workflows/mesh-run.yml` triggers on `repository_dispatch[mesh-run]`, validates the dispatch, then gates `meshFulfillment`; the committed request binds to the LBA-REQ-073 fulfillment (same identity). | `node experiments/mesh-fulfillment/meshDispatch.selftest.mjs` (7/7) + the committed request (via the CLI) + the dispatch<->fulfillment binding + the mesh-run.yml wiring; gated by `mesh-run-dispatch-wired`. |
+| LBA-REQ-075 | The system shall fold the governed mesh-run receipts (dispatch, fulfillment, cross-plane parity) into a coverage matrix + a consistency ledger -- which benchmarks x which planes x how many actors fulfilled, and whether each run's dispatch/fulfillment/parity name the SAME identity -- so a fail-closed gate proves the operator-facing mesh dashboard reflects the receipts it summarizes. | The mesh dispatch->fulfill loop is closed (LBA-REQ-072/073/074) but those receipts are three separate artifacts with no single governed view of which benchmarks are fulfilled, across which planes, by how many actors -- the roadmap Phase 3->4 cross-plane-comparison-at-scale dashboard (the benchmark observatory LBA-REQ-054 is the single-plane precedent). | `meshObservatory.mjs` folds the committed dispatch + fulfillment + parity receipts into a `mesh-coverage-observatory@1` matrix + ledger, re-derived byte-stably from the source receipts (currency) + grounded in the real fulfillment (identity + actors + planes). | `node experiments/mesh-fulfillment/meshObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `mesh-coverage-observatory`. |
 
 ---
 
@@ -2278,6 +2279,36 @@ progressively.
   (actor tasking + receipt collection as Actions artifacts) is the next Phase-3 increment. Authored under the
   singular-requirement directive (one `shall`).
 
+### LBA-REQ-075: The mesh coverage observatory (fold the mesh-run receipts into a coverage matrix)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0056 -- the mesh coverage observatory, roadmap Phase 3->4)
+- Statement: The system shall fold the governed mesh-run receipts (dispatch, fulfillment, cross-plane parity)
+  into a coverage matrix + a consistency ledger -- which benchmarks x which planes x how many actors fulfilled,
+  and whether each run's dispatch/fulfillment/parity name the SAME identity -- so a fail-closed gate proves the
+  operator-facing mesh dashboard reflects the receipts it summarizes.
+- Rationale: the mesh dispatch->fulfill loop is closed (LBA-REQ-072/073/074) but those receipts live as three
+  separate artifacts; there is no single governed view answering the operator's question -- which benchmarks have
+  been fulfilled, across which planes, by how many actors, and does each run cohere. The benchmark observatory
+  (LBA-REQ-054) established the single-plane pattern; the mesh needs its counterpart (roadmap Phase 3->4:
+  cross-plane comparison AT SCALE).
+- Acceptance Criteria:
+  - `meshObservatory.mjs` folds each mesh run -- its dispatch (`mesh-run-dispatch@1`), fulfillment
+    (`mesh-run-fulfillment-receipt@1`), and parity (`cross-plane-launch-parity-receipt@1`) -- into a coverage row
+    (benchmark id + identity, dispatched, fulfilled, distinct actors, covered planes, parity proven, and a
+    `consistent` flag true iff a dispatch + a fulfilled fulfillment are present and every artifact names the SAME
+    identity), and derives a coverage matrix + a consistency ledger.
+  - The verifier FAILS CLOSED on a run whose dispatch/fulfillment/parity disagree on identity, an un-fulfilled run
+    counted coherent, a miscounted coverage statistic, a stale re-fold (the committed observatory must reproduce
+    byte-for-byte from the committed source receipts), or a tampered digest.
+  - The gate `mesh-coverage-observatory` proves offline: the selftest (7/7); the committed observatory validates +
+    is coherent; coverage spans the fulfilled benchmarks across the LINUX + WIN planes; and the folded row is
+    grounded in the real LBA-REQ-073 fulfillment (same identity + actor count + covered planes).
+- Change Guidance: the verifier + selftest + committed observatory live under `experiments/mesh-fulfillment/`
+  (`meshObservatory.mjs` / `.selftest.mjs` / `mesh-coverage-observatory-receipt.json`); gate
+  `mesh-coverage-observatory` in `verify-local-gates`. Folding additional fulfilled runs extends the matrix with
+  no new machinery. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2358,3 +2389,4 @@ progressively.
 | LBA-REQ-072 | Deployment (cross-plane launch benchmark parity) | T-072 |
 | LBA-REQ-073 | Deployment (mesh-run cross-plane fulfillment) | T-073 |
 | LBA-REQ-074 | Deployment (GitHub-native mesh-run dispatch) | T-074 |
+| LBA-REQ-075 | Deployment (mesh coverage observatory) | T-075 |

@@ -81,5 +81,6 @@
 | LBA-REQ-072 | Cross-plane launch-benchmark parity (identity is the spec, not the series) | Proven | §3.2 Deployment | ADR-0053 | T-072 | 6 |
 | LBA-REQ-073 | Mesh-run cross-plane fulfillment (the North Star loop) | Proven | §3.2 Deployment | ADR-0054 | T-073 | 5 |
 | LBA-REQ-074 | GitHub-native mesh-run dispatch transport (repository_dispatch) | Proven | §3.2 Deployment | ADR-0055 | T-074 | 6 |
+| LBA-REQ-075 | The mesh coverage observatory (fold the mesh-run receipts into a coverage matrix) | Proven | §3.2 Deployment | ADR-0056 | T-075 | 5 |
 
-_Generated for 74 requirements._
+_Generated for 75 requirements._
