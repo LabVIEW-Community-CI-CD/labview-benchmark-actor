@@ -2421,6 +2421,26 @@ check('net-default-graceful', () => {
   return { gracefulPoll: true, gracefulSend: true };
 });
 
+// LBA-REQ-067 / ADR-0047: off-Discussions step 8 (final) -- the GitHub-Discussion transport is removed from the
+// lbabus CLI itself. Program.cs no longer dispatches init/post/poll/wait/delta; GitHubGraphQL is a REST-only
+// client (releases for selfcheck + issue comments for defect); the live-only net TCP bus is the sole coordination
+// transport. Source-asserts the removal; the CLI build + smoke test cover the runtime.
+check('cli-no-discussion-transport', () => {
+  const prog = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Program.cs'), 'utf8');
+  for (const cmd of ['"init"', '"post"', '"poll"', '"wait"', '"delta"']) {
+    assert(!prog.includes(`${cmd} =>`), `Program.cs no longer dispatches ${cmd} (Discussion transport removed)`);
+  }
+  assert(!/\bCmdPost\b|\bCmdPoll\b|\bCmdWait\b|\bCmdInit\b|\bCmdDelta\b/.test(prog), 'the Discussion command methods are removed from Program.cs');
+  assert(prog.includes('"net" => NetCommands.Run'), 'the live-only net coordination transport is intact');
+  assert(prog.includes('"defect" => CmdDefect') && prog.includes('CmdSelfCheck'), 'the GitHub-API keepers (defect + selfcheck) remain');
+  const gh = readFileSync(join(here, '..', 'tools', 'collab-cli', 'GitHubGraphQL.cs'), 'utf8');
+  assert(!/FindDiscussion|CreateDiscussion|EnsureDiscussion/.test(gh) && !gh.includes('addDiscussionComment') && !gh.includes('DiscussionRef'), 'GitHubGraphQL has no Discussion GraphQL surface');
+  assert(gh.includes('ListReleaseTags') && gh.includes('AddIssueComment'), 'GitHubGraphQL keeps the REST bits for selfcheck (releases) + defect (issue comment)');
+  const cfg = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Config.cs'), 'utf8');
+  assert(!cfg.includes('Category') && !cfg.includes('Title') && !cfg.includes('AddressesMe'), 'Config drops the discussion-only fields (Category/Title/AddressesMe)');
+  return { removed: ['init', 'post', 'poll', 'wait', 'delta'], graphql: 'REST-only', transport: 'net' };
+});
+
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
 // embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
 // runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops

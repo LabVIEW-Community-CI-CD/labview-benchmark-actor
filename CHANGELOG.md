@@ -7,6 +7,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Remove the GitHub-Discussion transport from the `lbabus` CLI — off GitHub Discussions, step 8 (final)**
+  (ADR-0047, LBA-REQ-067). The CLI's `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion
+  client are gone; `GitHubGraphQL` is now a REST-only client (release tags for `selfcheck`, issue comments for
+  `lbabus defect`), and `Config` drops the discussion-only fields. The live-only `lbabus net` TCP bus is the
+  sole coordination transport, **completing the off-Discussions migration.** Gated by `cli-no-discussion-transport`.
+  (A doc sweep + ci-mock trim + retiring the `ollama-bus` experiment follow in step 8b.)
 - **Collapse the coordination product surface to net-only — off GitHub Discussions, step 7** (ADR-0046,
   LBA-REQ-066). The extension commands, the MCP coordination tools, and the reviewer verdict announcer
   (`post-verdict.mjs`) now coordinate over the live-only `lbabus net` TCP bus ONLY — the `busTransport`
