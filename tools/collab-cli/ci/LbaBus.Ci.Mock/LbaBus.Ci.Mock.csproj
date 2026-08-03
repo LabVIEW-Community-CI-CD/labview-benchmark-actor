@@ -2,12 +2,12 @@
 
   <!--
     In-container GitHub mock for the lbabus Docker-CI edge-case harness (LINUX plane).
-    NO NuGet packages, NO bash: everything is BCL (System.Net.HttpListener). Speaks the exact
-    surface in ci/README.md ("Mock contract") — {base}/graphql for discussions and
-    {base}/repos/{owner}/{repo}/... for releases + the defect issue-comment sink — routed as a pure
-    function of path + GraphQL variables, per fixture repo. The `run-harness` mode starts the
-    listener (HttpListener.Start() is synchronous, so it is bound before the runner spawns — no
-    readiness race), points LBABUS_GITHUB_API at it, runs the case runner, and exits with its code.
+    NO NuGet packages, NO bash: everything is BCL (System.Net.HttpListener). After the off-Discussions
+    migration (ADR-0047/0048) lbabus uses ONE GitHub-API surface, so the mock serves only
+    {base}/repos/{owner}/{repo}/issues/{n}/comments (the `lbabus defect` sink), routed as a pure function
+    of the request path. The `run-harness` mode starts the listener (HttpListener.Start() is synchronous,
+    so it is bound before the runner spawns — no readiness race), points LBABUS_GITHUB_API at it, runs the
+    case runner, and exits with its code.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

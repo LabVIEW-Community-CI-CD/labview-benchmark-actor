@@ -9,8 +9,8 @@
 #
 # The in-container GitHub mock (ci/LbaBus.Ci.Mock, see ci/README.md — "Mock contract") is launched by
 # the mock's `run-harness` mode before the cases run: it binds a loopback endpoint, exports
-# LBABUS_GITHUB_API at it, and speaks the {base}/graphql + {base}/repos/... surface, so the
-# version-guard-* and defect-* mock-requiring cases RUN here (they SKIP only when the mock is absent).
+# LBABUS_GITHUB_API at it, and speaks the {base}/repos/{owner}/{repo}/issues/{n}/comments surface, so the
+# defect-* mock-requiring cases RUN here (they SKIP only when the mock is absent).
 
 # ---- build stage: publish the CLI, the runner, and the mock ---------------------------------------
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
