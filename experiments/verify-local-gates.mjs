@@ -1848,6 +1848,26 @@ check('mesh-log-append-only', () => {
   return { grew: `${history.firstTreeHead.size}->${history.secondTreeHead.size}`, root: history.secondTreeHead.root.slice(0, 12) };
 });
 
+// LBA-REQ-080 / ADR-0061: the composite MESH-RUN-ATTESTED decision -- the integration capstone. ONE fail-closed
+// verdict composing the whole 072-079 chain: fulfillment (073) AND cross-plane parity (072) AND the verified tier
+// (077) AND the transparency inclusion (078) AND the append-only proof (079), all naming the SAME run identity.
+// Asserts the selftest (7/7) + the committed decision (via the CLI, which re-derives from every source receipt) +
+// that all five gates pass + the identity is consistent + that mesh-run.yml wires the capstone step.
+check('mesh-run-attested', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshAttested.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshAttested.mjs')], { stdio: 'pipe' });
+  const receipt = JSON.parse(readFileSync(join(dir, 'mesh-run-attested-receipt.json'), 'utf8'));
+  assert(receipt.schema === 'labview-benchmark-actor/mesh-run-attested@1' && receipt.requirement === 'LBA-REQ-080', 'committed attested receipt shape');
+  const g = receipt.gates;
+  assert(g.fulfillment && g.parity && g.verifiedTier && g.transparencyInclusion && g.appendOnly, 'all five composed sub-proofs pass');
+  assert(receipt.identityConsistent === true && receipt.verdict.attested === true, 'the run is fully attested with a consistent identity');
+  // mesh-run.yml wires the composite capstone step.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/meshAttested\.mjs/.test(wf), 'mesh-run.yml decides the composite mesh-run-attested verdict (meshAttested.mjs)');
+  return { attested: receipt.verdict.attested, gates: Object.keys(g).length, identity: String(receipt.identity).slice(0, 12) };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch

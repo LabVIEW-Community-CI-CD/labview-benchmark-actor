@@ -107,6 +107,7 @@ progressively.
 | LBA-REQ-077 | The system shall admit a returned mesh-actor receipt into a verified collection only when it carries a valid attestation from its declared, enrolled actor -- so a fail-closed gate proves each collected receipt provably came from a REAL enrolled actor (not a fabricated trend). | The fan-out (LBA-REQ-076) proves a receipt is identity-bound + structurally valid but not that it came from a real enrolled actor -- a rogue participant could fabricate a plausible trend. A public volunteer mesh needs each receipt cryptographically bound to the enrolled actor that produced it; the ADR-0016 enrolled-key engine already exists to reuse. | `meshVerifiedTier.mjs` REUSES acg-provenance `signBundle`/`verifyWitnessAttestation` (Ed25519, ADR-0016): each returned receipt is signed by the actor's enrolled key, and a `verified-receipt-collection@1` admits it only when the attestation verifies against the enrolled `mesh-actor-keys.json` allowlist; the committed verified collection re-verifies its attestations offline. | `node experiments/mesh-fulfillment/meshVerifiedTier.selftest.mjs` (7/7) + the committed verified collection (via the CLI) + every collected receipt attested by its declared enrolled actor + the mesh-run.yml wiring; gated by `mesh-verified-tier-attested`. |
 | LBA-REQ-078 | The system shall admit a verified mesh-actor attestation only when it carries an inclusion proof against a transparency-log tree head signed by the enrolled log key -- so a fail-closed gate proves the mesh receipts are enrolled-signed AND publicly auditable (append-only, tamper-evident). | The verified tier (LBA-REQ-077) binds a receipt to its enrolled actor, but the set of attestations is not publicly auditable -- a compromised key could sign + nothing records the attestations in an append-only log. Release provenance already solved this (the ADR-0022 signed Merkle transparency log); the mesh should reuse it. | `meshTransparency.mjs` REUSES the acg-transparency engine (`recordRelease`/`verifyReleaseInclusion`, RFC-6962): each verified-tier attestation is recorded into a signed Merkle tree, and a `logged-verified-collection@1` admits it only when its inclusion proof reconstructs the enrolled-key-signed tree head; the committed logged collection re-verifies offline. | `node experiments/mesh-fulfillment/meshTransparency.selftest.mjs` (7/7) + the committed logged collection (via the CLI) + the signed tree head + every inclusion proof + the mesh-run.yml wiring; gated by `mesh-attestations-transparency-logged`. |
 | LBA-REQ-079 | The system shall admit the mesh transparency log's current tree head only when a consistency proof proves it contains an earlier signed tree head unchanged -- so a fail-closed gate proves the log is APPEND-ONLY (no logged attestation removed or rewritten as it grew). | ADR-0059 records + proves INCLUSION of each attestation and calls the log append-only, but inclusion alone does not prove the log only GROWS -- a log operator could publish a head that silently drops an earlier entry. The RFC-6962 consistency proof (already in the acg-transparency engine) closes that. | `meshLogHistory.mjs` REUSES `consistencyProof`/`verifyConsistency` (ADR-0022): a `logged-collection-history@1` binds an earlier + the current signed tree head + a consistency proof, admitted only when the later tree provably contains the earlier unchanged + the current head matches the committed LBA-REQ-078 log root. | `node experiments/mesh-fulfillment/meshLogHistory.selftest.mjs` (7/7) + the committed history (via the CLI) + the strict growth + the consistency proof + the 078-log binding + the mesh-run.yml wiring; gated by `mesh-log-append-only`. |
+| LBA-REQ-080 | The system shall decide a mesh run FULLY ATTESTED only when its fulfillment, cross-plane parity, verified-tier signatures, transparency inclusion, and append-only proof all hold and name the SAME run identity -- so a fail-closed gate gives a consumer ONE verdict to trust a mesh run end-to-end. | The mesh sub-proofs (LBA-REQ-072..079) are each a separate fail-closed gate, but a consumer wanting to trust a run had no single decision + had to confirm by hand that the receipts all refer to the same run. The composite-release-decision (LBA-REQ-071) is the pattern to mirror. | `meshAttested.mjs` REUSES every sub-verifier (`decideFulfillment`/`validateReceipt`(parity)/`validateVerifiedCollection`/`validateLoggedCollection`/`validateHistory`) + binds them to one identity, emitting a `mesh-run-attested@1` verdict; the committed decision re-derives from every source receipt (currency). | `node experiments/mesh-fulfillment/meshAttested.selftest.mjs` (7/7, one break per sub-proof) + the committed decision (via the CLI) + all five gates + the identity binding + the mesh-run.yml wiring; gated by `mesh-run-attested`. |
 
 ---
 
@@ -2442,6 +2443,37 @@ progressively.
   `mesh-log-append-only` in `verify-local-gates`. Inclusion (LBA-REQ-078) + consistency (here) are the full RFC-6962
   transparency guarantee for the mesh. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-080: The composite mesh-run-attested decision (one verdict to trust a run)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0061 -- the composite mesh-run-attested decision, roadmap Phase 3)
+- Statement: The system shall decide a mesh run FULLY ATTESTED only when its fulfillment, cross-plane parity,
+  verified-tier signatures, transparency inclusion, and append-only proof all hold and name the SAME run identity
+  -- so a fail-closed gate gives a consumer ONE verdict to trust a mesh run end-to-end.
+- Rationale: the mesh sub-proofs (LBA-REQ-072..079) are each a separate fail-closed gate over its own receipt, but
+  a consumer that wants to TRUST a run (before letting its result inform a release) had no single decision to check
+  -- and would have to confirm by hand that the five verifiers all refer to the SAME run rather than a mix of
+  receipts. The composite-release-decision (LBA-REQ-071) established the pattern: conjoin independent gates into one
+  enforced verdict bound to the same subject.
+- Acceptance Criteria:
+  - `meshAttested.mjs` `decideAttested` conjoins the five sub-proofs by REUSING their verifiers -- `decideFulfillment`
+    (073), `validateReceipt` on the parity receipt (072), `validateVerifiedCollection` (077),
+    `validateLoggedCollection` (078), `validateHistory` (079) -- with no new proof logic.
+  - A run is `attested` iff every gate passes AND all five layers name the SAME run identity
+    (`fulfillment.identity === parity.launchIdentity === verified.identity === logged.identity` and the fulfillment
+    decision's identity) -- the cross-proof identity binding.
+  - A `mesh-run-attested@1` receipt records the five gate booleans + the shared identity + the verdict;
+    `validateReceipt` re-derives the decision from the committed source receipts (currency) and fails closed on a
+    stale gate set, an identity mismatch, a verdict that contradicts the re-derived decision, or a tampered digest.
+  - The gate `mesh-run-attested` proves offline: the selftest (7/7, one break per sub-proof); the committed decision
+    re-derives from every source receipt; all five gates pass; the identity is consistent; and `mesh-run.yml` runs
+    the capstone step.
+- Change Guidance: the verifier + selftest + committed decision live under `experiments/mesh-fulfillment/`
+  (`meshAttested.mjs` / `.selftest.mjs` / `mesh-run-attested-receipt.json`); the workflow step is in
+  `.github/workflows/mesh-run.yml`; gate `mesh-run-attested` in `verify-local-gates`. It mirrors the
+  composite-release-decision (LBA-REQ-071); the mesh subsystem (072-080) is complete. Authored under the
+  singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2527,3 +2559,4 @@ progressively.
 | LBA-REQ-077 | Deployment (opt-in verified tier) | T-077 |
 | LBA-REQ-078 | Deployment (mesh attestation transparency log) | T-078 |
 | LBA-REQ-079 | Deployment (mesh log append-only proof) | T-079 |
+| LBA-REQ-080 | Deployment (composite mesh-run-attested decision) | T-080 |
