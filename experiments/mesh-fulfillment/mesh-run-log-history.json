@@ -1,0 +1,30 @@
+{
+  "schema": "labview-benchmark-actor/logged-collection-history@1",
+  "requirement": "LBA-REQ-079",
+  "adr": "ADR-0060",
+  "logIdentity": "mesh-transparency-log@labview-benchmark-actor",
+  "firstTreeHead": {
+    "schema": "labview-benchmark-actor/acg-signed-tree-head-v1",
+    "logIdentity": "mesh-transparency-log@labview-benchmark-actor",
+    "size": 1,
+    "root": "0aece7152bfaf2feccd161fee5ccbf7d64f3a3703d5bde6d6d3f1b329da15d2b",
+    "timestamp": "2026-08-03T00:00:00.000Z",
+    "algorithm": "ed25519",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAArQaKn4R49oxD2a90DKjDIcZeNK3Xo3auOw4fuisq/E=\n-----END PUBLIC KEY-----\n",
+    "signature": "u8N18sI+iBsarxypdzjKbxSrq0VUg0SEaRQ/kGHyveGySnEECjwirah7br4aMJCL9a/sgc2gBRhaM1vMxSymBA=="
+  },
+  "secondTreeHead": {
+    "schema": "labview-benchmark-actor/acg-signed-tree-head-v1",
+    "logIdentity": "mesh-transparency-log@labview-benchmark-actor",
+    "size": 2,
+    "root": "1cf0f5b3b119a7a461f2f60a02257a45e898102f90905f2a12239b534c9fbe73",
+    "timestamp": "2026-08-03T00:05:00.000Z",
+    "algorithm": "ed25519",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAArQaKn4R49oxD2a90DKjDIcZeNK3Xo3auOw4fuisq/E=\n-----END PUBLIC KEY-----\n",
+    "signature": "X0snr9xUsjkj20LaML78/Jz5l0eatFpfOxstaIi+kvG5PxfDuXcVa+b9Jlmp3LigDiJ6okHc0+VElO3oBLXnDA=="
+  },
+  "consistencyProof": [
+    "b6c79304d187321fea05e32c4921aa98f3c52599a14b6a7e17054106649a4ae6"
+  ],
+  "digest": "2726f70d260cd9109d6250bc92ed7b422336d9e386e81eaf3803e76756dde50b"
+}

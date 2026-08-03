@@ -65,6 +65,13 @@ jobs:
         # tree head or a missing/non-reconstructing inclusion proof.
         run: node experiments/mesh-fulfillment/meshTransparency.mjs
 
+      - name: Prove the transparency log is append-only (fail-closed)
+        # The append-only guarantee (LBA-REQ-079): a consistency proof (RFC-6962, ADR-0022) binds an earlier signed
+        # tree head + the current one, admitted only when the later tree provably CONTAINS the earlier one unchanged
+        # -- so no logged attestation was removed or rewritten as the log grew. Fail-closed on a shrinking log or a
+        # consistency proof that does not verify (a rewritten/forked log).
+        run: node experiments/mesh-fulfillment/meshLogHistory.mjs
+
       - name: Gate the returned receipts on cross-plane fulfillment (fail-closed)
         # Volunteer actors return plane-tagged receipts; the run is fulfilled ONLY when >= N distinct cross-plane
         # actors returned a valid receipt for the SAME benchmark identity (LBA-REQ-073). No central results DB.

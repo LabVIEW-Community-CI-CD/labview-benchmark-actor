@@ -1,0 +1,5 @@
+{
+  "note": "The enrolled Ed25519 PUBLIC key of the mesh transparency log, used to verify the append-only history tree heads (LBA-REQ-079). Private key never committed. The history proves the log grew append-only (a later tree head contains an earlier one unchanged) via an RFC-6962 consistency proof.",
+  "logIdentity": "mesh-transparency-log@labview-benchmark-actor",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAArQaKn4R49oxD2a90DKjDIcZeNK3Xo3auOw4fuisq/E=\n-----END PUBLIC KEY-----\n"
+}
