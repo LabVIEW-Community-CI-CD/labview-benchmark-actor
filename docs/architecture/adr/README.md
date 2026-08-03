@@ -47,6 +47,7 @@
 | [ADR-0037](ADR-0037-reviewer-visual-verdict-beacon.md) | Reviewer visual verdict beacon -- the human's PASS/FAIL of a release candidate, Ed25519-signed in the VM (mapping to acg-human-signoff-v1), gating the release with the plane agreement | LINUX | Accepted | LBA-REQ-057 |
 | [ADR-0038](ADR-0038-reviewer-verdict-bus-announcement.md) | Reviewer verdict bus announcement -- the signed verdict posts to the lbabus coordination bus with a semantic type (RESOLVED/REFINE/BLOCKED) so remote actors see the human's PASS/FAIL | LINUX | Accepted | LBA-REQ-058 |
 | [ADR-0039](ADR-0039-host-vm-agent-closed-loop-tcp.md) | Host<->VM-agent closed loop over the lbabus net TCP bus -- the host awaits the VM agent's correlated reply (await-agent-reply) after driving its chat, and the reviewer verdict announces with a semantic net type (RESOLVED/REFINE/BLOCKED), off GitHub Discussions | LINUX | Accepted | LBA-REQ-059 |
+| [ADR-0040](ADR-0040-live-only-net-coordination.md) | Live-only net coordination -- a per-actor `net listen --log` receive-log + `net poll` read side replaces the GitHub-Discussion post/poll (no central/async store; offline peers miss a post), the first increment of retiring Discussions | LINUX | Accepted | LBA-REQ-060 |
 
 Numbering is split by owner to avoid collisions: WIN takes 0001–0002 (+0005, 0006, 0007, 0008, 0009),
 LINUX takes 0003–0004 (+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017, 0018, 0019, 0020, 0021, 0022, 0023, 0024). Add new ADRs by extending your own range.

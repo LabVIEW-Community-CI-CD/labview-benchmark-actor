@@ -87,6 +87,7 @@ progressively.
 | LBA-REQ-057 | The system shall emit a signed reviewer visual verdict (`reviewer-verdict@1` mapping to `acg-human-signoff-v1`) for an extension release candidate, so a fail-closed gate proves the human's PASS/FAIL of the built candidate is Ed25519-signed by an enrolled reviewer and gates the release alongside the plane agreement. | The reviewer VM exists for the human's VISUAL PASS/FAIL of a candidate; that verdict was informal (chat / a hand-edited signoff). Making it a signed, candidate-bound artifact turns the human gate into a governed, verifiable release input, signable IN the VM (enrolled Ed25519 needs no OIDC). | `reviewerVerdict.mjs` (dependency-free, staged) builds + Ed25519-signs the verdict IN the VM; `gateVisualReview` publishes only on a pass + verified enrolled approvals; `release-with-review.mjs` composes it with the ADR-0018 machine gate; `verify-visual-review.mjs` gates a release's visualReview block; CI keyless-cosign counter-signs. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (6/6); gated by `handoff-verdict`. Live: the reviewer signs a pass verdict for ext 0.5.0 in the VM that verifies against the enrolled allowlist. |
 | LBA-REQ-058 | The system shall announce a signed reviewer verdict on the `lbabus` coordination bus with a semantic message type (pass -> RESOLVED, changes -> REFINE, fail -> BLOCKED) carrying the full signed verdict, so a fail-closed gate proves the announcement is correctly derived and remote actors see the human's PASS/FAIL. | The reviewer's signed verdict (LBA-REQ-057) stayed local; the `lbabus` bus is how the planes coordinate, so a remote actor could not see that a human reviewed + PASSED a candidate. Announcing it makes the verdict a coordination event. | `buildVerdictBusPost` derives the semantic `lbabus` post (type/task/ref/priority) from a signed verdict record; the extension posts it from the VM after signing (best-effort) + the release CI posts it after `verify-visual-review`; the full signed verdict JSON is the message body. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (7/7); gated by `handoff-verdict`. Live: the ext 0.5.0 PASS verdict maps to a RESOLVED post on the extension-release-0.5.0 task. |
 | LBA-REQ-059 | The system shall close the host<->VM-agent coordination loop over the `lbabus net` TCP bus -- after driving the reviewer VM's Copilot agent, the host awaits the agent's reply frame correlated by task id (fail-closed on mismatch/timeout) and the signed reviewer verdict announces with a semantic net type (RESOLVED/REFINE/BLOCKED), so a fail-closed gate proves the read-back + the semantic types are correctly derived and coordination rides TCP, not a GitHub Discussion. | `drive-agent-chat.sh` drove the VM's chat fire-and-screenshot with no programmatic read-back, and the verdict announcement (LBA-REQ-058) rode a GitHub Discussion; an operator directive moves coordination onto the private TCP bus (`lbabus net`, LBA-REQ-007) and deprecates Discussions. | `await-agent-reply.mjs` runs `lbabus net listen` + correlates the VM agent's reply by task/type (fail-closed); `drive-agent-closed-loop.sh` composes inject (`drive-agent-chat.sh`) + await; the net type set gains RESOLVED/REFINE/BLOCKED (option A); guest->host proven in `provider-delegation/vm-run-evidence.json`. | Run `node reviewer-workstation/await-agent-reply.selftest.mjs` (7/7); gated by `closed-loop-readback`. Live: 3 drives from the reviewer VM (senderId WIN) -- loop, benchmark review (2604 ms/5 PASS), verdict RESOLVED -- all over TCP. |
+| LBA-REQ-060 | The system shall provide a live-only net coordination read side -- a per-actor local receive-log written by `lbabus net listen --log` and read by `lbabus net poll` (filtered by type/task; fail-closed without a log) -- so a fail-closed gate proves post->log->poll round-trips over TCP and coordination reads no longer depend on a GitHub Discussion. | ADR-0039 moved the host<->VM-agent loop + verdict announcement onto net; an operator directive moves the REST of coordination off Discussions with a LIVE-ONLY model (no async store). The send side (`net send`) existed; the read side was missing. | `net listen --log <file>` appends received frames to a per-actor JSONL receive-log; `net poll` reads + filters it (BusWire.ToJson/FromJson); no central/async store -- an offline peer misses the frame (accepted). | Run `bash experiments/net-coordination/net-coordination-log-proof.sh`; gated by `net-coordination-log` (committed loopback receipt + Net.cs source). Loopback: post->log->poll round-trip + type filter + poll-without-log fails closed. |
 
 ---
 
@@ -1832,6 +1833,35 @@ progressively.
 
 ---
 
+### LBA-REQ-060: Live-only net coordination -- the receive-log + net poll read side
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0040 -- live-only net coordination, off GitHub Discussions)
+- Statement: The system shall provide a live-only net coordination read side -- a per-actor local receive-log
+  written by `lbabus net listen --log` and read by `lbabus net poll` (filtered by type/task; fail-closed
+  without a log) -- so a fail-closed gate proves post->log->poll round-trips over TCP and coordination reads no
+  longer depend on a GitHub Discussion.
+- Rationale: ADR-0039 moved the host<->VM-agent loop + the reviewer-verdict announcement onto `net` TCP; an
+  operator directive ("TCP, deprecate the use of github discussions") moves the rest of coordination off
+  Discussions. A Discussion did two jobs -- live relay + async persistence; `net send`/`listen` already cover
+  the live relay, but the READ side (poll) had no net equivalent. The operator chose a LIVE-ONLY model (no
+  central/async store): each actor logs what it hears while online.
+- Acceptance Criteria:
+  - `net listen --log <file>` appends every received frame to a per-actor JSONL receive-log (BusWire.ToJson),
+    best-effort (a log error never breaks the listener).
+  - `net poll [--log <file>] [--tail N] [--type T] [--task T]` reads + filters the local receive-log
+    (BusWire.FromJson), mirroring the Discussion `poll` UX; with no log it prints nothing + exits 0; with no
+    `--log`/`VIHS_COLLAB_NET_LOG` it FAILS CLOSED.
+  - Comms-only holds (ADR-0003): the receive-log stores only small coordination frames, never run data.
+  - Accepted tradeoff: a peer offline at post time misses the frame -- no async catch-up.
+- Change Guidance: `CmdListen --log` + `CmdPoll` + `BusWire.ToJson`/`FromJson` live in
+  `tools/collab-cli/Net.cs`; the loopback proof is `experiments/net-coordination/net-coordination-log-proof.sh`
+  (committed receipt `net-coordination-log-receipt.json`). This is the FIRST increment of retiring the
+  GitHub-Discussion transport (ADR-0040); the call-site migrations + removal are deferred. Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1895,3 +1925,4 @@ progressively.
 | LBA-REQ-057 | Deployment (handoff beacon -- reviewer visual verdict) | T-057 |
 | LBA-REQ-058 | Deployment (handoff beacon -- reviewer verdict bus announcement) | T-058 |
 | LBA-REQ-059 | Deployment (host<->VM-agent closed loop over TCP) | T-059 |
+| LBA-REQ-060 | Deployment (live-only net coordination read side) | T-060 |

@@ -2333,6 +2333,19 @@ check('closed-loop-readback', () => {
   return { selftest: 'await-agent-reply 7/7', loopback: r.loopbackProof.ok, liveDrives: r.liveDrives.length, netVerdictTypes: 'RESOLVED/REFINE/BLOCKED' };
 });
 
+// LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
+// `net poll` read side that replaces the GitHub-Discussion post/poll. Asserts the committed loopback receipt
+// (post->log->poll round-trip + type filter + fail-closed) + that the CLI source carries the net poll read side.
+check('net-coordination-log', () => {
+  const r = JSON.parse(readFileSync(join(here, 'net-coordination', 'net-coordination-log-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/net-coordination-log-proof@1' && r.requirement === 'LBA-REQ-060', 'committed net-coordination receipt shape');
+  assert(r.cases.postToLogToPollRoundTrip === true && r.cases.typeFilterNote === true && r.cases.typeFilterResolved === true && r.cases.pollWithoutLogFailsClosed === true && r.ok === true, 'post->log->poll round-trip + type filter + poll-without-log fails closed');
+  const netSrc = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Net.cs'), 'utf8');
+  assert(/"poll"\s*=>\s*CmdPoll/.test(netSrc), 'net dispatch routes poll -> CmdPoll');
+  assert(netSrc.includes('private static int CmdPoll(') && netSrc.includes('a.Get("log")'), 'CmdPoll reads the local --log receive-log');
+  return { receipt: r.ok, model: 'live-only net (no GitHub Discussion)', cases: Object.keys(r.cases).length };
+});
+
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
 // embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
 // runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops
