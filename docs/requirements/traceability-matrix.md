@@ -90,5 +90,6 @@
 | LBA-REQ-081 | Cross-plane VI Analyzer performance parity (the second benchmark family) | Proven | §3.2 Deployment | ADR-0062 | T-081 | 7 |
 | LBA-REQ-082 | The benchmark-suite parity observatory (one view over the parity families) | Proven | §3.2 Deployment | ADR-0063 | T-082 | 6 |
 | LBA-REQ-083 | The mesh carries a second benchmark family (VI Analyzer) | Proven | §3.2 Deployment | ADR-0064 | T-083 | 6 |
+| LBA-REQ-084 | The stress-discounted cross-plane comparison (discount a result captured on a stressed actor) | Proven | §3.2 Deployment | ADR-0065 | T-084 | 6 |
 
-_Generated for 83 requirements._
+_Generated for 84 requirements._

@@ -895,6 +895,28 @@ check('mesh-concurrent-actors-real', () => {
   return { actors: r.perActorInverseRead.length, recovered: r.allActorsRecovered, cpuMeans: r.actors.map((a) => a.cpuPoolPctMean) };
 });
 
+// LBA-REQ-084 / ADR-0065 (roadmap Phase 4): the STRESS-DISCOUNTED cross-plane comparison -- the mesh-stress
+// calibration (LBA-REQ-032) lets a fair comparison DISCOUNT a result captured on a stressed actor. Folds the
+// committed real ladder (calibration authority) + concurrent-actors capture (independently-recovered per-actor
+// stress) into a stress-quality weight per measurement (idle = full 1.0 ... saturate = 0.0), discounting the
+// stressed actors. Asserts the selftest (7/7) + the committed comparison (via the CLI, re-derived from the two
+// mesh-stress receipts) + that the stressed actors are discounted while the clean ones are kept.
+check('stress-discounted-comparison', () => {
+  const dir = join(here, 'mesh-stress-signature');
+  execFileSync(process.execPath, [join(dir, 'stressDiscountedComparison.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'stressDiscountedComparison.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(dir, 'stress-discounted-comparison-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/stress-discounted-comparison@1' && r.requirement === 'LBA-REQ-084', 'committed stress-discounted comparison shape');
+  assert(r.verdict.discountingApplied === true && r.calibration.trustworthy === true && r.calibration.allActorsRecovered === true, 'the calibration is trustworthy + recovered every actor, and discounting is applied');
+  assert(r.coverage.discountedCount >= 1 && r.coverage.cleanCount >= 1, 'stressed measurements are discounted while clean ones are kept');
+  // grounded: the idle actor keeps full confidence, the saturate actor is discounted to zero weight.
+  const idle = r.measurements.find((m) => m.inferredRung === 'idle');
+  const saturate = r.measurements.find((m) => m.inferredRung === 'saturate');
+  assert(idle && idle.qualityWeight === 1 && idle.discounted === false, 'the idle actor is kept at full confidence');
+  assert(saturate && saturate.qualityWeight === 0 && saturate.discounted === true, 'the saturate actor is discounted to zero weight');
+  return { measurements: r.coverage.measurements, discounted: r.coverage.discountedCount, clean: r.coverage.cleanCount, meanWeight: r.coverage.meanWeight };
+});
+
 // LBA-REQ-032 (mesh-stress-signature@v1, LIVE + WINDOWS VM): a REAL golden-box Win11 VM calibrated as a mesh
 // actor -- winMeshActorCapture.ps1 drove the running VM through busy=0..4 via VBoxManage guestcontrol (each an
 // exact-12-FPS PDH capture), and runWinVmLadder builds the per-rung signatures + fits + inverse-reads every rung.
