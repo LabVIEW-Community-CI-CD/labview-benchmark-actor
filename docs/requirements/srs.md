@@ -85,6 +85,7 @@ progressively.
 | LBA-REQ-055 | The system shall emit a machine-readable capture-status beacon for each LabVIEW-launch capture (capturing -> stopped/failed), so a fail-closed gate proves the rich stop payload (wroteToDisk, peak write throughput + its frame, per-disk breakdown) is correctly derived and an agent can await a human-in-the-loop step. | The reviewer/agentic flow has human-in-the-loop steps (run a VI, then Stop the capture); without a signal the agent guesses or re-asks. A capture-status beacon makes the human's Stop an awaited, machine-observable event that also carries a pointer straight to the evidence. | `captureStatus.mjs` derives the beacon (wroteToDisk thresholded, peak write MB/s + the frame index where it peaked, per-physical-disk peaks) from the capture's samples; the extension writes `capture-status.json` at capture start (capturing) + stop (stopped) or assembly failure (failed); `reviewer-workstation/await-handoff.sh` polls it; `validateCaptureStatus` fails closed on a bad schema/state/missing payload. | Run `node experiments/handoff-beacon/captureStatus.selftest.mjs` (6/6); gated by `handoff-capture-status`. Live: the operator's streaming VI produced a stopped beacon (wroteToDisk=true, peak 134 MB/s @ frame 1122) the agent's poll resolved. |
 | LBA-REQ-056 | The system shall surface an agent's request for a human step as an in-VM VS Code notification whose "Mark step done" / "Skip" actions emit a machine-readable op-done beacon, so a fail-closed gate proves the request/answer payloads are correctly derived and the agent can await a human-in-the-loop step it initiated. | The capture-status beacon (LBA-REQ-055) let the agent AWAIT a human step; the agent's own ASK ("run this VI", "activate LabVIEW") was invisible except via chat, so it re-asked. Making the ask a first-class, in-VM, machine-observable event (a reusable human-step barrier) lets the agent request a manual step and resume when the human answers. | `handoffRequest.mjs` derives `agent-request@1` + `op-done@1` (validated fail-closed) + `selectPendingRequest` (newest unanswered); the extension watches `handoff/requests/` and surfaces the ask as a notification with "Mark step done" (optional note) / "Skip" -- also palette commands -- writing `handoff/done/<id>.json`; `reviewer-workstation/request-step.sh` drops the request + polls the answer ONCE. | Run `node experiments/handoff-beacon/handoffRequest.selftest.mjs` (5/5); gated by `handoff-request`. Live: the agent asked the human in the reviewer VM + resumed on the op-done beacon. |
 | LBA-REQ-057 | The system shall emit a signed reviewer visual verdict (`reviewer-verdict@1` mapping to `acg-human-signoff-v1`) for an extension release candidate, so a fail-closed gate proves the human's PASS/FAIL of the built candidate is Ed25519-signed by an enrolled reviewer and gates the release alongside the plane agreement. | The reviewer VM exists for the human's VISUAL PASS/FAIL of a candidate; that verdict was informal (chat / a hand-edited signoff). Making it a signed, candidate-bound artifact turns the human gate into a governed, verifiable release input, signable IN the VM (enrolled Ed25519 needs no OIDC). | `reviewerVerdict.mjs` (dependency-free, staged) builds + Ed25519-signs the verdict IN the VM; `gateVisualReview` publishes only on a pass + verified enrolled approvals; `release-with-review.mjs` composes it with the ADR-0018 machine gate; `verify-visual-review.mjs` gates a release's visualReview block; CI keyless-cosign counter-signs. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (6/6); gated by `handoff-verdict`. Live: the reviewer signs a pass verdict for ext 0.5.0 in the VM that verifies against the enrolled allowlist. |
+| LBA-REQ-058 | The system shall announce a signed reviewer verdict on the `lbabus` coordination bus with a semantic message type (pass -> RESOLVED, changes -> REFINE, fail -> BLOCKED) carrying the full signed verdict, so a fail-closed gate proves the announcement is correctly derived and remote actors see the human's PASS/FAIL. | The reviewer's signed verdict (LBA-REQ-057) stayed local; the `lbabus` bus is how the planes coordinate, so a remote actor could not see that a human reviewed + PASSED a candidate. Announcing it makes the verdict a coordination event. | `buildVerdictBusPost` derives the semantic `lbabus` post (type/task/ref/priority) from a signed verdict record; the extension posts it from the VM after signing (best-effort) + the release CI posts it after `verify-visual-review`; the full signed verdict JSON is the message body. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (7/7); gated by `handoff-verdict`. Live: the ext 0.5.0 PASS verdict maps to a RESOLVED post on the extension-release-0.5.0 task. |
 
 ---
 
@@ -1770,6 +1771,36 @@ progressively.
 
 ---
 
+### LBA-REQ-058: Handoff Beacon -- reviewer verdict bus announcement
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0038 -- reviewer verdict bus announcement, under the Handoff Beacon Protocol ADR-0035)
+- Statement: The system shall announce a signed reviewer verdict on the `lbabus` coordination bus with
+  a semantic message type (pass -> RESOLVED, changes -> REFINE, fail -> BLOCKED) carrying the full
+  signed verdict, so a fail-closed gate proves the announcement is correctly derived and remote actors
+  see the human's PASS/FAIL.
+- Rationale: The reviewer's signed verdict (LBA-REQ-057) stayed local (a file + the release-agreement);
+  the `lbabus` bus (a GitHub Discussion the WIN + LINUX planes read) is how the actors coordinate, so a
+  remote actor had no way to see that a human reviewed + PASSED (or blocked) a candidate. Announcing the
+  verdict makes it an actionable coordination event -- the final tier of the Handoff Beacon Protocol.
+- Acceptance Criteria:
+  - `buildVerdictBusPost` derives the `lbabus post` from a signed verdict record `{ verdict, signOff }`:
+    a SEMANTIC `type` by verdict (RESOLVED/REFINE/BLOCKED), `task` = `<component>-release-<version>`,
+    `ref` = the candidate commit, `priority`; an unknown/malformed record fails safe to BLOCKED.
+  - The message BODY posted is the FULL signed verdict JSON (`--message-file`), so the bus carries the
+    verifiable `acg-human-signoff-v1` + `reviewer-verdict@1`, not just a summary.
+  - The extension posts the verdict from the reviewer VM immediately after signing, BEST-EFFORT (a
+    missing `lbabus` / GH token is logged, never thrown into the signing flow); the release CI posts it
+    automatically after `verify-visual-review` (`post-verdict.mjs`, `continue-on-error`). Both derive
+    the post from the same `buildVerdictBusPost`.
+- Change Guidance: `buildVerdictBusPost` lives in the staged, gated `reviewerVerdict.mjs` (gate
+  `handoff-verdict`, self-test 7/7); `src/extension.ts` (`busPostArgs` + `postVerdictToBus`) +
+  `reviewer-workstation/post-verdict.mjs` + the `extension-release.yml` bus step are mapped in the RTM.
+  This is the FINAL tier of the Handoff Beacon Protocol (ADR-0035). Authored under the
+  singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1831,3 +1862,4 @@ progressively.
 | LBA-REQ-055 | Deployment (handoff beacon) | T-055 |
 | LBA-REQ-056 | Deployment (handoff beacon -- agent->human request) | T-056 |
 | LBA-REQ-057 | Deployment (handoff beacon -- reviewer visual verdict) | T-057 |
+| LBA-REQ-058 | Deployment (handoff beacon -- reviewer verdict bus announcement) | T-058 |

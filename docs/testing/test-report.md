@@ -216,12 +216,12 @@ The controlled state of the repository's configuration items, derived from the r
 
 | Configuration item class | Count | Register |
 | --- | --- | --- |
-| Requirements (total) | 57 | docs/requirements/srs.md, rtm.csv |
-| — Status: Proven | 57 | rtm.csv |
-| Architecture decisions (ADRs) | 37 | docs/architecture/adr/README.md |
+| Requirements (total) | 58 | docs/requirements/srs.md, rtm.csv |
+| — Status: Proven | 58 | rtm.csv |
+| Architecture decisions (ADRs) | 38 | docs/architecture/adr/README.md |
 | Governed gates | 155 | experiments/verify-local-gates.mjs |
 | Correspondence rules | 7 | experiments/reqs-coverage/verify-correspondences.mjs |
-| Governed test items | 57 | docs/testing/test-plan.md |
+| Governed test items | 58 | docs/testing/test-plan.md |
 
 Baselines are cut on the `main` branch via SemVer tags (GitFlow); each release is keyless-signed and
 corroborated across planes before publication (see `docs/cm/cm-plan.md` and the release procedure).
@@ -238,4 +238,4 @@ the same correspondence graph (ADR-0013).
 `node experiments/reqs-coverage/generate-test-report.mjs` rewrites this file; `--check` (the
 `test-report-current` gate) fails closed on drift, so the report can never silently lag the apparatus.
 
-_Generated from 155 gates, 7 correspondence rules, 57 requirements, 37 ADRs, 57 test items._
+_Generated from 155 gates, 7 correspondence rules, 58 requirements, 38 ADRs, 58 test items._

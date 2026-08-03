@@ -7,6 +7,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Handoff Beacon — reviewer verdict bus announcement** (ADR-0038, LBA-REQ-058).
+  A signed reviewer verdict is now announced on the `lbabus` coordination bus with
+  a **semantic** message type — **pass → RESOLVED**, **changes → REFINE**,
+  **fail → BLOCKED** — carrying the full signed verdict JSON, so the WIN plane and
+  remote actors see the human's PASS/FAIL as an actionable coordination event. The
+  extension posts it from the reviewer VM right after signing (best-effort), and the
+  release CI posts it automatically after the visual-review gate passes. This
+  completes the Handoff Beacon Protocol's five governed tiers.
 - **Handoff Beacon — reviewer visual verdict** (`reviewer-verdict@1`, ADR-0037,
   LBA-REQ-057). The human's VISUAL PASS / CHANGES / FAIL of an extension release
   candidate is now a signed, governed artifact. The new **Render Reviewer Verdict**

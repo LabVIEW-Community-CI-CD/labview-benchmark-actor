@@ -52,7 +52,7 @@ import { buildLaunchCapture } from './mprr-capture-ring/launch-capture.mjs';
 import { buildFrameCorrelatorHtml } from './mprr-capture-ring/frame-correlator.mjs';
 import { buildCaptureStatus, validateCaptureStatus } from './handoff-beacon/captureStatus.mjs';
 import { buildAgentRequest, buildOpDone, validateAgentRequest, validateOpDone, selectPendingRequest } from './handoff-beacon/handoffRequest.mjs';
-import { buildReviewerVerdict, signReviewerVerdict, verifyReviewerVerdict, gateVisualReview, generateEnrolledKeypair as generateReviewerKeypair } from './handoff-beacon/reviewerVerdict.mjs';
+import { buildReviewerVerdict, signReviewerVerdict, verifyReviewerVerdict, gateVisualReview, buildVerdictBusPost, generateEnrolledKeypair as generateReviewerKeypair } from './handoff-beacon/reviewerVerdict.mjs';
 import { verifyVisualReview } from '../tools/collab-cli/verify-visual-review.mjs';
 import { crossPlaneTrendReceipt } from './mprr-capture-ring/cross-plane-trend.mjs';
 import { buildResourceUsageCorrelation } from './resource-usage-correlation/resourceUsageCorrelation.mjs';
@@ -2309,7 +2309,10 @@ check('handoff-verdict', () => {
   // a { verdict, signOff } record -- so the extension-signed verdict + a plane agreement gate the release together.
   assert(verifyVisualReview({ record: { verdict, signOff: signed }, reviewerAllowlist: allow, minReviewers: 1 }).publish === true, 'verify-visual-review publishes a signed pass record');
   assert(verifyVisualReview({ record: { verdict, signOffs: [] }, reviewerAllowlist: allow }).publish === false, 'verify-visual-review fails closed without a sign-off');
-  return { schema: verdict.schema, verdict: verdict.verdict, signoffSchema: signed.schema, selftest: 'reviewer-verdict 6/6' };
+  // LBA-REQ-058: the verdict announces itself on the coordination bus with a semantic lbabus type.
+  const busPost = buildVerdictBusPost({ verdict, signOff: signed });
+  assert(busPost.type === 'RESOLVED' && busPost.task === 'extension-release-0.5.0' && busPost.ref === verdict.target.commit, 'a pass verdict maps to a RESOLVED bus post for the release task');
+  return { schema: verdict.schema, verdict: verdict.verdict, signoffSchema: signed.schema, busType: busPost.type, selftest: 'reviewer-verdict 7/7' };
 });
 
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document

@@ -869,6 +869,8 @@ try {
     assert(rv.gateVisualReview({ verdict: v, signOffs: [], reviewerAllowlist: allow }).publish === false && rv.gateVisualReview({ verdict: { ...v, verdict: 'fail' }, signOffs: [s], reviewerAllowlist: allow }).publish === false, 'gateVisualReview fail-closed');
     let threw = false; try { rv.signReviewerVerdict(v, { reviewer }); } catch { threw = true; }
     assert(threw, 'signReviewerVerdict requires a private key');
+    assert(rv.buildVerdictBusPost({ verdict: v, signOff: s }).type === 'RESOLVED' && rv.buildVerdictBusPost({ verdict: v, signOff: s }).task === 'extension-release-0.5.0' && rv.buildVerdictBusPost({ verdict: v, signOff: s }).priority === 'P2', 'buildVerdictBusPost: pass -> RESOLVED for the release task');
+    assert(rv.buildVerdictBusPost({ verdict: { ...v, verdict: 'changes' } }).type === 'REFINE' && rv.buildVerdictBusPost({ verdict: { ...v, verdict: 'fail' } }).type === 'BLOCKED' && rv.buildVerdictBusPost(null).type === 'BLOCKED', 'buildVerdictBusPost: semantic type + fail-safe default');
     console.log('reviewer-verdict-media-coverage: PASS -- media/reviewerVerdict.mjs exercised across all branches');
   }
 
@@ -887,8 +889,11 @@ try {
     assert(signed.verdict.verdict === 'pass' && signed.signOff.decision === 'approve', 'buildSignedVerdict builds + signs a verdict');
     let threw = false; try { ext.buildSignedVerdict(rv, { target: { version: '' }, verdict: 'pass', reviewer: 'r', station: 'WINDOWS_VM', notes: '', evidence: [], privateKeyPem: rvKeys.privateKeyPem, renderedAt: 't' }); } catch { threw = true; }
     assert(threw, 'buildSignedVerdict throws on an invalid verdict');
+    const bp = ext.busPostArgs({ type: 'RESOLVED', task: 'extension-release-0.5.0', ref: 'abc123', priority: 'P2' }, '/tmp/v.json');
+    assert(bp[0] === 'post' && bp.includes('RESOLVED') && bp.includes('--message-file') && bp.includes('/tmp/v.json') && bp.includes('--ref') && bp.includes('abc123'), 'busPostArgs builds the lbabus post argv');
+    assert(!ext.busPostArgs({ type: 'BLOCKED', task: 't', ref: null, priority: 'P1' }, '/tmp/v.json').includes('--ref'), 'busPostArgs omits --ref when the verdict has no commit');
     rmSync(vt, { recursive: true, force: true });
-    console.log('reviewer-verdict-helpers: PASS -- verdictsDir + readReviewTarget + buildSignedVerdict');
+    console.log('reviewer-verdict-helpers: PASS -- verdictsDir + readReviewTarget + buildSignedVerdict + busPostArgs');
   }
 
   {
@@ -917,7 +922,10 @@ try {
     writeFileSync(join(gsRoot, 'handoff', 'review-target.json'), JSON.stringify({ component: 'extension', version: '0.5.0', commit: 'e'.repeat(40), vsixSha256: 'f'.repeat(64), evidence: [{ kind: 'capture', ref: 'run-live' }] }));
     mockVscode.window.showInformationMessage = () => 'Pass';
     mockVscode.window.showInputBox = async () => 'looks right end to end';
+    const savedPath = process.env.PATH;
+    process.env.PATH = ''; // the command's best-effort lbabus bus post must not shell a REAL post during the test
     await render();
+    process.env.PATH = savedPath;
     const verdictFile = join(gsRoot, 'handoff', 'verdicts', 'extension-0.5.0.json');
     assert(existsSync(verdictFile), 'renderReviewerVerdict wrote the signed verdict');
     const rec = JSON.parse(readFileSync(verdictFile, 'utf8'));

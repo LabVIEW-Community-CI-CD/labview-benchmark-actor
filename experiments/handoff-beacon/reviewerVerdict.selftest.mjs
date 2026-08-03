@@ -13,6 +13,7 @@ import {
   signReviewerVerdict,
   verifyReviewerVerdict,
   gateVisualReview,
+  buildVerdictBusPost,
   generateEnrolledKeypair,
 } from './reviewerVerdict.mjs';
 import { gateReleaseWithReview } from './release-with-review.mjs';
@@ -113,6 +114,21 @@ ok('gateReleaseWithReview requires BOTH the machine release gate + the visual re
   assert.equal(gateReleaseWithReview({ quorumVerdict, quorumSignOffs: [qs], verdict: passV, verdictSignOffs: [], reviewerAllowlist: allowlist }).publish, false);
   // machine quorum not pass -> composed fails even though the visual review passes
   assert.equal(gateReleaseWithReview({ quorumVerdict: { verdict: 'fail' }, quorumSignOffs: [], verdict: passV, verdictSignOffs: [vs], reviewerAllowlist: allowlist }).publish, false);
+});
+
+ok('buildVerdictBusPost maps the verdict to a semantic lbabus post', () => {
+  const pv = buildReviewerVerdict({ target, verdict: 'pass', reviewer });
+  const p = buildVerdictBusPost({ verdict: pv, signOff: signReviewerVerdict(pv, { privateKeyPem, reviewer }) });
+  assert.equal(p.type, 'RESOLVED');                    // pass -> RESOLVED
+  assert.equal(p.task, 'extension-release-0.5.0');
+  assert.equal(p.ref, target.commit);
+  assert.equal(p.priority, 'P2');
+  assert.equal(p.reviewer, reviewer);
+  assert.match(p.summary, /PASS for extension 0\.5\.0/);
+  assert.equal(buildVerdictBusPost({ verdict: buildReviewerVerdict({ target, verdict: 'changes', reviewer }) }).type, 'REFINE'); // changes -> REFINE
+  assert.equal(buildVerdictBusPost({ verdict: buildReviewerVerdict({ target, verdict: 'fail', reviewer }) }).type, 'BLOCKED');   // fail -> BLOCKED
+  assert.equal(buildVerdictBusPost({ verdict: buildReviewerVerdict({ target, verdict: 'fail', reviewer }) }).priority, 'P1');
+  assert.equal(buildVerdictBusPost(null).type, 'BLOCKED'); // fail-safe default on a malformed record
 });
 
 console.log(`reviewer-verdict self-test: ${pass}/${pass} PASS`);

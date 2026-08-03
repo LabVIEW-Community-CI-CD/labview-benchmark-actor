@@ -504,6 +504,7 @@ interface HandoffVerdictBuilder {
   buildReviewerVerdict(opts: unknown): { schema: string; verdict: string; target: Record<string, unknown>; [k: string]: unknown };
   validateReviewerVerdict(v: unknown): { ok: boolean; errors: string[] };
   signReviewerVerdict(v: unknown, opts: unknown): { schema: string; decision: string; [k: string]: unknown };
+  buildVerdictBusPost(record: unknown): { type: string; task: string; ref: string | null; priority: string; reviewer: string | null; summary: string };
 }
 let handoffVerdictBuilderPromise: Promise<HandoffVerdictBuilder> | undefined;
 function loadHandoffVerdictBuilder(extensionUri: vscode.Uri): Promise<HandoffVerdictBuilder> {
@@ -554,6 +555,14 @@ export function buildSignedVerdict(
   if (!check.ok) throw new Error(`invalid reviewer verdict: ${check.errors.join('; ')}`);
   const signOff = builder.signReviewerVerdict(verdict, { privateKeyPem: opts.privateKeyPem, reviewer: opts.reviewer, station: opts.station });
   return { verdict, signOff };
+}
+
+/** Build the `lbabus post` argv for a verdict bus post (pure): the FULL signed verdict JSON is the message body
+ *  (via --message-file); the semantic type/task/ref/priority come from the verdict (LBA-REQ-058, ADR-0038). */
+export function busPostArgs(post: { type: string; task: string; ref: string | null; priority: string }, verdictFile: string): string[] {
+  const args = ['post', '--type', post.type, '--task', post.task, '--priority', post.priority, '--message-file', verdictFile];
+  if (post.ref) args.push('--ref', post.ref);
+  return args;
 }
 
 /** Parse a capture's resources.jsonl into the raw sample array (skipping blank/partial lines). */
@@ -722,8 +731,37 @@ async function renderReviewerVerdictCommand(context: vscode.ExtensionContext, ou
     writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
     output.appendLine(`reviewer verdict ${verdict} signed for ${target.component} ${target.version} by ${reviewer}`);
     vscode.window.showInformationMessage(`Reviewer verdict signed: ${verdict.toUpperCase()} for ${target.component} ${target.version}.`);
+    // Announce the signed verdict on the coordination bus (best-effort; a missing lbabus / token never fails signing).
+    await postVerdictToBus(context, output, builder, record, file);
   } catch (err) {
     reportUiError(output, 'Render reviewer verdict', err);
+  }
+}
+
+// Announce a signed reviewer verdict on the lbabus coordination bus (LBA-REQ-058, ADR-0038): a semantic post
+// (PASS->RESOLVED / CHANGES->REFINE / FAIL->BLOCKED) carrying the FULL signed verdict JSON, so remote actors see
+// the human's PASS/FAIL. Best-effort -- a missing `lbabus` / GH token is logged, never thrown into the signing.
+async function postVerdictToBus(
+  context: vscode.ExtensionContext,
+  output: vscode.OutputChannel,
+  builder: HandoffVerdictBuilder,
+  record: unknown,
+  verdictFile: string
+): Promise<void> {
+  try {
+    const post = builder.buildVerdictBusPost(record);
+    const args = busPostArgs(post, verdictFile);
+    output.appendLine(`$ ${CLI} ${args.join(' ')}`);
+    try {
+      const { stdout, stderr } = await execFileAsync(CLI, args, { timeout: 30000 });
+      if (stderr.trim().length > 0) output.appendLine(stderr.trimEnd());
+      if (stdout.trim().length > 0) output.appendLine(stdout.trimEnd());
+      output.appendLine(`posted reviewer verdict to the coordination bus: ${post.summary}`);
+    } catch (err) {
+      output.appendLine(`bus post skipped (${CLI} unavailable?): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } catch (err) {
+    output.appendLine(`bus post skipped: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
