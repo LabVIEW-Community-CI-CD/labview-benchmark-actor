@@ -427,6 +427,45 @@ try {
     assert(/res''ources\.jsonl/.test(script), 'samplerScript single-quote-escapes the out path (no injection)');
   }
 
+  // Coverage: the staged Handoff Beacon capture-status builder (media/captureStatus.mjs is under the c8 floor)
+  // exercised across every lifecycle state + defensive branch (LBA-REQ-055 / ADR-0035).
+  {
+    const cs = await import(pathToFileURL(join(repoRoot, 'media', 'captureStatus.mjs')).href);
+    const startMs = 1_700_000_000_000;
+    const rec = {
+      schema: 'labview-benchmark-actor/launch-capture@1', startMs, frameCount: 4, durationMs: 250, diskNames: ['0 C:'],
+      frames: [0, 1, 2, 3].map((i) => ({ index: i, tMs: Math.round((i * 1000) / 12), ms: startMs + Math.round((i * 1000) / 12) })),
+    };
+    const samples = [
+      { ms: startMs, disks: [{ name: '0 C:', writeMBs: 0, readMBs: 0 }] },
+      { ms: startMs + 100, disks: [{ name: '0 C:', writeMBs: 12, readMBs: 1 }] },
+      { ms: startMs + 200, disks: [{ name: '0 C:', writeMBs: 5, readMBs: 0 }] },
+      { ms: startMs + 300, disks: [{ name: '0 C:', writeMBs: 8, readMBs: 0 }, { name: '0 C:', writeMBs: null }] },
+      { ms: startMs + 400 }, // no disks -> continue branch
+      null,                  // null sample -> skip branch
+    ];
+    const capturing = cs.buildCapturingStatus({ runDir: 'C:\\run', startedAt: 'x' });
+    assert(capturing.state === 'capturing' && capturing.runDir === 'C:\\run', 'capturing beacon');
+    assert(cs.buildCapturingStatus({}).runDir === null, 'capturing beacon null defaults');
+    const stopped = cs.buildCaptureStatus(rec, samples, { runDir: 'C:\\run', startedAt: 'a', stoppedAt: 'b' });
+    assert(stopped.state === 'stopped' && stopped.wroteToDisk === true && stopped.peak.writeMBs === 12 && stopped.peak.disk === '0 C:', 'stopped beacon peak');
+    assert(stopped.peak.frameIndex === 1 && stopped.perDisk[0].peakReadMBs === 1, 'stopped beacon frame + per-disk read');
+    assert(cs.buildCaptureStatus(rec, samples, { writeMinSamples: 10 }).wroteToDisk === false, 'wroteToDisk threshold branch');
+    assert(cs.buildCaptureStatus(rec, [{ ms: startMs, disks: [{ name: '0 C:', writeMBs: 0.5, readMBs: 0 }] }]).peak.frameIndex === 0, 'a tiny write maps the peak to the nearest frame');
+    const empty = cs.buildCaptureStatus({}, []);
+    assert(empty.frameCount === 0 && empty.peak.frameIndex === null && Array.isArray(empty.perDisk) && empty.perDisk.length === 0, 'empty capture defaults + null peak frame');
+    const failed = cs.buildFailedStatus({ runDir: 'C:\\run', error: 'boom' });
+    assert(failed.state === 'failed' && /boom/.test(failed.error), 'failed beacon');
+    assert(cs.buildFailedStatus({}).error === 'unknown', 'failed beacon default error');
+    assert(cs.validateCaptureStatus(stopped).ok && cs.validateCaptureStatus(capturing).ok && cs.validateCaptureStatus(failed).ok, 'validate admits good beacons');
+    assert(!cs.validateCaptureStatus({ schema: 'nope', state: 'stopped' }).ok, 'validate rejects bad schema');
+    assert(!cs.validateCaptureStatus({ schema: cs.CAPTURE_STATUS_SCHEMA, state: 'bogus' }).ok, 'validate rejects bad state');
+    assert(!cs.validateCaptureStatus({ schema: cs.CAPTURE_STATUS_SCHEMA, state: 'stopped' }).ok, 'validate rejects stopped w/o payload');
+    assert(!cs.validateCaptureStatus({ schema: cs.CAPTURE_STATUS_SCHEMA, state: 'failed' }).ok, 'validate rejects failed w/o error');
+    assert(!cs.validateCaptureStatus(null).ok, 'validate rejects null');
+    console.log('capture-status-beacon-coverage: PASS -- media/captureStatus.mjs exercised across all states + branches');
+  }
+
   // createCleanroom input VALIDATION: an invalid name/port/actor is rejected by the validators and aborts the
   // command early (each `if (!x) return`). The mock treats a validation failure as the user cancelling (VS Code
   // blocks OK on an invalid value), so no cloner command is sent.
