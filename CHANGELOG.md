@@ -7,6 +7,15 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 ## [Unreleased]
 
 ### Added
+- **Host↔VM-agent closed loop over TCP** (ADR-0039, LBA-REQ-059). The host now drives the reviewer
+  VM's Copilot agent and **awaits its reply over the `lbabus net` TCP bus** — `await-agent-reply.mjs`
+  runs `lbabus net listen` and correlates the VM agent's reply frame by task id (fail-closed on
+  mismatch/timeout); `drive-agent-closed-loop.sh` composes the keyboard-inject with the await. The
+  `net` envelope type set gains the semantic verdict statuses **`RESOLVED`/`REFINE`/`BLOCKED`**, so a
+  signed reviewer verdict announces over TCP as a first-class semantic event — the first concrete step
+  of moving coordination **off GitHub Discussions**. Gated by `closed-loop-readback`. Proven live: three
+  drives from the reviewer VM (`senderId=WIN`) — the loop, a real benchmark review (2604 ms / 5 samples →
+  PASS via the extension tool), and the signed verdict announced as `RESOLVED`.
 - **Handoff Beacon — reviewer verdict bus announcement** (ADR-0038, LBA-REQ-058).
   A signed reviewer verdict is now announced on the `lbabus` coordination bus with
   a **semantic** message type — **pass → RESOLVED**, **changes → REFINE**,

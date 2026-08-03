@@ -86,6 +86,7 @@ progressively.
 | LBA-REQ-056 | The system shall surface an agent's request for a human step as an in-VM VS Code notification whose "Mark step done" / "Skip" actions emit a machine-readable op-done beacon, so a fail-closed gate proves the request/answer payloads are correctly derived and the agent can await a human-in-the-loop step it initiated. | The capture-status beacon (LBA-REQ-055) let the agent AWAIT a human step; the agent's own ASK ("run this VI", "activate LabVIEW") was invisible except via chat, so it re-asked. Making the ask a first-class, in-VM, machine-observable event (a reusable human-step barrier) lets the agent request a manual step and resume when the human answers. | `handoffRequest.mjs` derives `agent-request@1` + `op-done@1` (validated fail-closed) + `selectPendingRequest` (newest unanswered); the extension watches `handoff/requests/` and surfaces the ask as a notification with "Mark step done" (optional note) / "Skip" -- also palette commands -- writing `handoff/done/<id>.json`; `reviewer-workstation/request-step.sh` drops the request + polls the answer ONCE. | Run `node experiments/handoff-beacon/handoffRequest.selftest.mjs` (5/5); gated by `handoff-request`. Live: the agent asked the human in the reviewer VM + resumed on the op-done beacon. |
 | LBA-REQ-057 | The system shall emit a signed reviewer visual verdict (`reviewer-verdict@1` mapping to `acg-human-signoff-v1`) for an extension release candidate, so a fail-closed gate proves the human's PASS/FAIL of the built candidate is Ed25519-signed by an enrolled reviewer and gates the release alongside the plane agreement. | The reviewer VM exists for the human's VISUAL PASS/FAIL of a candidate; that verdict was informal (chat / a hand-edited signoff). Making it a signed, candidate-bound artifact turns the human gate into a governed, verifiable release input, signable IN the VM (enrolled Ed25519 needs no OIDC). | `reviewerVerdict.mjs` (dependency-free, staged) builds + Ed25519-signs the verdict IN the VM; `gateVisualReview` publishes only on a pass + verified enrolled approvals; `release-with-review.mjs` composes it with the ADR-0018 machine gate; `verify-visual-review.mjs` gates a release's visualReview block; CI keyless-cosign counter-signs. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (6/6); gated by `handoff-verdict`. Live: the reviewer signs a pass verdict for ext 0.5.0 in the VM that verifies against the enrolled allowlist. |
 | LBA-REQ-058 | The system shall announce a signed reviewer verdict on the `lbabus` coordination bus with a semantic message type (pass -> RESOLVED, changes -> REFINE, fail -> BLOCKED) carrying the full signed verdict, so a fail-closed gate proves the announcement is correctly derived and remote actors see the human's PASS/FAIL. | The reviewer's signed verdict (LBA-REQ-057) stayed local; the `lbabus` bus is how the planes coordinate, so a remote actor could not see that a human reviewed + PASSED a candidate. Announcing it makes the verdict a coordination event. | `buildVerdictBusPost` derives the semantic `lbabus` post (type/task/ref/priority) from a signed verdict record; the extension posts it from the VM after signing (best-effort) + the release CI posts it after `verify-visual-review`; the full signed verdict JSON is the message body. | Run `node experiments/handoff-beacon/reviewerVerdict.selftest.mjs` (7/7); gated by `handoff-verdict`. Live: the ext 0.5.0 PASS verdict maps to a RESOLVED post on the extension-release-0.5.0 task. |
+| LBA-REQ-059 | The system shall close the host<->VM-agent coordination loop over the `lbabus net` TCP bus -- after driving the reviewer VM's Copilot agent, the host awaits the agent's reply frame correlated by task id (fail-closed on mismatch/timeout) and the signed reviewer verdict announces with a semantic net type (RESOLVED/REFINE/BLOCKED), so a fail-closed gate proves the read-back + the semantic types are correctly derived and coordination rides TCP, not a GitHub Discussion. | `drive-agent-chat.sh` drove the VM's chat fire-and-screenshot with no programmatic read-back, and the verdict announcement (LBA-REQ-058) rode a GitHub Discussion; an operator directive moves coordination onto the private TCP bus (`lbabus net`, LBA-REQ-007) and deprecates Discussions. | `await-agent-reply.mjs` runs `lbabus net listen` + correlates the VM agent's reply by task/type (fail-closed); `drive-agent-closed-loop.sh` composes inject (`drive-agent-chat.sh`) + await; the net type set gains RESOLVED/REFINE/BLOCKED (option A); guest->host proven in `provider-delegation/vm-run-evidence.json`. | Run `node reviewer-workstation/await-agent-reply.selftest.mjs` (7/7); gated by `closed-loop-readback`. Live: 3 drives from the reviewer VM (senderId WIN) -- loop, benchmark review (2604 ms/5 PASS), verdict RESOLVED -- all over TCP. |
 
 ---
 
@@ -1801,6 +1802,36 @@ progressively.
 
 ---
 
+### LBA-REQ-059: Host<->VM-agent closed loop over the lbabus net TCP bus
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0039 -- host<->VM-agent closed loop over TCP, off GitHub Discussions)
+- Statement: The system shall close the host<->VM-agent coordination loop over the `lbabus net` TCP bus --
+  after driving the reviewer VM's Copilot agent, the host awaits the agent's reply frame correlated by task
+  id (fail-closed on mismatch/timeout), and the signed reviewer verdict announces with a semantic net type
+  (RESOLVED/REFINE/BLOCKED) -- so a fail-closed gate proves the read-back + the semantic types are correctly
+  derived and coordination rides TCP, not a GitHub Discussion.
+- Rationale: `drive-agent-chat.sh` drove the VM's chat FIRE-AND-SCREENSHOT (a human read PNGs); there was no
+  programmatic read-back, so the host agent could not close the loop. The verdict announcement (LBA-REQ-058)
+  rode a GitHub Discussion; an operator directive ("TCP, deprecate the use of github discussions") moves
+  coordination onto the private TCP bus that already exists (`lbabus net`, LBA-REQ-007, ADR-0003/0004).
+- Acceptance Criteria:
+  - `await-agent-reply.mjs` runs `lbabus net listen`, parses the rendered frame, and returns the VM agent's
+    reply CORRELATED by `--task` + `--type`; it FAILS CLOSED on a task mismatch or a timeout (never accepts an
+    uncorrelated frame as the answer).
+  - `drive-agent-closed-loop.sh` composes the two halves: it starts the awaiter, then keyboard-injects the
+    prompt PLUS a deterministic report-back line (single-line; a newline would submit early) so the VM agent
+    replies over TCP.
+  - The `net` envelope type set carries RESOLVED/REFINE/BLOCKED (option A), so a signed verdict announces over
+    `net` as a first-class semantic event (pass->RESOLVED), preserving ADR-0038's semantics off the Discussion bus.
+  - Comms-only holds (ADR-0003): the reply/announcement is a one-line status only, never run data.
+- Change Guidance: `await-agent-reply.mjs` (+ `.selftest.mjs`), `drive-agent-closed-loop.sh`, and
+  `closed-loop-readback-proof.sh` live under `reviewer-workstation/`; the net type set is `BusWire.Types` in
+  `tools/collab-cli/Net.cs`. The FULL retirement of the GitHub-Discussion transport is deferred (ADR-0039
+  Consequences). Authored under the singular-requirement directive (one `shall`).
+
+---
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -1863,3 +1894,4 @@ progressively.
 | LBA-REQ-056 | Deployment (handoff beacon -- agent->human request) | T-056 |
 | LBA-REQ-057 | Deployment (handoff beacon -- reviewer visual verdict) | T-057 |
 | LBA-REQ-058 | Deployment (handoff beacon -- reviewer verdict bus announcement) | T-058 |
+| LBA-REQ-059 | Deployment (host<->VM-agent closed loop over TCP) | T-059 |

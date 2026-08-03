@@ -2315,6 +2315,24 @@ check('handoff-verdict', () => {
   return { schema: verdict.schema, verdict: verdict.verdict, signoffSchema: signed.schema, busType: busPost.type, selftest: 'reviewer-verdict 7/7' };
 });
 
+// LBA-REQ-059 / ADR-0039: the host<->VM-agent CLOSED LOOP over lbabus net TCP. A pure parser self-test (no
+// network/VM), the committed live+loopback receipt, and the semantic verdict types on the net envelope (option A):
+// the host awaits the VM agent's correlated reply over TCP and the reviewer verdict announces as a first-class
+// RESOLVED/REFINE/BLOCKED net frame -- coordination rides TCP, not a GitHub Discussion.
+check('closed-loop-readback', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'await-agent-reply.selftest.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'closed-loop-readback-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/closed-loop-readback-receipt@1' && r.requirement === 'LBA-REQ-059', 'committed closed-loop receipt shape');
+  assert(r.loopbackProof.ok === true && r.loopbackProof.matchingTaskClosesLoop === true && r.loopbackProof.wrongTaskFailsClosed === true && r.loopbackProof.semanticVerdictTypeOverNet === true, 'loopback proof: loop closes, wrong task fails closed, semantic verdict type rides net');
+  assert(Array.isArray(r.liveDrives) && r.liveDrives.length === 3 && r.liveDrives.every((d) => d.frame.senderId === 'WIN'), 'three live drives from the reviewer VM (senderId WIN)');
+  assert(r.liveDrives.map((d) => d.frame.type).join(',') === 'DONE,DONE,NOTE', 'live drives: closed loop, release-review, verdict announcement');
+  // option A (ADR-0039): the net envelope type set carries the semantic verdict statuses so a verdict rides net directly.
+  const netSrc = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Net.cs'), 'utf8');
+  const typesLine = netSrc.split('\n').find((l) => l.includes('"CLAIM"') && l.includes('"HELLO"')) || '';
+  for (const t of ['RESOLVED', 'REFINE', 'BLOCKED']) { assert(typesLine.includes(`"${t}"`), `net Types set includes ${t}`); }
+  return { selftest: 'await-agent-reply 7/7', loopback: r.loopbackProof.ok, liveDrives: r.liveDrives.length, netVerdictTypes: 'RESOLVED/REFINE/BLOCKED' };
+});
+
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document
 // embeds the click-to-marker runtime + the authoritative classifyPointerGesture / resolveMarkerImageGrab spec the
 // runtime mirrors), plus a REPLAY of the committed REAL-pointer Playwright receipt: a real Chromium CLICK drops

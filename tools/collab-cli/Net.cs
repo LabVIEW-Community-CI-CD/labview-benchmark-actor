@@ -42,8 +42,13 @@ internal static class BusWire
     public const string Schema = "labview-benchmark-actor/bus-msg@1";
     public const int MaxFrameBytes = 1024 * 1024;
 
+    // Envelope types. The base coordination set (CLAIM/ACK/HANDOFF/DONE/PROGRESS/NOTE/HELLO) plus the
+    // semantic reviewer-verdict statuses (RESOLVED/REFINE/BLOCKED, mirroring the Discussion-layer
+    // CollabMessage.Types) so a signed verdict announces over `net` with a first-class semantic type
+    // (ADR-0039, LBA-REQ-059) -- moving verdict coordination off the GitHub-Discussion bus onto TCP.
     public static readonly HashSet<string> Types =
-        new(StringComparer.OrdinalIgnoreCase) { "CLAIM", "ACK", "HANDOFF", "DONE", "PROGRESS", "NOTE", "HELLO" };
+        new(StringComparer.OrdinalIgnoreCase)
+        { "CLAIM", "ACK", "HANDOFF", "DONE", "PROGRESS", "NOTE", "HELLO", "RESOLVED", "REFINE", "BLOCKED" };
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
