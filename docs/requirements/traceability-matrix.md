@@ -67,5 +67,6 @@
 | LBA-REQ-058 | Handoff Beacon -- reviewer verdict bus announcement | Proven | §3.2 Deployment | ADR-0038 | T-058 | 6 |
 | LBA-REQ-059 | Host<->VM-agent closed loop over the lbabus net TCP bus | Proven | §3.2 Deployment | ADR-0039 | T-059 | 8 |
 | LBA-REQ-060 | Live-only net coordination -- the receive-log + net poll read side | Proven | §3.2 Deployment | ADR-0040 | T-060 | 4 |
+| LBA-REQ-061 | Bus transport selection in the extension -- Discussion default, net opt-in | Proven | §3.2 Deployment | ADR-0041 | T-061 | 4 |
 
-_Generated for 60 requirements._
+_Generated for 61 requirements._
