@@ -97,6 +97,7 @@ progressively.
 | LBA-REQ-067 | The system shall NOT expose a GitHub-Discussion coordination transport from the `lbabus` CLI -- the `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion client are removed (GitHubGraphQL keeps only the REST release-tag + issue-comment calls for `selfcheck`/`defect`), leaving the live-only `lbabus net` TCP bus as the sole coordination transport -- so a fail-closed gate proves the CLI carries no Discussion transport. | Step 7 (ADR-0046) made the product net-only, leaving the CLI's Discussion commands dead. Removing them + the GraphQL client completes the off-Discussions teardown; GitHubGraphQL was shared with selfcheck (release tags) + defect (issue comment), which stay on REST. | Program.cs drops init/post/poll/wait/delta + EnforceVersionOrNull + ParseAll/SeedBody/Eq/Dur; GitHubGraphQL is REST-only; Config drops Category/Title/AgentId/Counterpart/AddressesMe; the 12 discussion/version-guard ci cases are retired. | dotnet build + a CLI smoke test (removed cmds exit 1; net intact); gated by `cli-no-discussion-transport`. |
 | LBA-REQ-068 | The system shall record, as a committed fail-closed receipt, that the host drove the reviewer VM's Copilot agent to run the RELEASED net-only `lbabus` (collab-cli 0.15.0, pulled from the immutable `collab-cli-v0.15.0` release) and the VM reported task-correlated results back over the `lbabus net` TCP bus -- the sole coordination path, since the released CLI rejects the retired `init`/`post`/`poll`/`wait`/`delta` Discussion commands -- so a fail-closed gate proves the end-to-end net-only drive loop is reproducible off any GitHub-Discussion dependency. | LBA-REQ-059 proved the read-back CORRELATION while the CLI still shipped the Discussion transport; the off-Discussions migration then completed (LBA-REQ-060..067) and collab-cli 0.15.0 shipped net-only, and the host drove the VM to install + validate that released binary over net -- proven live but ungoverned (receipts in /tmp). | A pure rg-free verifier (`net-only-live-drive.mjs`: schema + digest + build + validate) seals the real drives (senderId WIN) + the released-CLI net-only proof (collab-cli-v0.15.0 rejects init/post/poll/wait/delta, observed on the VM) into a committed receipt; the digest + verdict re-derive deterministically at gate time. | `node reviewer-workstation/net-only-live-drive.selftest.mjs` (7/7) + the committed receipt (digest re-derivation via the verifier main); gated by `net-only-live-drive`. |
 | LBA-REQ-069 | The system shall record, as a committed fail-closed receipt, that ONE release-with-review loop is bound to a single candidate over the net-only bus -- the reviewer VM staged the candidate over `lbabus net`, a human Ed25519-signed a visual PASS/FAIL of THAT candidate (component/version/commit/vsixSha256), and the signed verdict announced over `net` with its semantic type -- so a fail-closed gate proves the staged, signed, and announced candidate are the SAME (no stage-one / sign-another / announce-a-third). | LBA-REQ-068 (stage over net), LBA-REQ-057 (signed visual verdict), and LBA-REQ-058 (bus announce) were each proven in isolation; nothing bound them to one candidate in one loop, so the staging, the signed verdict, and the announce could drift apart. `gateReleaseWithReview` composes visual review with the MACHINE gate, not with a net-staged candidate. | A pure rg-free verifier (`release-with-review-drive.mjs`) REUSES verifyReviewerVerdict/gateVisualReview/buildVerdictBusPost + adds the binding (staged WIN drive <-> verdict target <-> derived announce), sealing one real round (ext 0.5.0 staged over net, signed PASS, announced RESOLVED) into a committed receipt; the digest + verdict re-derive deterministically. | `node reviewer-workstation/release-with-review-drive.selftest.mjs` (7/7) + the committed receipt (binding + digest via the verifier main); gated by `release-with-review-drive`. |
+| LBA-REQ-070 | The system shall record, as a committed fail-closed receipt, that a release candidate publishes ONLY when BOTH the machine corroboration gate (a quorum verdict + an enrolled sign-off over it, ADR-0018) AND the human visual gate (an enrolled signed PASS of the built candidate, LBA-REQ-057) pass, AND both name the SAME net-staged candidate (LBA-REQ-068/069) -- so a fail-closed gate proves the machine quorum, the human visual verdict, and the net stage all name one candidate (no machine-PASS-A + human-PASS-B). | `gateReleaseWithReview` already ANDs the machine + visual gates, but ANDs two INDEPENDENT decisions -- nothing checks that the machine quorum consensus, the visual verdict target, and the net-staged candidate are the SAME candidate, so a machine PASS of A could be published with a human PASS of B. | A pure rg-free verifier (`composite-release-decision.mjs`) REUSES gateReleaseWithReview + adds the cross-gate binding (quorum consensus.version/sourceCommit == candidate == visual target, staged over net by a WIN drive); seals one real round (ext 0.5.0: passing quorum + enrolled sign-off + signed visual PASS + net stage) into a committed receipt; digest + verdict re-derive deterministically. | `node reviewer-workstation/composite-release-decision.selftest.mjs` (7/7) + the committed receipt (both gates + binding + digest via the verifier main); gated by `composite-release-decision`. |
 
 ---
 
@@ -2120,6 +2121,37 @@ progressively.
   candidate identity + a fresh signed verdict + a fresh staging drive. Authored under the singular-requirement
   directive (one `shall`).
 
+### LBA-REQ-070: Composite release decision (bind the machine corroboration gate to the human visual gate over one net-staged candidate)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0051 -- composite release decision, off GitHub Discussions -- productized)
+- Statement: The system shall record, as a committed fail-closed receipt, that a release candidate publishes
+  ONLY when BOTH the machine corroboration gate (a quorum verdict + an enrolled sign-off over it, ADR-0018) AND
+  the human visual gate (an enrolled signed PASS of the built candidate, LBA-REQ-057) pass, AND both name the
+  SAME net-staged candidate (LBA-REQ-068/069) -- so a fail-closed gate proves the machine quorum, the human
+  visual verdict, and the net stage all name one candidate (no machine-PASS-A + human-PASS-B).
+- Rationale: `gateReleaseWithReview` already ANDs the machine gate (`gateReleasePublish`, ADR-0018) + the visual
+  gate (`gateVisualReview`, ADR-0037), but ANDs two INDEPENDENT decisions -- nothing checks that the machine
+  quorum consensus (version + sourceCommit), the visual verdict target (component/version/commit/vsixSha256), and
+  the net-staged candidate are the SAME candidate, so -- in principle -- a machine PASS of candidate A could be
+  published with a human PASS of candidate B.
+- Acceptance Criteria:
+  - A committed receipt (`reviewer-workstation/composite-release-decision-receipt.json`, schema
+    `composite-release-decision-receipt@1`) records a passing machine gate (`gateReleasePublish`: quorum PASS +
+    an enrolled sign-off over the quorum digest) AND a passing visual gate (`gateVisualReview`: an enrolled signed
+    PASS), for ONE candidate.
+  - The verifier (`composite-release-decision.mjs`) REUSES `gateReleaseWithReview` and FAILS CLOSED unless BOTH
+    gates publish AND the machine quorum consensus (version + sourceCommit), the visual verdict target, and a
+    matched `WIN` net staging drive all name the SAME candidate; it re-derives the decision + binding + digest
+    DETERMINISTICALLY (no VM / network / live human). Selftest 7/7.
+  - Comms-only holds (ADR-0003): the staging frame is a one-line status frame, never run data.
+- Change Guidance: the verifier + selftest + receipt live under `reviewer-workstation/`
+  (`composite-release-decision.mjs` / `.selftest.mjs` / `composite-release-decision-receipt.json`); gate
+  `composite-release-decision` in `verify-local-gates`. The machine gate (`experiments/acg-reviewer/sign-off.mjs`),
+  the visual gate + composer (`experiments/handoff-beacon/reviewerVerdict.mjs` + `release-with-review.mjs`), and
+  the candidate-binding helpers (`reviewer-workstation/release-with-review-drive.mjs`) are all REUSED unchanged.
+  Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2195,3 +2227,4 @@ progressively.
 | LBA-REQ-067 | Deployment (remove CLI Discussion transport) | T-067 |
 | LBA-REQ-068 | Deployment (net-only live VM-agent drive) | T-068 |
 | LBA-REQ-069 | Deployment (release-with-review drive) | T-069 |
+| LBA-REQ-070 | Deployment (composite release decision) | T-070 |

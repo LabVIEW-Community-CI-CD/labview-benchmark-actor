@@ -1,0 +1,139 @@
+{
+  "schema": "labview-benchmark-actor/composite-release-decision-receipt@1",
+  "requirement": "LBA-REQ-070",
+  "adr": "ADR-0051",
+  "transport": "lbabus net -- bus-msg@1, ADR-0003/0004 (TCP 7420; guest->host via VirtualBox NAT 10.0.2.2). NET-ONLY: staging rides net, not a GitHub Discussion (ADR-0047).",
+  "capability": "a release candidate publishes ONLY when BOTH gates pass and both name the SAME net-staged candidate: the MACHINE corroboration gate (quorum + an enrolled human sign-off over the quorum, ADR-0018/gateReleasePublish) AND the HUMAN visual gate (an enrolled signed PASS of the built candidate, LBA-REQ-057/gateVisualReview), bound to the candidate the reviewer VM staged over lbabus net (LBA-REQ-068/069). Reuses gateReleaseWithReview.",
+  "candidate": {
+    "component": "extension",
+    "version": "0.5.0",
+    "commit": "a646c989adfd3038abc72c42cf59f165e9167ebe",
+    "vsixSha256": "f3996947a53a2f9b1b4872d110845de79c37e21b67280949723320ac94395eb3"
+  },
+  "staged": {
+    "drive": "release-with-review staging (the VM staged + benchmarked the ext 0.5.0 candidate over net)",
+    "vm": "actor",
+    "matched": true,
+    "candidate": {
+      "component": "extension",
+      "version": "0.5.0"
+    },
+    "frame": {
+      "type": "DONE",
+      "task": "rev-1785753563",
+      "senderId": "WIN",
+      "payload": "ext 0.5.0 launch-to-ready 2604 ms over 5 samples; review OK"
+    }
+  },
+  "machine": {
+    "quorumVerdict": {
+      "schema": "labview-benchmark-actor/acg-quorum-verdict-v1",
+      "verdict": "pass",
+      "confidence": 0.9166666666666666,
+      "threshold": 0.5,
+      "witnesses": 2,
+      "concurring": 2,
+      "majority": true,
+      "distinctEnvironments": true,
+      "consensusVerdict": "pass",
+      "consensus": {
+        "version": "0.5.0",
+        "sourceCommit": "a646c989adfd3038abc72c42cf59f165e9167ebe",
+        "verdict": "pass",
+        "seriesHash": "d13313aaf04ef6f9a70d7f6a7c9aad6733eb81a9601a4e4bf9198297722b27fb",
+        "pngSha256": "a3cbabacd4563214cf700b560424b7ce7a15a6a7f2341021d6d4c4bb80d81c9e",
+        "ubuntu": "noble"
+      },
+      "divergences": []
+    },
+    "signOffs": [
+      {
+        "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+        "subject": {
+          "verdictDigest": "6023f2159020ea98c893a9934f93b0896aa69943c39cc83a7eb583c4b6d24dad",
+          "consensusVerdict": "pass"
+        },
+        "reviewer": "reviewer@vi-tech.nl",
+        "decision": "approve",
+        "station": "WINDOWS_VM",
+        "algorithm": "ed25519",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA2SNIlvxOjQ95StDheJ23HgSqe0SM8DPeOwUE3utn/BY=\n-----END PUBLIC KEY-----\n",
+        "signedAt": "2026-08-03T16:39:29.120Z",
+        "signature": "pwKzRgcVt+dL1VwbbOo7cgImL+PiLMCTlftHYILhtEwer1Y3gVi7iNSzW5WB2+LtdON91ffj6xn1NiDsvrwvCg=="
+      }
+    ]
+  },
+  "visual": {
+    "verdict": {
+      "schema": "labview-benchmark-actor/reviewer-verdict@1",
+      "target": {
+        "component": "extension",
+        "version": "0.5.0",
+        "commit": "a646c989adfd3038abc72c42cf59f165e9167ebe",
+        "vsixSha256": "f3996947a53a2f9b1b4872d110845de79c37e21b67280949723320ac94395eb3"
+      },
+      "verdict": "pass",
+      "reviewer": "reviewer@vi-tech.nl",
+      "station": "WINDOWS_VM",
+      "notes": "Visual PASS of the ext 0.5.0 candidate on the reviewer VM.",
+      "evidence": [
+        {
+          "kind": "capture",
+          "ref": "rev-1785753563"
+        },
+        {
+          "kind": "benchmark",
+          "ref": "launch-to-ready 2604.2 ms/5 -> PASS"
+        }
+      ],
+      "renderedAt": "2026-08-03T00:00:00Z"
+    },
+    "signOff": {
+      "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+      "subject": {
+        "verdictDigest": "1b7ec362643e92abebe8fc0223e4e6cee7bcbb979df3221a26a3a7c703dc574e",
+        "consensusVerdict": "pass",
+        "target": {
+          "component": "extension",
+          "version": "0.5.0",
+          "commit": "a646c989adfd3038abc72c42cf59f165e9167ebe",
+          "vsixSha256": "f3996947a53a2f9b1b4872d110845de79c37e21b67280949723320ac94395eb3"
+        }
+      },
+      "reviewer": "reviewer@vi-tech.nl",
+      "decision": "approve",
+      "station": "WINDOWS_VM",
+      "algorithm": "ed25519",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA2SNIlvxOjQ95StDheJ23HgSqe0SM8DPeOwUE3utn/BY=\n-----END PUBLIC KEY-----\n",
+      "signedAt": "2026-08-03T16:39:29.121Z",
+      "signature": "TrecrsMVyJ5yfhkMohuOPjYyIxvnJcasXbgtrChoFlBeD3Tg7Vw80sGBl6t2f9WDiE0x8QM6UAsoCscImxAAAw=="
+    }
+  },
+  "reviewerAllowlist": {
+    "reviewer@vi-tech.nl": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA2SNIlvxOjQ95StDheJ23HgSqe0SM8DPeOwUE3utn/BY=\n-----END PUBLIC KEY-----\n"
+  },
+  "gate": {
+    "minReviewers": 1,
+    "minVisualReviewers": 1
+  },
+  "capturedAt": "2026-08-03",
+  "note": "The CAPSTONE release decision for the ext 0.5.0 candidate: the machine corroboration quorum PASSED (2 witnesses concurring, consensus version 0.5.0 + the candidate sourceCommit) with an enrolled human sign-off over the quorum digest, AND the human visual verdict PASSED (an enrolled signed PASS of the candidate), AND both name the SAME candidate the reviewer VM staged over lbabus net (task rev-1785753563, senderId WIN). One reviewer (reviewer@vi-tech.nl) signs both gates with one enrolled Ed25519 key; the private key is ephemeral (never committed) and the public key + signatures are sealed here so the composite gate re-verifies deterministically (no VM / network / live human). Reuses gateReleaseWithReview (gateReleasePublish + gateVisualReview).",
+  "binding": {
+    "machinePublish": true,
+    "visualPublish": true,
+    "stagedOverNet": true,
+    "visualTargetBound": true,
+    "machineConsensusBound": true
+  },
+  "decision": {
+    "schema": "labview-benchmark-actor/acg-release-with-review-decision-v1",
+    "publish": true,
+    "machinePublish": true,
+    "visualPublish": true
+  },
+  "verdict": {
+    "compositeReleaseProven": true,
+    "reason": "both gates publish for extension 0.5.0: machine quorum + enrolled sign-off (ADR-0018) AND human visual PASS (LBA-REQ-057), bound to the same net-staged candidate"
+  },
+  "digest": "4dfea3a2d4b02ed72c9e4ad8d03231f33f5fb4fde53da319392760dded404a7c"
+}
