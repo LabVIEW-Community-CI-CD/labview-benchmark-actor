@@ -1,0 +1,19 @@
+{
+  "schema": "labview-benchmark-actor/mesh-run-attested@1",
+  "requirement": "LBA-REQ-080",
+  "adr": "ADR-0061",
+  "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+  "gates": {
+    "fulfillment": true,
+    "parity": true,
+    "verifiedTier": true,
+    "transparencyInclusion": true,
+    "appendOnly": true
+  },
+  "identityConsistent": true,
+  "verdict": {
+    "attested": true,
+    "reason": "mesh run 6af6c9848c8b is FULLY ATTESTED: fulfilled (073) + cross-plane parity (072) + enrolled-signed (077) + transparency-included (078) + append-only (079), all naming the same identity"
+  },
+  "digest": "c5ad9c644c632ec6b099511664839357e00879ac587bdfe09b775c2a2ccb1998"
+}

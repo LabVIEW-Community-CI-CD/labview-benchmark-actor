@@ -76,3 +76,10 @@ jobs:
         # Volunteer actors return plane-tagged receipts; the run is fulfilled ONLY when >= N distinct cross-plane
         # actors returned a valid receipt for the SAME benchmark identity (LBA-REQ-073). No central results DB.
         run: node experiments/mesh-fulfillment/meshFulfillment.mjs
+
+      - name: Decide whether the mesh run is FULLY ATTESTED (composite capstone, fail-closed)
+        # The one verdict a release consumer checks (LBA-REQ-080): the run is ATTESTED only when fulfillment (073)
+        # AND cross-plane parity (072) AND the verified tier (077) AND the transparency inclusion (078) AND the
+        # append-only proof (079) all hold and name the SAME run identity. Composes every sub-proof into one
+        # fail-closed decision -- the integration capstone of the mesh subsystem.
+        run: node experiments/mesh-fulfillment/meshAttested.mjs

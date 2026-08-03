@@ -86,5 +86,6 @@
 | LBA-REQ-077 | The opt-in verified tier (enrolled-actor receipt attestations) | Proven | §3.2 Deployment | ADR-0058 | T-077 | 7 |
 | LBA-REQ-078 | Transparency-log the mesh-actor attestations (public auditability) | Proven | §3.2 Deployment | ADR-0059 | T-078 | 7 |
 | LBA-REQ-079 | The append-only consistency proof (the mesh transparency log only grows) | Proven | §3.2 Deployment | ADR-0060 | T-079 | 7 |
+| LBA-REQ-080 | The composite mesh-run-attested decision (one verdict to trust a run) | Proven | §3.2 Deployment | ADR-0061 | T-080 | 4 |
 
-_Generated for 79 requirements._
+_Generated for 80 requirements._
