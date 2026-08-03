@@ -35,7 +35,7 @@ wait "$lp" 2>/dev/null
 poll_all="$(run_lbabus net poll --log "$log" --tail 10 2>/dev/null)"
 poll_note="$(run_lbabus net poll --log "$log" --type NOTE 2>/dev/null)"
 poll_resolved="$(run_lbabus net poll --log "$log" --type RESOLVED 2>/dev/null)"
-# 4) fail-closed: `net poll` with no --log and no env exits non-zero.
+# 4) graceful no-op: `net poll` with no --log and no env exits 0 (live-only default, ADR-0045).
 ( unset VIHS_COLLAB_NET_LOG; run_lbabus net poll > /dev/null 2>&1 ); noarg_rc=$?
 
 logged=$(grep -c . "$log" 2>/dev/null || echo 0)
@@ -43,10 +43,10 @@ all_count=$(printf '%s\n' "$poll_all" | grep -c 'task:' || true)
 roundtrip_ok=false; [[ "$logged" == 2 && "$all_count" == 2 ]] && roundtrip_ok=true
 note_ok=false; { echo "$poll_note" | grep -q 'NOTE task:coord' && ! echo "$poll_note" | grep -q 'RESOLVED'; } && note_ok=true
 resolved_ok=false; echo "$poll_resolved" | grep -q 'RESOLVED task:ext-release-0.5.0' && resolved_ok=true
-failclosed_ok=false; [[ "$noarg_rc" != 0 ]] && failclosed_ok=true
+graceful_ok=false; [[ "$noarg_rc" == 0 ]] && graceful_ok=true
 
 result_ok=false
-[[ "$roundtrip_ok" == true && "$note_ok" == true && "$resolved_ok" == true && "$failclosed_ok" == true ]] && result_ok=true
+[[ "$roundtrip_ok" == true && "$note_ok" == true && "$resolved_ok" == true && "$graceful_ok" == true ]] && result_ok=true
 
 cat > "$out/net-coordination-log-receipt.json" <<JSON
 {
@@ -59,7 +59,7 @@ cat > "$out/net-coordination-log-receipt.json" <<JSON
     "postToLogToPollRoundTrip": ${roundtrip_ok},
     "typeFilterNote": ${note_ok},
     "typeFilterResolved": ${resolved_ok},
-    "pollWithoutLogFailsClosed": ${failclosed_ok}
+    "pollWithoutLogGraceful": ${graceful_ok}
   },
   "framesLogged": ${logged},
   "ok": ${result_ok},
@@ -70,7 +70,7 @@ JSON
 echo "RESULT roundtrip_ok=$roundtrip_ok"
 echo "RESULT type_filter_note=$note_ok"
 echo "RESULT type_filter_resolved=$resolved_ok"
-echo "RESULT poll_without_log_fails_closed=$failclosed_ok"
+echo "RESULT poll_without_log_graceful=$graceful_ok"
 echo "RESULT ok=$result_ok"
 echo "--- net poll (all) ---"; printf '%s\n' "$poll_all"
 echo "--- receipt ---"; cat "$out/net-coordination-log-receipt.json"

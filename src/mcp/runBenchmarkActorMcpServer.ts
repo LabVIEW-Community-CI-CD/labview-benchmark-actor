@@ -88,7 +88,7 @@ export async function getBenchmarkSeries(root: string = repoRoot): Promise<McpTo
  *  + VIHS_COLLAB_NET_LOG. Discussion stays the default. */
 function busTransport(): { transport: string; netHosts: string; netLog: string } {
   return {
-    transport: process.env.VIHS_COLLAB_TRANSPORT === 'net' ? 'net' : 'discussion',
+    transport: process.env.VIHS_COLLAB_TRANSPORT === 'discussion' ? 'discussion' : 'net',
     netHosts: (process.env.VIHS_COLLAB_NET_HOSTS ?? '').trim(),
     netLog: (process.env.VIHS_COLLAB_NET_LOG ?? '').trim()
   };
@@ -106,7 +106,7 @@ export function pollBusArgs(tail: number): string[] {
 export function postNoteArgs(message: string): string[] {
   const { transport, netHosts } = busTransport();
   return transport === 'net'
-    ? ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : []), '--type', 'NOTE', '--message', message]
+    ? ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : ['--skip-if-no-peer']), '--type', 'NOTE', '--message', message]
     : ['post', '--type', 'NOTE', '--message', message];
 }
 

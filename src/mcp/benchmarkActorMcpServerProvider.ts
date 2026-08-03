@@ -94,7 +94,7 @@ export function registerBenchmarkActorMcpServerProvider(
     provideMcpServerDefinitions: () => {
       const c = vscode.workspace.getConfiguration('labviewBenchmarkActor');
       const env = busEnvFromConfig({
-        transport: c.get<string>('busTransport', 'discussion'),
+        transport: c.get<string>('busTransport', 'net'),
         netHosts: (c.get<string>('busNetHosts', '') || '').trim(),
         netLog: (c.get<string>('busNetLog', '') || '').trim()
       });

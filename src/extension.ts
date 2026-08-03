@@ -570,7 +570,7 @@ export function busPostArgs(post: { type: string; task: string; ref: string | nu
  *  priority/ref fields (those live inside the verdict JSON); host(s) are the configured peer(s). */
 export function busSendArgs(post: { type: string; task: string }, verdictFile: string, netHosts: string): string[] {
   const args = ['net', 'send'];
-  if (netHosts) args.push('--hosts', netHosts);
+  if (netHosts) { args.push('--hosts', netHosts); } else { args.push('--skip-if-no-peer'); }
   args.push('--type', post.type, '--task', post.task, '--message-file', verdictFile);
   return args;
 }
@@ -581,7 +581,7 @@ export function busSendArgs(post: { type: string; task: string }, verdictFile: s
 function busConfig(): { transport: string; netHosts: string; netLog: string } {
   const c = vscode.workspace.getConfiguration('labviewBenchmarkActor');
   return {
-    transport: c.get<string>('busTransport', 'discussion'),
+    transport: c.get<string>('busTransport', 'net'),
     netHosts: (c.get<string>('busNetHosts', '') || '').trim(),
     netLog: (c.get<string>('busNetLog', '') || '').trim(),
   };
@@ -1508,7 +1508,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const { transport, netHosts } = busConfig();
       const args = transport === 'net'
-        ? ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : []), '--type', 'NOTE', '--message', message]
+        ? ['net', 'send', ...(netHosts ? ['--hosts', netHosts] : ['--skip-if-no-peer']), '--type', 'NOTE', '--message', message]
         : ['post', '--type', 'NOTE', '--message', message];
       await runCli(output, args, 20000);
     })

@@ -2339,7 +2339,7 @@ check('closed-loop-readback', () => {
 check('net-coordination-log', () => {
   const r = JSON.parse(readFileSync(join(here, 'net-coordination', 'net-coordination-log-receipt.json'), 'utf8'));
   assert(r.schema === 'labview-benchmark-actor/net-coordination-log-proof@1' && r.requirement === 'LBA-REQ-060', 'committed net-coordination receipt shape');
-  assert(r.cases.postToLogToPollRoundTrip === true && r.cases.typeFilterNote === true && r.cases.typeFilterResolved === true && r.cases.pollWithoutLogFailsClosed === true && r.ok === true, 'post->log->poll round-trip + type filter + poll-without-log fails closed');
+  assert(r.cases.postToLogToPollRoundTrip === true && r.cases.typeFilterNote === true && r.cases.typeFilterResolved === true && r.cases.pollWithoutLogGraceful === true && r.ok === true, 'post->log->poll round-trip + type filter + poll-without-log graceful no-op');
   const netSrc = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Net.cs'), 'utf8');
   assert(/"poll"\s*=>\s*CmdPoll/.test(netSrc), 'net dispatch routes poll -> CmdPoll');
   assert(netSrc.includes('private static int CmdPoll(') && netSrc.includes('a.Get("log")'), 'CmdPoll reads the local --log receive-log');
@@ -2359,8 +2359,8 @@ check('bus-transport-select', () => {
   for (const k of ['labviewBenchmarkActor.busTransport', 'labviewBenchmarkActor.busNetHosts', 'labviewBenchmarkActor.busNetLog']) {
     assert(props[k], `package.json contributes ${k}`);
   }
-  assert(props['labviewBenchmarkActor.busTransport'].default === 'discussion', 'default transport stays discussion (opt-in net during transition)');
-  return { config: 3, default: 'discussion', netOptIn: true };
+  assert(props['labviewBenchmarkActor.busTransport'].default === 'net', 'default transport is net (LBA-REQ-065/ADR-0045); discussion is legacy opt-out');
+  return { config: 3, default: 'net', netDefault: true };
 });
 
 // LBA-REQ-062 / ADR-0042: off-Discussions step 3 -- the MCP coordination tools select the transport via env
@@ -2406,6 +2406,21 @@ check('release-no-discussion-announce', () => {
   assert(wf.includes('LBA-REQ-064') && wf.includes('COMMITTED signed verdict'), 'the workflow documents the committed verdict as the durable record (ADR-0044)');
   assert(wf.includes('Stage the signed reviewer verdict for keyless counter-sign'), 'the keyless counter-sign of the committed verdict is retained');
   return { announce: 'removed', durableRecord: 'committed verdict + keyless counter-sign' };
+});
+
+// LBA-REQ-065 / ADR-0045: the coordination default is flipped to `net`, with a graceful no-op when unconfigured
+// -- `net poll` with no receive-log + `net send --skip-if-no-peer` both exit 0 with a hint (no error, no dead
+// loopback). Source-asserts the CLI graceful branches + the net default (the runtime net poll graceful is also
+// covered by the net-coordination-log receipt; npm test covers the extension/MCP default flip).
+check('net-default-graceful', () => {
+  const net = readFileSync(join(here, '..', 'tools', 'collab-cli', 'Net.cs'), 'utf8');
+  assert(net.includes('skip-if-no-peer') && /no peer configured/.test(net), 'net send --skip-if-no-peer degrades gracefully (exit 0)');
+  assert(/no receive-log configured/.test(net) && net.includes('ADR-0045'), 'net poll with no receive-log degrades gracefully (exit 0)');
+  const pkg = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8'));
+  assert(pkg.contributes.configuration.properties['labviewBenchmarkActor.busTransport'].default === 'net', 'busTransport defaults to net');
+  const ext = readFileSync(join(here, '..', 'src', 'extension.ts'), 'utf8');
+  assert(ext.includes("'busTransport', 'net'") && ext.includes('--skip-if-no-peer'), 'the extension defaults to net + routes the send side via --skip-if-no-peer when no peer is configured');
+  return { default: 'net', gracefulPoll: true, gracefulSend: true };
 });
 
 // LBA-REQ-011 (extended): the frame-correlator CLICK-TO-MARKER wiring. Browser-free self-test (the built document

@@ -36,12 +36,12 @@ const post = buildVerdictBusPost(record);
 // Transport selection (LBA-REQ-063, ADR-0043): Discussion (default) or the live-only lbabus net TCP bus, opt-in
 // via VIHS_COLLAB_TRANSPORT=net (+ VIHS_COLLAB_NET_HOSTS peer(s)). Under net the verdict rides `net send` with the
 // SAME semantic type (RESOLVED/REFINE/BLOCKED); the net envelope has no priority/ref (those live in the verdict JSON).
-const transport = process.env.VIHS_COLLAB_TRANSPORT === 'net' ? 'net' : 'discussion';
+const transport = process.env.VIHS_COLLAB_TRANSPORT === 'discussion' ? 'discussion' : 'net';
 const netHosts = (process.env.VIHS_COLLAB_NET_HOSTS || '').trim();
 let args;
 if (transport === 'net') {
   args = ['net', 'send'];
-  if (netHosts) args.push('--hosts', netHosts);
+  if (netHosts) { args.push('--hosts', netHosts); } else { args.push('--skip-if-no-peer'); }
   args.push('--type', post.type, '--task', post.task, '--message-file', verdictPath);
 } else {
   args = ['post', '--type', post.type, '--task', post.task, '--priority', post.priority, '--message-file', verdictPath];
