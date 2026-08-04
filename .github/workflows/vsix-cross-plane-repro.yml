@@ -12,6 +12,8 @@ on:
       - 'src/**'
       - 'media/**'
       - 'scripts/normalize-vsix.mjs'
+      - 'scripts/stage-media.mjs'
+      - 'scripts/stage-acg-mcp.mjs'
       - 'package.json'
       - 'package-lock.json'
       - 'tsconfig.json'
