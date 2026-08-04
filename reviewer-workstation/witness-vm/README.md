@@ -1,69 +1,66 @@
-# ACG Ubuntu witness (Vagrant)
+# ACG Ubuntu benchmark witness + Linux reviewer workstation (Vagrant)
 
-A reproducible, provider-portable **machine-corroboration witness** for the Actor Corroboration Grid
-(ADR-0015 / LBA-REQ-024). One `Vagrantfile` spawns an identical Ubuntu witness on **either** hypervisor:
+A reproducible, provider-portable **GUI Ubuntu desktop** that doubles as (1) a **Linux reviewer workstation**
+with the LabVIEW Benchmark Actor extension installed, and (2) a **benchmark witness** that runs the C# `tpd`
+**throughput-to-disk ladder** (no LabVIEW) and records a per-rung MBps distribution. One `Vagrantfile` spawns it
+on **either** hypervisor:
 
 | host | provider | default plane |
 |---|---|---|
 | Linux (this repo's dev box) | `virtualbox` | `VAGRANT-VBOX` |
 | Windows / macOS (VMware) | `vmware_desktop` | `VAGRANT-VMWARE` |
 
-Both spawns run the **same** deterministic pipeline the native LINUX witness runs, so they reproduce
-byte-identical anchors (`seriesHash`, `pngSha256`) and form a clean 2-witness quorum (confidence 1.0). The
-witness needs **no LabVIEW** — the corroboration anchors are the deterministic SwiftShader viewer render plus
-`lba verify`, both pure software.
+## The model: best-effort reproducibility, measured variation
 
-## Why Vagrant
+Real disk benchmarks **vary** run-to-run and box-to-box, so a witness records the per-rung **distribution**
+(mean / stddev / coefficient-of-variation) rather than a single number — the timestamp differentiates each run.
+The cross-witness corroboration (`experiments/acg-quorum/compare-ladders.mjs`) verdicts **corroborated** when the
+witnesses span distinct environments (ADR-0017) **and** every shared rung agrees within a tolerance band
+(default 20% CoV), always reporting the measured spread. This replaces the deterministic screenshot-hash quorum
+with a real-benchmark, best-effort model. **No LabVIEW** — the disk ladder exercises the extension's Linux path
+with pure software.
 
-The 2nd witness used to be a hand-built guest. Capturing it as a `Vagrantfile` makes it **turnkey + auditable**:
-anyone can `vagrant up` and reproduce the exact witness environment, and the two hosts spawn *identical* boxes
-so the only difference is the hypervisor/plane — exactly the distinct-environment property the quorum wants
-(ADR-0017), with none of the manual drift.
+## What a spawn does
+
+1. Clones the candidate from an auth-free host-side git bundle (the repo is private).
+2. Builds + packages the extension **VSIX**, installs **.NET 8** + builds the `tpd` tool.
+3. Runs the **throughput-to-disk ladder** (a discarded warm-up + N samples per rung) → `out/throughput-ladder-<PLANE>.json`.
+4. Installs a **GUI Ubuntu desktop** (GDM auto-login as `vagrant`) + **VS Code** + the **VSIX**, so the box is a
+   usable Linux reviewer workstation. Run **"LabVIEW Benchmark Actor: Run Throughput-to-Disk Ladder"** from the
+   command palette to drive the ladder interactively.
 
 ## Prerequisites
 
-- [Vagrant](https://developer.hashicorp.com/vagrant) 2.3+.
-- A provider: **VirtualBox** (Linux host) or **VMware + the `vagrant-vmware-desktop` plugin** (Windows/macOS).
-- The host has this repo checked out (the guest gets the code via an auth-free git bundle — the repo is private).
+- [Vagrant](https://developer.hashicorp.com/vagrant) 2.3+ and a provider: **VirtualBox** (Linux host) or
+  **VMware + the `vagrant-vmware-desktop` plugin** (Windows/macOS).
+- The host has this repo checked out. Keep the box store on fast local disk (`VAGRANT_HOME`).
 
 ## Bring-up
 
-From `reviewer-workstation/witness-vm/`:
+```bash
+# Linux host (VirtualBox) -- from reviewer-workstation/witness-vm/
+WITNESS_REF=feature/acg-vagrant-witness vagrant up --provider virtualbox
+vagrant reload            # boot into the GNOME desktop (auto-login)
+
+# Windows host (VMware) -- PowerShell
+$env:WITNESS_REF="feature/acg-vagrant-witness"; vagrant up --provider vmware_desktop; vagrant reload
+```
+
+Overrides: `WITNESS_PLANE=<name>`, `WITNESS_RUNGS=256M,512M,1G`, `WITNESS_SAMPLES=3`, `WITNESS_COMMIT=<sha>`,
+`WITNESS_BOX=<box>`, `WITNESS_MEM` / `WITNESS_CPUS`, `WITNESS_DESKTOP=0` (benchmark only, skip the desktop).
+
+## Corroborate two witnesses
+
+Collect a ladder receipt from each host into one folder, then:
 
 ```bash
-# Linux host (VirtualBox)
-WITNESS_REF=release/1.0.0 vagrant up --provider virtualbox
-
-# Windows host (VMware)   -- PowerShell
-$env:WITNESS_REF="release/1.0.0"; vagrant up --provider vmware_desktop
+node experiments/acg-quorum/compare-ladders.mjs \
+  out/throughput-ladder-VAGRANT-VBOX.json \
+  out/throughput-ladder-VAGRANT-VMWARE.json
 ```
 
-Useful overrides: `WITNESS_COMMIT=<sha>` (pin an exact candidate), `WITNESS_PLANE=<name>` (override the plane),
-`WITNESS_BOX=<box>` (e.g. a 26.04 box to match a native resolute host), `WITNESS_MEM` / `WITNESS_CPUS`.
-
-The provisioner clones the candidate from the host-side bundle, builds it, runs `lba verify`, renders the
-deterministic screenshot, probes hardware, and assembles the bundle. Outputs land on the host under `out/`:
-
-```
-out/witness-<PLANE>.bundle.json      # the acg-witness-bundle (feed to compare-witnesses.mjs)
-out/gate-<PLANE>.json                # cleanroom-gate-suite-receipt (verdict + candidate version/commit)
-out/screenshot-receipt-<PLANE>.json  # seriesHash + pngSha256
-out/capability-<PLANE>.json          # hardware-capability record
-```
-
-## Form the quorum
-
-Collect a bundle from each host into one folder, then:
-
-```bash
-node experiments/acg-quorum/compare-witnesses.mjs \
-  out/witness-VAGRANT-VBOX.bundle.json \
-  out/witness-VAGRANT-VMWARE.bundle.json
-```
-
-A `verdict: pass` with `distinctEnvironments: true` and `consensus.{version,sourceCommit}` naming the candidate
-feeds the composite-release-decision receipt (LBA-REQ-070) exactly like the native LINUX + VMWARE witnesses did
-for ext 1.0.0.
+`verdict: pass` with `distinctEnvironments: true` and every rung's `crossCovPct` within tolerance means the
+witnesses corroborate best-effort; the per-rung `crossCovPct` quantify the spread.
 
 ## Teardown
 
@@ -71,5 +68,7 @@ for ext 1.0.0.
 vagrant destroy -f      # also removes the host-side candidate.bundle
 ```
 
-> Status: authored against the proven witness pipeline (the same commands run natively to seal the ext 1.0.0
-> quorum). A live end-to-end `vagrant up` on both providers is the next validation step.
+> Note: the Ubuntu desktop pulls NetworkManager, which is pinned to leave the vagrant NAT interface on
+> `systemd-networkd` so the install does not drop the provisioner SSH. The desktop comes up on `vagrant reload`
+> (GDM auto-login on Xorg). If a `vmware_desktop` synced folder is one-way, collect the receipt with
+> `vagrant ssh -c 'cat /vagrant/out/throughput-ladder-<PLANE>.json'`.
