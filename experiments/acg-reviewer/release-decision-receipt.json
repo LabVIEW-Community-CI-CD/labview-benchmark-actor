@@ -1,15 +1,16 @@
 {
   "schema": "labview-benchmark-actor/acg-release-decision-receipt-v1",
   "note": "the machine quorum corroborated the release; publish is BLOCKED pending a recorded human sign-off (ADR-0018). A real sign-off is the operator/reviewer judgement step, not fabricated here.",
-  "producedAt": "2026-08-01T12:01:41.020Z",
-  "quorumVerdict": "pass",
+  "producedAt": "2026-08-04T14:41:30.550Z",
+  "quorumVerdict": "fail",
   "decision": {
     "schema": "labview-benchmark-actor/acg-release-decision-v1",
     "publish": false,
-    "quorumPass": true,
+    "quorumPass": false,
     "approvals": [],
     "minReviewers": 1,
     "reasons": [
+      "machine quorum verdict is fail, not pass",
       "need >= 1 distinct enrolled approving reviewer(s); have 0"
     ]
   }

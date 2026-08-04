@@ -99,7 +99,7 @@ ok('three assembled witnesses corroborate through the quorum', () => {
   const win = assembleWitness({ plane: 'WIN', gate: gateReceipt('pass', V, C), screenshot: shotReceipt(S, 'png-windows'), capability: capReceipt('win32-x64') });
   const verdict = compareWitnesses([codespace, vbox, win]);
   assert.equal(verdict.verdict, 'pass');
-  assert.equal(verdict.distinctEnvironments, true);
+  assert.equal(verdict.crossPlane, true);
   assert.equal(verdict.majority, true);
   assert.equal(verdict.confidence, 1);
   assert.deepEqual(verdict.divergences, []);

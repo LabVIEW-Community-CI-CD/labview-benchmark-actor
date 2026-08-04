@@ -1,10 +1,8 @@
 {
-  "schema": "labview-benchmark-actor/acg-enrolled-environments-v1",
-  "description": "Enrolled witness environments for the Actor Corroboration Grid (ADR-0017). A quorum must span distinct entries here; a witness whose plane/os is not listed does not count toward the quorum.",
-  "environments": [
-    { "id": "CODESPACE/linux", "plane": "CODESPACE", "os": "linux", "description": "GitHub Codespaces noble witness devcontainer (OIDC identity)" },
-    { "id": "VBOX/linux", "plane": "VBOX", "os": "linux", "description": "VirtualBox Ubuntu noble golden VM (enrolled key)" },
-    { "id": "WIN/windows", "plane": "WIN", "os": "windows", "description": "Windows LabVIEW plane (enrolled key)" },
-    { "id": "LINUX/linux", "plane": "LINUX", "os": "linux", "description": "Linux host / native plane (enrolled key)" }
+  "schema": "labview-benchmark-actor/acg-enrolled-planes-v2",
+  "description": "Enrolled OS-PLANES for the Actor Corroboration Grid (ADR-0068 corrects ADR-0017). A plane is the OS the extension RUNS in; a genuinely independent (cross-plane) quorum must span BOTH planes (linux AND windows). The hypervisor/context that provisions a plane (VirtualBox, VMware, Codespace, native) is a recorded attribute, NOT a separate plane -- N linux contexts (a codespace + a vbox guest + a native host) are ONE linux plane, not N independent witnesses.",
+  "planes": [
+    { "plane": "linux", "description": "The Linux plane -- the extension runs on Linux (e.g. a VirtualBox Ubuntu guest, a VMware Ubuntu guest, a GitHub Codespace, or a native Linux host)." },
+    { "plane": "windows", "description": "The Windows plane -- the extension runs on Windows (e.g. a VirtualBox or VMware Windows guest, or a native Windows host)." }
   ]
 }

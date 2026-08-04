@@ -1,30 +1,29 @@
 {
   "schema": "labview-benchmark-actor/acg-grid-run-receipt-v1",
   "note": "the REAL {codespace, host} grid corroborates the release through every MACHINE stage (independence + quorum + attestation + mesh); released=false only because no human sign-off is recorded (the reviewer judgement step, not fabricated). A 3rd witness (VBox) is the same mechanism scaled.",
-  "producedAt": "2026-08-01T12:16:58.223Z",
+  "producedAt": "2026-08-04T14:40:15.897Z",
   "result": {
     "schema": "labview-benchmark-actor/acg-grid-run-v1",
     "released": false,
-    "machineCorroborated": true,
+    "machineCorroborated": false,
     "witnesses": 2,
     "stages": {
       "independence": {
-        "ok": true,
-        "environments": [
-          "CODESPACE/linux",
-          "LINUX/linux"
+        "ok": false,
+        "planes": [
+          "linux"
         ]
       },
       "quorum": {
-        "ok": true,
-        "verdict": "pass",
+        "ok": false,
+        "verdict": "fail",
         "confidence": 0.9166666666666666
       },
       "attestation": {
-        "ok": true
+        "ok": false
       },
       "mesh": {
-        "ok": true,
+        "ok": false,
         "ledgerHash": "a307316d80085b7aa0fdf9ea3943614113d2d1c060955e92ac7fabbd778910c5"
       },
       "humanSignOff": {
@@ -33,7 +32,11 @@
       }
     },
     "reasons": [
-      "human sign-off: need >= 1 distinct enrolled approving reviewer(s); have 0"
+      "independence: only 1 distinct enrolled OS-plane(s) with a recorded identity (linux); a cross-plane quorum needs >= 2 (linux AND windows)",
+      "quorum: not pass",
+      "attestation: re-computed corroboration verdict is fail, not pass",
+      "mesh: quorum fail",
+      "human sign-off: machine quorum verdict is fail, not pass; need >= 1 distinct enrolled approving reviewer(s); have 0"
     ]
   }
 }

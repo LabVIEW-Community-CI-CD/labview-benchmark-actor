@@ -1,12 +1,12 @@
 {
-  "schema": "labview-benchmark-actor/acg-quorum-verdict-v1",
-  "verdict": "pass",
+  "schema": "labview-benchmark-actor/acg-quorum-verdict-v2",
+  "verdict": "fail",
   "confidence": 0.9166666666666666,
   "threshold": 0.5,
   "witnesses": 2,
   "concurring": 2,
   "majority": true,
-  "distinctEnvironments": true,
+  "crossPlane": false,
   "consensusVerdict": "pass",
   "consensus": {
     "version": "0.13.0",

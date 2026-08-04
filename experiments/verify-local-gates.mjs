@@ -746,9 +746,11 @@ check('acg-quorum-live-corroboration', () => {
   const host = readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json');
   const receipt = readJson('experiments/acg-quorum/corroboration-receipt.json');
   const verdict = compareWitnesses([codespace, host]);
-  assert(verdict.verdict === 'pass', `live corroboration verdict is ${verdict.verdict}`);
+  // HONEST (ADR-0068): the two committed witnesses are BOTH the linux plane, so the quorum is single-plane and
+  // FAILS CLOSED -- not cross-plane corroborated -- even though the anchors themselves agree (confidence ~0.92).
+  assert(verdict.verdict === 'fail' && verdict.crossPlane === false, `single-plane quorum must fail closed (verdict=${verdict.verdict}, crossPlane=${verdict.crossPlane})`);
   assert(
-    verdict.verdict === receipt.verdict && verdict.confidence === receipt.confidence && verdict.consensusVerdict === receipt.consensusVerdict,
+    verdict.verdict === receipt.verdict && verdict.confidence === receipt.confidence && verdict.crossPlane === receipt.crossPlane && verdict.consensusVerdict === receipt.consensusVerdict,
     'the committed corroboration receipt must match the re-derived verdict'
   );
   assert(JSON.stringify(verdict.consensus) === JSON.stringify(receipt.consensus), 'the committed consensus anchors must match the re-derived ones');
@@ -758,7 +760,7 @@ check('acg-quorum-live-corroboration', () => {
     assert(verdict.consensus[k] != null, `consensus is missing the ${k} anchor`);
     assert(verdict.divergences.every((d) => d.anchor !== k), `the ${k} anchor must corroborate across the witnesses`);
   }
-  return { verdict: verdict.verdict, confidence: +verdict.confidence.toFixed(4), witnesses: verdict.witnesses, tolerated: verdict.divergences.map((d) => d.anchor) };
+  return { verdict: verdict.verdict, crossPlane: verdict.crossPlane, confidence: +verdict.confidence.toFixed(4), witnesses: verdict.witnesses, note: 'anchors agree but single-plane (linux) -> not cross-plane corroborated; pending a windows-plane witness' };
 });
 
 // ACG provenance + attestation engine (ADR-0016, LBA-REQ-025): the enforceable "verify before consume" core --
@@ -963,11 +965,13 @@ check('acg-provenance-verify-before-consume', () => {
   ];
   const receipt = readJson('experiments/acg-provenance/consume-decision-receipt.json');
   const decision = verifyBeforeConsume({ witnesses, allowlist });
-  assert(decision.consume === true, `verify-before-consume blocked: ${decision.reasons.join('; ')}`);
+  // HONEST (ADR-0068): the attestations verify + the identities are distinct, but the re-computed corroboration is
+  // SINGLE-PLANE (linux-only), so consume is correctly BLOCKED -- a release cannot be consumed on one plane.
+  assert(decision.consume === false, `consume must be blocked (single-plane): got consume=${decision.consume}`);
   assert(decision.consume === receipt.consume && JSON.stringify(decision.reasons) === JSON.stringify(receipt.reasons), 'the committed consume decision must match the re-derived one');
-  assert(decision.witnesses.length >= 2 && decision.witnesses.every((w) => w.ok), 'every enrolled witness attestation must verify');
+  assert(decision.witnesses.length >= 2 && decision.witnesses.every((w) => w.ok), 'every enrolled witness attestation must still verify');
   assert(new Set(decision.witnesses.map((w) => w.identity)).size === decision.witnesses.length, 'the witness identities must be distinct');
-  return { consume: decision.consume, witnesses: decision.witnesses.map((w) => w.identity) };
+  return { consume: decision.consume, blockedReason: decision.reasons[0], witnesses: decision.witnesses.map((w) => w.identity) };
 });
 
 // ACG witness-independence engine (ADR-0017, LBA-REQ-026): a quorum is independent only when it spans >= quorumMin
@@ -975,7 +979,7 @@ check('acg-provenance-verify-before-consume', () => {
 // identity-less witnesses do not count -- run its dependency-free self-test as a subprocess.
 check('acg-independence-quorum', () => {
   execFileSync(process.execPath, [join(here, 'acg-independence', 'independence.selftest.mjs')], { stdio: 'pipe' });
-  return { selftest: 'independence 9/9' };
+  return { selftest: 'independence 8/8 (cross-plane)' };
 });
 
 // Live witness-independence evidence (ADR-0017, LBA-REQ-026): the committed {CODESPACE, LINUX} grid must span
@@ -990,10 +994,12 @@ check('acg-independence-live', () => {
   ];
   const receipt = readJson('experiments/acg-independence/independence-receipt.json');
   const verdict = assessIndependence(witnesses, { enrolledEnvironments: enrolledEnvironmentSet(enrollment) });
-  assert(verdict.independent === true, `the live grid is not independent: ${verdict.reasons.join('; ')}`);
+  // HONEST (ADR-0068): the committed grid is {codespace, host-linux} -- BOTH the linux plane -- so it is single-
+  // plane and NOT cross-plane independent; the second linux witness collapses (redundant for plane diversity).
+  assert(verdict.independent === false && verdict.crossPlane === false, `single-plane grid must not be independent: ${JSON.stringify(verdict.distinctPlanes)}`);
   assert(JSON.stringify(verdict) === JSON.stringify(receipt), 'the committed independence receipt must match the re-derived verdict');
-  assert(verdict.counted.length >= 2 && verdict.counted.every((c) => c.identity), 'every counted witness must have a recorded identity');
-  return { independent: verdict.independent, environments: verdict.distinctEnrolledEnvironments };
+  assert(verdict.counted.length === 1 && verdict.counted.every((c) => c.identity) && verdict.excluded.length === 1, 'one linux plane counted (with identity); the second linux witness collapses');
+  return { independent: verdict.independent, crossPlane: verdict.crossPlane, distinctPlanes: verdict.distinctPlanes, note: 'single-plane (linux); cross-plane independence pending a windows-plane witness' };
 });
 
 // ACG governance: PRs target develop, not main (ADR-0021, LBA-REQ-030). The base-branch policy -- non-release
@@ -1033,7 +1039,9 @@ check('acg-mesh-loopback-evidence', () => {
   led.record(buildVerdictBeacon(notice('acg-witness:codespace', codespace), { seq: 1 }));
   led.record(buildVerdictBeacon(notice('acg-witness:host-linux', host), { seq: 2 }));
   const out = quorumFromLedger(led, { bundlesByDigest: { [bundleDigest(codespace)]: codespace, [bundleDigest(host)]: host } });
-  assert(out.quorum.verdict === 'pass', `mesh quorum is ${out.quorum.verdict}`);
+  // HONEST (ADR-0068): the beaconed witnesses are BOTH the linux plane, so the mesh quorum is single-plane and
+  // FAILS CLOSED (not cross-plane corroborated) even though both resolve + the anchors agree.
+  assert(out.quorum.verdict === 'fail', `single-plane mesh quorum must fail closed (got ${out.quorum.verdict})`);
   assert(out.resolved === 2 && out.missing.length === 0 && out.mismatched.length === 0, 'both beaconed witnesses must resolve to their bundles');
   assert(out.ledgerHash === receipt.ledgerHash, 'the committed mesh ledgerHash must match the re-derived one');
   assert(out.quorum.verdict === receipt.meshQuorum.quorum.verdict && out.resolved === receipt.meshQuorum.resolved, 'the committed mesh receipt must match the re-derived verdict');
@@ -1063,10 +1071,12 @@ check('acg-reviewer-release-decision', () => {
   const quorumVerdict = readJson('experiments/acg-quorum/corroboration-receipt.json');
   const receipt = readJson('experiments/acg-reviewer/release-decision-receipt.json');
   const decision = gateReleasePublish({ quorumVerdict, signOffs: [] });
-  assert(decision.quorumPass === true, 'the committed corroboration must pass the machine quorum');
-  assert(decision.publish === false, 'publish must be blocked with no recorded human sign-off');
+  // HONEST (ADR-0068): the committed corroboration is now SINGLE-PLANE (verdict fail), so the machine quorum does
+  // NOT pass and publish is blocked for that reason (plus the missing human sign-off) -- fail closed either way.
+  assert(decision.quorumPass === false, 'a single-plane corroboration must NOT pass the machine quorum');
+  assert(decision.publish === false, 'publish must be blocked (single-plane quorum + no human sign-off)');
   assert(decision.publish === receipt.decision.publish && decision.quorumPass === receipt.decision.quorumPass, 'the committed release decision must match the re-derived one');
-  return { publish: decision.publish, quorumPass: decision.quorumPass };
+  return { publish: decision.publish, quorumPass: decision.quorumPass, note: 'single-plane -> quorum withheld; publish blocked' };
 });
 
 // The Actor Corroboration Grid END-TO-END (ADR-0014, LBA-REQ-023, the umbrella): the whole gate -- independence +
@@ -1088,11 +1098,14 @@ check('acg-grid-run-live', () => {
   ];
   const result = runGrid({ witnesses, allowlist: readJson('experiments/acg-provenance/enrollment/allowlist.json'), enrollment: readJson('experiments/acg-independence/enrolled-environments.json'), signOffs: [] });
   const receipt = readJson('experiments/acg-grid/grid-run-receipt.json');
-  assert(result.machineCorroborated === true, 'the real grid must corroborate through every machine stage');
-  for (const s of ['independence', 'quorum', 'attestation', 'mesh']) assert(result.stages[s].ok === true, `machine stage ${s} must pass`);
-  assert(result.released === false, 'released must be blocked pending a human sign-off');
+  // HONEST (ADR-0068): the real {codespace, host-linux} grid is SINGLE-PLANE (both linux), so every machine stage
+  // that depends on cross-plane independence/quorum correctly WITHHOLDS -- the grid is NOT corroborated (pending a
+  // windows-plane witness). This gate proves the end-to-end grid fails closed on single-plane evidence.
+  assert(result.machineCorroborated === false, 'a single-plane grid must NOT be machine-corroborated');
+  for (const s of ['independence', 'quorum', 'attestation', 'mesh']) assert(result.stages[s].ok === false, `machine stage ${s} must withhold on single-plane evidence`);
+  assert(result.released === false, 'released must be blocked (single-plane, and no human sign-off)');
   assert(result.machineCorroborated === receipt.result.machineCorroborated && result.released === receipt.result.released, 'the committed grid-run receipt must match the re-derived run');
-  return { machineCorroborated: result.machineCorroborated, released: result.released };
+  return { machineCorroborated: result.machineCorroborated, released: result.released, note: 'single-plane (linux) -> not corroborated; pending a windows-plane witness' };
 });
 
 // The Merkle TRANSPARENCY LOG (ADR-0022, LBA-REQ-031, the rekor analogue): RFC 6962 domain-separated hashing,
