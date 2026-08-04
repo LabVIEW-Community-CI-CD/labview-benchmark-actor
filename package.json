@@ -5,6 +5,7 @@
   "version": "1.0.0",
   "publisher": "svelderrainruiz",
   "license": "0BSD",
+  "author": "Sergio Velderrain",
   "repository": {
     "type": "git",
     "url": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor"
