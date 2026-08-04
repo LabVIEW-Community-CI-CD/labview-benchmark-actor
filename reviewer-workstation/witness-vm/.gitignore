@@ -1,0 +1,6 @@
+# Host-side git bundle of the candidate (created by the before-up trigger; large, regenerable).
+candidate.bundle
+# Witness outputs (per-run receipts + bundles).
+out/
+.vagrant/
+*.log

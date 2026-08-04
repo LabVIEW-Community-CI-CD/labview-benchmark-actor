@@ -313,6 +313,30 @@ try {
     'verifyReleaseProvenance runs verify-release-inclusion.mjs via node in a terminal'
   );
 
+  // Throughput-to-Disk Ladder (benchmark-variation witness): a Linux/macOS host tool (the C# tpd + fsync). Fake
+  // process.platform to prove BOTH branches -- win32 refuses + sends nothing; a POSIX host resolves run-ladder.mjs,
+  // prompts for the plane + rungs, and drives node in a terminal.
+  const runLadderCmd = registered.find((r) => r.id === 'labviewBenchmarkActor.runThroughputLadder');
+  assert(runLadderCmd, 'runThroughputLadder command is registered');
+  const realPlatDescLadder = Object.getOwnPropertyDescriptor(process, 'platform');
+  try {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+    const errsBeforeLadder = errorMessages.length;
+    const cmdsBeforeLadder = sentCommands.length;
+    await runLadderCmd.handler();
+    assert(errorMessages.slice(errsBeforeLadder).some((m) => /Linux\/macOS tool/.test(m)), 'runThroughputLadder refuses on a Windows host');
+    assert(sentCommands.length === cmdsBeforeLadder, 'runThroughputLadder sends no command on a Windows host');
+
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+    inputQueue.push('TEST-PLANE', '256M,512M');
+    await runLadderCmd.handler();
+    const ladderCmd = sentCommands.find((c) => /node .*throughput-to-disk[/\\]run-ladder\.mjs/.test(c));
+    assert(ladderCmd, 'runThroughputLadder drives run-ladder.mjs via node in a terminal on a POSIX host');
+    assert(/--plane "TEST-PLANE"/.test(ladderCmd) && /--rungs "256M,512M"/.test(ladderCmd), 'runThroughputLadder passes the validated plane + rungs');
+  } finally {
+    Object.defineProperty(process, 'platform', realPlatDescLadder);
+  }
+
   // Agent instructions commands (issue #98): the extension bundles media/AGENTS.md + manifest and
   // materializes/verifies a workspace AGENTS.md. These are pure read/hash/compare/write flows (no cleanroom).
   // Drive them against a REAL temp workspace so the write / exists-overwrite / match / drift branches all run.
@@ -782,6 +806,15 @@ try {
   await second.find((r) => r.id === 'labviewBenchmarkActor.verifyReleaseProvenance').handler();
   assert(errorMessages.slice(errBeforeScripts).some((m) => /Corroboration grid runner not found/.test(m)), 'runCorroborationGrid reports the runner-not-found guard when no script resolves');
   assert(errorMessages.slice(errBeforeScripts).some((m) => /Release-provenance verifier not found/.test(m)), 'verifyReleaseProvenance reports the verifier-not-found guard when no script resolves');
+  // runThroughputLadder refuses on win32 BEFORE resolving; fake a POSIX host so it reaches the runner-not-found guard.
+  const ladderPlatDesc = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+  try {
+    await second.find((r) => r.id === 'labviewBenchmarkActor.runThroughputLadder').handler();
+  } finally {
+    Object.defineProperty(process, 'platform', ladderPlatDesc);
+  }
+  assert(errorMessages.slice(errBeforeScripts).some((m) => /Throughput ladder runner not found/.test(m)), 'runThroughputLadder reports the runner-not-found guard when no script resolves');
   await second.find((r) => r.id === 'labviewBenchmarkActor.postNote').handler(); // empty inputQueue -> no message -> abort before the CLI
   mockVscode.workspace.workspaceFolders = savedFoldersBroken;
 
