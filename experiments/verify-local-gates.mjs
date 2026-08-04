@@ -3184,18 +3184,24 @@ check('acg-cross-plane-corroboration', () => {
   return { selftest: 'produce-witness 5/5 (linux+windows corroborate; single-plane/divergent/non-pass fail closed)' };
 });
 
-// The dual-OS corroboration WORKFLOW (ADR-0069 / LBA-REQ-087): builds a genuine witness on ubuntu-latest AND
-// windows-latest (each runs the extension gate for its verdict) and asserts they corroborate (crossPlane) -- the
-// automated, live two-plane corroboration. Offline drift gate over the workflow wiring.
+// The MULTI-SUBSTRATE cross-plane corroboration WORKFLOW (ADR-0069 / LBA-REQ-087): builds a genuine witness on
+// several concrete substrates spanning BOTH os-planes -- the LINUX plane (ubuntu-22.04 + ubuntu-24.04) AND the
+// WINDOWS plane (windows-2022 + windows-2025) -- each runs the extension gate (npm test) for its verdict, and the
+// corroborate job asserts ALL substrates corroborate (crossPlane), proving the anchor is substrate-independent.
+// Offline drift gate over the workflow wiring.
 check('acg-cross-plane-corroboration-workflow-wired', () => {
   const wf = join(pkgRoot, '.github', 'workflows', 'acg-cross-plane-corroboration.yml');
   assert(existsSync(wf), 'the acg cross-plane corroboration workflow must exist');
   const t = readFileSync(wf, 'utf8').replace(/\r\n/g, '\n');
-  assert(/ubuntu-latest/.test(t) && /windows-latest/.test(t), 'must produce a witness on BOTH ubuntu-latest and windows-latest');
-  assert(/produce-witness\.mjs/.test(t), 'each plane must produce its witness via produce-witness.mjs');
-  assert(/corroborate-planes\.mjs/.test(t), 'the corroborate job must run corroborate-planes.mjs (the quorum)');
-  assert(/npm test/.test(t), 'each plane must run the extension gate (npm test) for its verdict');
-  return { planes: ['linux', 'windows'], proof: 'genuine witnesses on both planes -> cross-plane corroborate (fail-closed)' };
+  const linuxSubstrates = [...new Set(t.match(/ubuntu-\d\d\.\d\d/g) || [])];
+  const windowsSubstrates = [...new Set(t.match(/windows-\d{4}/g) || [])];
+  assert(linuxSubstrates.length >= 2, 'must build on >= 2 concrete LINUX substrates (e.g. ubuntu-22.04 + ubuntu-24.04)');
+  assert(windowsSubstrates.length >= 2, 'must build on >= 2 concrete WINDOWS substrates (e.g. windows-2022 + windows-2025)');
+  assert(/produce-witness\.mjs/.test(t), 'each substrate must produce its witness via produce-witness.mjs');
+  assert(/corroborate-planes\.mjs/.test(t), 'the corroborate job must run corroborate-planes.mjs (the quorum) over ALL substrates');
+  assert(/witnesses\/\*\/\*\.bundle\.json/.test(t), 'the corroborate job must ingest ALL substrate witnesses (glob)');
+  assert(/npm test/.test(t), 'each substrate must run the extension gate (npm test) for its verdict');
+  return { linuxSubstrates, windowsSubstrates, proof: 'all substrates span both os-planes -> cross-plane corroborate (fail-closed)' };
 });
 
 // The DURABLE genuine cross-plane corroboration (ADR-0070 / LBA-REQ-088): the live two-plane proof captured as a
