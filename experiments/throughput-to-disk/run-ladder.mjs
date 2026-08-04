@@ -100,6 +100,7 @@ async function main() {
   const rungs = String(opt.rungs || '256M,512M,1G').split(',').map((s) => s.trim());
   const frame = String(opt.frame || '256K');
   const samples = Number(opt.samples || 3);
+  const warmup = Number(opt.warmup ?? 1);
   const transport = String(opt.transport || 'tcp');
   const plane = String(opt.plane || process.env.LBA_PLANE || 'LOCAL');
   const outDir = String(opt['out-dir'] || homedir());
@@ -112,6 +113,12 @@ async function main() {
   for (const rung of rungs) {
     const samplesMbps = [];
     let lastSecs = 0;
+    // Discard a warm-up run per rung: the first cold-cache write is an outlier that skews the mean.
+    for (let w = 0; w < warmup; w += 1) {
+      const port = await freePort();
+      await runSample({ bytes: rung, frame, port, outFile, transport });
+      process.stderr.write(`[ladder] ${plane} rung ${rung} warm-up ${w + 1}/${warmup} (discarded)\n`);
+    }
     for (let s = 0; s < samples; s += 1) {
       const port = await freePort();
       const r = await runSample({ bytes: rung, frame, port, outFile, transport });
@@ -144,6 +151,7 @@ async function main() {
     capturedAt: new Date().toISOString(),
     frame,
     samplesPerRung: samples,
+    warmupPerRung: warmup,
     transport,
     rungs: rungReceipts,
     summary: {
