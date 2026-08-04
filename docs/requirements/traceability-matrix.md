@@ -93,5 +93,6 @@
 | LBA-REQ-084 | The stress-discounted cross-plane comparison (discount a result captured on a stressed actor) | Proven | §3.2 Deployment | ADR-0065 | T-084 | 6 |
 | LBA-REQ-085 | The byte-reproducible extension package (the reviewed .vsix equals the shipped .vsix) | Proven | §3.1 Packaging / boundary | ADR-0066 | T-085 | 7 |
 | LBA-REQ-086 | The cross-plane byte-reproducible extension package (a Windows build equals a Linux build) | Proven | §3.1 Packaging / boundary | ADR-0067 | T-086 | 6 |
+| LBA-REQ-087 | Genuine cross-plane corroboration (a windows-latest + ubuntu-latest witness prove two planes agree) | Proven | §3.9 Corroboration-grid | ADR-0069 | T-087 | 5 |
 
-_Generated for 86 requirements._
+_Generated for 87 requirements._

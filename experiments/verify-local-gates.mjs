@@ -3171,6 +3171,29 @@ check('vsix-cross-plane-repro-workflow-wired', () => {
   assert(/^\*\.ts text eol=lf$/m.test(attrs), '.gitattributes must LF-pin *.ts (so tsc string literals are LF on every plane)');
   return { planes: ['linux', 'windows'], proof: 'npm run package on both -> identical sha256 (fail-closed)' };
 });
+
+// Genuine cross-plane corroboration (ADR-0069 / LBA-REQ-087): a LINUX plane and a WINDOWS plane each produce a
+// witness over the deterministic anchors (version/sourceCommit/verdict/seriesHash) and the corrected quorum
+// (ADR-0068 -- independence is the OS-plane) proves they CROSS-PLANE corroborate. Run the producer + corroboration
+// self-test (a genuine windows+linux pair passes; a single-plane, divergent, or non-pass pair fails closed).
+check('acg-cross-plane-corroboration', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'produce-witness.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'produce-witness 5/5 (linux+windows corroborate; single-plane/divergent/non-pass fail closed)' };
+});
+
+// The dual-OS corroboration WORKFLOW (ADR-0069 / LBA-REQ-087): builds a genuine witness on ubuntu-latest AND
+// windows-latest (each runs the extension gate for its verdict) and asserts they corroborate (crossPlane) -- the
+// automated, live two-plane corroboration. Offline drift gate over the workflow wiring.
+check('acg-cross-plane-corroboration-workflow-wired', () => {
+  const wf = join(pkgRoot, '.github', 'workflows', 'acg-cross-plane-corroboration.yml');
+  assert(existsSync(wf), 'the acg cross-plane corroboration workflow must exist');
+  const t = readFileSync(wf, 'utf8').replace(/\r\n/g, '\n');
+  assert(/ubuntu-latest/.test(t) && /windows-latest/.test(t), 'must produce a witness on BOTH ubuntu-latest and windows-latest');
+  assert(/produce-witness\.mjs/.test(t), 'each plane must produce its witness via produce-witness.mjs');
+  assert(/corroborate-planes\.mjs/.test(t), 'the corroborate job must run corroborate-planes.mjs (the quorum)');
+  assert(/npm test/.test(t), 'each plane must run the extension gate (npm test) for its verdict');
+  return { planes: ['linux', 'windows'], proof: 'genuine witnesses on both planes -> cross-plane corroborate (fail-closed)' };
+});
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {
