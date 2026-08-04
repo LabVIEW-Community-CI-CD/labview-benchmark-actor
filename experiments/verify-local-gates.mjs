@@ -30,6 +30,7 @@ import { validateViAnalyzerReport } from './vi-analyzer/validate-vi-analyzer-rep
 import { parseAsciiReport, parseSummary } from './vi-analyzer/parse-vi-analyzer-ascii.mjs';
 import { verifyManifest as verifyExtensionAgentsManifest, agentsSha256, readManifest as readExtensionAgentsManifest, AGENTS_MD as EXTENSION_AGENTS_MD } from '../scripts/agentsManifest.mjs';
 import { normalizeZipTimestamps } from '../scripts/normalize-vsix.mjs';
+import { verifyPublishedVsix, sha256File } from '../scripts/verify-published-vsix.mjs';
 import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 import { sealBootBenchmark } from './mprr-boot-benchmark/seal-boot-benchmark.mjs';
 import { parseSerialLog, parseSerialMarkerLine } from './mprr-boot-benchmark/serial-marker.mjs';
@@ -3098,6 +3099,40 @@ check('reproducible-vsix-normalizer', () => {
   assert(early.equals(late), 'after normalize: same-content zips with different timestamps are byte-identical (reproducible)');
   assert(early.readUInt16LE(10) === 0x0000 && early.readUInt16LE(12) === 0x0021, 'DOS timestamp pinned to 1980-01-01');
   return { wired: 'package + test', pinned: '1980-01-01', proof: 'same-content/different-mtime => byte-identical' };
+});
+
+// Reviewed == shipped gate (ADR-0066 follow-on / LBA-REQ-085): the extension-release workflow must assert the
+// CI-built .vsix sha256 equals the reviewed vsixSha256 (release-agreement visualReview.verdict.target) BEFORE
+// publishing. Because the .vsix is byte-reproducible on the PUBLISH plane (linux), the artifact a human reviewed
+// on that plane equals the artifact CI ships. This gate guards the wiring (workflow + npm test call the verifier)
+// AND the behavior (a matching sha passes; a review taken on another plane -- a different sha -- fails closed).
+check('reviewed-vsix-matches-shipped', () => {
+  const wf = join(pkgRoot, '.github', 'workflows', 'extension-release.yml');
+  assert(existsSync(wf), 'the extension-release workflow must exist');
+  const wfText = readFileSync(wf, 'utf8').replace(/\r\n/g, '\n');
+  assert(/verify-published-vsix\.mjs/.test(wfText), 'the release workflow must run scripts/verify-published-vsix.mjs (reviewed==shipped)');
+  const pkg = readJson('package.json');
+  assert(/verify-published-vsix\.mjs/.test(pkg.scripts?.test || ''), 'npm test must run test/verify-published-vsix.mjs');
+  // Behavioral: a built .vsix whose sha256 matches the reviewed target passes; a different sha fails closed.
+  const base = join(tmpdir(), `lba-repro-assert-${process.pid}-${Date.now()}`);
+  const vsix = `${base}.vsix`;
+  const okJson = `${base}-ok.json`;
+  const badJson = `${base}-bad.json`;
+  try {
+    writeFileSync(vsix, Buffer.from('gate probe vsix bytes'));
+    const built = sha256File(vsix);
+    const agreement = (sha) => JSON.stringify({ components: { extension: { releases: { '0.0.1': { visualReview: { verdict: { target: { vsixSha256: sha } } } } } } } });
+    writeFileSync(okJson, agreement(built));
+    writeFileSync(badJson, agreement('a'.repeat(64)));
+    const okReceipt = verifyPublishedVsix({ agreementPath: okJson, component: 'extension', version: '0.0.1', vsixPath: vsix });
+    assert(okReceipt.reviewedMatchesShipped === true, 'a matching sha -> reviewed==shipped');
+    let threw = false;
+    try { verifyPublishedVsix({ agreementPath: badJson, component: 'extension', version: '0.0.1', vsixPath: vsix }); } catch { threw = true; }
+    assert(threw, 'a differing reviewed sha must fail closed');
+  } finally {
+    for (const p of [vsix, okJson, badJson]) rmSync(p, { force: true });
+  }
+  return { wired: 'workflow + npm test', proof: 'match ok / mismatch fail-closed' };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
