@@ -291,7 +291,7 @@
   "devDependencies": {
     "@types/node": "^20.11.30",
     "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^2.24.0",
+    "@vscode/vsce": "^3.9.2",
     "c8": "^12.0.0",
     "jsdom": "^30.0.0",
     "typescript": "^5.4.5"
