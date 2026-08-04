@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Self-test for the genuine cross-plane composite RE-SEAL (LBA-REQ-090 / ADR-0072). Pure + offline: proves the
-// committed crossPlane composite validates as a PROVEN composite release decision AND its machine quorum is
-// genuinely cross-plane -- the corrected counterpart of the shipped single-plane composite-release-decision-receipt.json
-// (the flagged 1.0.0 defect), which validates as a composite but is NOT cross-plane. Reuses the real composite
-// verifier (composite-release-decision.mjs). Gated by `acg-crossplane-composite-reseal`.
+// Self-test for the genuine cross-plane composite RE-SEAL + enforcement (LBA-REQ-090 / ADR-0072; enforce+collapse
+// ADR-0073). Pure + offline: proves the committed 1.0.0 composite (composite-release-decision-receipt.json, collapsed
+// to the genuine crossPlane re-seal) validates as a PROVEN composite release decision, its machine quorum is
+// genuinely cross-plane, and verify-composite-release CLEARS it while a single-plane variant is REJECTED fail-closed.
+// Reuses the real composite verifier + the release enforcement. Gated by `acg-crossplane-composite-reseal`.
 // Run: `node reviewer-workstation/crossplane-composite-reseal.selftest.mjs`.
 
 import assert from 'node:assert/strict';
@@ -11,10 +11,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { validateReceipt } from './composite-release-decision.mjs';
+import { verifyCompositeRelease } from '../tools/collab-cli/verify-composite-release.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const crossplane = JSON.parse(readFileSync(join(here, 'composite-release-decision-crossplane-receipt.json'), 'utf8'));
-const frozen = JSON.parse(readFileSync(join(here, 'composite-release-decision-receipt.json'), 'utf8'));
+const crossplane = JSON.parse(readFileSync(join(here, 'composite-release-decision-receipt.json'), 'utf8'));
+const clone = (o) => JSON.parse(JSON.stringify(o));
 
 const cases = [];
 const ok = (name, fn) => cases.push({ name, fn });
@@ -42,10 +43,20 @@ ok('machine + human gates bind to one candidate (all 5 bindings)', () => {
   assert.equal(crossplane.candidate.vsixSha256, crossplane.visual.verdict.target.vsixSha256, 'visual target names the candidate vsix');
 });
 
-// 4. CONTRAST -- the shipped composite validates as a composite BUT is NOT cross-plane: the single-plane defect
-//    this re-seal corrects (its quorum spanned LINUX + a VMware-Ubuntu witness, both the linux plane).
-ok('the shipped composite is single-plane (the defect the re-seal corrects)', () => {
-  assert.notEqual(frozen.machine.quorumVerdict.crossPlane, true, 'the shipped composite quorum must NOT be crossPlane');
+// 4. the release enforcement CLEARS the collapsed crossPlane composite for extension 1.0.0.
+ok('verify-composite-release clears the crossPlane 1.0.0 composite', () => {
+  const d = verifyCompositeRelease({ receipt: crossplane, component: 'extension', version: '1.0.0' });
+  assert.equal(d.publish, true, `should clear: ${d.reasons.join('; ')}`);
+});
+
+// 5. FAIL CLOSED -- a SINGLE-PLANE composite (the shipped 1.0.0 defect) is REJECTED by the enforcement: the
+//    crossPlane requirement (ADR-0073) blocks a quorum that does not span both os-planes.
+ok('verify-composite-release rejects a single-plane composite (the 1.0.0 defect)', () => {
+  const singlePlane = clone(crossplane);
+  singlePlane.machine.quorumVerdict.crossPlane = false; // as the shipped LINUX + VMware-Ubuntu quorum was
+  const d = verifyCompositeRelease({ receipt: singlePlane, component: 'extension', version: '1.0.0' });
+  assert.equal(d.publish, false);
+  assert.ok(d.reasons.some((r) => /cross-plane/.test(r)), 'expected a cross-plane rejection reason');
 });
 
 let n = 0;
