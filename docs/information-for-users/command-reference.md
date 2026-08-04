@@ -19,6 +19,7 @@
 | Command | ID | What it does |
 | --- | --- | --- |
 | **Capture LabVIEW Launch** | `captureLaunch` | Record the screen at exactly 12 FPS + sample CPU/RAM/disk while LabVIEW launches (VM-local). |
+| **Capture LabVIEW Launch (mprr, cross-platform VM)** | `captureLaunchMprr` | Benchmark a LabVIEW launch on a target VirtualBox VM through the mprr visual ring (SSH-trigger `xinit labview64` + VBox-VNC capture) -- cross-platform, so it runs from a Linux/Wayland host unlike the Windows `gdigrab` capture. Configure the target via `mprrSshPort`/`mprrVncPort`/`mprrVncPassword`/`mprrIterations`. |
 | **Stop LabVIEW Capture** | `stopCapture` | Stop the active capture and assemble the launch record. |
 | **Open Benchmark Frame Correlator** | `openFrameCorrelator` | Scrub a time cursor across the metric curves + the captured screenshot at each frame. |
 | **Open Benchmark Viewer** | `openViewer` | Open the time-cursor benchmark viewer on the shipped series. |

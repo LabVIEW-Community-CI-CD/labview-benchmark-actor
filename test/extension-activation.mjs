@@ -44,7 +44,7 @@ const inputQueue = [];
 let agentsContentProvider = null;
 const mockVscode = {
   window: {
-    createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
+    createOutputChannel: () => ({ append() {}, appendLine() {}, show() {}, dispose() {} }),
     showInputBox: async (options) => {
       const value = inputQueue.shift();
       if (options && typeof options.validateInput === 'function' && value !== undefined) {
@@ -57,8 +57,9 @@ const mockVscode = {
     },
     showInformationMessage: (message) => {
       infoMessages.push(message);
-      return infoResponseQueue.length ? infoResponseQueue.shift() : undefined;
+      return Promise.resolve(infoResponseQueue.length ? infoResponseQueue.shift() : undefined);
     },
+    withProgress: async (_options, task) => task({ report() {} }),
     showWarningMessage: (message) => {
       warnMessages.push(message);
       return warnResponseQueue.length ? warnResponseQueue.shift() : undefined;
@@ -101,6 +102,7 @@ const mockVscode = {
     },
   },
   ViewColumn: { Active: -1 },
+  ProgressLocation: { Notification: 15, Window: 10, SourceControl: 1 },
   Uri: {
     joinPath: (base, ...parts) => {
       const joined = [base && (base.fsPath || base.path) ? (base.fsPath || base.path) : '', ...parts].join('/');
@@ -160,10 +162,27 @@ const mockVscode = {
 // Mock `node:child_process` so the CLI-backed commands exercise the prerequisite-absent branch
 // deterministically -- execFile always fails with ENOENT (as if `lbabus` is not installed), regardless
 // of whether the coordination CLI happens to be on the test host's PATH.
+// captureLaunchMprr spawns a real `node` run of the mprr runner; this mock lets the test drive its
+// success / non-zero-exit / spawn-error branches deterministically (the test sets `spawnMode`).
+let spawnMode = { code: 0 };
 const childProcessMock = {
   execFile: (_file, _args, optionsOrCallback, maybeCallback) => {
     const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
     callback(Object.assign(new Error('spawn lbabus ENOENT'), { code: 'ENOENT' }));
+  },
+  spawn: (_file, _args, opts) => {
+    const mkStream = () => ({ on(event, cb) { if (event === 'data') { cb(Buffer.from('[mprr] run\n')); } return this; } });
+    const handlers = {};
+    const proc = { stdout: mkStream(), stderr: mkStream(), on(event, cb) { handlers[event] = cb; return this; } };
+    setImmediate(() => {
+      if (spawnMode.error) { if (handlers.error) { handlers.error(new Error('spawn node ENOENT')); } return; }
+      const outTrend = opts && opts.env && opts.env.LBA_OUT;
+      if (spawnMode.code === 0 && outTrend) {
+        writeFileSync(outTrend, JSON.stringify({ schema: 'labview-benchmark-actor/workload-trend@1', plane: 'LINUX', n: 3, verdict: 'PASS', latest: 1919, stats: { mean: 1866.3 } }));
+      }
+      if (handlers.close) { handlers.close(spawnMode.code); }
+    });
+    return proc;
   },
 };
 
@@ -700,6 +719,54 @@ try {
     infoMessages.some((m) => /No LabVIEW capture is running/.test(m)),
     'stopCapture reports no active capture'
   );
+
+  // captureLaunchMprr (cross-platform mprr capture, LBA-REQ-009): drive the FULL command with a mocked `node`
+  // spawn of the mprr runner -- success (trend written -> info + Open Trend JSON), the info-dismissed branch, a
+  // non-zero exit, a spawn error, and the runner-missing / no-workspace guards. The real capture runs live
+  // against a VM (proven separately); only the extension glue is exercised here.
+  {
+    const mprr = () => registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunchMprr').handler();
+    spawnMode = { code: 0 };
+    infoResponseQueue.push('Open Trend JSON');
+    const infoBefore = infoMessages.length;
+    await mprr();
+    assert(
+      infoMessages.slice(infoBefore).some((m) => /launchMs mean 1866/.test(m)),
+      'captureLaunchMprr reports the captured launchMs trend on success + offers Open Trend JSON'
+    );
+    spawnMode = { code: 0 }; // success again, info dismissed -> the open-doc branch is skipped
+    await mprr();
+    spawnMode = { code: 1 };
+    const errBefore = errorMessages.length;
+    await mprr();
+    assert(
+      errorMessages.slice(errBefore).some((m) => /mprr capture failed \(exit 1\)/.test(m)),
+      'captureLaunchMprr surfaces a non-zero exit as an error'
+    );
+    spawnMode = { error: true };
+    const errBefore2 = errorMessages.length;
+    await mprr();
+    assert(
+      errorMessages.slice(errBefore2).some((m) => /mprr capture failed to start/.test(m)),
+      'captureLaunchMprr surfaces a spawn error'
+    );
+    const savedFoldersMprr = mockVscode.workspace.workspaceFolders;
+    mockVscode.workspace.workspaceFolders = [{ uri: { fsPath: tmpdir(), path: tmpdir() } }];
+    const errBefore3 = errorMessages.length;
+    await mprr();
+    assert(
+      errorMessages.slice(errBefore3).some((m) => /mprr runner not found/.test(m)),
+      'captureLaunchMprr guards on a workspace missing the mprr runner'
+    );
+    mockVscode.workspace.workspaceFolders = undefined;
+    const errBefore4 = errorMessages.length;
+    await mprr();
+    assert(
+      errorMessages.slice(errBefore4).some((m) => /needs the labview-benchmark-actor repo open/.test(m)),
+      'captureLaunchMprr guards on no workspace folder'
+    );
+    mockVscode.workspace.workspaceFolders = savedFoldersMprr;
+  }
 
   // Open Frame Correlator, three ways. First with NO captures on disk (a clean nonexistent dir): it guides
   // the user to run Capture LabVIEW Launch (the empty-captures branch).
