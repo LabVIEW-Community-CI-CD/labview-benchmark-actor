@@ -64,6 +64,7 @@ import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs
 import { execFileSync } from 'node:child_process';
 import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
 import { validateReceipt as validateCrossPlaneAttestation } from './acg-quorum/cross-plane-attestation.mjs';
+import { validateReceipt as validateSignedCrossPlaneCorroboration } from './acg-quorum/signed-cross-plane-corroboration.mjs';
 import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
 import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/independence.mjs';
 import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/verdict-beacon.mjs';
@@ -3211,6 +3212,22 @@ check('acg-cross-plane-attestation', () => {
   assert(receipt.quorum.crossPlane === true && receipt.quorum.verdict === 'pass', 'the re-derived quorum must pass cross-plane');
   assert(receipt.provenance && receipt.provenance.runId, 'the attestation must record the CI run provenance of its witnesses');
   return { planes: receipt.planes, commit: String(receipt.quorum.consensus.sourceCommit).slice(0, 9), confidence: receipt.quorum.confidence, provenanceRun: receipt.provenance.runId };
+});
+
+// The genuine RE-SEAL of the machine corroboration (ADR-0071 / LBA-REQ-089): the durable crossPlane quorum
+// (LBA-REQ-088) carrying an ENROLLED human sign-off over it (ADR-0018 gateReleasePublish). Re-derives the ADR-0018
+// gate + the crossPlane requirement offline; the committed receipt must be a proven signed cross-plane
+// corroboration, and the selftest proves a single-plane / non-pass / unenrolled / forged / unnamed / tampered
+// receipt all fail closed. This is the corrected two-plane analogue of the single-plane quorum-1.0.0.json defect.
+check('acg-signed-cross-plane-corroboration', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'signed-cross-plane-corroboration.selftest.mjs')], { stdio: 'pipe' });
+  const receipt = readJson('experiments/acg-quorum/signed-cross-plane-corroboration-receipt.json');
+  const v = validateSignedCrossPlaneCorroboration(receipt);
+  assert(v.ok && v.proofOk, `the committed signed cross-plane corroboration must validate: ${v.findings.join('; ')}`);
+  assert(receipt.verdict.signedCrossPlaneCorroborated === true, 'the committed re-seal must be signed cross-plane corroborated');
+  assert(receipt.quorum.crossPlane === true && receipt.quorum.verdict === 'pass', 'the quorum must pass cross-plane');
+  assert(Array.isArray(receipt.decision.approvals) && receipt.decision.approvals.length >= 1, 'the re-seal must carry >= 1 enrolled approving sign-off');
+  return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), approvals: receipt.decision.approvals };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

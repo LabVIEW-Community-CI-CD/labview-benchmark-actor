@@ -116,6 +116,7 @@ progressively.
 | LBA-REQ-086 | The system shall package the `.vsix` byte-identically on the windows and linux planes -- pinning its OS-dependent zip metadata (entry timestamp, mode, version-made-by) and forcing LF on its packaged content -- so a fail-closed gate proves a windows build and a linux build of the same commit have the same sha256. | A plane is the OS the extension runs in (windows, linux); the human reviews on the windows plane and CI publishes on the linux plane, and a genuine corroboration needs a windows- AND a linux-plane witness to agree on ONE artifact. But `vsce`/`yazl` writes OS-dependent metadata (mtime from the clock, mode from `fs.stat`, a version-made-by host byte) and `tsc`/checkout can emit CRLF, so a Windows build and a Linux build of the same commit had different sha256 -- the reviewed artifact was never the shipped one, and two planes could not corroborate one identical artifact. | `scripts/normalize-vsix.mjs` pins every entry's timestamp (1980-01-01) + external attributes (regular file 0644) + version-made-by (Unix); `.gitattributes` forces LF on the packaged files (scoped past the Windows-captured fixtures) + `tsconfig.json` sets `newLine: lf`, so the packaged bytes depend only on the committed content, not the plane. | `.github/workflows/vsix-cross-plane-repro.yml` builds `npm run package` on ubuntu-latest AND windows-latest and asserts the two sha256 are identical (fail-closed); the offline gate `vsix-cross-plane-repro-workflow-wired` guards the workflow + prerequisites; `test/normalize-vsix.mjs` covers the mode/version pinning. |
 | LBA-REQ-087 | The system shall produce a genuine witness on the windows plane and the linux plane and prove, in CI, that they cross-plane corroborate over the deterministic anchors, so a fail-closed gate blocks any claim of two-plane corroboration unless both planes actually agree. | ADR-0068 found the ACG's live corroboration single-plane (linux-only) -- genuine cross-plane was PENDING a windows-plane witness, and none was committed. But `windows-latest` CI is a genuine windows plane (the extension runs + the gate passes there), so a real windows witness can be produced automatically; the viewer `seriesHash` is deterministic DATA (identical on every plane), so a linux + windows witness carry the same OS-independent anchors. | `experiments/acg-quorum/produce-witness.mjs` emits an acg-witness-bundle-v1 from the current plane (os, version, sourceCommit, gate verdict, and the seriesHash projected from the committed mprr fixture by the shipped viewer code); pngSha256 is an optional Linux-only anchor. `.github/workflows/acg-cross-plane-corroboration.yml` runs it on ubuntu-latest AND windows-latest (each after `npm test`) and `corroborate-planes.mjs` runs the corrected quorum. | `node experiments/acg-quorum/produce-witness.selftest.mjs` (a linux+windows pair corroborates; a single-plane, divergent, or non-pass pair fails closed) gated by `acg-cross-plane-corroboration`; the workflow drift gate `acg-cross-plane-corroboration-workflow-wired`; the live dual-OS corroborate job. |
 | LBA-REQ-088 | The system shall capture the genuine cross-plane corroboration -- a real linux-plane witness and a real windows-plane witness produced in CI (LBA-REQ-087) -- as a committed, tamper-evident attestation that re-derives its os-plane quorum offline, so a fail-closed gate blocks any durable claim of two-plane corroboration unless both planes genuinely agree and a single-plane witness set (the 1.0.0 defect) fails closed. | ADR-0069 proves genuine cross-plane corroboration LIVE, but that proof is ephemeral (only inside a workflow run) -- nothing committed consumed a genuine windows-plane witness, so the ACG's committed evidence still had only the honest single-plane negative (ADR-0068) and the shipped 1.0.0 quorum (a LINUX witness + a VMware-Ubuntu witness -- both the linux plane) stayed a flagged defect. The ADR-0069 workflow (push: develop) produced a real os:linux + os:windows witness at one develop commit -- capturable durably. | `experiments/acg-quorum/cross-plane-attestation.mjs` (schema cross-plane-corroboration-attestation@1) embeds the two GENUINE CI witnesses + their run provenance, re-derives the os-plane quorum (compare-witnesses.mjs), and is corroborated only when it PASSES + spans both os-planes (crossPlane); a canonical digest makes it tamper-evident. The committed receipt captures ubuntu-latest + windows-latest at 2a0352c (run 30923501292). The HUMAN sign-off is deliberately not synthesized (the reviewer's local key). | `node experiments/acg-quorum/cross-plane-attestation.selftest.mjs` (the committed attestation validates; a single-plane set -- the 1.0.0 defect -- + a non-pass + a tampered witness/verdict/digest all fail closed) gated by `acg-cross-plane-attestation`. |
+| LBA-REQ-089 | The system shall bind an enrolled human sign-off to the genuine cross-plane quorum -- the reviewer signs the crossPlane quorum digest with their local Ed25519 key -- so a fail-closed gate blocks any signed corroboration unless the quorum is genuinely cross-plane, passes, names the candidate, and carries a verified enrolled approval. | LBA-REQ-088 captured a genuine crossPlane machine quorum, but a quorum alone is not the machine corroboration GATE: ADR-0018 (gateReleasePublish) is the quorum PLUS a recorded enrolled human sign-off over that exact quorum. The shipped 1.0.0 had a sign-off but over the SINGLE-PLANE quorum; an honest re-seal needs the enrolled reviewer to sign over the genuine crossPlane quorum. The sign-off is signed with the reviewer's local Ed25519 key (never committed); the agent must not synthesize it. | `reviewer-workstation/sign-release-quorum.mjs` is a deterministic, offline signing helper (the reviewer signs the committed quorum's bundleDigest locally; the private key never leaves the reviewer). `experiments/acg-quorum/signed-cross-plane-corroboration.mjs` (schema signed-cross-plane-corroboration@1) REUSES gateReleasePublish + requires crossPlane + the consensus names the candidate; the committed receipt records extension 1.0.0 @ 2a0352c + the enrolled reviewer@vi-tech.nl sign-off, verified against the committed allowlist. | `node experiments/acg-quorum/signed-cross-plane-corroboration.selftest.mjs` (7/7: a signed crossPlane quorum validates; a single-plane, non-pass, un-enrolled, forged, unnamed, or tampered receipt fails closed) + the committed-receipt check, gated by `acg-signed-cross-plane-corroboration`. |
 
 ---
 
@@ -2742,6 +2743,40 @@ progressively.
   the composite release decision over this quorum (the human sign-off) remains the reviewer's local-key act.
   Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-089: Signed cross-plane corroboration (the enrolled human sign-off over the genuine crossPlane quorum)
+
+- Status: Proven
+- Area: Assurance / corroboration grid (ADR-0071 -- the genuine two-plane re-seal of the machine corroboration)
+- Statement: The system shall bind an enrolled human sign-off to the genuine cross-plane quorum -- the reviewer
+  signs the crossPlane quorum digest with their local Ed25519 key -- so a fail-closed gate blocks any signed
+  corroboration unless the quorum is genuinely cross-plane, passes, names the candidate, and carries a verified
+  enrolled approval.
+- Rationale: LBA-REQ-088 captured a genuine crossPlane machine quorum, but a quorum alone is not the machine
+  corroboration GATE. ADR-0018 (gateReleasePublish) is the quorum PLUS a recorded, signed sign-off by an enrolled
+  reviewer over that exact quorum (the sign-off never substitutes for the quorum). The shipped 1.0.0 had such a
+  sign-off, but over the SINGLE-PLANE quorum; an honest re-seal needs the enrolled reviewer to sign over the genuine
+  crossPlane quorum. That sign-off is signed with the reviewer's local key (never committed); the agent must not
+  synthesize it.
+- Acceptance Criteria:
+  - `reviewer-workstation/sign-release-quorum.mjs` is a DETERMINISTIC, offline signing helper: the reviewer signs
+    the committed crossPlane quorum's bundleDigest with their local Ed25519 key and emits an acg-human-signoff-v1
+    (PUBLIC); the private key never leaves the reviewer. It replaces the net-drive ceremony (which timed out).
+  - `experiments/acg-quorum/signed-cross-plane-corroboration.mjs` (schema `signed-cross-plane-corroboration@1`)
+    REUSES gateReleasePublish (ADR-0018) and additionally requires the quorum be crossPlane (pass + both os-planes)
+    and its consensus name the candidate; it never synthesizes a signature.
+  - The committed `signed-cross-plane-corroboration-receipt.json` records extension `1.0.0` @ `2a0352c`, the
+    LBA-REQ-088 crossPlane quorum, and the enrolled `reviewer@vi-tech.nl` sign-off over it, verified against the
+    committed allowlist.
+  - `signed-cross-plane-corroboration.selftest.mjs` (7/7, throwaway key) proves a signed crossPlane quorum validates
+    while a single-plane, non-pass, un-enrolled, forged, unnamed, or tampered receipt all fail closed (gate
+    `acg-signed-cross-plane-corroboration`).
+- Change Guidance: the re-seal lives at `experiments/acg-quorum/signed-cross-plane-corroboration.mjs` (+
+  `-receipt.json` + `-selftest.mjs`) with the signing helper at `reviewer-workstation/sign-release-quorum.mjs`; the
+  gate is `acg-signed-cross-plane-corroboration`. To re-sign a new commit's quorum, refresh the LBA-REQ-088
+  attestation, then the reviewer re-runs the signing helper over the new quorum. Tightening `verify-composite-release`
+  to REQUIRE crossPlane (which rejects the shipped single-plane composite) is operator-gated. Authored under the
+  singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2836,3 +2871,4 @@ progressively.
 | LBA-REQ-086 | Packaging / boundary (cross-plane byte-reproducible .vsix) | T-086 |
 | LBA-REQ-087 | Corroboration grid (genuine cross-plane corroboration) | T-087 |
 | LBA-REQ-088 | Corroboration grid (durable cross-plane attestation) | T-088 |
+| LBA-REQ-089 | Corroboration grid (signed cross-plane corroboration re-seal) | T-089 |
