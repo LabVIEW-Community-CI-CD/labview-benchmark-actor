@@ -133,6 +133,13 @@ jobs:
       - name: Package .vsix
         run: npm run package
 
+      - name: Assert published .vsix == reviewed .vsix (reviewed==shipped, LBA-REQ-085/ADR-0066)
+        # Fail-closed: the byte-reproducible .vsix (ADR-0066) built here on the PUBLISH plane (linux) must have the
+        # same sha256 the enrolled reviewer visually reviewed (release-agreement visualReview.verdict.target). This
+        # closes the reviewed==shipped loop end-to-end: CI cannot publish an artifact that was never the one
+        # reviewed. A review taken on a different plane (different sha) fails this gate by design.
+        run: node scripts/verify-published-vsix.mjs "${{ steps.ver.outputs.version }}" labview-benchmark-actor.vsix
+
       - name: Stage release asset
         run: |
           set -eu

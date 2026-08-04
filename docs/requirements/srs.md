@@ -2636,9 +2636,10 @@ progressively.
     normalizer (the wiring cannot silently regress), and a hand-built stored-entry zip re-proves synchronously that
     two same-content zips with different timestamps normalize byte-identical + epoch-pinned.
 - Change Guidance: the normalizer + test live at `scripts/normalize-vsix.mjs` + `test/normalize-vsix.mjs`; the gate
-  `reproducible-vsix-normalizer` is in `verify-local-gates`. A follow-on can add a release-workflow step that
-  rebuilds the tagged commit and asserts the published sha256 equals the reviewed one end-to-end. Authored under
-  the singular-requirement directive (one `shall`).
+  `reproducible-vsix-normalizer` is in `verify-local-gates`. The reviewed==shipped follow-on is REALIZED:
+  `scripts/verify-published-vsix.mjs` (+ `test/verify-published-vsix.mjs`, gate `reviewed-vsix-matches-shipped`)
+  asserts the CI-built .vsix sha256 equals the reviewed `vsixSha256`, wired into `extension-release.yml` after
+  packaging. Authored under the singular-requirement directive (one `shall`).
 
 ---
 

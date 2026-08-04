@@ -53,8 +53,9 @@ release workflow would produce a different hash than the one reviewed. Reproduci
   canonicalized. There is no fabricated content and no behavior change to the extension.
 - **It composes with the existing release gates** rather than replacing them — the composite release-decision still
   binds the candidate `vsixSha256`; reproducibility simply makes that hash a stable function of the source. A
-  future increment can add a release-workflow step that rebuilds and asserts the published sha256 equals the
-  reviewed one end-to-end.
+  release-workflow step (`scripts/verify-published-vsix.mjs`, wired after packaging) now rebuilds on the publish
+  plane and asserts the published sha256 equals the reviewed one, so the reviewed==shipped loop is closed
+  end-to-end and the reviewer reviews the artifact built on the publish (linux) plane.
 - The gate is DETERMINISTIC + offline (it builds a tiny in-memory zip, no `vsce` invocation at gate time),
   consistent with the rg-free / tool-free CI constraint. Authored under the singular-requirement directive (one
   `shall`).
