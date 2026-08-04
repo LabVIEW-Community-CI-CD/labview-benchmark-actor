@@ -22,7 +22,7 @@ Vagrant.configure("2") do |config|
   # A plain Ubuntu box available for BOTH providers (bento ships virtualbox + vmware_desktop + parallels).
   # Override with WITNESS_BOX (e.g. a 26.04 box when available, to match a native resolute host exactly).
   config.vm.box = ENV.fetch("WITNESS_BOX", "bento/ubuntu-24.04")
-  config.vm.hostname = "acg-witness"
+  config.vm.hostname = ENV.fetch("WITNESS_NAME", "acg-witness")
 
   # The repo is PRIVATE, so the guest cannot `git clone` from GitHub. Transfer it auth-free: create a git
   # BUNDLE of the candidate ref on the HOST before `up`; it rides the default /vagrant synced folder into the
@@ -41,7 +41,7 @@ Vagrant.configure("2") do |config|
     vb.gui = true                                   # a GUI reviewer workstation (NOT headless)
     vb.memory = ENV.fetch("WITNESS_MEM", "6144")    # the Ubuntu desktop + VS Code need headroom
     vb.cpus   = ENV.fetch("WITNESS_CPUS", "4")
-    vb.name   = "acg-witness"
+    vb.name   = ENV.fetch("WITNESS_NAME", "acg-witness")
     vb.customize ["modifyvm", :id, "--vram", "128", "--graphicscontroller", "vmsvga", "--accelerate3d", "off"]
   end
 
@@ -49,7 +49,7 @@ Vagrant.configure("2") do |config|
     v.gui = true
     v.vmx["memsize"]     = ENV.fetch("WITNESS_MEM", "6144")
     v.vmx["numvcpus"]    = ENV.fetch("WITNESS_CPUS", "4")
-    v.vmx["displayName"] = "acg-witness"
+    v.vmx["displayName"] = ENV.fetch("WITNESS_NAME", "acg-witness")
   end
 
   # Default the plane from the HOST os so the two spawns are DISTINCT enrolled environments automatically:
