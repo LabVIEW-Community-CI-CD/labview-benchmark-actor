@@ -1,0 +1,154 @@
+{
+  "schema": "labview-benchmark-actor/composite-release-decision-receipt@1",
+  "requirement": "LBA-REQ-070",
+  "adr": "ADR-0051",
+  "transport": "lbabus net -- bus-msg@1, ADR-0003/0004 (TCP 7420; guest->host via VirtualBox NAT 10.0.2.2). NET-ONLY: staging rides net, not a GitHub Discussion (ADR-0047).",
+  "capability": {
+    "crossPlaneProvenance": {
+      "workflow": "acg cross-plane corroboration (.github/workflows/acg-cross-plane-corroboration.yml)",
+      "event": "push",
+      "branch": "develop",
+      "runId": "30923501292",
+      "runUrl": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/actions/runs/30923501292",
+      "commit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+      "note": "The two witnesses were produced by real ubuntu-latest (linux plane) + windows-latest (windows plane) runners in this run (LBA-REQ-087) and downloaded from its witness-ubuntu-latest / witness-windows-latest artifacts; anyone can re-download the run artifacts and byte-compare.",
+      "capturedAt": "2026-08-04T15:29:40.423Z"
+    }
+  },
+  "candidate": {
+    "component": "extension",
+    "version": "1.0.0",
+    "commit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+    "vsixSha256": "2ec7bd31f7f67b74bdbad327658f23178007bd0ddab027297751f7360444ad7e"
+  },
+  "staged": {
+    "drive": "release-with-review staging: the actor VM (WIN plane) net-sent a DONE frame for the ext 1.0.0 candidate 1054b07 over lbabus net (TCP 7420; guest->host via VirtualBox NAT 10.0.2.2), captured + ACKed by the host listener (closed-loop-readback@1).",
+    "vm": "actor",
+    "matched": true,
+    "candidate": {
+      "component": "extension",
+      "version": "1.0.0"
+    },
+    "frame": {
+      "type": "DONE",
+      "task": "rev-1.0.0-net",
+      "senderId": "WIN",
+      "payload": "ext 1.0.0 staged + live-launch benchmarked (run-1785842247349): 495 frames @12fps/41023ms, peakCpu 100%, peakRam 6310MB; review OK"
+    }
+  },
+  "machine": {
+    "quorumVerdict": {
+      "schema": "labview-benchmark-actor/acg-quorum-verdict-v2",
+      "verdict": "pass",
+      "confidence": 1,
+      "threshold": 0.5,
+      "witnesses": 2,
+      "concurring": 2,
+      "majority": true,
+      "crossPlane": true,
+      "consensusVerdict": "pass",
+      "consensus": {
+        "version": "1.0.0",
+        "sourceCommit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+        "verdict": "pass",
+        "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+        "pngSha256": null,
+        "ubuntu": "noble"
+      },
+      "divergences": []
+    },
+    "signOffs": [
+      {
+        "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+        "subject": {
+          "verdictDigest": "2e313a6acc1ba40c75b32dc62a0a3bcc8943fd88a89e6b8df99240471f002138",
+          "consensusVerdict": "pass"
+        },
+        "reviewer": "reviewer@vi-tech.nl",
+        "decision": "approve",
+        "station": "LINUX_CODESPACE",
+        "algorithm": "ed25519",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
+        "signedAt": "2026-08-04T17:22:11.967Z",
+        "signature": "i/y/CAFCch+jnSXbPIonCOjKOggr4UrmRIgbflWk1CrUPyQl0jhrGow8cuJ7DJdxwrZuuwK3GAq1/cWKm8EpAw=="
+      }
+    ]
+  },
+  "visual": {
+    "verdict": {
+      "schema": "labview-benchmark-actor/reviewer-verdict@1",
+      "target": {
+        "component": "extension",
+        "version": "1.0.0",
+        "commit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+        "vsixSha256": "2ec7bd31f7f67b74bdbad327658f23178007bd0ddab027297751f7360444ad7e"
+      },
+      "verdict": "pass",
+      "reviewer": "reviewer@vi-tech.nl",
+      "station": "WINDOWS_VM",
+      "notes": "Re-seal of the 1.0.0 composite over the GENUINE cross-plane quorum (2a0352c). The reviewed runtime (src/out/media + all contributed commands/activation) is byte-identical to the originally-reviewed 1.0.0 (1054b07); only the byte-repro build tooling changed. The candidate is now byte-reproducible (ADR-0067), cross-plane corroborated (ADR-0069/0070), and machine-signed (LBA-REQ-089).",
+      "evidence": [
+        {
+          "kind": "real-benchmark-live",
+          "ref": "run-1785842247349: 495 frames @12fps/41023ms, peakCpu 100%, peakRam 6310MB, peakDiskWrite 122.3MB/s, plane=WIN, workload=labview-launch (ffmpeg-gdigrab) -- identical runtime (src/out/media unchanged since 1054b07)"
+        },
+        {
+          "kind": "cross-plane-corroboration",
+          "ref": "signed-cross-plane-corroboration-receipt.json: extension 1.0.0 @ 2a0352c crossPlane, quorum pass confidence 1, machine-signed reviewer@vi-tech.nl"
+        },
+        {
+          "kind": "vsix",
+          "ref": "2ec7bd31f7f67b74bdbad327658f23178007bd0ddab027297751f7360444ad7e (byte-reproducible, ADR-0067)"
+        }
+      ],
+      "renderedAt": "2026-08-04T17:48:22.456Z"
+    },
+    "signOff": {
+      "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+      "subject": {
+        "verdictDigest": "a3503638490023936164d412c287bb8ac43fb433a4783083b02f59d6799f7fc8",
+        "consensusVerdict": "pass",
+        "target": {
+          "component": "extension",
+          "version": "1.0.0",
+          "commit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+          "vsixSha256": "2ec7bd31f7f67b74bdbad327658f23178007bd0ddab027297751f7360444ad7e"
+        }
+      },
+      "reviewer": "reviewer@vi-tech.nl",
+      "decision": "approve",
+      "station": "WINDOWS_VM",
+      "algorithm": "ed25519",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
+      "signedAt": "2026-08-04T17:48:22.458Z",
+      "signature": "NahIoLALLCJdPSr6z8AnDerGxcANT88nxjzOJ9rYYv//FrRRreRE6pWcgq14Uyr3cpNQlJgTDTh7vmBBhk59BQ=="
+    }
+  },
+  "reviewerAllowlist": {
+    "reviewer@vi-tech.nl": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n"
+  },
+  "gate": {
+    "minReviewers": 1,
+    "minVisualReviewers": 1
+  },
+  "capturedAt": null,
+  "note": "GENUINE cross-plane re-seal of the 1.0.0 composite (LBA-REQ-090/ADR-0072). MACHINE gate = the genuine two-plane crossPlane quorum (LBA-REQ-088, a real ubuntu-latest linux witness + a real windows-latest windows witness, run 30923501292 @ 2a0352c) + an enrolled reviewer sign-off over it (LBA-REQ-089). HUMAN gate = a signed WINDOWS_VM visual PASS of the byte-reproducible candidate (ADR-0067, vsix 2ec7bd31) whose runtime (src/out/media) is byte-identical to the originally-reviewed 1.0.0; evidence run-1785842247349. Bound to the genuine WIN net-staged candidate (task rev-1.0.0-net). Supersedes the single-plane composite-release-decision-receipt.json (the flagged 1.0.0 defect).",
+  "binding": {
+    "machinePublish": true,
+    "visualPublish": true,
+    "stagedOverNet": true,
+    "visualTargetBound": true,
+    "machineConsensusBound": true
+  },
+  "decision": {
+    "schema": "labview-benchmark-actor/acg-release-with-review-decision-v1",
+    "publish": true,
+    "machinePublish": true,
+    "visualPublish": true
+  },
+  "verdict": {
+    "compositeReleaseProven": true,
+    "reason": "both gates publish for extension 1.0.0: machine quorum + enrolled sign-off (ADR-0018) AND human visual PASS (LBA-REQ-057), bound to the same net-staged candidate"
+  },
+  "digest": "19512ffc5c8961ec62fe6aba288196c73141b6998779770a531e58df3fc4ee29"
+}

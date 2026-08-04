@@ -96,5 +96,6 @@
 | LBA-REQ-087 | Genuine cross-plane corroboration (a windows-latest + ubuntu-latest witness prove two planes agree) | Proven | §3.9 Corroboration-grid | ADR-0069 | T-087 | 5 |
 | LBA-REQ-088 | Durable genuine cross-plane corroboration attestation (capture the live two-plane proof as a committed receipt) | Proven | §3.9 Corroboration-grid | ADR-0070 | T-088 | 5 |
 | LBA-REQ-089 | Signed cross-plane corroboration (the enrolled human sign-off over the genuine crossPlane quorum) | Proven | §3.9 Corroboration-grid | ADR-0071 | T-089 | 6 |
+| LBA-REQ-090 | Genuine cross-plane composite release decision (the fuller 1.0.0 re-seal) | Proven | §3.9 Corroboration-grid | ADR-0072 | T-090 | 5 |
 
-_Generated for 89 requirements._
+_Generated for 90 requirements._
