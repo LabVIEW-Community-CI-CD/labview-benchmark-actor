@@ -1886,6 +1886,19 @@ check('mesh-live-fanout-wired', () => {
   return { tasks: tasking.tasks.length, collected: collection.collected.length, identity: collection.identity.slice(0, 12), wired: true };
 });
 
+// LBA-REQ-091 / ADR-0074: RUN-BOUND mesh ingestion -- ingest a LIVE dispatch (the workflow client_payload) + the
+// actors' returned plane-tagged receipts (returned-receipt@1 files) into a run-bound actor-tasking + receipt-collection
+// bound to the dispatchId, REUSING the LBA-REQ-074 dispatch validation (meshDispatch.requestOk) + the LBA-REQ-076
+// fan-out gating (meshFanout derive/validate) -- no new gating logic, just the LIVE data path into the committed
+// fan-out contract. Asserts the selftest (8/8): a genuine two-plane run ingests to a two-actor collection, and it
+// fails closed on an uncovered requested plane, a declared/receipt plane mismatch, a receipt whose identity != the
+// dispatched benchmark, an unbound taskId, a duplicate actor, a malformed dispatch, or a malformed returned receipt.
+check('mesh-run-ingest', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshIngest.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'meshIngest 8/8', requirement: 'LBA-REQ-091', adr: 'ADR-0074' };
+});
+
 // LBA-REQ-077 / ADR-0058: the opt-in VERIFIED TIER -- each returned actor receipt is SIGNED by the actor's
 // ENROLLED Ed25519 key (reusing the ADR-0016 acg-provenance attestation engine), and a verified-receipt-collection@1
 // admits a receipt only when it carries a valid attestation from its declared, enrolled actor. Asserts the
