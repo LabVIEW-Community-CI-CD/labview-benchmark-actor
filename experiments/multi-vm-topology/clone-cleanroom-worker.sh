@@ -81,6 +81,13 @@ scp "${SSHOPTS[@]}" -P "$SSH_PORT" "$TARBALL" "${GUEST_USER}@127.0.0.1:~/lba-exp
 guest 'rm -rf ~/experiments && tar xzf ~/lba-experiments.tgz -C ~'
 rm -f "$TARBALL"
 
+# 5b) Make the clone CAPTURE-READY for the mprr visual ring (live-vbox-labview-trend.mjs). Xorg.wrap refuses
+# `xinit` from a non-console (SSH) session unless Xwrapper.config allows it -- without this a launch-to-ready
+# capture sees a STATIC screen and reports a bogus ~85 ms launchMs. (Learned 2026-08: a fresh mesh-node-ready
+# clone lacked this; setting allowed_users=anybody yields real timings, e.g. ~1.85 s to the LabVIEW IDE.)
+log "making $CLONE_VM capture-ready (Xwrapper allowed_users=anybody)"
+guest 'printf "allowed_users=anybody\nneeds_root_rights=yes\n" | sudo tee /etc/X11/Xwrapper.config >/dev/null'
+
 # 6) Launch the worker as a PERSISTENT transient systemd unit (survives the SSH session).
 log "launching worker (systemd unit lba-worker) on port ${WORKER_PORT} (provider=${PROVIDER}, actor=${ACTOR_ID})"
 guest "sudo systemctl stop lba-worker 2>/dev/null || true; sudo systemd-run --unit=lba-worker --collect --working-directory=/home/${GUEST_USER}/experiments/provider-delegation /usr/bin/node worker.mjs --listen ${WORKER_PORT} --concurrency 2 --provider ${PROVIDER} --actor ${ACTOR_ID}"
