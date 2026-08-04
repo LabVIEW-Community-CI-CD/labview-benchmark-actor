@@ -39,7 +39,7 @@ command -v VBoxManage >/dev/null || { echo "render-verdict: VBoxManage not on PA
 [[ -n "$version" ]] || { echo "render-verdict: --version is required" >&2; exit 2; }
 
 gc() { VBoxManage guestcontrol "$vm" --username "$user" --password "$pass" "$@"; }
-guest_handoff="C:\\Users\\${user}\\AppData\\Roaming\\Code\\User\\globalStorage\\labview-community-ci-cd.labview-benchmark-actor\\handoff"
+guest_handoff="C:\\Users\\${user}\\AppData\\Roaming\\Code\\User\\globalStorage\\svelderrainruiz.labview-benchmark-actor\\handoff"
 
 case "$sub" in
   set-target)

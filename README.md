@@ -1,88 +1,62 @@
-# labview-benchmark-actor — Specification Package
+# LabVIEW Benchmark Actor
 
-> **Status:** Originating specification. The extension is now implemented and ships as `ext-v*` GitHub Releases (latest `ext-v0.4.0`).
-> **Standards baseline:** `repo-standards-review` **v0.2.19** (GitLab
-> `svelderrainruiz/repo-standards-review`, commit `d44f210d`).
-> **Stamp rationale:** this package is authored to move to a future
-> `labview-benchmark-actor` repository; the standards-release stamp travels
-> with it so the receiving repo can re-validate against the exact baseline it
-> was written to.
->
-> **Roadmap:** the multi-year vision + near-term slice — the personal golden-VM
-> onboarding — live in `docs/roadmap.md`.
+> **Reproducible, cross-plane LabVIEW benchmarking — coordinated by an actor mesh, driven by agents, with no central data hoarding.**
 
-## Purpose
+A free, open-source VS Code extension for the LabVIEW CI/CD community. It turns a personal, sandbox-isolated "golden" VM (Ubuntu 24.04 + LabVIEW 2026 Community Edition + VIPM) into a **benchmark actor** that runs headless LabVIEW benchmarks, coordinates on-demand distributed runs with other actors, and produces portable, fail-closed **receipts** you own — so results can be objectively compared across operating systems, hardware, and LabVIEW versions.
 
-`labview-benchmark-actor` is a **standalone, installable VS Code extension**
-providing **hooking and agentic benchmarking infrastructure** (originally
-prototyped in `vi-history-suite`, since extracted into this independent repo —
-no runtime dependency on that prototype). Installed on a **GitHub
-Codespace** or a **Vagrant golden VM**, it lets an operator drive
-**benchmarking** through that agentic infrastructure and review results through
-a **time-cursor benchmark viewer**.
+Everything is **governed by construction**: every capability is proven on real data with a committed receipt and a fail-closed gate (180+ gates on `develop`), and the requirements ⇄ tests ⇄ architecture decisions stay in a checked correspondence graph (ISO/IEC/IEEE 29148 / 42010 / 29119).
 
-Five capabilities define the extension:
+## What it does
 
-1. **Benchmark time-cursor UI** — a benchmark chart with a draggable **vertical
-   time cursor**; dragging it left↔right selects a point in time, and the
-   **captured picture (frame) indexed at that time** is shown directly below the
-   chart, keeping metric and visual evidence synchronized.
-2. **TCP/UDP coordination bus** — multiple Vagrant VMs, each running the
-   extension, coordinate over a **local TCP + UDP message bus** instead of a
-   GitHub Discussion, so benchmarking runs offline / air-gapped and in parallel
-   across VMs. The bus carries **inter-actor communication only** — no run data
-   ever crosses it.
-3. **VM cleanroom storage** — a run's data (metrics **and** pictures) is stored
-   **locally in each VM** via the **mprr** ring buffer model
-   (absorbed in-repo, dependency-free — see
-   [ADR-0009](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md));
-   **no run data crosses the bus** — the
-   whole ring buffer is VM-local (LBA-REQ-009,
-   [ADR-0005](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0005-image-storage-mprr-ringbuffer-cleanroom.md)).
-4. **Own-run review + host ollama comparison** — each actor reviews only its
-   **own** previous runs; there is **no cross-VM comparison**. The operator
-   concentrates runs onto the host (out-of-band) to improve an **ollama**
-   comparison layer over previous runs (LBA-REQ-010,
-   [ADR-0006](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0006-run-concentration-ollama-comparison.md)).
-5. **MCP tools for agent mode** — the extension contributes a **Model Context
-   Protocol** server (a dependency-free stdio JSON-RPC server) so Copilot agent
-   mode can call the extension's own tools directly: host capabilities, the
-   deterministic benchmark series, and the coordination bus (poll / post).
+- **Benchmark time-cursor viewer** — a metric chart with a draggable vertical time cursor; drag it and the captured frame indexed at that instant is shown below, keeping the metric and the visual evidence synchronized. Capture is frame-locked at **exactly 12 FPS** — the shared clock across every plane.
+- **The actor mesh** — register your golden VM as an actor; a requester dispatches a cross-plane benchmark run **GitHub-natively** (`repository_dispatch` / Actions as the queue — zero central infrastructure), and volunteer actors return plane-tagged receipts. A run is *fulfilled* only when enough independent cross-plane actors returned a valid receipt for the same benchmark identity. **No central results database — the receipts are the result.**
+- **Verify-before-consume trust** — an opt-in verified tier signs each actor receipt with an enrolled key, records it in an RFC-6962 transparency log, and proves the log is append-only. A single **fully-attested** verdict tells a consumer a run is trustworthy end-to-end (identity + signature + transparency inclusion + append-only).
+- **Cross-plane comparison at scale** — reproducible parity + comparison receipts across the OS and hardware axes, with the mesh-stress calibration **discounting** results captured on a contended actor so comparisons stay fair.
+- **Coordination bus (`lbabus`)** — actors on a LAN coordinate over a local TCP + UDP message bus; the bus carries inter-actor messages only — run data never crosses it.
+- **MCP tools for agent mode** — the extension contributes a dependency-free Model Context Protocol server so Copilot agent mode can call its tools directly (host capabilities, the deterministic benchmark series, the coordination bus).
 
-## Absorbed model
+## Install
 
-- **mprr** — the bounded-RAM dual-packet **ring buffer** model (dual-packet policy
-  from mprr ADR-0024) and the frozen TDMS-compatible `1.0` replay transport, **absorbed
-  in-repo as dependency-free mirrors** under `experiments/mprr-ring/` and exercised by
-  `experiments/verify-local-gates.mjs`. The `mprr` name is retained for the local model;
-  labview-benchmark-actor owns it and does not track an external repository
-  ([ADR-0009](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md)).
+Install **LabVIEW Benchmark Actor** from the VS Code Marketplace (publisher `svelderrainruiz`), or from a packaged `.vsix`. Requires VS Code **1.101+**. The extension is fully free and non-commercial; running LabVIEW benchmarks happens locally in your own activated golden VM.
 
-## Standards coverage
+## Quickstart
 
-| Standard | Lane | Package artifact |
+1. **Provision a personal golden VM** — one command mints a clean Ubuntu 24.04 VM, installs LabVIEW 2026 Community Edition + VIPM from NI's apt repo, and hands off to you for the one irreducibly-human step: signing in to your NI account and **activating** LabVIEW CE. The tool then confirms activation with a headless probe VI and mints your local golden VM.
+2. **Register it as an actor** — the activated VM is registered in your local actor registry; it stays local to you (no boxes are published to a shared registry).
+3. **Join the mesh** — follow the [join-the-mesh quickstart](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-for-users/join-the-mesh.md) to answer a dispatched run and return your first plane-tagged receipt.
+
+Full walkthroughs: the [getting-started guide](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-for-users/getting-started.md), the [user guide](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-for-users/user-guide.md), and the [command reference](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-for-users/command-reference.md).
+
+## Principles
+
+- **Reproducibility over telemetry** — the mesh coordinates *runs*, not a central results database; evidence is a portable receipt owned by whoever produced it.
+- **Real data, no fakes** — every capability is proven on a real capture with a committed receipt and a fail-closed gate.
+- **Sandbox = the golden VM** — distributed runs execute inside your isolated VM; provenance/attestation is an opt-in stronger tier, not a gate on participation.
+- **Hybrid labor** — agents drive the automation; a human does the irreducibly-human steps (the NI-account activation, hardware, physical provisioning).
+- **Free + non-commercial** — LabVIEW Community Edition is the substrate; the extension ships free.
+
+## How it's governed
+
+The project is developed as fail-closed, receipt-backed increments. Requirements, tests, architecture decisions, and the executable gate suite stay in a checked correspondence:
+
+| Standard | Lane | Artifact |
 | --- | --- | --- |
-| ISO/IEC/IEEE 29148 | Requirements | [docs/requirements/srs.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/requirements/srs.md) |
-| ISO/IEC/IEEE 42010 | Architecture description | [docs/architecture/overview.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/overview.md) |
-| ISO/IEC/IEEE 29119-2/3 | Test | [docs/testing/test-plan.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/testing/test-plan.md) |
-| ISO 10007 / ISO/IEC/IEEE 12207 | Configuration management & release | [docs/cm/cm-plan.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/cm/cm-plan.md) |
-| ISO/IEC/IEEE 26514:2022 | Information for users | [docs/information-for-users/user-guide.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-for-users/user-guide.md) |
-| ISO/IEC/IEEE 15289 | Information item map | [docs/information-item-map.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-item-map.md) |
+| ISO/IEC/IEEE 29148 | Requirements | [software requirements specification](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/requirements/srs.md) |
+| ISO/IEC/IEEE 42010 | Architecture | [architecture overview + ADRs](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/overview.md) |
+| ISO/IEC/IEEE 29119 | Test | [test plan](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/testing/test-plan.md) |
+| ISO 10007 / 12207 | Configuration & release | [CM plan](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/cm/cm-plan.md) |
+| ISO/IEC/IEEE 26514 | Information for users | [user guide](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/information-for-users/user-guide.md) |
 
-Cite standards as `Std §clause` throughout; keep observations separate from
-assumptions; show repo-relative evidence for load-bearing claims.
+The multi-year vision and near-term slice live in the [roadmap](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/roadmap.md).
 
-## Requirement ID scheme
+**Absorbed model:** the bounded-RAM `mprr` ring-buffer model (dual-packet policy + a frozen replay transport) is absorbed in-repo as dependency-free mirrors — the project owns it and tracks no external repository ([ADR-0009](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/docs/architecture/adr/ADR-0009-absorb-mprr-model-self-owned.md)).
 
-Software requirements use `LBA-REQ-NNN`; acceptance criteria are cited by
-position as `LBA-REQ-NNN.M` (matching the parent repo's derived-position
-convention).
+**Standards baseline:** authored against `repo-standards-review` **v0.2.19** (commit `d44f210d`).
 
-## Move / graduation note
+## Contributing & support
 
-When this package graduates to the `labview-benchmark-actor` repository:
+- **Issues:** [github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/issues](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/issues)
+- **Changelog:** [CHANGELOG.md](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/CHANGELOG.md)
+- **License:** see [LICENSE](https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/blob/main/LICENSE)
 
-- Re-run `python3 scripts/pipeline.py validate-skill` against
-  `repo-standards-review` **v0.2.19** (or bump this stamp and re-validate).
-- Preserve the `docs/` layout so the standards runner resolves each lane.
-- Carry the requirement IDs unchanged so external traceability survives the move.
+*Community, non-commercial project. Not affiliated with or endorsed by National Instruments; "LabVIEW" is a trademark of its respective owner.*

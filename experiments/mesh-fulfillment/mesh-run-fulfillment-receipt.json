@@ -1,0 +1,115 @@
+{
+  "schema": "labview-benchmark-actor/mesh-run-fulfillment-receipt@1",
+  "requirement": "LBA-REQ-073",
+  "adr": "ADR-0054",
+  "dispatch": {
+    "benchmarkId": "labview-ide-launch",
+    "benchmark": {
+      "metric": "launchMs",
+      "workload": "labview-ide-launch",
+      "n": 5
+    },
+    "minActors": 2,
+    "requestedPlanes": [
+      "LINUX",
+      "WIN"
+    ],
+    "requester": "operator@labview-benchmark-actor",
+    "dispatchedAt": "2026-08-03",
+    "coordination": "GitHub-native (repository_dispatch / Actions queue) -- no central results database; the returned plane-tagged receipts ARE the result."
+  },
+  "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+  "actors": [
+    {
+      "actorId": "golden-linux",
+      "role": "golden",
+      "plane": "LINUX",
+      "hypervisor": "vbox-vnc",
+      "receipt": {
+        "schema": "labview-benchmark-actor/workload-trend@1",
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "plane": "LINUX",
+        "hypervisor": "vbox-vnc",
+        "n": 5,
+        "values": [
+          2414,
+          2843,
+          2745,
+          2664,
+          2355
+        ],
+        "stats": {
+          "min": 2355,
+          "max": 2843,
+          "mean": 2604.2,
+          "median": 2664,
+          "stddev": 189.1,
+          "spread": 488
+        },
+        "baselineMs": 2664,
+        "toleranceMs": 2000,
+        "latest": 2355,
+        "slopeMsPerRun": -29.7,
+        "driftThresholdMsPerRun": 400,
+        "drifting": false,
+        "regressed": false,
+        "verdict": "PASS"
+      }
+    },
+    {
+      "actorId": "golden-win",
+      "role": "golden",
+      "plane": "WIN",
+      "hypervisor": "vmware-vnc",
+      "receipt": {
+        "schema": "labview-benchmark-actor/workload-trend@1",
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "plane": "WIN",
+        "hypervisor": "vmware-vnc",
+        "n": 5,
+        "values": [
+          2796,
+          2309,
+          2307,
+          2308,
+          2333
+        ],
+        "stats": {
+          "min": 2307,
+          "max": 2796,
+          "mean": 2410.6,
+          "median": 2309,
+          "stddev": 192.9,
+          "spread": 489
+        },
+        "baselineMs": 2309,
+        "toleranceMs": 2000,
+        "latest": 2333,
+        "slopeMsPerRun": -92.7,
+        "driftThresholdMsPerRun": 400,
+        "drifting": false,
+        "regressed": false,
+        "verdict": "PASS"
+      }
+    }
+  ],
+  "fulfillment": {
+    "respondingActors": 2,
+    "distinctActors": 2,
+    "planes": [
+      "LINUX",
+      "WIN"
+    ],
+    "planesCovered": true,
+    "identityAgreement": true,
+    "minActorsMet": true
+  },
+  "verdict": {
+    "fulfilled": true,
+    "reason": "dispatched run labview-ide-launch fulfilled by 2 distinct actors covering planes [LINUX, WIN]; all ran the same benchmark identity"
+  },
+  "digest": "37bfb68d0c81406f8398fa7c2f02688860f3c1f7352dec474adebf8e6feef009",
+  "note": "The North Star loop (roadmap Phase 3): the requester dispatched a cross-plane launch-to-ready benchmark to the mesh; two INDEPENDENT enrolled golden-VM actors from distinct planes (golden-linux + golden-win) ran it in their sandboxes and returned plane-tagged workload-trend@1 receipts. Fulfillment is proven fail-closed -- >= 2 distinct actors, both requested planes covered, all ran the SAME benchmark identity (the LBA-REQ-072 launch identity). The committed receipt embeds the two actors real returned receipts; the verifier re-derives fulfillment + the digest deterministically (no VM / network / central DB at gate time)."
+}

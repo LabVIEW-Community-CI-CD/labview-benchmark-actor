@@ -1,0 +1,22 @@
+{
+  "schema": "labview-benchmark-actor/hardware-capability@v1",
+  "probedAt": "2026-08-04T10:27:51.936Z",
+  "platform": "linux-x64",
+  "cpu": {
+    "model": "Intel(R) Core(TM) Ultra 7 255H",
+    "logicalCores": 4,
+    "speedMHzMax": null
+  },
+  "memory": {
+    "totalGiB": 5.3,
+    "freeGiB": 4.6
+  },
+  "gpus": [],
+  "containerRuntime": null,
+  "loadAvg1m": 0.16,
+  "parallelismBudget": {
+    "cpuWorkers": 3,
+    "gpuLanes": 0,
+    "guidance": "Aim ~80% average across CPU workers + GPU lane(s); run CPU work (docker / stress harness / builds) concurrently with GPU work (ollama sweeps) -- docker can run alongside vagrant + native."
+  }
+}

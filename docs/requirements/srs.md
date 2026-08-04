@@ -95,6 +95,23 @@ progressively.
 | LBA-REQ-065 | The system shall default the coordination-bus transport to the live-only `lbabus net` TCP bus (GitHub Discussion becomes a legacy opt-out) AND degrade gracefully when net is unconfigured -- `net poll` with no receive-log and `net send --skip-if-no-peer` with no peer both exit 0 with a hint (no error, no dead loopback) -- so a fresh install coordinates over TCP once a peer/log is set and does nothing quietly until then, proven by a gate. | Steps 1-5 (ADR-0040..0044) made net available everywhere but kept Discussion the default (opt-in net) during the transition; with the net loop proven live (ADR-0039) the last thing pinning Discussion is inertia. Flipping naively would error/hang an unconfigured install, so the flip is paired with a graceful no-op. | busTransport defaults to net across the extension/MCP/post-verdict; `net poll` no-log softened from fail-closed to graceful (exit 0); the send side passes --skip-if-no-peer so `net send` with no peer exits 0; Discussion is `busTransport: discussion` / VIHS_COLLAB_TRANSPORT=discussion. | npm test (extension + MCP default flip) + the net-coordination-log receipt (graceful poll); gated by `net-default-graceful` (Net.cs graceful branches + net default in package.json/extension) + `bus-transport-select` (default === 'net'). |
 | LBA-REQ-066 | The system shall coordinate over the live-only `lbabus net` TCP bus ONLY across its product surface (the extension commands + the MCP coordination tools + the reviewer verdict announcer) -- the GitHub-Discussion transport opt-out is removed (no `busTransport` selection, no consumer builds a Discussion `post`/`poll` argv) -- so a fail-closed gate proves the product surface is net-only. | Steps 1-6 (ADR-0040..0045) made net the default with Discussion a legacy opt-out, but the product still carried the Discussion arms (busPostArgs, the busTransport selection, VIHS_COLLAB_TRANSPORT, the post/--priority branch). With net proven + default, the opt-out is dead weight on the surface users + agents touch. | Removed the busTransport setting; busConfig returns {netHosts,netLog}; pollBus->net poll, postNote/verdict->net send unconditionally; busEnvFromConfig maps only NET_HOSTS/NET_LOG; post-verdict.mjs is net send only. The graceful no-op (--skip-if-no-peer / net poll exit 0) is preserved. | npm test (extension + MCP net-only) + gates `bus-transport-select`/`mcp-net-transport`/`post-verdict-net-transport` (now net-only) + `net-default-graceful`. |
 | LBA-REQ-067 | The system shall NOT expose a GitHub-Discussion coordination transport from the `lbabus` CLI -- the `init`/`post`/`poll`/`wait`/`delta` subcommands and the GraphQL Discussion client are removed (GitHubGraphQL keeps only the REST release-tag + issue-comment calls for `selfcheck`/`defect`), leaving the live-only `lbabus net` TCP bus as the sole coordination transport -- so a fail-closed gate proves the CLI carries no Discussion transport. | Step 7 (ADR-0046) made the product net-only, leaving the CLI's Discussion commands dead. Removing them + the GraphQL client completes the off-Discussions teardown; GitHubGraphQL was shared with selfcheck (release tags) + defect (issue comment), which stay on REST. | Program.cs drops init/post/poll/wait/delta + EnforceVersionOrNull + ParseAll/SeedBody/Eq/Dur; GitHubGraphQL is REST-only; Config drops Category/Title/AgentId/Counterpart/AddressesMe; the 12 discussion/version-guard ci cases are retired. | dotnet build + a CLI smoke test (removed cmds exit 1; net intact); gated by `cli-no-discussion-transport`. |
+| LBA-REQ-068 | The system shall record, as a committed fail-closed receipt, that the host drove the reviewer VM's Copilot agent to run the RELEASED net-only `lbabus` (collab-cli 0.15.0, pulled from the immutable `collab-cli-v0.15.0` release) and the VM reported task-correlated results back over the `lbabus net` TCP bus -- the sole coordination path, since the released CLI rejects the retired `init`/`post`/`poll`/`wait`/`delta` Discussion commands -- so a fail-closed gate proves the end-to-end net-only drive loop is reproducible off any GitHub-Discussion dependency. | LBA-REQ-059 proved the read-back CORRELATION while the CLI still shipped the Discussion transport; the off-Discussions migration then completed (LBA-REQ-060..067) and collab-cli 0.15.0 shipped net-only, and the host drove the VM to install + validate that released binary over net -- proven live but ungoverned (receipts in /tmp). | A pure rg-free verifier (`net-only-live-drive.mjs`: schema + digest + build + validate) seals the real drives (senderId WIN) + the released-CLI net-only proof (collab-cli-v0.15.0 rejects init/post/poll/wait/delta, observed on the VM) into a committed receipt; the digest + verdict re-derive deterministically at gate time. | `node reviewer-workstation/net-only-live-drive.selftest.mjs` (7/7) + the committed receipt (digest re-derivation via the verifier main); gated by `net-only-live-drive`. |
+| LBA-REQ-069 | The system shall record, as a committed fail-closed receipt, that ONE release-with-review loop is bound to a single candidate over the net-only bus -- the reviewer VM staged the candidate over `lbabus net`, a human Ed25519-signed a visual PASS/FAIL of THAT candidate (component/version/commit/vsixSha256), and the signed verdict announced over `net` with its semantic type -- so a fail-closed gate proves the staged, signed, and announced candidate are the SAME (no stage-one / sign-another / announce-a-third). | LBA-REQ-068 (stage over net), LBA-REQ-057 (signed visual verdict), and LBA-REQ-058 (bus announce) were each proven in isolation; nothing bound them to one candidate in one loop, so the staging, the signed verdict, and the announce could drift apart. `gateReleaseWithReview` composes visual review with the MACHINE gate, not with a net-staged candidate. | A pure rg-free verifier (`release-with-review-drive.mjs`) REUSES verifyReviewerVerdict/gateVisualReview/buildVerdictBusPost + adds the binding (staged WIN drive <-> verdict target <-> derived announce), sealing one real round (ext 0.5.0 staged over net, signed PASS, announced RESOLVED) into a committed receipt; the digest + verdict re-derive deterministically. | `node reviewer-workstation/release-with-review-drive.selftest.mjs` (7/7) + the committed receipt (binding + digest via the verifier main); gated by `release-with-review-drive`. |
+| LBA-REQ-070 | The system shall record, as a committed fail-closed receipt, that a release candidate publishes ONLY when BOTH the machine corroboration gate (a quorum verdict + an enrolled sign-off over it, ADR-0018) AND the human visual gate (an enrolled signed PASS of the built candidate, LBA-REQ-057) pass, AND both name the SAME net-staged candidate (LBA-REQ-068/069) -- so a fail-closed gate proves the machine quorum, the human visual verdict, and the net stage all name one candidate (no machine-PASS-A + human-PASS-B). | `gateReleaseWithReview` already ANDs the machine + visual gates, but ANDs two INDEPENDENT decisions -- nothing checks that the machine quorum consensus, the visual verdict target, and the net-staged candidate are the SAME candidate, so a machine PASS of A could be published with a human PASS of B. | A pure rg-free verifier (`composite-release-decision.mjs`) REUSES gateReleaseWithReview + adds the cross-gate binding (quorum consensus.version/sourceCommit == candidate == visual target, staged over net by a WIN drive); seals one real round (ext 0.5.0: passing quorum + enrolled sign-off + signed visual PASS + net stage) into a committed receipt; digest + verdict re-derive deterministically. | `node reviewer-workstation/composite-release-decision.selftest.mjs` (7/7) + the committed receipt (both gates + binding + digest via the verifier main); gated by `composite-release-decision`. |
+| LBA-REQ-071 | The extension release workflow shall block publishing a `.vsix` unless a committed composite release-decision proves BOTH gates pass for the tagged candidate version -- the `agreement` job runs `verify-composite-release.mjs` (fail-closed) and the publish `release` job depends on `agreement` -- so no extension release publishes without the bound composite decision (LBA-REQ-070). | LBA-REQ-070/ADR-0051 GOVERNED the composite decision as a committed receipt + a CI gate, but that only proved the pattern in the local-gate suite; nothing BLOCKED a real publish. extension-release.yml already enforces the plane agreement + the human visual verdict in its agreement job (release needs agreement); the composite decision was not yet in that chain. | `verify-composite-release.mjs` REUSES the gated composite `validateReceipt` to require the committed receipt to name the tagged candidate + be proven (exit 0 clear / 1 fail-closed); the extension-release.yml agreement job runs it after verify-visual-review; the release job `needs: [build, agreement]`. | The gate `composite-release-enforced` asserts (offline) the CLI clears ext 0.5.0 + fails closed for a version with no decision, and that extension-release.yml wires the CLI in the publish-gating agreement job. |
+| LBA-REQ-072 | The system shall prove that a Linux and a Windows launch-to-ready benchmark receipt measure the SAME benchmark via a machine-independent launch identity (metric + workload + sample count) -- so their plane-specific timings are legitimately comparable -- and a fail-closed gate rejects an identity mismatch, a non-cross-plane pair, or a tampered receipt. | Cross-plane PARITY is governed for deterministic benchmarks whose value is plane-independent (mprr seriesHash LBA-REQ-014; VI Analyzer resultHash LBA-REQ-015/043), but the flagship exact-12-FPS launch-to-ready benchmark measures a plane-DEPENDENT quantity (~2604 ms Linux vs ~2410 ms Windows), so there is no identical series to anchor -- today's launch cross-plane receipts compare timing deltas as witnesses, proving nothing about whether the two planes ran the SAME benchmark. | `launchParity.mjs` anchors on the launch SPEC (`launchIdentity` = sha256 over metric + workload + n), records the plane-specific timing (mean/delta/faster-plane) as witnesses, and seals a committed `cross-plane-launch-parity-receipt@1` derived from the real committed launch trends; the gate re-derives it + checks it reflects the real trend means. | `node experiments/launch-parity/launchParity.selftest.mjs` (7/7) + the committed receipt (identity + digest via the verifier main, grounded in the committed fixtures experiments/launch-parity/fixtures/{linux,win}-launch-trend.json); gated by `cross-plane-launch-parity`. |
+| LBA-REQ-073 | The system shall prove fulfillment of a DISPATCHED cross-plane benchmark run by validating that >= N distinct enrolled mesh actors from the requested planes each returned a valid plane-tagged receipt for the SAME benchmark identity -- so a fail-closed gate proves the mesh run was fulfilled by enough independent cross-plane actors, with no central results database (the returned receipts ARE the result). | The North Star is an actor mesh where a requester dispatches a cross-plane benchmark + independent volunteer golden-VM actors return plane-tagged receipts. The pieces exist (mesh-actor registration LBA-REQ-039; provider-delegation CLAIM/ACK/DONE LBA-REQ-018; cross-plane launch identity LBA-REQ-072) but nothing composed them into a FULFILLMENT proof -- the roadmap Phase 3 / section-8 mesh metric. | `meshFulfillment.mjs` REUSES the LBA-REQ-072 launch identity as the cross-actor agreement invariant + seals a committed `mesh-run-fulfillment-receipt@1`: a dispatched labview-ide-launch run fulfilled by 2 golden-VM actors (golden-linux LINUX + golden-win WIN) each returning its real plane-tagged launch-trend receipt. | `node experiments/mesh-fulfillment/meshFulfillment.selftest.mjs` (7/7) + the committed receipt (fulfillment + identity agreement + digest via the verifier main); gated by `mesh-run-cross-plane-fulfillment`. |
+| LBA-REQ-074 | The system shall dispatch a cross-plane benchmark run GitHub-natively via a `repository_dispatch` event carrying a validated `mesh-run-dispatch@1` request bound to its fulfillment, and gate the returned receipts on cross-plane fulfillment -- so a fail-closed gate proves the dispatch->fulfill loop is wired with no central server (the repo IS the queue). | LBA-REQ-073 governs mesh-run FULFILLMENT, but the GitHub-native DISPATCH transport did not exist -- no repository_dispatch workflow, no committed dispatch-request contract binding a dispatch to its fulfillment (the roadmap Phase 3 GitHub-native queue). | `meshDispatch.mjs` validates a `mesh-run-dispatch@1` request (benchmarkId + spec + minActors + planes + dispatchId, carrying the LBA-REQ-072 identity) fail-closed; `.github/workflows/mesh-run.yml` triggers on `repository_dispatch[mesh-run]`, validates the dispatch, then gates `meshFulfillment`; the committed request binds to the LBA-REQ-073 fulfillment (same identity). | `node experiments/mesh-fulfillment/meshDispatch.selftest.mjs` (7/7) + the committed request (via the CLI) + the dispatch<->fulfillment binding + the mesh-run.yml wiring; gated by `mesh-run-dispatch-wired`. |
+| LBA-REQ-075 | The system shall fold the governed mesh-run receipts (dispatch, fulfillment, cross-plane parity) into a coverage matrix + a consistency ledger -- which benchmarks x which planes x how many actors fulfilled, and whether each run's dispatch/fulfillment/parity name the SAME identity -- so a fail-closed gate proves the operator-facing mesh dashboard reflects the receipts it summarizes. | The mesh dispatch->fulfill loop is closed (LBA-REQ-072/073/074) but those receipts are three separate artifacts with no single governed view of which benchmarks are fulfilled, across which planes, by how many actors -- the roadmap Phase 3->4 cross-plane-comparison-at-scale dashboard (the benchmark observatory LBA-REQ-054 is the single-plane precedent). | `meshObservatory.mjs` folds the committed dispatch + fulfillment + parity receipts into a `mesh-coverage-observatory@1` matrix + ledger, re-derived byte-stably from the source receipts (currency) + grounded in the real fulfillment (identity + actors + planes). | `node experiments/mesh-fulfillment/meshObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `mesh-coverage-observatory`. |
+| LBA-REQ-076 | The system shall expand a validated mesh-run dispatch into per-plane actor tasking and validate the returned-receipt collection that feeds fulfillment, both identity-bound to the dispatch -- so a fail-closed gate proves every collected receipt provably descends from the dispatched tasks and ran the SAME benchmark. | The mesh dispatch->fulfill loop is governed at its ends (LBA-REQ-074 dispatch + LBA-REQ-073 fulfillment) but the MIDDLE -- how a dispatch tasks actors + how their receipts are collected -- was ungoverned, so an assembled receipt set could bypass the fan-out. The roadmap live fan-out needs an identity-bound tasking + collection contract. | `meshFanout.mjs` derives an `actor-tasking@1` set from the dispatch (one identity-bound task per requested plane) + validates a `receipt-collection@1` mapping returned receipts back to tasks; the committed tasking re-derives from the dispatch + the collection reconstructs the committed LBA-REQ-073 fulfillment; `.github/workflows/mesh-run.yml` runs the fan-out step. | `node experiments/mesh-fulfillment/meshFanout.selftest.mjs` (7/7) + the committed tasking + collection (via the CLI) + the tasking currency + the fulfillment reconstruction + the mesh-run.yml wiring; gated by `mesh-live-fanout-wired`. |
+| LBA-REQ-077 | The system shall admit a returned mesh-actor receipt into a verified collection only when it carries a valid attestation from its declared, enrolled actor -- so a fail-closed gate proves each collected receipt provably came from a REAL enrolled actor (not a fabricated trend). | The fan-out (LBA-REQ-076) proves a receipt is identity-bound + structurally valid but not that it came from a real enrolled actor -- a rogue participant could fabricate a plausible trend. A public volunteer mesh needs each receipt cryptographically bound to the enrolled actor that produced it; the ADR-0016 enrolled-key engine already exists to reuse. | `meshVerifiedTier.mjs` REUSES acg-provenance `signBundle`/`verifyWitnessAttestation` (Ed25519, ADR-0016): each returned receipt is signed by the actor's enrolled key, and a `verified-receipt-collection@1` admits it only when the attestation verifies against the enrolled `mesh-actor-keys.json` allowlist; the committed verified collection re-verifies its attestations offline. | `node experiments/mesh-fulfillment/meshVerifiedTier.selftest.mjs` (7/7) + the committed verified collection (via the CLI) + every collected receipt attested by its declared enrolled actor + the mesh-run.yml wiring; gated by `mesh-verified-tier-attested`. |
+| LBA-REQ-078 | The system shall admit a verified mesh-actor attestation only when it carries an inclusion proof against a transparency-log tree head signed by the enrolled log key -- so a fail-closed gate proves the mesh receipts are enrolled-signed AND publicly auditable (append-only, tamper-evident). | The verified tier (LBA-REQ-077) binds a receipt to its enrolled actor, but the set of attestations is not publicly auditable -- a compromised key could sign + nothing records the attestations in an append-only log. Release provenance already solved this (the ADR-0022 signed Merkle transparency log); the mesh should reuse it. | `meshTransparency.mjs` REUSES the acg-transparency engine (`recordRelease`/`verifyReleaseInclusion`, RFC-6962): each verified-tier attestation is recorded into a signed Merkle tree, and a `logged-verified-collection@1` admits it only when its inclusion proof reconstructs the enrolled-key-signed tree head; the committed logged collection re-verifies offline. | `node experiments/mesh-fulfillment/meshTransparency.selftest.mjs` (7/7) + the committed logged collection (via the CLI) + the signed tree head + every inclusion proof + the mesh-run.yml wiring; gated by `mesh-attestations-transparency-logged`. |
+| LBA-REQ-079 | The system shall admit the mesh transparency log's current tree head only when a consistency proof proves it contains an earlier signed tree head unchanged -- so a fail-closed gate proves the log is APPEND-ONLY (no logged attestation removed or rewritten as it grew). | ADR-0059 records + proves INCLUSION of each attestation and calls the log append-only, but inclusion alone does not prove the log only GROWS -- a log operator could publish a head that silently drops an earlier entry. The RFC-6962 consistency proof (already in the acg-transparency engine) closes that. | `meshLogHistory.mjs` REUSES `consistencyProof`/`verifyConsistency` (ADR-0022): a `logged-collection-history@1` binds an earlier + the current signed tree head + a consistency proof, admitted only when the later tree provably contains the earlier unchanged + the current head matches the committed LBA-REQ-078 log root. | `node experiments/mesh-fulfillment/meshLogHistory.selftest.mjs` (7/7) + the committed history (via the CLI) + the strict growth + the consistency proof + the 078-log binding + the mesh-run.yml wiring; gated by `mesh-log-append-only`. |
+| LBA-REQ-080 | The system shall decide a mesh run FULLY ATTESTED only when its fulfillment, cross-plane parity, verified-tier signatures, transparency inclusion, and append-only proof all hold and name the SAME run identity -- so a fail-closed gate gives a consumer ONE verdict to trust a mesh run end-to-end. | The mesh sub-proofs (LBA-REQ-072..079) are each a separate fail-closed gate, but a consumer wanting to trust a run had no single decision + had to confirm by hand that the receipts all refer to the same run. The composite-release-decision (LBA-REQ-071) is the pattern to mirror. | `meshAttested.mjs` REUSES every sub-verifier (`decideFulfillment`/`validateReceipt`(parity)/`validateVerifiedCollection`/`validateLoggedCollection`/`validateHistory`) + binds them to one identity, emitting a `mesh-run-attested@1` verdict; the committed decision re-derives from every source receipt (currency). | `node experiments/mesh-fulfillment/meshAttested.selftest.mjs` (7/7, one break per sub-proof) + the committed decision (via the CLI) + all five gates + the identity binding + the mesh-run.yml wiring; gated by `mesh-run-attested`. |
+| LBA-REQ-081 | The system shall prove cross-plane VI Analyzer performance parity by validating that a LINUX and a WIN VI Analyzer run share the same benchmark identity and deterministic resultHash, so a fail-closed gate proves the planes ran the SAME benchmark and their run times are comparable performance witnesses. | Cross-plane parity (roadmap §8) was proven only for the launch benchmark (LBA-REQ-072); Phase 2 is the SUITE. VI Analyzer has real 2-plane evidence + governed determinism (LBA-REQ-043, the resultHash), but not performance parity (same identity -> comparable timing). The LBA-REQ-072 engine is benchmark-generic + should extend. | `viAnalyzerParity.mjs` REUSES the LBA-REQ-072 core (`launchIdentity`/`decideParity`/`planeSummary`/`performanceWitness`) via a `trendFromEvidence` adapter over the committed `vi-analyzer-trend-live-evidence@1` captures; a run is parity-proven only when the planes share the identity AND the resultHash. | `node experiments/vi-analyzer/viAnalyzerParity.selftest.mjs` (7/7) + the committed receipt (via the CLI, re-derived from the two evidence files) + identity + resultHash + cross-plane; gated by `cross-plane-vi-analyzer-parity`. |
+| LBA-REQ-082 | The system shall fold the benchmark suite's cross-plane parity receipts into one coverage matrix, so a fail-closed gate proves which benchmark families have proven cross-plane parity and records their LINUX-vs-WIN timing. | The suite has two parity families (launch LBA-REQ-072 + VI Analyzer LBA-REQ-081), each a separate gate with its own schema, but no single view of which families are cross-plane parity-proven -- the roadmap Phase 2 capstone + Phase 4 (comparison at scale) bridge; the mesh observatory (LBA-REQ-075) is the pattern to mirror. | `suiteParityObservatory.mjs` folds the committed parity receipts into a `benchmark-suite-parity-observatory@1` coverage matrix (family + identity + parity flags + LINUX/WIN performance), re-derived byte-stably from the source receipts (currency); it EXTENDS with no new machinery as families land. | `node experiments/benchmark-suite/suiteParityObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `benchmark-suite-parity-observatory`. |
+| LBA-REQ-083 | The system shall fulfill the VI Analyzer benchmark through the mesh fulfillment engine as a benchmark distinct from launch, so a fail-closed gate proves the mesh carries more than one benchmark family (the engine is benchmark-generic). | The mesh (Phase 3) had only ever fulfilled the launch benchmark; the fulfillment engine (LBA-REQ-073) is written generically but nothing PROVED it carries the suite. VI Analyzer now has real 2-plane captures + a proven identity (LBA-REQ-081), so it is the natural 2nd family -- the Phase 2 <-> Phase 3 convergence. | `viAnalyzerMeshRun.mjs` REUSES `meshFulfillment` (073) + `trendFromEvidence` (081): two golden actors return their VI Analyzer trend from the real evidence, the 073 engine fulfills the run, and a `mesh-benchmark-family-run@1` proves it is a distinct family from launch. | `node experiments/mesh-fulfillment/viAnalyzerMeshRun.selftest.mjs` (7/7) + the committed run (via the CLI, re-derived from the evidence) + the fulfillment + the distinct-from-launch identity; gated by `mesh-benchmark-family-vi-analyzer`. |
+| LBA-REQ-084 | The system shall assign each benchmark measurement a stress-quality weight from the mesh-stress calibration and discount a measurement captured on a stressed actor, so a fail-closed gate proves a cross-plane comparison down-weights results captured under contention. | Cross-plane comparison (LBA-REQ-072/081, grid LBA-REQ-050) treats each actor's result at face value, but the roadmap Phase 4 requires the mesh-stress calibration to DISCOUNT a result captured on a stressed actor -- a contended actor's timing is not a fair sample. The calibration exists (LBA-REQ-032, monotone/separable/repeatable ladder + independent per-actor stress recovery) but nothing turned it into a per-measurement discount. | `stressDiscountedComparison.mjs` folds the committed real ladder (calibration authority) + concurrent-actors capture (recovered per-actor stress) into a `stress-discounted-comparison@1`: each measurement gets a stress-quality weight (idle 1.0 .. saturate 0.0) + is discounted at/above heavy; grounded in the real captures. | `node experiments/mesh-stress-signature/stressDiscountedComparison.selftest.mjs` (7/7) + the committed comparison (via the CLI) + the idle-full/saturate-discounted grounding; gated by `stress-discounted-comparison`. |
 
 ---
 
@@ -2057,6 +2074,538 @@ progressively.
   ci mock's vestigial GraphQL/release handlers + retires experiments/ollama-bus/bus-agent.mjs -- none block a
   gate. Completes the off-Discussions migration. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-068: Net-only live VM-agent drive (govern the released-CLI closed loop as a committed receipt)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0049 -- net-only live VM-agent drive, off GitHub Discussions -- productized)
+- Statement: The system shall record, as a committed fail-closed receipt, that the host drove the reviewer VM's
+  Copilot agent to run the RELEASED net-only `lbabus` (collab-cli 0.15.0, pulled from the immutable
+  `collab-cli-v0.15.0` GitHub Release) and the VM reported task-correlated results back over the `lbabus net`
+  TCP bus -- the sole coordination path, since the released CLI rejects the retired
+  `init`/`post`/`poll`/`wait`/`delta` Discussion commands -- so a fail-closed gate proves the end-to-end
+  net-only drive loop is reproducible off any GitHub-Discussion dependency.
+- Rationale: LBA-REQ-059 (ADR-0039) proved the host<->VM-agent read-back CORRELATION, but while the CLI still
+  shipped a GitHub-Discussion transport (the VM ran lbabus 0.13.0). The off-Discussions migration then completed
+  (LBA-REQ-060..067) and collab-cli 0.15.0 shipped net-only (`collab-cli-v0.15.0`); the host drove the reviewer
+  VM to INSTALL + VALIDATE that released binary over `net` (install, benchmark re-drive 2604.2 ms/5 PASS, and
+  the WIN 0.15.0 sign-off). That capability was proven live but ungoverned -- the receipts lived in `/tmp`.
+- Acceptance Criteria:
+  - A committed receipt (`reviewer-workstation/net-only-live-drive-receipt.json`, schema
+    `net-only-live-drive-receipt@1`) seals >=1 drive from the reviewer VM (senderId `WIN`, matched) over `net`
+    plus the released-CLI net-only proof (`releaseTag: collab-cli-v0.15.0`; `init`/`post`/`poll`/`wait`/`delta`
+    recorded rejected; an observed `unknown command` on the VM).
+  - The verifier (`net-only-live-drive.mjs`) re-derives the digest + verdict DETERMINISTICALLY (no VM / network)
+    and FAILS CLOSED on a drive that did not close the loop (a non-`WIN` sender, a disallowed net type, an
+    unmatched reply), an incomplete net-only proof, a forged verdict, or a tampered digest (selftest 7/7).
+  - Comms-only holds (ADR-0003): each VM reply is a one-line status only, never run data.
+- Change Guidance: the verifier + selftest + receipt live under `reviewer-workstation/`
+  (`net-only-live-drive.mjs` / `.selftest.mjs` / `net-only-live-drive-receipt.json`); gate `net-only-live-drive`
+  in `verify-local-gates`. Refreshing to a future release = re-run the drives (`drive-agent-closed-loop.sh` +
+  `await-agent-reply.mjs`) against the new binary + rebuild the receipt with the new `releaseTag`. Authored
+  under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-069: Release-with-review drive (bind the net-staged candidate to the signed + announced verdict)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0050 -- release-with-review drive, off GitHub Discussions -- productized)
+- Statement: The system shall record, as a committed fail-closed receipt, that ONE release-with-review loop is
+  bound to a single candidate over the net-only bus -- the reviewer VM staged the candidate over `lbabus net`, a
+  human Ed25519-signed a visual PASS/FAIL of THAT candidate (component/version/commit/vsixSha256), and the signed
+  verdict announced over `net` with its semantic type -- so a fail-closed gate proves the staged, signed, and
+  announced candidate are the SAME (no stage-one / sign-another / announce-a-third).
+- Rationale: LBA-REQ-068 (stage over net), LBA-REQ-057 (signed visual verdict), and LBA-REQ-058 (bus announce)
+  were each proven in ISOLATION; nothing bound them to one candidate in one loop, so -- in principle -- the VM
+  could stage candidate A, the human sign B, and the bus announce C. `release-with-review.mjs`
+  (`gateReleaseWithReview`) composes the visual verdict with the MACHINE gate (`gateReleasePublish`, ADR-0018),
+  not with a net-staged candidate.
+- Acceptance Criteria:
+  - A committed receipt (`reviewer-workstation/release-with-review-drive-receipt.json`, schema
+    `release-with-review-drive-receipt@1`) binds a matched `WIN` staging drive over `net` (LBA-REQ-068) to a
+    signed reviewer verdict (LBA-REQ-057) whose `target` is the SAME candidate, and to a `net` announce
+    (LBA-REQ-058) correctly derived from the signed verdict (type/task/ref).
+  - The verifier (`release-with-review-drive.mjs`) REUSES `verifyReviewerVerdict` / `gateVisualReview` /
+    `buildVerdictBusPost` and FAILS CLOSED on a candidate the verdict did not cover, a sign-off that does not
+    verify against the enrolled key, a gate that would not publish, a mis-derived announce, or a tampered digest;
+    it re-derives the binding + verdict + digest DETERMINISTICALLY (no VM / network / live human). Selftest 7/7.
+  - Comms-only holds (ADR-0003): the staged + announced frames are one-line status frames, never run data.
+- Change Guidance: the verifier + selftest + receipt live under `reviewer-workstation/`
+  (`release-with-review-drive.mjs` / `.selftest.mjs` / `release-with-review-drive-receipt.json`); gate
+  `release-with-review-drive` in `verify-local-gates`. The verdict signing scheme is REUSED unchanged from
+  `experiments/handoff-beacon/reviewerVerdict.mjs` (LBA-REQ-057/058). Refreshing to a future release = a new
+  candidate identity + a fresh signed verdict + a fresh staging drive. Authored under the singular-requirement
+  directive (one `shall`).
+
+### LBA-REQ-070: Composite release decision (bind the machine corroboration gate to the human visual gate over one net-staged candidate)
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0051 -- composite release decision, off GitHub Discussions -- productized)
+- Statement: The system shall record, as a committed fail-closed receipt, that a release candidate publishes
+  ONLY when BOTH the machine corroboration gate (a quorum verdict + an enrolled sign-off over it, ADR-0018) AND
+  the human visual gate (an enrolled signed PASS of the built candidate, LBA-REQ-057) pass, AND both name the
+  SAME net-staged candidate (LBA-REQ-068/069) -- so a fail-closed gate proves the machine quorum, the human
+  visual verdict, and the net stage all name one candidate (no machine-PASS-A + human-PASS-B).
+- Rationale: `gateReleaseWithReview` already ANDs the machine gate (`gateReleasePublish`, ADR-0018) + the visual
+  gate (`gateVisualReview`, ADR-0037), but ANDs two INDEPENDENT decisions -- nothing checks that the machine
+  quorum consensus (version + sourceCommit), the visual verdict target (component/version/commit/vsixSha256), and
+  the net-staged candidate are the SAME candidate, so -- in principle -- a machine PASS of candidate A could be
+  published with a human PASS of candidate B.
+- Acceptance Criteria:
+  - A committed receipt (`reviewer-workstation/composite-release-decision-receipt.json`, schema
+    `composite-release-decision-receipt@1`) records a passing machine gate (`gateReleasePublish`: quorum PASS +
+    an enrolled sign-off over the quorum digest) AND a passing visual gate (`gateVisualReview`: an enrolled signed
+    PASS), for ONE candidate.
+  - The verifier (`composite-release-decision.mjs`) REUSES `gateReleaseWithReview` and FAILS CLOSED unless BOTH
+    gates publish AND the machine quorum consensus (version + sourceCommit), the visual verdict target, and a
+    matched `WIN` net staging drive all name the SAME candidate; it re-derives the decision + binding + digest
+    DETERMINISTICALLY (no VM / network / live human). Selftest 7/7.
+  - Comms-only holds (ADR-0003): the staging frame is a one-line status frame, never run data.
+- Change Guidance: the verifier + selftest + receipt live under `reviewer-workstation/`
+  (`composite-release-decision.mjs` / `.selftest.mjs` / `composite-release-decision-receipt.json`); gate
+  `composite-release-decision` in `verify-local-gates`. The machine gate (`experiments/acg-reviewer/sign-off.mjs`),
+  the visual gate + composer (`experiments/handoff-beacon/reviewerVerdict.mjs` + `release-with-review.mjs`), and
+  the candidate-binding helpers (`reviewer-workstation/release-with-review-drive.mjs`) are all REUSED unchanged.
+  Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-071: Enforce the composite release decision in the extension release workflow
+
+- Status: Proven
+- Area: Deployment / agentic (ADR-0052 -- enforce the composite release decision, off GitHub Discussions -- productized)
+- Statement: The extension release workflow shall block publishing a `.vsix` unless a committed composite
+  release-decision proves BOTH gates pass for the tagged candidate version -- the `agreement` job runs
+  `verify-composite-release.mjs` (fail-closed) and the publish `release` job depends on `agreement` -- so no
+  extension release publishes without the bound composite decision (LBA-REQ-070).
+- Rationale: LBA-REQ-070 (ADR-0051) GOVERNED the composite decision (machine + human gates, bound to one
+  net-staged candidate) as a committed receipt + a CI gate, but that only proves the PATTERN in the local-gate
+  suite; nothing BLOCKED a real publish. `extension-release.yml` already enforces the WIN<->LINUX plane agreement
+  (`verify-release-agreement.mjs`) + the human visual verdict (`verify-visual-review.mjs`) in its `agreement`
+  job, with `release` `needs: [build, agreement]`; the composite decision was not yet in that publish-gating chain.
+- Acceptance Criteria:
+  - `tools/collab-cli/verify-composite-release.mjs --component <name> <version>` REUSES the gated composite
+    `validateReceipt` and requires the committed composite receipt to NAME the tagged candidate AND be a proven
+    composite decision; it exits 0 (cleared to publish) or 1 (fail-closed) -- e.g. a version with no matching
+    proven decision is blocked.
+  - `extension-release.yml`'s `agreement` job runs `verify-composite-release.mjs --component extension <version>`
+    (after `verify-visual-review`), and the `release` (publish) job `needs: [build, agreement]`, so the composite
+    decision gates the publish.
+  - The gate `composite-release-enforced` proves both DETERMINISTICALLY (no network): the CLI clears the
+    committed ext 0.5.0 candidate + fails closed for a version with no decision, and the workflow wires the CLI in
+    the publish-gating agreement job.
+- Change Guidance: the enforcement CLI is `tools/collab-cli/verify-composite-release.mjs` (REUSES
+  `reviewer-workstation/composite-release-decision.mjs`); the workflow step is in
+  `.github/workflows/extension-release.yml`; gate `composite-release-enforced` in `verify-local-gates`. A future
+  release adds its own committed composite receipt before it can publish. Authored under the singular-requirement
+  directive (one `shall`).
+
+### LBA-REQ-072: Cross-plane launch-benchmark parity (identity is the spec, not the series)
+
+- Status: Proven
+- Area: Deployment / benchmark (ADR-0053 -- cross-plane launch-benchmark parity, roadmap Phase 2/4)
+- Statement: The system shall prove that a Linux and a Windows launch-to-ready benchmark receipt measure the SAME
+  benchmark via a machine-independent launch identity (metric + workload + sample count) -- so their
+  plane-specific timings are legitimately comparable -- and a fail-closed gate rejects an identity mismatch, a
+  non-cross-plane pair, or a tampered receipt.
+- Rationale: cross-plane PARITY is governed for benchmarks whose measured value is deterministic + plane-INDEPENDENT
+  (the mprr ring-buffer `seriesHash`, LBA-REQ-014; the VI Analyzer `resultHash`, LBA-REQ-015/043). The flagship
+  exact-12-FPS launch-to-ready benchmark (`workload-trend@1`, metric `launchMs`) measures a plane-DEPENDENT quantity
+  (~2604 ms Linux vs ~2410 ms Windows), so there is no identical series/result to anchor -- and the existing launch
+  cross-plane receipts compare timing/resource deltas as WITNESSES, proving nothing about whether the two planes ran
+  the SAME benchmark (the precondition that makes their timings comparable).
+- Acceptance Criteria:
+  - `launchParity.mjs`'s `launchIdentity` = sha256 over `{ metric, workload, n }` (the benchmark spec),
+    deliberately EXCLUDING the plane-dependent timing, the plane, and the hypervisor; two planes running the same
+    launch benchmark share it.
+  - A committed receipt (`experiments/launch-parity/cross-plane-launch-parity-receipt.json`, schema
+    `cross-plane-launch-parity-receipt@1`) proves parity iff both receipts are valid `workload-trend@1`, they are
+    cross-plane (one LINUX + one WIN), and their launch identities match; it records the plane means + the signed
+    delta + the faster plane as performance WITNESSES. It fails closed on an identity mismatch, a non-cross-plane
+    pair, an invalid trend, or a tampered digest (selftest 7/7).
+  - The committed receipt is DERIVED FROM the committed launch-trend fixtures (`experiments/launch-parity/fixtures/{linux,win}-launch-trend.json`);
+    the gate re-derives it and asserts the plane means equal the real trend means (non-fabricable).
+- Change Guidance: the verifier + selftest + receipt live under `experiments/launch-parity/`
+  (`launchParity.mjs` / `.selftest.mjs` / `cross-plane-launch-parity-receipt.json`); gate
+  `cross-plane-launch-parity` in `verify-local-gates`. A new plane joins by emitting a `workload-trend@1` with the
+  same `{ metric, workload, n }`. Complements (does not duplicate) the deterministic-series parity of
+  LBA-REQ-014/015/043. Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-073: Mesh-run cross-plane fulfillment (the North Star loop)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0054 -- mesh-run cross-plane fulfillment, roadmap Phase 3)
+- Statement: The system shall prove fulfillment of a DISPATCHED cross-plane benchmark run by validating that
+  >= N distinct enrolled mesh actors from the requested planes each returned a valid plane-tagged receipt for the
+  SAME benchmark identity -- so a fail-closed gate proves the mesh run was fulfilled by enough independent
+  cross-plane actors, with no central results database (the returned receipts ARE the result).
+- Rationale: the North Star is a horizontally-scaled, sandbox-isolated actor mesh -- a requester dispatches a
+  cross-plane benchmark run and independent volunteer golden-VM actors return plane-tagged receipts (roadmap
+  Phase 3, the section-8 metric "a requester dispatches a run and receives >= 2 independent, plane-tagged receipts
+  from volunteer actors"). The pieces existed but were uncomposed: LBA-REQ-039 enrolls an actor (not fulfillment);
+  LBA-REQ-040/041 prove distributed shards + routing among ripgrep-only instances (not benchmark receipts);
+  LBA-REQ-018 proves CLAIM/ACK/DONE dispatch for uplift/doc/test domains (not benchmark-mesh fulfillment).
+- Acceptance Criteria:
+  - A committed receipt (`experiments/mesh-fulfillment/mesh-run-fulfillment-receipt.json`, schema
+    `mesh-run-fulfillment-receipt@1`) records a dispatch (`benchmarkId` + benchmark spec + `minActors` +
+    `requestedPlanes`) and the actors' returned runs; it is FULFILLED iff >= `minActors` DISTINCT enrolled actors
+    responded, the requested planes are covered, each returned a valid plane-tagged `workload-trend@1` (plane
+    matching the actor), and all actors share the dispatched benchmark identity.
+  - `meshFulfillment.mjs` REUSES the LBA-REQ-072 `launchIdentity` (`sha256` over metric + workload + n) as the
+    cross-actor agreement invariant, and FAILS CLOSED on too few actors, a duplicate actor, an uncovered plane, an
+    invalid receipt, an identity disagreement, or a tampered digest (selftest 7/7); the verdict + digest re-derive
+    DETERMINISTICALLY (no VM / network / central DB at gate time).
+  - The committed receipt seals a REAL run: `labview-ide-launch` fulfilled by `golden-linux` (LINUX) + `golden-win`
+    (WIN), each embedding its real plane-tagged launch-trend receipt.
+- Change Guidance: the verifier + selftest + receipt live under `experiments/mesh-fulfillment/`
+  (`meshFulfillment.mjs` / `.selftest.mjs` / `mesh-run-fulfillment-receipt.json`); gate
+  `mesh-run-cross-plane-fulfillment` in `verify-local-gates`. Composes LBA-REQ-039 (actor identity) + LBA-REQ-018
+  (dispatch primitives) + LBA-REQ-072 (benchmark identity). The GitHub-native `repository_dispatch` transport is
+  the next Phase-3 increment. Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-074: GitHub-native mesh-run dispatch transport (repository_dispatch)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0055 -- GitHub-native mesh-run dispatch transport, roadmap Phase 3)
+- Statement: The system shall dispatch a cross-plane benchmark run GitHub-natively via a `repository_dispatch`
+  event carrying a validated `mesh-run-dispatch@1` request bound to its fulfillment, and gate the returned
+  receipts on cross-plane fulfillment -- so a fail-closed gate proves the dispatch->fulfill loop is wired with no
+  central server (the repo IS the queue).
+- Rationale: LBA-REQ-073 governs the FULFILLMENT half of the North Star loop, but the GitHub-native DISPATCH
+  transport did not exist -- no `.github/workflows/` used `repository_dispatch`, and there was no committed
+  dispatch-request contract binding a dispatch to its fulfillment. The roadmap dispatches on-demand runs through
+  the repo (`repository_dispatch` / Actions as the queue) -- no server, fully auditable, "coordinate runs, don't
+  hoard data".
+- Acceptance Criteria:
+  - `meshDispatch.mjs` validates a `mesh-run-dispatch@1` request (`benchmarkId` + `{ metric, workload, n }` spec +
+    `minActors` >= 1 + a non-empty valid `requestedPlanes` set + a `dispatchId`) fail-closed, and carries the same
+    `launchIdentity` (LBA-REQ-072) as the fulfillment so a dispatch + its fulfillment are provably the SAME run.
+  - `.github/workflows/mesh-run.yml` triggers on `repository_dispatch` (event type `mesh-run`; the client_payload
+    IS the request), validates the dispatch (`meshDispatch.mjs`), then gates the returned receipts on cross-plane
+    fulfillment (`meshFulfillment.mjs`, LBA-REQ-073).
+  - The gate `mesh-run-dispatch-wired` proves offline: the request validates + fails closed on a malformed request;
+    the committed request BINDS to the LBA-REQ-073 fulfillment (same `benchmarkId` + identity + `minActors` +
+    planes); and `mesh-run.yml` is wired (triggers on `repository_dispatch[mesh-run]` + runs both verifiers).
+- Change Guidance: the verifier + selftest + committed request live under `experiments/mesh-fulfillment/`
+  (`meshDispatch.mjs` / `.selftest.mjs` / `mesh-run-dispatch-request.json`); the workflow is
+  `.github/workflows/mesh-run.yml`; gate `mesh-run-dispatch-wired` in `verify-local-gates`. The live fan-out
+  (actor tasking + receipt collection as Actions artifacts) is the next Phase-3 increment. Authored under the
+  singular-requirement directive (one `shall`).
+
+### LBA-REQ-075: The mesh coverage observatory (fold the mesh-run receipts into a coverage matrix)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0056 -- the mesh coverage observatory, roadmap Phase 3->4)
+- Statement: The system shall fold the governed mesh-run receipts (dispatch, fulfillment, cross-plane parity)
+  into a coverage matrix + a consistency ledger -- which benchmarks x which planes x how many actors fulfilled,
+  and whether each run's dispatch/fulfillment/parity name the SAME identity -- so a fail-closed gate proves the
+  operator-facing mesh dashboard reflects the receipts it summarizes.
+- Rationale: the mesh dispatch->fulfill loop is closed (LBA-REQ-072/073/074) but those receipts live as three
+  separate artifacts; there is no single governed view answering the operator's question -- which benchmarks have
+  been fulfilled, across which planes, by how many actors, and does each run cohere. The benchmark observatory
+  (LBA-REQ-054) established the single-plane pattern; the mesh needs its counterpart (roadmap Phase 3->4:
+  cross-plane comparison AT SCALE).
+- Acceptance Criteria:
+  - `meshObservatory.mjs` folds each mesh run -- its dispatch (`mesh-run-dispatch@1`), fulfillment
+    (`mesh-run-fulfillment-receipt@1`), and parity (`cross-plane-launch-parity-receipt@1`) -- into a coverage row
+    (benchmark id + identity, dispatched, fulfilled, distinct actors, covered planes, parity proven, and a
+    `consistent` flag true iff a dispatch + a fulfilled fulfillment are present and every artifact names the SAME
+    identity), and derives a coverage matrix + a consistency ledger.
+  - The verifier FAILS CLOSED on a run whose dispatch/fulfillment/parity disagree on identity, an un-fulfilled run
+    counted coherent, a miscounted coverage statistic, a stale re-fold (the committed observatory must reproduce
+    byte-for-byte from the committed source receipts), or a tampered digest.
+  - The gate `mesh-coverage-observatory` proves offline: the selftest (7/7); the committed observatory validates +
+    is coherent; coverage spans the fulfilled benchmarks across the LINUX + WIN planes; and the folded row is
+    grounded in the real LBA-REQ-073 fulfillment (same identity + actor count + covered planes).
+- Change Guidance: the verifier + selftest + committed observatory live under `experiments/mesh-fulfillment/`
+  (`meshObservatory.mjs` / `.selftest.mjs` / `mesh-coverage-observatory-receipt.json`); gate
+  `mesh-coverage-observatory` in `verify-local-gates`. Folding additional fulfilled runs extends the matrix with
+  no new machinery. Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-076: The live fan-out contract (actor-tasking + receipt-collection)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0057 -- the live fan-out contract, roadmap Phase 3)
+- Statement: The system shall expand a validated mesh-run dispatch into per-plane actor tasking and validate the
+  returned-receipt collection that feeds fulfillment, both identity-bound to the dispatch -- so a fail-closed gate
+  proves every collected receipt provably descends from the dispatched tasks and ran the SAME benchmark.
+- Rationale: the mesh dispatch->fulfill loop is governed at its two ends (dispatch LBA-REQ-074 + fulfillment
+  LBA-REQ-073) but the MIDDLE was not -- nothing governed how a validated dispatch is expanded into per-actor
+  tasking, nor how the actors' returned plane-tagged receipts are collected back into the fulfillment input. The
+  roadmap live fan-out (task volunteer actors through the repo, collect their receipts as run artifacts) needs an
+  identity-bound, fail-closed contract for the tasking + the collection.
+- Acceptance Criteria:
+  - `meshFanout.mjs` DERIVES an `actor-tasking@1` set from a validated dispatch: one task per requested plane,
+    each carrying the `dispatchId`, the `benchmarkId` + `{ metric, workload, n }` spec, the plane, and the
+    dispatched `launchIdentity` (LBA-REQ-072). `validateTasking` fails closed on an unbound task, an invalid or
+    duplicate plane, a non-canonical `taskId`, a spec that does not hash to the identity, uncovered planes, or a
+    tampered digest.
+  - `meshFanout.mjs` maps a `receipt-collection@1` -- each returned plane-tagged receipt back to its task,
+    producing the `{ actorId, plane, receipt }` set `meshFulfillment` consumes. `validateCollection` fails closed
+    on a collected receipt with no matching task, a plane mismatch, an invalid trend, an identity mismatch, a
+    duplicate actor, an uncovered tasked plane, or a tampered digest.
+  - The gate `mesh-live-fanout-wired` proves offline: the selftest (7/7); the committed tasking + collection
+    validate; the tasking re-derives from the committed dispatch (currency); the fan-out is identity-bound
+    end-to-end; the collection RECONSTRUCTS the committed LBA-REQ-073 fulfillment (grounding); and `mesh-run.yml`
+    runs the fan-out step.
+- Change Guidance: the verifier + selftest + committed tasking/collection live under
+  `experiments/mesh-fulfillment/` (`meshFanout.mjs` / `.selftest.mjs` / `mesh-run-tasking.json` /
+  `mesh-run-collection.json`); the workflow step is in `.github/workflows/mesh-run.yml`; gate
+  `mesh-live-fanout-wired` in `verify-local-gates`. Wiring the actors to actually run their task + upload their
+  receipt slots into the collection contract with no new governance. Authored under the singular-requirement
+  directive (one `shall`).
+
+### LBA-REQ-077: The opt-in verified tier (enrolled-actor receipt attestations)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0058 -- the opt-in verified tier, roadmap Phase 3)
+- Statement: The system shall admit a returned mesh-actor receipt into a verified collection only when it carries a
+  valid attestation from its declared, enrolled actor -- so a fail-closed gate proves each collected receipt
+  provably came from a REAL enrolled actor (not a fabricated trend).
+- Rationale: the fan-out collection (LBA-REQ-076) proves a returned receipt is identity-bound + structurally valid,
+  and fulfillment (LBA-REQ-073) proves enough distinct actors responded, but nothing proves a receipt actually came
+  from a REAL enrolled actor -- a rogue or buggy participant could fabricate a plausible plane-tagged trend. A
+  public volunteer mesh with no central server needs each receipt cryptographically bound to the enrolled actor
+  that produced it. The ADR-0016 acg-provenance enrolled-key attestation engine already provides this and is reused.
+- Acceptance Criteria:
+  - `meshVerifiedTier.mjs` attests each returned receipt with the actor's ENROLLED Ed25519 key by REUSING the
+    ADR-0016 `signBundle` (an `acg-witness-attestation-v1` whose subject digest is the canonical digest of the
+    exact receipt, whose `witnessIdentity` is the actor id).
+  - A `verified-receipt-collection@1` binds a validated LBA-REQ-076 collection (by digest) to one attestation per
+    collected receipt; `validateVerifiedCollection` requires the collection to validate, the wrapper to bind to it,
+    and -- for every collected receipt -- a valid attestation from its declared, enrolled actor (via
+    `verifyWitnessAttestation` against `mesh-actor-keys.json`). It fails closed on an unsigned/forged receipt, an
+    un-enrolled actor, a key that does not match the enrolled one, an attestation not by the declared actor, an
+    orphan attestation, or a tampered digest.
+  - The gate `mesh-verified-tier-attested` proves offline: the selftest (7/7); the committed verified collection
+    re-verifies against the committed collection + enrolled keys; every collected receipt is attested by its
+    declared enrolled actor; and `mesh-run.yml` runs the verified-tier step. The enrolled PUBLIC keys are committed;
+    the private keys are not.
+- Change Guidance: the verifier + selftest + committed verified collection + enrolled keys live under
+  `experiments/mesh-fulfillment/` (`meshVerifiedTier.mjs` / `.selftest.mjs` / `mesh-run-verified-collection.json` /
+  `mesh-actor-keys.json`); the workflow step is in `.github/workflows/mesh-run.yml`; gate
+  `mesh-verified-tier-attested` in `verify-local-gates`. Enrolling an actor is publishing its public key to
+  `mesh-actor-keys.json`. Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-078: Transparency-log the mesh-actor attestations (public auditability)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0059 -- transparency-log the mesh-actor attestations, roadmap Phase 3)
+- Statement: The system shall admit a verified mesh-actor attestation only when it carries an inclusion proof
+  against a transparency-log tree head signed by the enrolled log key -- so a fail-closed gate proves the mesh
+  receipts are enrolled-signed AND publicly auditable (append-only, tamper-evident).
+- Rationale: the verified tier (LBA-REQ-077) binds each returned receipt to its enrolled actor, but the SET of
+  attestations is not publicly auditable -- a compromised actor key could sign a receipt, and nothing records the
+  attestations in an append-only, tamper-evident log a third party can audit. Release provenance already solved
+  this with the ADR-0022 acg-transparency signed Merkle log (record attestations + admit only with an inclusion
+  proof against the signed tree head); the mesh reuses it.
+- Acceptance Criteria:
+  - `meshTransparency.mjs` records each verified-tier attestation into an RFC-6962 signed Merkle transparency log
+    by REUSING the ADR-0022 `recordRelease` (the Merkle tree over the attestation entry leaves + a tree head signed
+    by the enrolled log key + a per-attestation inclusion proof).
+  - A `logged-verified-collection@1` binds a validated LBA-REQ-077 verified collection (by digest) to the signed
+    tree head + one inclusion proof per attestation; `validateLoggedCollection` requires the verified tier to hold,
+    the wrapper to bind to it, the signed tree head to verify against the enrolled log key, and -- for every
+    attestation -- a valid inclusion proof against that signed root. It fails closed on an unsigned/wrong-key tree
+    head, a missing or non-reconstructing inclusion proof, a tree-size mismatch, a binding mismatch, or a tampered
+    digest.
+  - The gate `mesh-attestations-transparency-logged` proves offline: the selftest (7/7); the committed logged
+    collection re-verifies (signed tree head + every inclusion proof); the tree logs every attestation; and
+    `mesh-run.yml` runs the transparency step. The enrolled log PUBLIC key is committed; the private key is not.
+- Change Guidance: the verifier + selftest + committed logged collection + log key live under
+  `experiments/mesh-fulfillment/` (`meshTransparency.mjs` / `.selftest.mjs` / `mesh-run-logged-collection.json` /
+  `mesh-log-key.json`); the workflow step is in `.github/workflows/mesh-run.yml`; gate
+  `mesh-attestations-transparency-logged` in `verify-local-gates`. A consistency proof between successive tree
+  heads (the engine already provides it) extends this to an append-only history. Authored under the
+  singular-requirement directive (one `shall`).
+
+### LBA-REQ-079: The append-only consistency proof (the mesh transparency log only grows)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0060 -- the append-only consistency proof, roadmap Phase 3)
+- Statement: The system shall admit the mesh transparency log's current tree head only when a consistency proof
+  proves it contains an earlier signed tree head unchanged -- so a fail-closed gate proves the log is APPEND-ONLY
+  (no logged attestation removed or rewritten as it grew).
+- Rationale: ADR-0059 records the attestations into a signed Merkle log and proves each is INCLUDED, and calls the
+  log append-only -- but inclusion alone does not prove the log only GROWS: a malicious or buggy log operator could
+  publish a new tree head that silently drops or rewrites an earlier entry, and each inclusion proof against that
+  head would still verify. The RFC-6962 consistency proof (already in the ADR-0022 acg-transparency engine) proves
+  a later tree head extends an earlier one with no entry removed or altered.
+- Acceptance Criteria:
+  - `meshLogHistory.mjs` builds a `logged-collection-history@1` binding an EARLIER signed tree head (the log at
+    `firstSize`) + the CURRENT signed tree head (the full log) + the RFC-6962 consistency proof between them, over
+    the real attestation entry leaves, by REUSING the ADR-0022 `signTreeHead` / `consistencyProof`.
+  - `validateHistory` requires both tree heads to verify against the enrolled log key + share the log identity, the
+    log to have STRICTLY GROWN (`firstSize < secondSize`), the consistency proof to prove append-only extension
+    (`verifyConsistency`), and the current tree head to be the real attestation set AND to match the committed
+    LBA-REQ-078 log by Merkle root + size. It fails closed on an unsigned/wrong-key tree head, a non-growing or
+    shrinking log, a consistency proof that does not verify (a rewritten/forked log), a current head that does not
+    match the committed log, or a tampered digest.
+  - The gate `mesh-log-append-only` proves offline: the selftest (7/7); the committed history re-verifies (both
+    signed tree heads + the consistency proof); the log strictly grew; the current tree head is the committed
+    LBA-REQ-078 log (same Merkle root + size); and `mesh-run.yml` runs the append-only step. The enrolled log PUBLIC
+    key is committed; the private key is not.
+- Change Guidance: the verifier + selftest + committed history + log-history key live under
+  `experiments/mesh-fulfillment/` (`meshLogHistory.mjs` / `.selftest.mjs` / `mesh-run-log-history.json` /
+  `mesh-log-history-key.json`); the workflow step is in `.github/workflows/mesh-run.yml`; gate
+  `mesh-log-append-only` in `verify-local-gates`. Inclusion (LBA-REQ-078) + consistency (here) are the full RFC-6962
+  transparency guarantee for the mesh. Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-080: The composite mesh-run-attested decision (one verdict to trust a run)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0061 -- the composite mesh-run-attested decision, roadmap Phase 3)
+- Statement: The system shall decide a mesh run FULLY ATTESTED only when its fulfillment, cross-plane parity,
+  verified-tier signatures, transparency inclusion, and append-only proof all hold and name the SAME run identity
+  -- so a fail-closed gate gives a consumer ONE verdict to trust a mesh run end-to-end.
+- Rationale: the mesh sub-proofs (LBA-REQ-072..079) are each a separate fail-closed gate over its own receipt, but
+  a consumer that wants to TRUST a run (before letting its result inform a release) had no single decision to check
+  -- and would have to confirm by hand that the five verifiers all refer to the SAME run rather than a mix of
+  receipts. The composite-release-decision (LBA-REQ-071) established the pattern: conjoin independent gates into one
+  enforced verdict bound to the same subject.
+- Acceptance Criteria:
+  - `meshAttested.mjs` `decideAttested` conjoins the five sub-proofs by REUSING their verifiers -- `decideFulfillment`
+    (073), `validateReceipt` on the parity receipt (072), `validateVerifiedCollection` (077),
+    `validateLoggedCollection` (078), `validateHistory` (079) -- with no new proof logic.
+  - A run is `attested` iff every gate passes AND all five layers name the SAME run identity
+    (`fulfillment.identity === parity.launchIdentity === verified.identity === logged.identity` and the fulfillment
+    decision's identity) -- the cross-proof identity binding.
+  - A `mesh-run-attested@1` receipt records the five gate booleans + the shared identity + the verdict;
+    `validateReceipt` re-derives the decision from the committed source receipts (currency) and fails closed on a
+    stale gate set, an identity mismatch, a verdict that contradicts the re-derived decision, or a tampered digest.
+  - The gate `mesh-run-attested` proves offline: the selftest (7/7, one break per sub-proof); the committed decision
+    re-derives from every source receipt; all five gates pass; the identity is consistent; and `mesh-run.yml` runs
+    the capstone step.
+- Change Guidance: the verifier + selftest + committed decision live under `experiments/mesh-fulfillment/`
+  (`meshAttested.mjs` / `.selftest.mjs` / `mesh-run-attested-receipt.json`); the workflow step is in
+  `.github/workflows/mesh-run.yml`; gate `mesh-run-attested` in `verify-local-gates`. It mirrors the
+  composite-release-decision (LBA-REQ-071); the mesh subsystem (072-080) is complete. Authored under the
+  singular-requirement directive (one `shall`).
+
+### LBA-REQ-081: Cross-plane VI Analyzer performance parity (the second benchmark family)
+
+- Status: Proven
+- Area: Deployment / benchmark suite (ADR-0062 -- cross-plane VI Analyzer parity, roadmap Phase 2)
+- Statement: The system shall prove cross-plane VI Analyzer performance parity by validating that a LINUX and a WIN
+  VI Analyzer run share the same benchmark identity and deterministic resultHash, so a fail-closed gate proves the
+  planes ran the SAME benchmark and their run times are comparable performance witnesses.
+- Rationale: the cross-plane parity metric (roadmap §8) was proven only for the IDE launch benchmark (LBA-REQ-072);
+  Phase 2 is the SUITE (VI Analyzer, mass-compile, unit-test). VI Analyzer already has real two-plane evidence
+  (`vi-analyzer-trend-live-evidence@1`, LINUX + WIN) and governed cross-plane DETERMINISM (LBA-REQ-043 -- the
+  resultHash matches, i.e. the answer), but not cross-plane PERFORMANCE parity (the same identity so timings are
+  comparable). The LBA-REQ-072 parity engine's core is benchmark-generic and extends to VI Analyzer with no new
+  parity logic.
+- Acceptance Criteria:
+  - `viAnalyzerParity.mjs` REUSES the LBA-REQ-072 engine (`launchIdentity` / `trendOk` / `decideParity` /
+    `planeSummary` / `performanceWitness`) via a `trendFromEvidence` adapter that turns a committed
+    `vi-analyzer-trend-live-evidence@1` capture into a `workload-trend@1` (the per-run `wallMs` become the trend;
+    PASS iff every run exited 0 with no failed/errored tests). The benchmark identity is
+    `{ viAnalyzerMs, vi-analyzer-labviewcli-example, n }`.
+  - A run is parity-proven only when the planes are cross-plane (one LINUX + one WIN), share the benchmark identity,
+    AND share the deterministic resultHash (the LBA-REQ-043 determinism link). `validateReceipt` re-derives the
+    receipt from the two committed evidence captures (currency) and fails closed on an identity mismatch, a
+    non-cross-plane pair, a differing resultHash, an invalid trend, or a tampered digest.
+  - The gate `cross-plane-vi-analyzer-parity` proves offline: the selftest (7/7); the committed receipt re-derives
+    from the two evidence captures; parity is proven; and the receipt reflects the real captures.
+- Change Guidance: the verifier + selftest + committed receipt live under `experiments/vi-analyzer/`
+  (`viAnalyzerParity.mjs` / `.selftest.mjs` / `cross-plane-vi-analyzer-parity-receipt.json`), grounded in the two
+  committed `vi-analyzer-trend-live-evidence@1` captures; gate `cross-plane-vi-analyzer-parity` in
+  `verify-local-gates`. Adding mass-compile / unit-test parity is a new adapter + receipt once real two-plane timing
+  exists. Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-082: The benchmark-suite parity observatory (one view over the parity families)
+
+- Status: Proven
+- Area: Deployment / benchmark suite (ADR-0063 -- the benchmark-suite parity observatory, roadmap Phase 2 -> 4)
+- Statement: The system shall fold the benchmark suite's cross-plane parity receipts into one coverage matrix, so a
+  fail-closed gate proves which benchmark families have proven cross-plane parity and records their LINUX-vs-WIN
+  timing.
+- Rationale: the benchmark suite has two cross-plane parity families -- launch (LBA-REQ-072) and VI Analyzer
+  (LBA-REQ-081) -- each a separate fail-closed gate over its own parity receipt with its own schema, but there is no
+  single view answering which families are cross-plane parity-proven and what their Linux-vs-Windows timing is. The
+  mesh already has its analogue (the mesh coverage observatory LBA-REQ-075); the benchmark suite needs the same
+  folded, governed view -- the Phase 2 capstone + the Phase 4 (comparison at scale) bridge.
+- Acceptance Criteria:
+  - `suiteParityObservatory.mjs` `foldParity` normalizes each family's parity receipt (different schemas:
+    `cross-plane-launch-parity-receipt@1`, `cross-plane-vi-analyzer-parity-receipt@1`) into a uniform coverage row:
+    the family (from the schema), the benchmark spec, the identity (`launchIdentity` or `benchmarkIdentity`), the
+    parity flags (`crossPlane`, `identityMatch`, and `resultHashMatch` where present), the `parityProven` verdict,
+    and the LINUX-vs-WIN performance witness.
+  - `buildObservatory` derives the coverage (family count, parity-proven count, family list) + `observatoryOk` iff
+    every folded family is parity-proven; `validateObservatory` fails closed on a row claiming parity without
+    cross-plane + identity match, a miscounted coverage statistic, a verdict that contradicts the rows, or a
+    tampered digest.
+  - The gate `benchmark-suite-parity-observatory` proves offline: the selftest (7/7); the committed observatory
+    validates + the whole suite is parity-proven; it re-folds byte-stably from the committed launch + VI Analyzer
+    parity receipts (currency); and each folded row is grounded in a real parity receipt identity.
+- Change Guidance: the verifier + selftest + committed observatory live under `experiments/benchmark-suite/`
+  (`suiteParityObservatory.mjs` / `.selftest.mjs` / `benchmark-suite-parity-observatory-receipt.json`), folded from
+  the committed `experiments/launch-parity/` + `experiments/vi-analyzer/` parity receipts; gate
+  `benchmark-suite-parity-observatory` in `verify-local-gates`. Folding a mass-compile / unit-test parity family
+  extends the matrix with no new machinery. Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-083: The mesh carries a second benchmark family (VI Analyzer)
+
+- Status: Proven
+- Area: Deployment / mesh (ADR-0064 -- the mesh carries a second benchmark family, roadmap Phase 2 <-> 3)
+- Statement: The system shall fulfill the VI Analyzer benchmark through the mesh fulfillment engine as a benchmark
+  distinct from launch, so a fail-closed gate proves the mesh carries more than one benchmark family (the engine is
+  benchmark-generic).
+- Rationale: the actor mesh (Phase 3) and the cross-plane benchmark suite (Phase 2) grew as two threads that meet
+  at a gap -- the mesh had only ever fulfilled the launch benchmark (LBA-REQ-072). The fulfillment engine
+  (LBA-REQ-073) is written generically, but nothing PROVED it carries more than launch. VI Analyzer now has real
+  two-plane captures and a proven cross-plane identity (LBA-REQ-081), so it is the natural second family to run
+  through the mesh and close the gap.
+- Acceptance Criteria:
+  - `viAnalyzerMeshRun.mjs` REUSES both engines with no new logic: the two golden-VM actors return their VI Analyzer
+    `workload-trend@1` via `trendFromEvidence` (LBA-REQ-081, from the committed `vi-analyzer-trend-live-evidence@1`
+    captures), and `meshFulfillment.buildReceipt` / `validateReceipt` (LBA-REQ-073) decides the cross-plane
+    fulfillment.
+  - A `mesh-benchmark-family-run@1` is `carried` iff the embedded LBA-REQ-073 fulfillment is proven AND the identity
+    is the VI Analyzer identity AND that identity is DISTINCT from the launch identity. `validateFamilyRun` fails
+    closed if the fulfillment is not proven, the actor receipts do not descend from the real committed evidence, the
+    run is not the VI Analyzer benchmark, it is not distinct from launch, or the digest is tampered.
+  - The gate `mesh-benchmark-family-vi-analyzer` proves offline: the selftest (7/7); the committed run re-derives
+    from the two VI Analyzer captures; the mesh carried a benchmark distinct from launch; the carried benchmark is
+    VI Analyzer (the LBA-REQ-081 identity); and the embedded fulfillment is a real LBA-REQ-073 cross-plane
+    fulfillment (>= 2 distinct actors, both planes).
+- Change Guidance: the verifier + selftest + committed run live under `experiments/mesh-fulfillment/`
+  (`viAnalyzerMeshRun.mjs` / `.selftest.mjs` / `mesh-run-vi-analyzer-family.json`), grounded in the committed
+  `experiments/vi-analyzer/vi-analyzer-trend-live-evidence@1` captures; gate `mesh-benchmark-family-vi-analyzer` in
+  `verify-local-gates`. A mass-compile / unit-test mesh run is the same adapter + `buildFamilyRun` once real
+  two-plane captures exist. Authored under the singular-requirement directive (one `shall`).
+
+### LBA-REQ-084: The stress-discounted cross-plane comparison (discount a result captured on a stressed actor)
+
+- Status: Proven
+- Area: Analysis / cross-plane comparison (ADR-0065 -- the stress-discounted comparison, roadmap Phase 4)
+- Statement: The system shall assign each benchmark measurement a stress-quality weight from the mesh-stress
+  calibration and discount a measurement captured on a stressed actor, so a fail-closed gate proves a cross-plane
+  comparison down-weights results captured under contention.
+- Rationale: cross-plane comparison is built out (launch parity LBA-REQ-072, VI Analyzer parity LBA-REQ-081, the
+  benchmark grid LBA-REQ-050, the observatory LBA-REQ-054), but every comparison treats each actor's result at
+  face value. The roadmap Phase 4 is explicit that this is not enough at scale: the mesh-stress-signature
+  calibration must let a run DISCOUNT a result captured on a stressed actor (a contended actor's timing is
+  inflated). The calibration exists (LBA-REQ-032 -- a monotone/separable/repeatable ladder + independent per-actor
+  stress recovery); what was missing is the governed step that turns it into a per-measurement discount.
+- Acceptance Criteria:
+  - `stressDiscountedComparison.mjs` trusts the committed ladder (`mesh-stress-live-ladder@1`) as the calibration
+    authority only when its invariants hold (monotone + separable + repeatable), and takes the committed
+    concurrent-actors capture (`mesh-concurrent-actors@1`, `allActorsRecovered`) as the measurements whose stress
+    was independently recovered.
+  - Each measurement is assigned a stress-quality weight -- a linear confidence from the recovered level (idle 1.0,
+    light 0.75, medium 0.5, heavy 0.25, saturate 0.0) -- and flagged discounted at or above heavy. This is a
+    confidence weight, NOT a fabricated millisecond correction.
+  - Discounting is applied iff the calibration is trustworthy, every actor was recovered, at least one stressed
+    measurement is discounted, and at least one clean measurement is kept at full confidence. `validateComparison`
+    re-derives the comparison byte-stably from the two committed mesh-stress receipts and fails closed on an
+    invalid calibration, an unrecovered actor, a weight/flag that does not match the rule, a miscounted coverage
+    statistic, or a tampered digest.
+  - The gate `stress-discounted-comparison` proves offline: the selftest (7/7); the committed comparison re-derives
+    from the ladder + concurrent captures; the idle actor is kept at full confidence and the saturate actor is
+    discounted to zero weight; and a clean/discounted split exists.
+- Change Guidance: the verifier + selftest + committed comparison live under `experiments/mesh-stress-signature/`
+  (`stressDiscountedComparison.mjs` / `.selftest.mjs` / `stress-discounted-comparison-receipt.json`), grounded in
+  the committed `fixtures/mesh-live-ladder-receipt.json` + `fixtures/mesh-concurrent-actors-receipt.json`; gate
+  `stress-discounted-comparison` in `verify-local-gates`. Folding the discount weight into the benchmark grid /
+  observatory is a follow-on. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2130,3 +2679,20 @@ progressively.
 | LBA-REQ-065 | Deployment (flip coordination default to net + graceful no-op) | T-065 |
 | LBA-REQ-066 | Deployment (collapse coordination product to net-only) | T-066 |
 | LBA-REQ-067 | Deployment (remove CLI Discussion transport) | T-067 |
+| LBA-REQ-068 | Deployment (net-only live VM-agent drive) | T-068 |
+| LBA-REQ-069 | Deployment (release-with-review drive) | T-069 |
+| LBA-REQ-070 | Deployment (composite release decision) | T-070 |
+| LBA-REQ-071 | Deployment (enforce composite release decision) | T-071 |
+| LBA-REQ-072 | Deployment (cross-plane launch benchmark parity) | T-072 |
+| LBA-REQ-073 | Deployment (mesh-run cross-plane fulfillment) | T-073 |
+| LBA-REQ-074 | Deployment (GitHub-native mesh-run dispatch) | T-074 |
+| LBA-REQ-075 | Deployment (mesh coverage observatory) | T-075 |
+| LBA-REQ-076 | Deployment (live fan-out contract) | T-076 |
+| LBA-REQ-077 | Deployment (opt-in verified tier) | T-077 |
+| LBA-REQ-078 | Deployment (mesh attestation transparency log) | T-078 |
+| LBA-REQ-079 | Deployment (mesh log append-only proof) | T-079 |
+| LBA-REQ-080 | Deployment (composite mesh-run-attested decision) | T-080 |
+| LBA-REQ-081 | Deployment (cross-plane VI Analyzer benchmark parity) | T-081 |
+| LBA-REQ-082 | Deployment (benchmark-suite parity observatory) | T-082 |
+| LBA-REQ-083 | Deployment (mesh carries VI Analyzer benchmark) | T-083 |
+| LBA-REQ-084 | Analysis (stress-discounted comparison) | T-084 |

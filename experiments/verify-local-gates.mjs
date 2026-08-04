@@ -895,6 +895,28 @@ check('mesh-concurrent-actors-real', () => {
   return { actors: r.perActorInverseRead.length, recovered: r.allActorsRecovered, cpuMeans: r.actors.map((a) => a.cpuPoolPctMean) };
 });
 
+// LBA-REQ-084 / ADR-0065 (roadmap Phase 4): the STRESS-DISCOUNTED cross-plane comparison -- the mesh-stress
+// calibration (LBA-REQ-032) lets a fair comparison DISCOUNT a result captured on a stressed actor. Folds the
+// committed real ladder (calibration authority) + concurrent-actors capture (independently-recovered per-actor
+// stress) into a stress-quality weight per measurement (idle = full 1.0 ... saturate = 0.0), discounting the
+// stressed actors. Asserts the selftest (7/7) + the committed comparison (via the CLI, re-derived from the two
+// mesh-stress receipts) + that the stressed actors are discounted while the clean ones are kept.
+check('stress-discounted-comparison', () => {
+  const dir = join(here, 'mesh-stress-signature');
+  execFileSync(process.execPath, [join(dir, 'stressDiscountedComparison.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'stressDiscountedComparison.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(dir, 'stress-discounted-comparison-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/stress-discounted-comparison@1' && r.requirement === 'LBA-REQ-084', 'committed stress-discounted comparison shape');
+  assert(r.verdict.discountingApplied === true && r.calibration.trustworthy === true && r.calibration.allActorsRecovered === true, 'the calibration is trustworthy + recovered every actor, and discounting is applied');
+  assert(r.coverage.discountedCount >= 1 && r.coverage.cleanCount >= 1, 'stressed measurements are discounted while clean ones are kept');
+  // grounded: the idle actor keeps full confidence, the saturate actor is discounted to zero weight.
+  const idle = r.measurements.find((m) => m.inferredRung === 'idle');
+  const saturate = r.measurements.find((m) => m.inferredRung === 'saturate');
+  assert(idle && idle.qualityWeight === 1 && idle.discounted === false, 'the idle actor is kept at full confidence');
+  assert(saturate && saturate.qualityWeight === 0 && saturate.discounted === true, 'the saturate actor is discounted to zero weight');
+  return { measurements: r.coverage.measurements, discounted: r.coverage.discountedCount, clean: r.coverage.cleanCount, meanWeight: r.coverage.meanWeight };
+});
+
 // LBA-REQ-032 (mesh-stress-signature@v1, LIVE + WINDOWS VM): a REAL golden-box Win11 VM calibrated as a mesh
 // actor -- winMeshActorCapture.ps1 drove the running VM through busy=0..4 via VBoxManage guestcontrol (each an
 // exact-12-FPS PDH capture), and runWinVmLadder builds the per-rung signatures + fits + inverse-reads every rung.
@@ -1675,6 +1697,262 @@ check('cross-plane-comparison-proven-green', () => {
   }
   return { linux: r.linuxRunId, win: r.winRunId };
 });
+
+// LBA-REQ-072 / ADR-0053: cross-plane launch-benchmark PARITY -- the flagship exact-12-FPS launch-to-ready
+// benchmark measures a plane-DEPENDENT quantity (LINUX ~2604 ms vs WIN ~2410 ms), so unlike the mprr seriesHash
+// parity above, its cross-plane identity is the benchmark SPEC (metric + workload + sample count), NOT the
+// series. Asserts the selftest (7/7) + the committed parity receipt via the verifier main + that the receipt is
+// DERIVED FROM the real committed launch trends (media/labview-launch-trend{,-win}.json), fail-closed.
+check('cross-plane-launch-parity', () => {
+  const dir = join(here, 'launch-parity');
+  execFileSync(process.execPath, [join(dir, 'launchParity.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'launchParity.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(dir, 'cross-plane-launch-parity-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/cross-plane-launch-parity-receipt@1' && r.requirement === 'LBA-REQ-072', 'committed launch-parity receipt shape');
+  assert(r.verdict.parityProven === true && r.parity.identityMatch === true && r.parity.crossPlane === true, 'cross-plane launch parity proven (same benchmark, one LINUX + one WIN)');
+  assert(r.benchmark.metric === 'launchMs' && r.benchmark.workload === 'labview-ide-launch', 'the flagship launch-to-ready benchmark');
+  // GROUNDED: the parity receipt is derived from the committed launch-trend fixtures (not fabricated).
+  const linux = JSON.parse(readFileSync(join(dir, 'fixtures', 'linux-launch-trend.json'), 'utf8'));
+  const win = JSON.parse(readFileSync(join(dir, 'fixtures', 'win-launch-trend.json'), 'utf8'));
+  assert(r.planes.LINUX.meanMs === linux.stats.mean && r.planes.WIN.meanMs === win.stats.mean, 'the parity receipt reflects the committed launch trend means');
+  assert(linux.metric === win.metric && linux.workload === win.workload && linux.n === win.n, 'the two committed launch trends share the launch identity');
+  return { identity: r.launchIdentity.slice(0, 12), linuxMs: r.performance.linuxMeanMs, winMs: r.performance.winMeanMs, faster: r.performance.fasterPlane };
+});
+
+// LBA-REQ-081 / ADR-0062: cross-plane VI Analyzer PERFORMANCE PARITY -- the second benchmark family in the parity
+// suite (roadmap Phase 2). REUSES the LBA-REQ-072 launch-parity engine (launchIdentity/decideParity) on the real
+// committed vi-analyzer-trend-live-evidence@1 wall times: LINUX + WIN ran the SAME VI Analyzer benchmark identity
+// (so run times are comparable) AND share the deterministic resultHash (the LBA-REQ-043 determinism link).
+// Asserts the selftest (7/7) + the committed receipt (via the CLI, which re-derives from the two evidence files) +
+// that parity is proven + grounded in the real captures.
+check('cross-plane-vi-analyzer-parity', () => {
+  const dir = join(here, 'vi-analyzer');
+  execFileSync(process.execPath, [join(dir, 'viAnalyzerParity.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'viAnalyzerParity.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(dir, 'cross-plane-vi-analyzer-parity-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/cross-plane-vi-analyzer-parity-receipt@1' && r.requirement === 'LBA-REQ-081', 'committed VI Analyzer parity receipt shape');
+  assert(r.verdict.parityProven === true && r.parity.identityMatch === true && r.parity.crossPlane === true && r.parity.resultHashMatch === true, 'cross-plane VI Analyzer parity proven (same identity + same resultHash, LINUX + WIN)');
+  assert(r.benchmark.metric === 'viAnalyzerMs' && r.benchmark.workload === 'vi-analyzer-labviewcli-example', 'the VI Analyzer LabVIEWCLIExampleProject benchmark');
+  // GROUNDED: the receipt is derived from the two committed vi-analyzer-trend-live-evidence@1 captures.
+  const lin = JSON.parse(readFileSync(join(dir, 'vi-analyzer-trend-live-evidence.json'), 'utf8'));
+  const win = JSON.parse(readFileSync(join(dir, 'vi-analyzer-trend-live-evidence-WIN.json'), 'utf8'));
+  assert(lin.cleanroom.plane === 'LINUX' && win.cleanroom.plane === 'WIN' && lin.runs.length === win.runs.length, 'the two committed captures are a cross-plane pair with equal sample counts');
+  assert(r.determinism.linuxResultHash === lin.determinism.resultHash && r.determinism.winResultHash === win.determinism.resultHash, 'the parity receipt reflects the committed evidence resultHashes');
+  return { identity: r.benchmarkIdentity.slice(0, 12), linuxMs: r.performance.linuxMeanMs, winMs: r.performance.winMeanMs, faster: r.performance.fasterPlane };
+});
+
+// LBA-REQ-082 / ADR-0063: the BENCHMARK-SUITE PARITY OBSERVATORY -- folds the committed cross-plane parity receipts
+// (launch 072 + VI Analyzer 081) into ONE suite coverage matrix (which families have proven cross-plane parity +
+// their LINUX vs WIN timing). Mirrors the mesh observatory (075) but for the benchmark suite. Asserts the selftest
+// (7/7) + the committed observatory (via the CLI) + that it RE-FOLDS byte-stably from the committed parity receipts
+// (currency) + that every folded family is grounded in a real parity receipt.
+check('benchmark-suite-parity-observatory', () => {
+  const dir = join(here, 'benchmark-suite');
+  execFileSync(process.execPath, [join(dir, 'suiteParityObservatory.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'suiteParityObservatory.mjs')], { stdio: 'pipe' });
+  const obs = JSON.parse(readFileSync(join(dir, 'benchmark-suite-parity-observatory-receipt.json'), 'utf8'));
+  assert(obs.schema === 'labview-benchmark-actor/benchmark-suite-parity-observatory@1' && obs.requirement === 'LBA-REQ-082', 'committed suite parity observatory shape');
+  assert(obs.verdict.observatoryOk === true && obs.coverage.parityProvenCount === obs.coverage.familyCount && obs.coverage.familyCount >= 2, 'the whole suite (>= 2 families) is cross-plane parity-proven');
+  assert(obs.coverage.families.includes('launch') && obs.coverage.families.includes('vi-analyzer'), 'the suite folds the launch + VI Analyzer parity families');
+  // grounded: each folded row carries the REAL identity of its committed parity receipt.
+  const launch = JSON.parse(readFileSync(join(here, 'launch-parity', 'cross-plane-launch-parity-receipt.json'), 'utf8'));
+  const via = JSON.parse(readFileSync(join(here, 'vi-analyzer', 'cross-plane-vi-analyzer-parity-receipt.json'), 'utf8'));
+  assert(obs.rows.some((r) => r.identity === launch.launchIdentity) && obs.rows.some((r) => r.identity === via.benchmarkIdentity), 'the observatory rows are grounded in the real parity receipts');
+  return { families: obs.coverage.familyCount, proven: obs.coverage.parityProvenCount, list: obs.coverage.families.join('+') };
+});
+
+// LBA-REQ-083 / ADR-0064: the mesh carries a SECOND benchmark family -- the convergence of the mesh (Phase 3) +
+// the benchmark suite (Phase 2). Proves the mesh fulfillment engine (LBA-REQ-073) is BENCHMARK-GENERIC by
+// fulfilling the VI Analyzer benchmark (LBA-REQ-081 identity, DISTINCT from launch) through the same engine,
+// grounded in the real committed VI Analyzer captures. Asserts the selftest (7/7) + the committed run (via the
+// CLI, re-derived from the evidence) + that the mesh carried a distinct benchmark + fulfillment holds.
+check('mesh-benchmark-family-vi-analyzer', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'viAnalyzerMeshRun.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'viAnalyzerMeshRun.mjs')], { stdio: 'pipe' });
+  const run = JSON.parse(readFileSync(join(dir, 'mesh-run-vi-analyzer-family.json'), 'utf8'));
+  const via = JSON.parse(readFileSync(join(here, 'vi-analyzer', 'cross-plane-vi-analyzer-parity-receipt.json'), 'utf8'));
+  assert(run.schema === 'labview-benchmark-actor/mesh-benchmark-family-run@1' && run.requirement === 'LBA-REQ-083', 'committed mesh-run family record shape');
+  assert(run.verdict.carried === true && run.distinctFromLaunch === true, 'the mesh carried a benchmark distinct from launch');
+  assert(run.family === 'vi-analyzer' && run.benchmark.metric === 'viAnalyzerMs' && run.identity === via.benchmarkIdentity, 'the carried benchmark is VI Analyzer (same identity as the LBA-REQ-081 parity)');
+  // the embedded fulfillment is a real LBA-REQ-073 cross-plane fulfillment (>= 2 actors, both planes, same identity).
+  const f = run.fulfillment;
+  assert(f.schema === 'labview-benchmark-actor/mesh-run-fulfillment-receipt@1' && f.verdict.fulfilled === true && f.identity === run.identity, 'the mesh fulfilled the VI Analyzer run via the LBA-REQ-073 engine');
+  assert(f.fulfillment.distinctActors >= 2 && f.fulfillment.planes.includes('LINUX') && f.fulfillment.planes.includes('WIN'), '>= 2 distinct actors across the LINUX + WIN planes');
+  return { family: run.family, identity: run.identity.slice(0, 12), actors: f.fulfillment.distinctActors, distinctFromLaunch: run.distinctFromLaunch };
+});
+
+// LBA-REQ-073 / ADR-0054: mesh-run cross-plane FULFILLMENT (roadmap Phase 3, the North Star loop) -- a dispatched
+// benchmark run is proven fulfilled by >= N independent enrolled actors from DISTINCT planes, each returning a
+// valid plane-tagged receipt for the SAME benchmark identity (reuses the LBA-REQ-072 launch identity). No central
+// DB -- the returned receipts ARE the result. Asserts the selftest (7/7) + the committed receipt via the verifier
+// main + the fulfillment shape (>= 2 distinct actors, both planes covered, identity agreement).
+check('mesh-run-cross-plane-fulfillment', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshFulfillment.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshFulfillment.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(dir, 'mesh-run-fulfillment-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/mesh-run-fulfillment-receipt@1' && r.requirement === 'LBA-REQ-073', 'committed mesh-run fulfillment receipt shape');
+  assert(r.verdict.fulfilled === true && r.fulfillment.identityAgreement === true && r.fulfillment.planesCovered === true, 'the dispatched run is fulfilled (identity agreement + planes covered)');
+  assert(r.fulfillment.distinctActors >= 2 && r.fulfillment.planes.includes('LINUX') && r.fulfillment.planes.includes('WIN'), '>= 2 distinct actors across the LINUX + WIN planes');
+  assert(Array.isArray(r.actors) && r.actors.length >= 2 && r.actors.every((a) => a.receipt && a.receipt.schema === 'labview-benchmark-actor/workload-trend@1'), 'each actor returned a plane-tagged workload-trend receipt');
+  return { benchmarkId: r.dispatch.benchmarkId, actors: r.fulfillment.distinctActors, planes: r.fulfillment.planes.join('+'), identity: r.identity.slice(0, 12) };
+});
+
+// LBA-REQ-074 / ADR-0055: GitHub-native mesh-run DISPATCH transport -- a repository_dispatch(mesh-run) workflow
+// fans a mesh-run-dispatch@1 request out to volunteer actors + gates the returned receipts with meshFulfillment.
+// Asserts the dispatch selftest (7/7) + the committed request (via the CLI) + that it BINDS to the LBA-REQ-073
+// fulfillment (same benchmarkId + identity) + that mesh-run.yml is wired (repository_dispatch + both verifiers).
+check('mesh-run-dispatch-wired', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshDispatch.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshDispatch.mjs')], { stdio: 'pipe' });
+  const req = JSON.parse(readFileSync(join(dir, 'mesh-run-dispatch-request.json'), 'utf8'));
+  const ful = JSON.parse(readFileSync(join(dir, 'mesh-run-fulfillment-receipt.json'), 'utf8'));
+  assert(req.schema === 'labview-benchmark-actor/mesh-run-dispatch@1' && req.requirement === 'LBA-REQ-074', 'committed dispatch request shape');
+  // the dispatch BINDS to the fulfillment: same run (benchmarkId + benchmark identity + minActors + planes).
+  assert(req.benchmarkId === ful.dispatch.benchmarkId && req.identity === ful.identity, 'the dispatch request binds to the LBA-REQ-073 fulfillment (same benchmarkId + identity)');
+  assert(req.minActors === ful.dispatch.minActors && JSON.stringify(req.requestedPlanes) === JSON.stringify(ful.dispatch.requestedPlanes), 'the dispatch request + fulfillment agree on minActors + requested planes');
+  // the GitHub-native workflow is wired: repository_dispatch(mesh-run) -> validate dispatch -> gate fulfillment.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/repository_dispatch:/.test(wf) && /types:\s*\[mesh-run\]/.test(wf), 'mesh-run.yml triggers on repository_dispatch type mesh-run');
+  assert(/meshDispatch\.mjs/.test(wf) && /meshFulfillment\.mjs/.test(wf), 'mesh-run.yml validates the dispatch + gates the fulfillment');
+  return { dispatchId: req.dispatchId, bound: true, wired: true };
+});
+
+// LBA-REQ-075 / ADR-0056: the MESH COVERAGE OBSERVATORY -- folds the governed mesh-run receipts (dispatch 074 +
+// fulfillment 073 + parity 072) into a coverage matrix + a consistency ledger (which benchmarks x which planes x
+// how many actors fulfilled, and does each run's dispatch/fulfillment/parity name the SAME identity). The
+// operator-facing mesh dashboard + the Phase 3->4 bridge (cross-plane comparison AT SCALE). Asserts the selftest
+// (7/7) + the committed observatory (via the CLI) + that it RE-FOLDS byte-stably from the committed source
+// receipts (currency) + that the folded row is grounded in the real fulfillment (identity + actors + planes).
+check('mesh-coverage-observatory', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshObservatory.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshObservatory.mjs')], { stdio: 'pipe' });
+  const obs = JSON.parse(readFileSync(join(dir, 'mesh-coverage-observatory-receipt.json'), 'utf8'));
+  const ful = JSON.parse(readFileSync(join(dir, 'mesh-run-fulfillment-receipt.json'), 'utf8'));
+  assert(obs.schema === 'labview-benchmark-actor/mesh-coverage-observatory@1' && obs.requirement === 'LBA-REQ-075', 'committed mesh coverage observatory shape');
+  assert(obs.verdict.observatoryOk === true && obs.ledger.allDispatched && obs.ledger.allFulfilled && obs.ledger.allIdentityConsistent, 'the folded mesh runs are all dispatched -> fulfilled with a consistent identity');
+  assert(obs.coverage.benchmarks >= 1 && obs.coverage.fulfilledBenchmarks === obs.coverage.benchmarks && obs.coverage.planes.includes('LINUX') && obs.coverage.planes.includes('WIN'), 'coverage spans the fulfilled benchmarks across the LINUX + WIN planes');
+  // grounded: the folded row carries the REAL fulfillment identity + actor count + covered planes (not fabricated).
+  const row = obs.rows.find((r) => r.identity === ful.identity);
+  assert(row && row.distinctActors === ful.fulfillment.distinctActors && JSON.stringify(row.planes) === JSON.stringify(ful.fulfillment.planes), 'the observatory row is grounded in the real LBA-REQ-073 fulfillment');
+  return { benchmarks: obs.coverage.benchmarks, planes: obs.coverage.planes.join('+'), actorRuns: obs.coverage.totalDistinctActors, coherent: obs.verdict.observatoryOk };
+});
+
+// LBA-REQ-076 / ADR-0057: the LIVE FAN-OUT contract -- the two contracts BETWEEN a mesh-run dispatch (074) and
+// its fulfillment (073): how the dispatch TASKS actors (actor-tasking@1) + how their returned receipts are
+// COLLECTED back into the fulfillment input (receipt-collection@1), both IDENTITY-BOUND to the dispatch. Asserts
+// the selftest (7/7) + the committed tasking + collection (via the CLI) + that the tasking DERIVES from the
+// dispatch (currency) + that the collection RECONSTRUCTS the committed LBA-REQ-073 fulfillment (grounding) + that
+// mesh-run.yml wires the fan-out step.
+check('mesh-live-fanout-wired', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshFanout.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshFanout.mjs')], { stdio: 'pipe' });
+  const dispatch = JSON.parse(readFileSync(join(dir, 'mesh-run-dispatch-request.json'), 'utf8'));
+  const tasking = JSON.parse(readFileSync(join(dir, 'mesh-run-tasking.json'), 'utf8'));
+  const collection = JSON.parse(readFileSync(join(dir, 'mesh-run-collection.json'), 'utf8'));
+  const ful = JSON.parse(readFileSync(join(dir, 'mesh-run-fulfillment-receipt.json'), 'utf8'));
+  assert(tasking.schema === 'labview-benchmark-actor/actor-tasking@1' && tasking.requirement === 'LBA-REQ-076', 'committed tasking shape');
+  assert(collection.schema === 'labview-benchmark-actor/receipt-collection@1' && collection.requirement === 'LBA-REQ-076', 'committed collection shape');
+  // identity-bound: the tasking + collection carry the dispatched benchmark identity end-to-end.
+  assert(tasking.identity === dispatch.identity && collection.identity === dispatch.identity && collection.identity === ful.identity, 'the fan-out is identity-bound to the dispatch + fulfillment');
+  // the tasking covers the requested planes; the collection maps every returned receipt back to a task + is grounded.
+  assert(tasking.tasks.length === dispatch.requestedPlanes.length && dispatch.requestedPlanes.every((p) => tasking.tasks.some((t) => t.plane === p)), 'the tasking covers exactly the requested planes');
+  assert(collection.collected.length === ful.actors.length && collection.actors.every((a) => ful.actors.some((fa) => fa.actorId === a.actorId && fa.plane === a.plane)), 'the collection is the fulfillment actor set');
+  // the mesh-run.yml workflow wires the fan-out step.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/meshFanout\.mjs/.test(wf), 'mesh-run.yml runs the fan-out contract (meshFanout.mjs)');
+  return { tasks: tasking.tasks.length, collected: collection.collected.length, identity: collection.identity.slice(0, 12), wired: true };
+});
+
+// LBA-REQ-077 / ADR-0058: the opt-in VERIFIED TIER -- each returned actor receipt is SIGNED by the actor's
+// ENROLLED Ed25519 key (reusing the ADR-0016 acg-provenance attestation engine), and a verified-receipt-collection@1
+// admits a receipt only when it carries a valid attestation from its declared, enrolled actor. Asserts the
+// selftest (7/7) + the committed verified collection (via the CLI) + that the attestations verify over the real
+// collected receipts against the committed enrolled keys + that mesh-run.yml wires the verified-tier step.
+check('mesh-verified-tier-attested', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshVerifiedTier.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshVerifiedTier.mjs')], { stdio: 'pipe' });
+  const collection = JSON.parse(readFileSync(join(dir, 'mesh-run-collection.json'), 'utf8'));
+  const verified = JSON.parse(readFileSync(join(dir, 'mesh-run-verified-collection.json'), 'utf8'));
+  const keys = JSON.parse(readFileSync(join(dir, 'mesh-actor-keys.json'), 'utf8')).enrolled ?? {};
+  assert(verified.schema === 'labview-benchmark-actor/verified-receipt-collection@1' && verified.requirement === 'LBA-REQ-077', 'committed verified collection shape');
+  // every collected receipt is attested by its declared actor, and every attesting actor is enrolled (has a key).
+  assert(Array.isArray(verified.attestations) && verified.attestations.length === collection.collected.length, 'every collected receipt carries an attestation');
+  assert(verified.attestations.every((a) => a.attestation && a.attestation.witnessIdentity === a.actorId && typeof keys[a.actorId] === 'string'), 'each attestation is by the declared, enrolled actor');
+  assert(verified.identity === collection.identity && verified.dispatchId === collection.dispatchId, 'the verified collection binds to the collection');
+  return { attestations: verified.attestations.length, enrolledActors: Object.keys(keys).length, identity: verified.identity.slice(0, 12) };
+});
+
+// LBA-REQ-078 / ADR-0059: transparency-log the verified-tier attestations -- each attestation is recorded in an
+// RFC-6962 Merkle transparency log (reusing the ADR-0022 acg-transparency engine) whose tree head is signed by
+// the enrolled log key, and a logged-verified-collection@1 is admitted only when EVERY attestation carries an
+// inclusion proof against that signed root. Asserts the selftest (7/7) + the committed logged collection (via the
+// CLI) + that the signed tree head verifies + that every attestation is included + that mesh-run.yml wires the step.
+check('mesh-attestations-transparency-logged', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshTransparency.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshTransparency.mjs')], { stdio: 'pipe' });
+  const verified = JSON.parse(readFileSync(join(dir, 'mesh-run-verified-collection.json'), 'utf8'));
+  const logged = JSON.parse(readFileSync(join(dir, 'mesh-run-logged-collection.json'), 'utf8'));
+  const logKey = JSON.parse(readFileSync(join(dir, 'mesh-log-key.json'), 'utf8'));
+  assert(logged.schema === 'labview-benchmark-actor/logged-verified-collection@1' && logged.requirement === 'LBA-REQ-078', 'committed logged collection shape');
+  // the log records every verified-tier attestation, bound to the verified collection.
+  assert(logged.verifiedDigest && logged.identity === verified.identity && logged.dispatchId === verified.dispatchId, 'the logged collection binds to the verified collection');
+  assert(logged.signedTreeHead && logged.signedTreeHead.size === verified.attestations.length && Array.isArray(logged.inclusions) && logged.inclusions.length === verified.attestations.length, 'the signed tree logs every attestation with an inclusion proof');
+  assert(logged.signedTreeHead.algorithm === 'ed25519' && typeof logKey.publicKeyPem === 'string', 'the tree head is Ed25519-signed by the enrolled log key');
+  // mesh-run.yml wires the transparency step.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/meshTransparency\.mjs/.test(wf), 'mesh-run.yml transparency-logs the attestations (meshTransparency.mjs)');
+  return { logged: logged.inclusions.length, treeSize: logged.signedTreeHead.size, root: logged.signedTreeHead.root.slice(0, 12) };
+});
+
+// LBA-REQ-079 / ADR-0060: the APPEND-ONLY consistency proof -- closes the "append-only" claim of ADR-0059. A
+// consistency proof (RFC-6962, reusing the ADR-0022 acg-transparency engine) binds an earlier signed tree head +
+// the current one, admitted only when the later tree provably CONTAINS the earlier one unchanged. Asserts the
+// selftest (7/7) + the committed history (via the CLI) + that the log strictly grew + that the current head is
+// the committed LBA-REQ-078 log (by root) + that mesh-run.yml wires the step.
+check('mesh-log-append-only', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshLogHistory.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshLogHistory.mjs')], { stdio: 'pipe' });
+  const logged = JSON.parse(readFileSync(join(dir, 'mesh-run-logged-collection.json'), 'utf8'));
+  const history = JSON.parse(readFileSync(join(dir, 'mesh-run-log-history.json'), 'utf8'));
+  assert(history.schema === 'labview-benchmark-actor/logged-collection-history@1' && history.requirement === 'LBA-REQ-079', 'committed history shape');
+  // the log strictly grew, and the current tree head IS the committed LBA-REQ-078 log (same Merkle root + size).
+  assert(history.firstTreeHead.size >= 1 && history.firstTreeHead.size < history.secondTreeHead.size, 'the log strictly grew (append happened)');
+  assert(history.secondTreeHead.root === logged.signedTreeHead.root && history.secondTreeHead.size === logged.signedTreeHead.size, 'the current tree head is the committed LBA-REQ-078 log');
+  assert(Array.isArray(history.consistencyProof) && history.firstTreeHead.algorithm === 'ed25519' && history.secondTreeHead.algorithm === 'ed25519', 'both tree heads are Ed25519-signed with a consistency proof');
+  // mesh-run.yml wires the append-only step.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/meshLogHistory\.mjs/.test(wf), 'mesh-run.yml proves the log is append-only (meshLogHistory.mjs)');
+  return { grew: `${history.firstTreeHead.size}->${history.secondTreeHead.size}`, root: history.secondTreeHead.root.slice(0, 12) };
+});
+
+// LBA-REQ-080 / ADR-0061: the composite MESH-RUN-ATTESTED decision -- the integration capstone. ONE fail-closed
+// verdict composing the whole 072-079 chain: fulfillment (073) AND cross-plane parity (072) AND the verified tier
+// (077) AND the transparency inclusion (078) AND the append-only proof (079), all naming the SAME run identity.
+// Asserts the selftest (7/7) + the committed decision (via the CLI, which re-derives from every source receipt) +
+// that all five gates pass + the identity is consistent + that mesh-run.yml wires the capstone step.
+check('mesh-run-attested', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshAttested.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshAttested.mjs')], { stdio: 'pipe' });
+  const receipt = JSON.parse(readFileSync(join(dir, 'mesh-run-attested-receipt.json'), 'utf8'));
+  assert(receipt.schema === 'labview-benchmark-actor/mesh-run-attested@1' && receipt.requirement === 'LBA-REQ-080', 'committed attested receipt shape');
+  const g = receipt.gates;
+  assert(g.fulfillment && g.parity && g.verifiedTier && g.transparencyInclusion && g.appendOnly, 'all five composed sub-proofs pass');
+  assert(receipt.identityConsistent === true && receipt.verdict.attested === true, 'the run is fully attested with a consistent identity');
+  // mesh-run.yml wires the composite capstone step.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
+  assert(/meshAttested\.mjs/.test(wf), 'mesh-run.yml decides the composite mesh-run-attested verdict (meshAttested.mjs)');
+  return { attested: receipt.verdict.attested, gates: Object.keys(g).length, identity: String(receipt.identity).slice(0, 12) };
+});
+
 // The MCP server surface (VS Code 1.101 mcpServerDefinitionProviders) is a build-time TS -> out/mcp
 // artifact; this gate asserts the STATIC contract (build-independent, matching the CI lane which does not
 // compile). The DYNAMIC JSON-RPC round-trip is gated by `npm test` (test/mcp-server.mjs: pure-core dispatch
@@ -2331,6 +2609,73 @@ check('closed-loop-readback', () => {
   const typesLine = netSrc.split('\n').find((l) => l.includes('"CLAIM"') && l.includes('"HELLO"')) || '';
   for (const t of ['RESOLVED', 'REFINE', 'BLOCKED']) { assert(typesLine.includes(`"${t}"`), `net Types set includes ${t}`); }
   return { selftest: 'await-agent-reply 7/7', loopback: r.loopbackProof.ok, liveDrives: r.liveDrives.length, netVerdictTypes: 'RESOLVED/REFINE/BLOCKED' };
+});
+
+// LBA-REQ-068 / ADR-0049: net-only live VM-agent drive -- the host drives the reviewer VM's agent to run the
+// RELEASED net-only lbabus (collab-cli 0.15.0, from the collab-cli-v0.15.0 release) and the VM reports
+// task-correlated results back over lbabus net, the SOLE coordination path (the released CLI rejects the retired
+// Discussion commands). Asserts the selftest (7/7) + the committed receipt via the verifier main (schema +
+// verdict + digest re-derivation, fail-closed) + the drive / net-only shape.
+check('net-only-live-drive', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'net-only-live-drive.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'net-only-live-drive.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'net-only-live-drive-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/net-only-live-drive-receipt@1' && r.requirement === 'LBA-REQ-068', 'committed net-only-live-drive receipt shape');
+  assert(r.verdict.netOnlyDriveProven === true, 'net-only live drive proven');
+  assert(Array.isArray(r.drives) && r.drives.length >= 1 && r.drives.every((d) => d.matched === true && d.frame.senderId === 'WIN'), 'live drives from the reviewer VM (senderId WIN), loop closed over net');
+  assert(['init', 'post', 'poll', 'wait', 'delta'].every((k) => r.cliNetOnly.retiredCommandsRejected.includes(k)), 'released CLI rejects all retired Discussion commands');
+  assert(r.cliNetOnly.releaseTag === 'collab-cli-v0.15.0' && /unknown command/.test(r.cliNetOnly.observedOnVm), 'net-only observed on the VM from the released CLI');
+  return { selftest: 'net-only-live-drive 7/7', drives: r.drives.length, releaseTag: r.cliNetOnly.releaseTag, netOnly: true };
+});
+
+// LBA-REQ-069 / ADR-0050: release-with-review drive -- ONE BOUND loop where the reviewer VM stages a release
+// candidate over net (LBA-REQ-068), a human signs a visual verdict of THAT candidate (LBA-REQ-057), and the
+// signed verdict announces over net (LBA-REQ-058) -- all bound to the SAME candidate. Asserts the selftest (7/7)
+// + the committed receipt via the verifier main (schema + binding + verdict + digest, fail-closed) + the shape.
+check('release-with-review-drive', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'release-with-review-drive.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'release-with-review-drive.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'release-with-review-drive-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/release-with-review-drive-receipt@1' && r.requirement === 'LBA-REQ-069', 'committed release-with-review-drive receipt shape');
+  assert(r.verdict.releaseWithReviewProven === true, 'release-with-review loop proven');
+  assert(r.binding.stagedOverNet === true && r.binding.candidateMatchesVerdictTarget === true && r.binding.verdictVerified === true && r.binding.gatePublish === true && r.binding.announceDerivedOk === true, 'the full binding holds (stage<->sign<->announce bound to one candidate)');
+  assert(r.staged.frame.senderId === 'WIN' && r.announce.frame.senderId === 'WIN' && r.announce.task === `${r.candidate.component}-release-${r.candidate.version}`, 'staged + announced over net, correlated to the candidate');
+  return { selftest: 'release-with-review-drive 7/7', candidate: `${r.candidate.component} ${r.candidate.version}`, announce: r.announce.type, bound: true };
+});
+
+// LBA-REQ-070 / ADR-0051: composite release decision -- the CAPSTONE. A candidate publishes only when BOTH the
+// machine corroboration gate (gateReleasePublish, ADR-0018) AND the human visual gate (gateVisualReview,
+// LBA-REQ-057) pass AND both name the SAME net-staged candidate (LBA-REQ-068/069). Asserts the selftest (7/7) +
+// the committed receipt via the verifier main (both gates + cross-binding + digest, fail-closed) + the shape.
+check('composite-release-decision', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'composite-release-decision.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'composite-release-decision.mjs')], { stdio: 'pipe' });
+  const r = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'composite-release-decision-receipt.json'), 'utf8'));
+  assert(r.schema === 'labview-benchmark-actor/composite-release-decision-receipt@1' && r.requirement === 'LBA-REQ-070', 'committed composite-release-decision receipt shape');
+  assert(r.verdict.compositeReleaseProven === true && r.decision.publish === true, 'composite release decision publishes');
+  assert(r.binding.machinePublish === true && r.binding.visualPublish === true, 'both the machine + human gates publish');
+  assert(r.binding.machineConsensusBound === true && r.binding.visualTargetBound === true && r.binding.stagedOverNet === true, 'machine quorum + visual verdict both bound to the same net-staged candidate');
+  return { selftest: 'composite-release-decision 7/7', candidate: `${r.candidate.component} ${r.candidate.version}`, machine: r.binding.machinePublish, visual: r.binding.visualPublish, bound: true };
+});
+
+// LBA-REQ-071 / ADR-0052: composite release ENFORCEMENT -- the extension release workflow blocks publishing
+// unless a committed composite release-decision proves both gates pass for the tagged candidate. Asserts (offline)
+// that the enforcement CLI clears the committed candidate + fails closed for a version with no decision, AND that
+// extension-release.yml runs the CLI in the publish-gating agreement job (release needs: [build, agreement]).
+check('composite-release-enforced', () => {
+  const cli = join(here, '..', 'tools', 'collab-cli', 'verify-composite-release.mjs');
+  // the committed composite receipt (ext 1.0.0) clears the release gate...
+  execFileSync(process.execPath, [cli, '--component', 'extension', '1.0.0'], { stdio: 'pipe' });
+  // ...and a version with no proven composite decision fails closed (exit 1).
+  let blocked = false;
+  try { execFileSync(process.execPath, [cli, '--component', 'extension', '0.9.9-none'], { stdio: 'pipe' }); }
+  catch { blocked = true; }
+  assert(blocked, 'the composite-release gate fails closed for a version with no proven composite decision');
+  // the extension release workflow WIRES the enforcement into the publish-gating agreement job.
+  const wf = readFileSync(join(here, '..', '.github', 'workflows', 'extension-release.yml'), 'utf8');
+  assert(/verify-composite-release\.mjs --component extension/.test(wf), 'extension-release.yml runs the composite-release enforcement CLI');
+  assert(/needs:\s*\[build,\s*agreement\]/.test(wf), 'the release job needs the agreement job, so the composite gate blocks the publish');
+  return { cli: 'verify-composite-release', clears: 'extension 1.0.0', failsClosed: true, wired: true };
 });
 
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the

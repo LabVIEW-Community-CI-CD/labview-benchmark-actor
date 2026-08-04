@@ -67,6 +67,10 @@ jobs:
           else
             tag="${GITHUB_REF_NAME}"; version="${tag#ext-v}"
           fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::extension-release needs a valid X.Y.Z version, got '${version}'. On a workflow_dispatch from a branch, pass the 'version' input (e.g. 0.5.0) -- the branch-ref fallback (GITHUB_REF_NAME) only yields a version on an ext-v* tag push." >&2
+            exit 1
+          fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Verify bidirectional WIN <-> LINUX agreement (extension)
@@ -77,6 +81,14 @@ jobs:
         # (reviewer-verdict@1) of the actual built candidate in release-agreement.json -- the human's VISUAL PASS,
         # layered ON TOP of the machine plane agreement above (ADR-0037).
         run: node tools/collab-cli/verify-visual-review.mjs --component extension "${{ steps.ver.outputs.version }}"
+
+      - name: Verify composite release decision (extension, LBA-REQ-071)
+        # Fail-closed: a release publishes only when the COMPOSITE decision passes for this candidate -- the
+        # machine corroboration gate (gateReleasePublish, ADR-0018) AND the human visual gate (gateVisualReview,
+        # LBA-REQ-057) both pass AND both name the SAME net-staged candidate (LBA-REQ-068/069). Layered ON TOP of
+        # the plane agreement + visual-review gates above; the release job depends on this agreement job, so the
+        # composite decision gates the publish (ADR-0052 enforces ADR-0051/LBA-REQ-070).
+        run: node tools/collab-cli/verify-composite-release.mjs --component extension "${{ steps.ver.outputs.version }}"
 
   release:
     needs: [build, agreement]
@@ -98,6 +110,10 @@ jobs:
             version="${{ github.event.inputs.version }}"
           else
             tag="${GITHUB_REF_NAME}"; version="${tag#ext-v}"
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::extension-release needs a valid X.Y.Z version, got '${version}'. On a workflow_dispatch from a branch, pass the 'version' input (e.g. 0.5.0) -- the branch-ref fallback (GITHUB_REF_NAME) only yields a version on an ext-v* tag push." >&2
+            exit 1
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "Building extension ${version}"

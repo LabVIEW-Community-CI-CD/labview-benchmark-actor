@@ -1470,6 +1470,50 @@ async function verifyReleaseProvenanceCommand(context: vscode.ExtensionContext, 
   terminal.sendText(`node "${script}"`);
 }
 
+// Throughput-to-disk LADDER (the benchmark-variation witness, operator direction 2026-08-04): run the C# `tpd`
+// disk-throughput ladder via experiments/throughput-to-disk/run-ladder.mjs and record a
+// throughput-ladder-receipt@v1. Best-effort reproducible -- the CROSS-WITNESS variation (compare-ladders.mjs) is
+// the corroboration signal, NOT byte-identity; the timestamp differentiates each run. No LabVIEW. Linux/macOS
+// host (the tpd + fsync measure the sustained to-disk rate); this is the extension's LINUX path.
+async function runThroughputLadderCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  if (process.platform === 'win32') {
+    void vscode.window.showErrorMessage(
+      'Run Throughput-to-Disk Ladder is a Linux/macOS tool (the C# tpd + fsync measure sustained to-disk throughput).'
+    );
+    return;
+  }
+  const script = resolveWorkspaceRepoFile(context, path.join('experiments', 'throughput-to-disk', 'run-ladder.mjs'));
+  if (!script) {
+    void vscode.window.showErrorMessage(
+      'Throughput ladder runner not found (experiments/throughput-to-disk/run-ladder.mjs). Open the labview-benchmark-actor repo as a workspace folder.'
+    );
+    return;
+  }
+  const plane = await vscode.window.showInputBox({
+    prompt: 'Witness plane name (differentiates this witness in the corroboration)',
+    value: 'REVIEWER-LINUX',
+    validateInput: (v) => (/^[A-Za-z0-9._-]+$/.test(v) ? undefined : 'Use letters, digits, dot, dash, underscore only'),
+  });
+  if (!plane) {
+    return;
+  }
+  const rungs = await vscode.window.showInputBox({
+    prompt: 'Ladder rungs (comma-separated, increasing disk load)',
+    value: '256M,512M,1G',
+    validateInput: (v) => (/^\s*\d+(\.\d+)?[KMG]?(\s*,\s*\d+(\.\d+)?[KMG]?)*\s*$/i.test(v) ? undefined : 'Comma-separated sizes, e.g. 256M,512M,1G'),
+  });
+  if (!rungs) {
+    return;
+  }
+  const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? path.dirname(script);
+  const outFile = path.join(folder, `throughput-ladder-${plane}.json`);
+  output.appendLine(`[runThroughputLadder] node ${script} --plane ${plane} --rungs ${rungs} --out ${outFile}`);
+  output.show(true);
+  const terminal = vscode.window.createTerminal({ name: `LBA Throughput Ladder: ${plane}` });
+  terminal.show(true);
+  terminal.sendText(`node "${script}" --plane "${plane}" --rungs "${rungs}" --out "${outFile}"`);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const output = getOutput(context);
 
@@ -1588,7 +1632,8 @@ export function activate(context: vscode.ExtensionContext): void {
   // provenance check to the operator, running the same committed engines the local gates re-derive.
   context.subscriptions.push(
     vscode.commands.registerCommand('labviewBenchmarkActor.runCorroborationGrid', () => runCorroborationGridCommand(context, output)),
-    vscode.commands.registerCommand('labviewBenchmarkActor.verifyReleaseProvenance', () => verifyReleaseProvenanceCommand(context, output))
+    vscode.commands.registerCommand('labviewBenchmarkActor.verifyReleaseProvenance', () => verifyReleaseProvenanceCommand(context, output)),
+    vscode.commands.registerCommand('labviewBenchmarkActor.runThroughputLadder', () => runThroughputLadderCommand(context, output))
   );
 
   // Model Context Protocol surface (VS Code 1.101+): expose this extension's own tools (host capabilities,

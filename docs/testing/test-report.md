@@ -21,7 +21,7 @@ the `LBA Local Gates verify` CI job.
 
 ## 2. Executed verification evidence (ISO/IEC/IEEE 29119-3)
 
-### 2.1 Local gate suite — 163 fail-closed checks
+### 2.1 Local gate suite — 180 fail-closed checks
 
 Run by `node experiments/verify-local-gates.mjs`. All must pass. The full gate inventory (the executed
 test items at the gate granularity) is:
@@ -55,6 +55,7 @@ all-plane-receipts-authoritative-zero-skew
 authoring-dep-manifest
 benchmark-observatory
 benchmark-store-receipt-green
+benchmark-suite-parity-observatory
 boot-benchmark-cross-iteration-diff
 boot-benchmark-cross-plane-co-run-receipt
 boot-benchmark-seal-spans-and-fail-closed
@@ -93,6 +94,8 @@ codespace-witness-bootstrap-valid
 codespace-witness-prebuild-workflow-wired
 collab-cli-embeds-canonical-requirements
 colon-corroboration-plane2-scoring
+composite-release-decision
+composite-release-enforced
 continuous-compliance-self-audit
 corpus-ingestion-contract-green
 corroboration-confidence-reference
@@ -100,7 +103,9 @@ coverage-artifact-meets-floor
 cross-plane-benchmark-grid
 cross-plane-comparison-proven-green
 cross-plane-labview-liveness
+cross-plane-launch-parity
 cross-plane-vi-analyzer-determinism
+cross-plane-vi-analyzer-parity
 devcontainer-codespace-install-route
 distributed-parallel-workload
 docs-stamp-and-no-id-renumbering
@@ -128,13 +133,22 @@ mass-compile-benchmark
 mcp-net-transport
 mcp-server-surface-contract
 mesh-actor-registration-requires-activation
+mesh-attestations-transparency-logged
+mesh-benchmark-family-vi-analyzer
 mesh-board-view
 mesh-calibration-view
 mesh-concurrent-actors-real
+mesh-coverage-observatory
+mesh-live-fanout-wired
 mesh-live-ladder-real
+mesh-log-append-only
+mesh-run-attested
+mesh-run-cross-plane-fulfillment
+mesh-run-dispatch-wired
 mesh-stress-orchestrator
 mesh-stress-signature-calibrator
 mesh-stress-signature-extractor
+mesh-verified-tier-attested
 mprr-absorbed-constants-match-mprr-spec
 mprr-absorbed-self-owned-not-external
 mprr-dual-packet-degradation-green
@@ -145,6 +159,7 @@ multi-vm-corpus-export-receipt-green
 multi-vm-topology-receipt-green
 net-coordination-log
 net-default-graceful
+net-only-live-drive
 ocr-primitive-engine-and-readback
 ollama-comparison-core-receipt-green
 performance-counter-correlation-live-trigger
@@ -168,12 +183,14 @@ real-corpus-wiring-green
 release-lanes-keyless-attested
 release-no-discussion-announce
 release-procedure-references-resolve
+release-with-review-drive
 requirements-quality-29148
 resource-usage-correlation-receipt-green
 reviewer-workstation-keyless-verify-wired
 ring-buffer-mirror-replay-deterministic
 rtm-proven-rows-cite-existing-evidence
 self-test-conformance-inputs-pinned
+stress-discounted-comparison
 test-report-current
 test-requirement-correspondence
 traceability-matrix-current
@@ -224,13 +241,13 @@ The controlled state of the repository's configuration items, derived from the r
 
 | Configuration item class | Count | Register |
 | --- | --- | --- |
-| Requirements (total) | 67 | docs/requirements/srs.md, rtm.csv |
-| — Status: Proven | 66 | rtm.csv |
+| Requirements (total) | 84 | docs/requirements/srs.md, rtm.csv |
+| — Status: Proven | 83 | rtm.csv |
 | — Status: Superseded | 1 | rtm.csv |
-| Architecture decisions (ADRs) | 48 | docs/architecture/adr/README.md |
-| Governed gates | 163 | experiments/verify-local-gates.mjs |
+| Architecture decisions (ADRs) | 65 | docs/architecture/adr/README.md |
+| Governed gates | 180 | experiments/verify-local-gates.mjs |
 | Correspondence rules | 7 | experiments/reqs-coverage/verify-correspondences.mjs |
-| Governed test items | 67 | docs/testing/test-plan.md |
+| Governed test items | 84 | docs/testing/test-plan.md |
 
 Baselines are cut on the `main` branch via SemVer tags (GitFlow); each release is keyless-signed and
 corroborated across planes before publication (see `docs/cm/cm-plan.md` and the release procedure).
@@ -247,4 +264,4 @@ the same correspondence graph (ADR-0013).
 `node experiments/reqs-coverage/generate-test-report.mjs` rewrites this file; `--check` (the
 `test-report-current` gate) fails closed on drift, so the report can never silently lag the apparatus.
 
-_Generated from 163 gates, 7 correspondence rules, 67 requirements, 48 ADRs, 67 test items._
+_Generated from 180 gates, 7 correspondence rules, 84 requirements, 65 ADRs, 84 test items._

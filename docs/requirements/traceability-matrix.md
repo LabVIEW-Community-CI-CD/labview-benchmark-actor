@@ -74,5 +74,22 @@
 | LBA-REQ-065 | Flip the coordination default to net + graceful no-op when unconfigured | Proven | §3.2 Deployment | ADR-0045 | T-065 | 7 |
 | LBA-REQ-066 | Collapse the coordination product surface to net-only | Proven | §3.2 Deployment | ADR-0046 | T-066 | 8 |
 | LBA-REQ-067 | Remove the GitHub-Discussion transport from the lbabus CLI | Proven | §3.2 Deployment | ADR-0047 | T-067 | 5 |
+| LBA-REQ-068 | Net-only live VM-agent drive (govern the released-CLI closed loop as a committed receipt) | Proven | §3.2 Deployment | ADR-0049 | T-068 | 6 |
+| LBA-REQ-069 | Release-with-review drive (bind the net-staged candidate to the signed + announced verdict) | Proven | §3.2 Deployment | ADR-0050 | T-069 | 5 |
+| LBA-REQ-070 | Composite release decision (bind the machine corroboration gate to the human visual gate over one net-staged candidate) | Proven | §3.2 Deployment | ADR-0051 | T-070 | 6 |
+| LBA-REQ-071 | Enforce the composite release decision in the extension release workflow | Proven | §3.2 Deployment | ADR-0052 | T-071 | 4 |
+| LBA-REQ-072 | Cross-plane launch-benchmark parity (identity is the spec, not the series) | Proven | §3.2 Deployment | ADR-0053 | T-072 | 6 |
+| LBA-REQ-073 | Mesh-run cross-plane fulfillment (the North Star loop) | Proven | §3.2 Deployment | ADR-0054 | T-073 | 5 |
+| LBA-REQ-074 | GitHub-native mesh-run dispatch transport (repository_dispatch) | Proven | §3.2 Deployment | ADR-0055 | T-074 | 6 |
+| LBA-REQ-075 | The mesh coverage observatory (fold the mesh-run receipts into a coverage matrix) | Proven | §3.2 Deployment | ADR-0056 | T-075 | 5 |
+| LBA-REQ-076 | The live fan-out contract (actor-tasking + receipt-collection) | Proven | §3.2 Deployment | ADR-0057 | T-076 | 6 |
+| LBA-REQ-077 | The opt-in verified tier (enrolled-actor receipt attestations) | Proven | §3.2 Deployment | ADR-0058 | T-077 | 7 |
+| LBA-REQ-078 | Transparency-log the mesh-actor attestations (public auditability) | Proven | §3.2 Deployment | ADR-0059 | T-078 | 7 |
+| LBA-REQ-079 | The append-only consistency proof (the mesh transparency log only grows) | Proven | §3.2 Deployment | ADR-0060 | T-079 | 7 |
+| LBA-REQ-080 | The composite mesh-run-attested decision (one verdict to trust a run) | Proven | §3.2 Deployment | ADR-0061 | T-080 | 4 |
+| LBA-REQ-081 | Cross-plane VI Analyzer performance parity (the second benchmark family) | Proven | §3.2 Deployment | ADR-0062 | T-081 | 7 |
+| LBA-REQ-082 | The benchmark-suite parity observatory (one view over the parity families) | Proven | §3.2 Deployment | ADR-0063 | T-082 | 6 |
+| LBA-REQ-083 | The mesh carries a second benchmark family (VI Analyzer) | Proven | §3.2 Deployment | ADR-0064 | T-083 | 6 |
+| LBA-REQ-084 | The stress-discounted cross-plane comparison (discount a result captured on a stressed actor) | Proven | §3.2 Deployment | ADR-0065 | T-084 | 6 |
 
-_Generated for 67 requirements._
+_Generated for 84 requirements._

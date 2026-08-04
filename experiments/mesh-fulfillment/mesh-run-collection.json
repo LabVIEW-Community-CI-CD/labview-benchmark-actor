@@ -1,0 +1,154 @@
+{
+  "schema": "labview-benchmark-actor/receipt-collection@1",
+  "requirement": "LBA-REQ-076",
+  "adr": "ADR-0057",
+  "dispatchId": "mesh-run-labview-ide-launch-2026-08-03",
+  "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+  "collected": [
+    {
+      "taskId": "mesh-run-labview-ide-launch-2026-08-03::LINUX",
+      "actorId": "golden-linux",
+      "plane": "LINUX",
+      "receipt": {
+        "schema": "labview-benchmark-actor/workload-trend@1",
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "plane": "LINUX",
+        "hypervisor": "vbox-vnc",
+        "n": 5,
+        "values": [
+          2414,
+          2843,
+          2745,
+          2664,
+          2355
+        ],
+        "stats": {
+          "min": 2355,
+          "max": 2843,
+          "mean": 2604.2,
+          "median": 2664,
+          "stddev": 189.1,
+          "spread": 488
+        },
+        "baselineMs": 2664,
+        "toleranceMs": 2000,
+        "latest": 2355,
+        "slopeMsPerRun": -29.7,
+        "driftThresholdMsPerRun": 400,
+        "drifting": false,
+        "regressed": false,
+        "verdict": "PASS"
+      }
+    },
+    {
+      "taskId": "mesh-run-labview-ide-launch-2026-08-03::WIN",
+      "actorId": "golden-win",
+      "plane": "WIN",
+      "receipt": {
+        "schema": "labview-benchmark-actor/workload-trend@1",
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "plane": "WIN",
+        "hypervisor": "vmware-vnc",
+        "n": 5,
+        "values": [
+          2796,
+          2309,
+          2307,
+          2308,
+          2333
+        ],
+        "stats": {
+          "min": 2307,
+          "max": 2796,
+          "mean": 2410.6,
+          "median": 2309,
+          "stddev": 192.9,
+          "spread": 489
+        },
+        "baselineMs": 2309,
+        "toleranceMs": 2000,
+        "latest": 2333,
+        "slopeMsPerRun": -92.7,
+        "driftThresholdMsPerRun": 400,
+        "drifting": false,
+        "regressed": false,
+        "verdict": "PASS"
+      }
+    }
+  ],
+  "actors": [
+    {
+      "actorId": "golden-linux",
+      "plane": "LINUX",
+      "receipt": {
+        "schema": "labview-benchmark-actor/workload-trend@1",
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "plane": "LINUX",
+        "hypervisor": "vbox-vnc",
+        "n": 5,
+        "values": [
+          2414,
+          2843,
+          2745,
+          2664,
+          2355
+        ],
+        "stats": {
+          "min": 2355,
+          "max": 2843,
+          "mean": 2604.2,
+          "median": 2664,
+          "stddev": 189.1,
+          "spread": 488
+        },
+        "baselineMs": 2664,
+        "toleranceMs": 2000,
+        "latest": 2355,
+        "slopeMsPerRun": -29.7,
+        "driftThresholdMsPerRun": 400,
+        "drifting": false,
+        "regressed": false,
+        "verdict": "PASS"
+      }
+    },
+    {
+      "actorId": "golden-win",
+      "plane": "WIN",
+      "receipt": {
+        "schema": "labview-benchmark-actor/workload-trend@1",
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "plane": "WIN",
+        "hypervisor": "vmware-vnc",
+        "n": 5,
+        "values": [
+          2796,
+          2309,
+          2307,
+          2308,
+          2333
+        ],
+        "stats": {
+          "min": 2307,
+          "max": 2796,
+          "mean": 2410.6,
+          "median": 2309,
+          "stddev": 192.9,
+          "spread": 489
+        },
+        "baselineMs": 2309,
+        "toleranceMs": 2000,
+        "latest": 2333,
+        "slopeMsPerRun": -92.7,
+        "driftThresholdMsPerRun": 400,
+        "drifting": false,
+        "regressed": false,
+        "verdict": "PASS"
+      }
+    }
+  ],
+  "digest": "6231410f2de5e330062130fb60b8ca963456d2a08e537e63111207165d8a5a0a"
+}

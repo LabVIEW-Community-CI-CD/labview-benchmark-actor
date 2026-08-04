@@ -63,6 +63,37 @@ by listing extensions, and drops `C:\lba-review\REVIEW-CHECKLIST.txt` for the re
 Code in the VM and inspect the Extensions-view README page (the Marketplace listing), the command
 surface, and the benchmark viewer. Nothing is published until the reviewer approves.
 
+## Validate a release on the WIN plane (auth-free, native Windows)
+
+The bidirectional release-agreement gate
+([tools/collab-cli/verify-release-agreement.mjs](../tools/collab-cli/verify-release-agreement.mjs)) needs an
+independent **WIN-plane** build/test pass before an `ext-v*` can publish. Run it in the reviewer VM straight
+from the host with [win-plane-validate.sh](win-plane-validate.sh):
+
+```sh
+# VM already up; from the repo root on the host:
+LBA_VM_PASS='<guest-password>' reviewer-workstation/win-plane-validate.sh release/1.0.0
+```
+
+It bundles the branch on the host (`git bundle` — **auth-free**, since the private repo cannot be
+`gh repo clone`d from the credential-less guest), stages it into the VM, and runs
+[win-plane-validate.ps1](win-plane-validate.ps1) there: `npm ci`, a **per-suite** test matrix (each suite run
+individually, since the packaged `npm test` `&&` chain stops at the first fail), a **masked-activation**
+re-run, and the packaging gate (`agent-last-gate --skip-tests`). It prints a `WINPLANE_JSON` receipt with a
+`winPlaneReady` verdict to paste into the release-agreement WIN sign-off.
+
+**The one expected non-green suite on a real-LabVIEW host** is `extension-activation`: its
+`captureLaunch surfaces the LabVIEW-not-found guard` assertion is written for the LabVIEW-less Linux CI host,
+but the reviewer VM *has* LabVIEW installed, so the guard correctly does not fire. The masked-activation
+re-run loads [labview-mask.cjs](labview-mask.cjs) via `node --require` to mask **only** the two `LabVIEW.exe`
+candidate paths in `fs.existsSync` (no repo/source/test change), reproducing the LabVIEW-less condition — the
+activation suite then passes fully. `winPlaneReady` is `true` when every suite except `extension-activation`
+is green, masked activation passes, and the packaging gate passes.
+
+> **Guest gotcha:** `npm` resolves to `npm.ps1`, which the guest PowerShell ExecutionPolicy blocks; the
+> validator routes every npm/node call through `cmd /c` (npm.cmd) and must itself be launched with
+> `-ExecutionPolicy Bypass` (the driver does this for you).
+
 ## Drive it from a Copilot agent (in the VM)
 
 Once the extension is installed in the VM, open VS Code there. The **Get started with LabVIEW Benchmark

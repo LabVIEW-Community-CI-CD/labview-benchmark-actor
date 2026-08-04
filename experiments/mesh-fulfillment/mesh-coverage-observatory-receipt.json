@@ -1,0 +1,46 @@
+{
+  "schema": "labview-benchmark-actor/mesh-coverage-observatory@1",
+  "requirement": "LBA-REQ-075",
+  "adr": "ADR-0056",
+  "rows": [
+    {
+      "benchmarkId": "labview-ide-launch",
+      "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+      "dispatched": true,
+      "minActors": 2,
+      "requestedPlanes": [
+        "LINUX",
+        "WIN"
+      ],
+      "fulfilled": true,
+      "distinctActors": 2,
+      "planes": [
+        "LINUX",
+        "WIN"
+      ],
+      "parityProven": true,
+      "consistent": true
+    }
+  ],
+  "coverage": {
+    "benchmarks": 1,
+    "fulfilledBenchmarks": 1,
+    "parityProvenBenchmarks": 1,
+    "consistentRuns": 1,
+    "planes": [
+      "LINUX",
+      "WIN"
+    ],
+    "totalDistinctActors": 2
+  },
+  "ledger": {
+    "allDispatched": true,
+    "allFulfilled": true,
+    "allIdentityConsistent": true
+  },
+  "verdict": {
+    "observatoryOk": true,
+    "reason": "1 mesh run(s) folded; all dispatched -> fulfilled cross-plane with a consistent identity across [LINUX, WIN] (2 actor-runs, 1 parity-proven)"
+  },
+  "digest": "de25cb25afab439d4f0146d7d6c2fbd5ea269adb6ab152e18211b3bff56b3333"
+}

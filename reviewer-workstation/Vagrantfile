@@ -30,11 +30,15 @@ Vagrant.configure("2") do |config|
 
   config.vm.hostname = lba_vm_hostname
   config.vm.communicator = "winrm"
-  # WinRM credentials. Default to the box's own embedded creds (do NOT set them here unless overridden,
-  # so the golden box's packaged Vagrantfile keeps supplying them). A BYO / repackaged box that does NOT
-  # embed creds (e.g. actor/win11) supplies them via env: VIHS_REVIEWER_WINRM_USER / _PASSWORD / _TRANSPORT.
-  config.winrm.username  = ENV["VIHS_REVIEWER_WINRM_USER"] if ENV["VIHS_REVIEWER_WINRM_USER"]
-  config.winrm.password  = ENV["VIHS_REVIEWER_WINRM_PASSWORD"] if ENV["VIHS_REVIEWER_WINRM_PASSWORD"]
+  # WinRM credentials for the golden box's `vagrant` account. The box uses the standard, DISPOSABLE password
+  # `Vagrant1234!` (NOT a secret -- a local, throwaway reviewer VM), so default to `vagrant` / `Vagrant1234!`
+  # EXPLICITLY. Leaving these unset lets Vagrant fall back to its built-in `vagrant` / `vagrant`, which does
+  # NOT match this box: WinRM then fails with WinRMAuthorizationError, and the repeated failed logons LOCK the
+  # guest account -- taking down BOTH WinRM (`vagrant upload` / `vagrant winrm`) AND VBoxManage guestcontrol
+  # (VERR_UNRESOLVED_ERROR: the session can no longer even be established). A BYO / repackaged box with
+  # different creds overrides via env: VIHS_REVIEWER_WINRM_USER / _PASSWORD / _TRANSPORT.
+  config.winrm.username  = ENV.fetch("VIHS_REVIEWER_WINRM_USER", "vagrant")
+  config.winrm.password  = ENV.fetch("VIHS_REVIEWER_WINRM_PASSWORD", "Vagrant1234!")
   config.winrm.transport = ENV["VIHS_REVIEWER_WINRM_TRANSPORT"].to_sym if ENV["VIHS_REVIEWER_WINRM_TRANSPORT"]
   config.winrm.timeout = 1800
 
@@ -99,7 +103,7 @@ Vagrant.configure("2") do |config|
       catch { Write-Host "  present (version check skipped)" }
     } else { Write-Host "  MISSING" }
     Write-Host "[smoke] TC-10 -- folded MCP server inside the installed extension:"
-    $ext = Get-ChildItem "$env:USERPROFILE\.vscode\extensions" -Directory -Filter 'labview-community-ci-cd.labview-benchmark-actor-*' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $ext = Get-ChildItem "$env:USERPROFILE\.vscode\extensions" -Directory -Filter 'svelderrainruiz.labview-benchmark-actor-*' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($ext) {
       $mcp = Join-Path $ext.FullName 'out\acg-mcp-bundle\acg-mcp\grid-tools.mjs'
       Write-Host "  extension dir: $($ext.Name)"

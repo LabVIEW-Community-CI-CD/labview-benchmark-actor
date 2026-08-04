@@ -1,0 +1,79 @@
+{
+  "schema": "labview-benchmark-actor/stress-discounted-comparison@1",
+  "requirement": "LBA-REQ-084",
+  "adr": "ADR-0065",
+  "calibration": {
+    "ladderSchema": "labview-benchmark-actor/mesh-stress-live-ladder@1",
+    "trustworthy": true,
+    "invariants": {
+      "monotone": 1,
+      "separable": true,
+      "repeatable": true
+    },
+    "allActorsRecovered": true
+  },
+  "measurements": [
+    {
+      "actor": "actor-0",
+      "commandedRung": "idle",
+      "inferredRung": "idle",
+      "inferredLevel": 0,
+      "recovered": true,
+      "observedCpuPoolPct": 0,
+      "qualityWeight": 1,
+      "discounted": false
+    },
+    {
+      "actor": "actor-1",
+      "commandedRung": "light",
+      "inferredRung": "light",
+      "inferredLevel": 1,
+      "recovered": true,
+      "observedCpuPoolPct": 25,
+      "qualityWeight": 0.75,
+      "discounted": false
+    },
+    {
+      "actor": "actor-2",
+      "commandedRung": "medium",
+      "inferredRung": "medium",
+      "inferredLevel": 2,
+      "recovered": true,
+      "observedCpuPoolPct": 49.9,
+      "qualityWeight": 0.5,
+      "discounted": false
+    },
+    {
+      "actor": "actor-3",
+      "commandedRung": "heavy",
+      "inferredRung": "heavy",
+      "inferredLevel": 3,
+      "recovered": true,
+      "observedCpuPoolPct": 75,
+      "qualityWeight": 0.25,
+      "discounted": true
+    },
+    {
+      "actor": "actor-4",
+      "commandedRung": "saturate",
+      "inferredRung": "saturate",
+      "inferredLevel": 4,
+      "recovered": true,
+      "observedCpuPoolPct": 99.3,
+      "qualityWeight": 0,
+      "discounted": true
+    }
+  ],
+  "coverage": {
+    "measurements": 5,
+    "recoveredCount": 5,
+    "cleanCount": 3,
+    "discountedCount": 2,
+    "meanWeight": 0.5
+  },
+  "verdict": {
+    "discountingApplied": true,
+    "reason": "calibration recovered 5/5 actors; 2 stressed measurement(s) discounted (weight <= 0.25), 3 kept for a fair cross-plane comparison"
+  },
+  "digest": "29f66b45d0b1a825e74fb800f03ac4fec54f432905147e0f14201f925e81a478"
+}

@@ -1,0 +1,85 @@
+name: mesh-run
+
+# GitHub-native mesh-run DISPATCH -> FULFILLMENT (LBA-REQ-074 / LBA-REQ-073, roadmap Phase 3, the North Star loop).
+#
+# A requester DISPATCHES a cross-plane benchmark run via `repository_dispatch` (event type `mesh-run`) with a
+# `mesh-run-dispatch@1` request as the client_payload. Volunteer golden-VM actors run it IN THEIR SANDBOX and
+# return plane-tagged receipts (a real fan-out collects them as run artifacts); `meshFulfillment` then GATES the
+# returned receipts fail-closed -- the run is fulfilled only when >= N distinct cross-plane actors returned a
+# valid plane-tagged receipt for the SAME benchmark identity. The repo IS the queue: no central server, fully
+# auditable, and NO central results database (the returned receipts ARE the result).
+
+on:
+  repository_dispatch:
+    types: [mesh-run]
+  workflow_dispatch:
+    inputs:
+      dispatchId:
+        description: Optional dispatch id -- a manual run re-validates the committed dispatch request + fulfillment.
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  fulfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Validate the mesh-run dispatch request (fail-closed)
+        # On a repository_dispatch the mesh-run-dispatch@1 request is the client_payload (the repo IS the queue);
+        # on a manual dispatch, re-validate the committed request. Fail-closed on a malformed dispatch (LBA-REQ-074).
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            printf '%s' '${{ toJSON(github.event.client_payload) }}' > /tmp/mesh-run-dispatch.json
+            node experiments/mesh-fulfillment/meshDispatch.mjs /tmp/mesh-run-dispatch.json
+          else
+            node experiments/mesh-fulfillment/meshDispatch.mjs
+          fi
+
+      - name: Derive actor tasking + validate the returned-receipt collection (fail-closed)
+        # The LIVE FAN-OUT contract (LBA-REQ-076): the validated dispatch is expanded into per-plane actor tasking
+        # (actor-tasking@1), volunteer actors run their task + return plane-tagged receipts, and the collection
+        # (receipt-collection@1) maps them back to their tasks -- both IDENTITY-BOUND to the dispatch. Fail-closed
+        # on an unbound task, a collected receipt with no matching task, or a plane/identity mismatch.
+        run: node experiments/mesh-fulfillment/meshFanout.mjs
+
+      - name: Verify enrolled-actor attestations (opt-in verified tier, fail-closed)
+        # The higher-assurance mode (LBA-REQ-077): a verified-receipt-collection@1 admits a returned receipt only
+        # when it carries a valid acg-witness-attestation-v1 (ADR-0016) from its DECLARED, ENROLLED actor -- so a
+        # collected receipt provably came from a real enrolled actor, not a fabricated trend. Fail-closed on an
+        # unsigned/forged receipt, an un-enrolled actor, or a wrong-actor signature.
+        run: node experiments/mesh-fulfillment/meshVerifiedTier.mjs
+
+      - name: Transparency-log the enrolled-actor attestations (fail-closed)
+        # The public-auditability layer (LBA-REQ-078): each verified-tier attestation is recorded in an RFC-6962
+        # Merkle transparency log (ADR-0022) whose tree head is signed by the enrolled log key, and a logged
+        # collection is admitted only when EVERY attestation carries an inclusion proof against that signed root --
+        # so the mesh receipts are enrolled-signed AND publicly auditable. Fail-closed on an unsigned/wrong-key
+        # tree head or a missing/non-reconstructing inclusion proof.
+        run: node experiments/mesh-fulfillment/meshTransparency.mjs
+
+      - name: Prove the transparency log is append-only (fail-closed)
+        # The append-only guarantee (LBA-REQ-079): a consistency proof (RFC-6962, ADR-0022) binds an earlier signed
+        # tree head + the current one, admitted only when the later tree provably CONTAINS the earlier one unchanged
+        # -- so no logged attestation was removed or rewritten as the log grew. Fail-closed on a shrinking log or a
+        # consistency proof that does not verify (a rewritten/forked log).
+        run: node experiments/mesh-fulfillment/meshLogHistory.mjs
+
+      - name: Gate the returned receipts on cross-plane fulfillment (fail-closed)
+        # Volunteer actors return plane-tagged receipts; the run is fulfilled ONLY when >= N distinct cross-plane
+        # actors returned a valid receipt for the SAME benchmark identity (LBA-REQ-073). No central results DB.
+        run: node experiments/mesh-fulfillment/meshFulfillment.mjs
+
+      - name: Decide whether the mesh run is FULLY ATTESTED (composite capstone, fail-closed)
+        # The one verdict a release consumer checks (LBA-REQ-080): the run is ATTESTED only when fulfillment (073)
+        # AND cross-plane parity (072) AND the verified tier (077) AND the transparency inclusion (078) AND the
+        # append-only proof (079) all hold and name the SAME run identity. Composes every sub-proof into one
+        # fail-closed decision -- the integration capstone of the mesh subsystem.
+        run: node experiments/mesh-fulfillment/meshAttested.mjs

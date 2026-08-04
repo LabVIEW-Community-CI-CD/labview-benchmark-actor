@@ -1,0 +1,68 @@
+{
+  "schema": "labview-benchmark-actor/benchmark-suite-parity-observatory@1",
+  "requirement": "LBA-REQ-082",
+  "adr": "ADR-0063",
+  "rows": [
+    {
+      "family": "launch",
+      "schema": "labview-benchmark-actor/cross-plane-launch-parity-receipt@1",
+      "requirement": "LBA-REQ-072",
+      "benchmark": {
+        "metric": "launchMs",
+        "workload": "labview-ide-launch",
+        "n": 5
+      },
+      "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+      "crossPlane": true,
+      "identityMatch": true,
+      "resultHashMatch": null,
+      "parityProven": true,
+      "performance": {
+        "linuxMeanMs": 2604.2,
+        "winMeanMs": 2410.6,
+        "deltaMs": -193.6,
+        "pctOfLinux": -7.4,
+        "fasterPlane": "WIN"
+      }
+    },
+    {
+      "family": "vi-analyzer",
+      "schema": "labview-benchmark-actor/cross-plane-vi-analyzer-parity-receipt@1",
+      "requirement": "LBA-REQ-081",
+      "benchmark": {
+        "metric": "viAnalyzerMs",
+        "workload": "vi-analyzer-labviewcli-example",
+        "n": 6
+      },
+      "identity": "27d0e17368d1a7ae3096388f0a0e01594644c8e751e101e669a2b4f5e668aefe",
+      "crossPlane": true,
+      "identityMatch": true,
+      "resultHashMatch": true,
+      "parityProven": true,
+      "performance": {
+        "linuxMeanMs": 4733.5,
+        "winMeanMs": 20957.7,
+        "deltaMs": 16224.2,
+        "pctOfLinux": 342.8,
+        "fasterPlane": "LINUX"
+      }
+    }
+  ],
+  "coverage": {
+    "familyCount": 2,
+    "parityProvenCount": 2,
+    "families": [
+      "launch",
+      "vi-analyzer"
+    ],
+    "planes": [
+      "LINUX",
+      "WIN"
+    ]
+  },
+  "verdict": {
+    "observatoryOk": true,
+    "reason": "2 benchmark family/families proven cross-plane parity across [LINUX, WIN]: launch, vi-analyzer"
+  },
+  "digest": "4ced4dd6c2510bbec84cb818ec5bab3d10cbd45629109c22c51d333ee520960a"
+}

@@ -1,0 +1,48 @@
+{
+  "schema": "labview-benchmark-actor/cross-plane-launch-parity-receipt@1",
+  "requirement": "LBA-REQ-072",
+  "adr": "ADR-0053",
+  "benchmark": {
+    "metric": "launchMs",
+    "workload": "labview-ide-launch",
+    "n": 5
+  },
+  "launchIdentity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c",
+  "planes": {
+    "LINUX": {
+      "plane": "LINUX",
+      "hypervisor": "vbox-vnc",
+      "n": 5,
+      "meanMs": 2604.2,
+      "medianMs": 2664,
+      "verdict": "PASS",
+      "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c"
+    },
+    "WIN": {
+      "plane": "WIN",
+      "hypervisor": "vmware-vnc",
+      "n": 5,
+      "meanMs": 2410.6,
+      "medianMs": 2309,
+      "verdict": "PASS",
+      "identity": "6af6c9848c8ba9c326a16aca6655fd27756399f602439a5912ca9a92d3c9fe2c"
+    }
+  },
+  "parity": {
+    "crossPlane": true,
+    "identityMatch": true,
+    "parityProven": true
+  },
+  "performance": {
+    "linuxMeanMs": 2604.2,
+    "winMeanMs": 2410.6,
+    "deltaMs": -193.6,
+    "pctOfLinux": -7.4,
+    "fasterPlane": "WIN"
+  },
+  "verdict": {
+    "parityProven": true,
+    "reason": "LINUX and WIN measured the same launch benchmark (launchMs / labview-ide-launch / n=5); timings are comparable (LINUX 2604.2 ms vs WIN 2410.6 ms)"
+  },
+  "digest": "b92f1532b62893e68b5012b3f2383389853baf353add44a6741dc216e7aeba33"
+}

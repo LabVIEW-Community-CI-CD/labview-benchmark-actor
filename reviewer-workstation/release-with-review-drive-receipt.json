@@ -1,0 +1,107 @@
+{
+  "schema": "labview-benchmark-actor/release-with-review-drive-receipt@1",
+  "requirement": "LBA-REQ-069",
+  "adr": "ADR-0050",
+  "transport": "lbabus net -- bus-msg@1, ADR-0003/0004 (TCP 7420; guest->host via VirtualBox NAT 10.0.2.2). NET-ONLY: staging + the verdict announce ride net, not a GitHub Discussion (ADR-0047).",
+  "capability": "the host drives the reviewer VM to STAGE a release candidate over lbabus net (LBA-REQ-068), a human SIGNS a visual PASS/FAIL of THAT candidate with an enrolled Ed25519 reviewer key (LBA-REQ-057), and the signed verdict ANNOUNCES over net with its semantic type (LBA-REQ-058) -- all bound to the SAME candidate, so a fail-closed gate proves the release-with-review loop is one bound candidate over net-only.",
+  "candidate": {
+    "component": "extension",
+    "version": "0.5.0",
+    "commit": "a646c989adfd3038abc72c42cf59f165e9167ebe",
+    "vsixSha256": "f3996947a53a2f9b1b4872d110845de79c37e21b67280949723320ac94395eb3"
+  },
+  "staged": {
+    "drive": "release-with-review staging (the VM Copilot agent staged + benchmarked the ext 0.5.0 candidate)",
+    "vm": "actor",
+    "matched": true,
+    "candidate": {
+      "component": "extension",
+      "version": "0.5.0"
+    },
+    "frame": {
+      "type": "DONE",
+      "task": "rev-1785753563",
+      "senderId": "WIN",
+      "payload": "ext 0.5.0 launch-to-ready 2604 ms over 5 samples; review OK"
+    }
+  },
+  "review": {
+    "verdict": {
+      "schema": "labview-benchmark-actor/reviewer-verdict@1",
+      "target": {
+        "component": "extension",
+        "version": "0.5.0",
+        "commit": "a646c989adfd3038abc72c42cf59f165e9167ebe",
+        "vsixSha256": "f3996947a53a2f9b1b4872d110845de79c37e21b67280949723320ac94395eb3"
+      },
+      "verdict": "pass",
+      "reviewer": "reviewer@vi-tech.nl",
+      "station": "WINDOWS_VM",
+      "notes": "Visual PASS of the ext 0.5.0 candidate on the reviewer VM (Copilot Agent staged it; the human confirmed the built .vsix looks + works right).",
+      "evidence": [
+        {
+          "kind": "capture",
+          "ref": "rev-1785753563"
+        },
+        {
+          "kind": "benchmark",
+          "ref": "launch-to-ready mean 2604.2 ms over 5 samples -> PASS (baseline 2664 ms)"
+        }
+      ],
+      "renderedAt": "2026-08-03T00:00:00Z"
+    },
+    "signOff": {
+      "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+      "subject": {
+        "verdictDigest": "0d9079a6877130ca000891f95a9823e8e5832b18fec0bb16f6fa31643d2b1009",
+        "consensusVerdict": "pass",
+        "target": {
+          "component": "extension",
+          "version": "0.5.0",
+          "commit": "a646c989adfd3038abc72c42cf59f165e9167ebe",
+          "vsixSha256": "f3996947a53a2f9b1b4872d110845de79c37e21b67280949723320ac94395eb3"
+        }
+      },
+      "reviewer": "reviewer@vi-tech.nl",
+      "decision": "approve",
+      "station": "WINDOWS_VM",
+      "algorithm": "ed25519",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAdcKy1CC3DKliGvjXXvE5x/T9CI/MffAJ/Br+xVTnbVM=\n-----END PUBLIC KEY-----\n",
+      "signedAt": "2026-08-03T16:24:35.441Z",
+      "signature": "Zf4EiqgMRvka8wBAozj743XRmxBXd/JhU3kO6oqyXYHMdaaGTqiuJc+lu4m0Wrv2Hu4XGdOAbvHa/R9dU5A9CQ=="
+    }
+  },
+  "reviewerAllowlist": {
+    "reviewer@vi-tech.nl": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAdcKy1CC3DKliGvjXXvE5x/T9CI/MffAJ/Br+xVTnbVM=\n-----END PUBLIC KEY-----\n"
+  },
+  "announce": {
+    "type": "RESOLVED",
+    "task": "extension-release-0.5.0",
+    "ref": "a646c989adfd3038abc72c42cf59f165e9167ebe",
+    "reviewer": "reviewer@vi-tech.nl",
+    "summary": "Reviewer visual verdict: PASS for extension 0.5.0 by reviewer@vi-tech.nl (WINDOWS_VM) digest 0d9079a68771",
+    "frame": {
+      "type": "RESOLVED",
+      "task": "extension-release-0.5.0",
+      "senderId": "WIN",
+      "matched": true
+    }
+  },
+  "gate": {
+    "minVisualReviewers": 1
+  },
+  "capturedAt": "2026-08-03",
+  "note": "One bound release-with-review loop over net-only: the ext 0.5.0 candidate was STAGED by the reviewer VM over lbabus net (senderId WIN, task rev-1785753563), the human SIGNED a visual PASS with an enrolled Ed25519 key (reviewer@vi-tech.nl), and the signed verdict ANNOUNCES as RESOLVED on task extension-release-0.5.0 -- all bound to the same candidate. The reviewer private key is ephemeral (used once to sign, never committed); the enrolled public key + signature are sealed here so the gate re-verifies deterministically (no VM / network / live human). candidate.commit + vsixSha256 are deterministic representatives of the ext 0.5.0 candidate; the authoritative artifact attestation is the ext-v0.5.0 release cosign bundle. Reuses reviewerVerdict.mjs (verifyReviewerVerdict / gateVisualReview / buildVerdictBusPost).",
+  "binding": {
+    "stagedOverNet": true,
+    "candidateMatchesVerdictTarget": true,
+    "verdictVerified": true,
+    "gatePublish": true,
+    "announceDerivedOk": true
+  },
+  "verdict": {
+    "releaseWithReviewProven": true,
+    "reason": "the net-staged candidate extension 0.5.0 was signed PASS by an enrolled reviewer + announced RESOLVED over net -- one bound release-with-review loop"
+  },
+  "digest": "abf8886247f7e8e8e955f14d71c29a17fad9e19979d147cd7be8b00dc5aca58c"
+}
