@@ -96,10 +96,18 @@ MD
   log "xfce4 desktop + lightdm installed (auto-login vagrant); the GUI appears in the VM window."
 fi
 
-log "DONE ($PLANE): ladder receipt in reviewer-workstation/witness-vm/out/."
-echo "================ throughput-ladder-$PLANE.json ================"
-cat "$OUT/throughput-ladder-$PLANE.json"
-
-log "witness bundle -> reviewer-workstation/witness-vm/out/witness-$PLANE.bundle.json"
-echo "================ witness-$PLANE.bundle.json ================"
-cat "$OUT/witness-$PLANE.bundle.json"
+log "DONE ($PLANE): throughput-to-disk ladder benchmark complete -- summary below (full data in the receipt JSON)."
+node -e '
+const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+const pad = (s, n) => String(s).padEnd(n);
+const padl = (s, n) => String(s).padStart(n);
+console.log("");
+console.log("  ============ THROUGHPUT-TO-DISK LADDER: " + r.plane + " ============");
+console.log("  host " + r.host + " | dotnet " + r.dotnet + " | " + r.samplesPerRung + " samples/rung (+" + r.warmupPerRung + " warm-up)");
+console.log("  " + pad("rung", 7) + padl("mean MBps", 11) + padl("stddev", 9) + padl("CoV%", 7) + "   samples");
+for (const x of r.rungs) console.log("  " + pad(x.bytes, 7) + padl(x.meanMbps, 11) + padl(x.stddevMbps, 9) + padl(x.covPct, 7) + "   [" + x.samplesMbps.join(", ") + "]");
+console.log("  mean across rungs: " + r.summary.meanMbps + " MBps (min " + r.summary.minMbps + ", max " + r.summary.maxMbps + ")");
+console.log("  receipt: reviewer-workstation/witness-vm/out/throughput-ladder-" + r.plane + ".json");
+console.log("  corroborate 2 witnesses: node experiments/acg-quorum/compare-ladders.mjs out/throughput-ladder-<A>.json out/throughput-ladder-<B>.json");
+console.log("");
+' "$OUT/throughput-ladder-$PLANE.json"

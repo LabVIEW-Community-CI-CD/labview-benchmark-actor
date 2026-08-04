@@ -38,7 +38,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.provider "virtualbox" do |vb|
-    vb.gui = true                                   # a GUI reviewer workstation (NOT headless)
+    vb.gui = ENV.fetch("WITNESS_GUI", "0") == "1"   # headless by DEFAULT (results on the shell; no login window to disturb) -- WITNESS_GUI=1 shows the desktop
     vb.memory = ENV.fetch("WITNESS_MEM", "6144")    # the Ubuntu desktop + VS Code need headroom
     vb.cpus   = ENV.fetch("WITNESS_CPUS", "4")
     vb.name   = ENV.fetch("WITNESS_NAME", "acg-witness")
@@ -46,7 +46,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.provider "vmware_desktop" do |v|
-    v.gui = true
+    v.gui = ENV.fetch("WITNESS_GUI", "0") == "1"
     v.vmx["memsize"]     = ENV.fetch("WITNESS_MEM", "6144")
     v.vmx["numvcpus"]    = ENV.fetch("WITNESS_CPUS", "4")
     v.vmx["displayName"] = ENV.fetch("WITNESS_NAME", "acg-witness")
@@ -63,6 +63,6 @@ Vagrant.configure("2") do |config|
       "WITNESS_COMMIT"  => ENV.fetch("WITNESS_COMMIT",  ""),
       "WITNESS_RUNGS"   => ENV.fetch("WITNESS_RUNGS",   "256M,512M,1G"),
       "WITNESS_SAMPLES" => ENV.fetch("WITNESS_SAMPLES", "3"),
-      "WITNESS_DESKTOP" => ENV.fetch("WITNESS_DESKTOP", "1"),
+      "WITNESS_DESKTOP" => ENV.fetch("WITNESS_DESKTOP", "0"),
     }
 end

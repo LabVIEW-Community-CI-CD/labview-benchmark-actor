@@ -37,17 +37,23 @@ with pure software.
 
 ## Bring-up
 
+By default the witness runs **headless** and prints the benchmark summary **on this shell** — no VM window or
+login is exposed (nothing to accidentally type on / disturb):
+
 ```bash
-# Linux host (VirtualBox) -- from reviewer-workstation/witness-vm/
+# Linux host (VirtualBox) -- from reviewer-workstation/witness-vm/ ; the ladder summary prints on this shell
 WITNESS_REF=feature/acg-vagrant-witness vagrant up --provider virtualbox
-vagrant reload            # boot into the GNOME desktop (auto-login)
+
+# Opt-in GUI reviewer workstation: xfce4 auto-login desktop + VS Code + the VSIX (no login prompt)
+WITNESS_GUI=1 WITNESS_DESKTOP=1 WITNESS_REF=feature/acg-vagrant-witness vagrant up --provider virtualbox
 
 # Windows host (VMware) -- PowerShell
-$env:WITNESS_REF="feature/acg-vagrant-witness"; vagrant up --provider vmware_desktop; vagrant reload
+$env:WITNESS_REF="feature/acg-vagrant-witness"; vagrant up --provider vmware_desktop
 ```
 
-Overrides: `WITNESS_PLANE=<name>`, `WITNESS_RUNGS=256M,512M,1G`, `WITNESS_SAMPLES=3`, `WITNESS_COMMIT=<sha>`,
-`WITNESS_BOX=<box>`, `WITNESS_MEM` / `WITNESS_CPUS`, `WITNESS_DESKTOP=0` (benchmark only, skip the desktop).
+Overrides: `WITNESS_PLANE=<name>`, `WITNESS_NAME=<vm>` (run several at once), `WITNESS_RUNGS=256M,512M,1G`,
+`WITNESS_SAMPLES=3`, `WITNESS_COMMIT=<sha>`, `WITNESS_BOX=<box>`, `WITNESS_MEM` / `WITNESS_CPUS`,
+`WITNESS_GUI=1` (show the desktop window), `WITNESS_DESKTOP=1` (install the xfce4 reviewer workstation).
 
 ## Corroborate two witnesses
 
