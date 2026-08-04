@@ -17,7 +17,7 @@ Everything is **governed by construction**: every capability is proven on real d
 
 ## Install
 
-Install **LabVIEW Benchmark Actor** from the VS Code Marketplace (publisher `labview-community-ci-cd`), or from a packaged `.vsix`. Requires VS Code **1.101+**. The extension is fully free and non-commercial; running LabVIEW benchmarks happens locally in your own activated golden VM.
+Install **LabVIEW Benchmark Actor** from the VS Code Marketplace (publisher `svelderrainruiz`), or from a packaged `.vsix`. Requires VS Code **1.101+**. The extension is fully free and non-commercial; running LabVIEW benchmarks happens locally in your own activated golden VM.
 
 ## Quickstart
 

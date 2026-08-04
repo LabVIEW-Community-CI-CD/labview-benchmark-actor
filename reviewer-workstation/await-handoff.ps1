@@ -7,7 +7,7 @@ param([int]$TimeoutSec = 900, [int]$IntervalSec = 3)
 # (a legacy capture with no beacon = stopped + assembled). Bounded by IntervalSec / TimeoutSec (the one
 # sanctioned poll in the agentic flow). Emits {"state":"timeout"} if the deadline passes with no stop.
 $ErrorActionPreference = 'Stop'
-$root = Join-Path $env:APPDATA 'Code\User\globalStorage\labview-community-ci-cd.labview-benchmark-actor\captures'
+$root = Join-Path $env:APPDATA 'Code\User\globalStorage\svelderrainruiz.labview-benchmark-actor\captures'
 if (-not (Test-Path $root)) { '{"state":"error","error":"no captures directory"}'; exit }
 $dir = (Get-ChildItem $root -Directory | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
 $statusPath = Join-Path $dir 'capture-status.json'
