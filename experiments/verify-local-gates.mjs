@@ -65,6 +65,7 @@ import { execFileSync } from 'node:child_process';
 import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
 import { validateReceipt as validateCrossPlaneAttestation } from './acg-quorum/cross-plane-attestation.mjs';
 import { validateReceipt as validateSignedCrossPlaneCorroboration } from './acg-quorum/signed-cross-plane-corroboration.mjs';
+import { validateReceipt as validateCompositeRelease } from '../reviewer-workstation/composite-release-decision.mjs';
 import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
 import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/independence.mjs';
 import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/verdict-beacon.mjs';
@@ -3228,6 +3229,21 @@ check('acg-signed-cross-plane-corroboration', () => {
   assert(receipt.quorum.crossPlane === true && receipt.quorum.verdict === 'pass', 'the quorum must pass cross-plane');
   assert(Array.isArray(receipt.decision.approvals) && receipt.decision.approvals.length >= 1, 'the re-seal must carry >= 1 enrolled approving sign-off');
   return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), approvals: receipt.decision.approvals };
+});
+
+// The genuine cross-plane COMPOSITE re-seal (ADR-0072 / LBA-REQ-090): the 1.0.0 composite release decision rebuilt
+// over the genuine two-plane quorum (LBA-REQ-088) + the enrolled machine sign-off (LBA-REQ-089) + a signed human
+// visual PASS of the byte-reproducible candidate + the genuine WIN staging -- all five bindings hold AND the
+// machine quorum is crossPlane. The selftest also proves the shipped single-plane composite is the defect this corrects.
+check('acg-crossplane-composite-reseal', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'crossplane-composite-reseal.selftest.mjs')], { stdio: 'pipe' });
+  const receipt = readJson('reviewer-workstation/composite-release-decision-crossplane-receipt.json');
+  const v = validateCompositeRelease(receipt);
+  assert(v.ok && v.proofOk, `the committed crossPlane composite must validate: ${v.findings.join('; ')}`);
+  assert(receipt.verdict.compositeReleaseProven === true, 'the crossPlane composite must be a proven composite decision');
+  assert(receipt.machine.quorumVerdict.crossPlane === true, 'the composite machine quorum must be genuinely cross-plane');
+  for (const k of ['machinePublish', 'visualPublish', 'stagedOverNet', 'visualTargetBound', 'machineConsensusBound']) assert(receipt.binding[k] === true, `binding ${k} must hold`);
+  return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), crossPlane: true };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
