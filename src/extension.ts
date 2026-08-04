@@ -905,6 +905,79 @@ export function samplerScript(outFile: string): string {
   ].join('\n');
 }
 
+// Cross-platform mprr capture: run the mprr visual-ring launch-trend runner against a target VBox VM (SSH-trigger
+// xinit labview64 + capture over VBox-VNC), producing a real workload-trend@1. Unlike captureLaunchCommand (Windows
+// gdigrab of the host desktop), this works on a Linux/Wayland host because it captures the VM, not the host screen.
+async function captureLaunchMprrCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!root) {
+    void vscode.window.showErrorMessage('mprr capture needs the labview-benchmark-actor repo open as a workspace folder.');
+    return;
+  }
+  const runner = path.join(root, 'experiments', 'mprr-capture-ring', 'live-vbox-labview-trend.mjs');
+  if (!existsSync(runner)) {
+    void vscode.window.showErrorMessage(`mprr runner not found at ${runner}`);
+    return;
+  }
+  const sshPort = captureCfg<string>('mprrSshPort', '2223').trim() || '2223';
+  const vncPort = captureCfg<string>('mprrVncPort', '5900').trim() || '5900';
+  const vncPassword = captureCfg<string>('mprrVncPassword', '').trim();
+  const iterations = captureCfg<number>('mprrIterations', 5);
+  const targetVm = captureCfg<string>('mprrTargetVm', '').trim();
+  const dir = path.join(capturesRoot(context), `mprr-${Date.now()}`);
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    reportUiError(output, 'Capture LabVIEW Launch (mprr)', err);
+    return;
+  }
+  const outTrend = path.join(dir, 'trend.json');
+  const env = {
+    ...process.env,
+    LBA_SSH_PORT: sshPort,
+    LBA_VNC_PORT: vncPort,
+    LBA_VNC_PASSWORD: vncPassword,
+    LBA_ITERATIONS: String(iterations),
+    LBA_OUT: outTrend,
+  };
+  output.show(true);
+  output.appendLine(`[mprr] capturing ${iterations} LabVIEW launch(es) of ${targetVm || 'the target VM'} over VBox-VNC ${vncPort} (SSH ${sshPort}) -> ${outTrend}`);
+  const proc = spawn('node', [runner], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  proc.stdout.on('data', (b: Buffer) => output.append(b.toString()));
+  proc.stderr.on('data', (b: Buffer) => output.append(b.toString()));
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: 'Capturing LabVIEW launch (mprr)…', cancellable: false },
+    () =>
+      new Promise<void>((resolve) => {
+        proc.on('error', (e) => {
+          void vscode.window.showErrorMessage(`mprr capture failed to start: ${e.message}`);
+          resolve();
+        });
+        proc.on('close', (code) => {
+          if (code === 0 && existsSync(outTrend)) {
+            try {
+              const t = JSON.parse(readFileSync(outTrend, 'utf8')) as Record<string, unknown>;
+              const stats = asRecord(t.stats);
+              void vscode.window
+                .showInformationMessage(
+                  `mprr capture: ${String(t.plane)} launchMs mean ${numOrQ(stats.mean)} ms over ${numOrQ(t.n)} runs — ${String(t.verdict)}.`,
+                  'Open Trend JSON'
+                )
+                .then((a) => {
+                  if (a) void vscode.window.showTextDocument(vscode.Uri.file(outTrend));
+                });
+            } catch (e) {
+              output.appendLine(`[mprr] trend parse error: ${(e as Error).message}`);
+            }
+          } else {
+            void vscode.window.showErrorMessage(`mprr capture failed (exit ${code}). See the "LabVIEW Benchmark Actor" output channel.`);
+          }
+          resolve();
+        });
+      })
+  );
+}
+
 async function captureLaunchCommand(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
   if (activeCapture) {
     void vscode.window.showWarningMessage('A LabVIEW capture is already running. Stop it first.');
@@ -1590,6 +1663,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.captureLaunch', () =>
       captureLaunchCommand(context, output)
+    ),
+    vscode.commands.registerCommand('labviewBenchmarkActor.captureLaunchMprr', () =>
+      captureLaunchMprrCommand(context, output)
     ),
     vscode.commands.registerCommand('labviewBenchmarkActor.stopCapture', () =>
       stopCaptureCommand(context, output)

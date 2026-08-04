@@ -101,6 +101,10 @@
         "title": "LabVIEW Benchmark Actor: Capture LabVIEW Launch"
       },
       {
+        "command": "labviewBenchmarkActor.captureLaunchMprr",
+        "title": "LabVIEW Benchmark Actor: Capture LabVIEW Launch (mprr, cross-platform VM)"
+      },
+      {
         "command": "labviewBenchmarkActor.stopCapture",
         "title": "LabVIEW Benchmark Actor: Stop LabVIEW Capture"
       },
@@ -254,6 +258,31 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Path to the `LabVIEW.exe` to launch for a capture. Leave empty to auto-detect LabVIEW 2026 (32-bit then 64-bit) under `National Instruments`."
+        },
+        "labviewBenchmarkActor.mprrTargetVm": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Descriptive name of the target VirtualBox VM the **Capture LabVIEW Launch (mprr)** command benchmarks over VBox-VNC. Cross-platform: works on a Linux host (unlike the Windows `gdigrab` capture) by capturing the VM's LabVIEW launch through the mprr visual ring."
+        },
+        "labviewBenchmarkActor.mprrSshPort": {
+          "type": "string",
+          "default": "2223",
+          "markdownDescription": "Host port forwarded to the target VM's SSH (guest 22). The mprr capture SSHes in as the `actor` user (key `~/.ssh/lba_scratch`) to trigger `xinit labview64`."
+        },
+        "labviewBenchmarkActor.mprrVncPort": {
+          "type": "string",
+          "default": "5900",
+          "markdownDescription": "Host port of the target VM's VBox-VNC (VRDE VNC module) that the mprr ring captures frames from."
+        },
+        "labviewBenchmarkActor.mprrVncPassword": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The VBox-VNC password of the target VM (`VBoxManage ... vrdeproperty VNCPassword=...`)."
+        },
+        "labviewBenchmarkActor.mprrIterations": {
+          "type": "number",
+          "default": 5,
+          "markdownDescription": "How many LabVIEW launches the mprr capture measures to build the launchMs trend."
         },
         "labviewBenchmarkActor.reviewerId": {
           "type": "string",
