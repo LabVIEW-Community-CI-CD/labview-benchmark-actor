@@ -63,6 +63,7 @@ import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-pl
 import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs';
 import { execFileSync } from 'node:child_process';
 import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
+import { validateReceipt as validateCrossPlaneAttestation } from './acg-quorum/cross-plane-attestation.mjs';
 import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
 import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/independence.mjs';
 import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/verdict-beacon.mjs';
@@ -3193,6 +3194,23 @@ check('acg-cross-plane-corroboration-workflow-wired', () => {
   assert(/corroborate-planes\.mjs/.test(t), 'the corroborate job must run corroborate-planes.mjs (the quorum)');
   assert(/npm test/.test(t), 'each plane must run the extension gate (npm test) for its verdict');
   return { planes: ['linux', 'windows'], proof: 'genuine witnesses on both planes -> cross-plane corroborate (fail-closed)' };
+});
+
+// The DURABLE genuine cross-plane corroboration (ADR-0070 / LBA-REQ-088): the live two-plane proof captured as a
+// committed, tamper-evident attestation over two GENUINE CI witnesses (a real linux plane + a real windows plane)
+// with recorded run provenance. Re-derives the os-plane quorum offline + asserts the committed attestation is
+// genuinely cross-plane corroborated (quorum pass + crossPlane), plus the selftest (a single-plane set -- the
+// shipped 1.0.0 defect -- fails closed).
+check('acg-cross-plane-attestation', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'cross-plane-attestation.selftest.mjs')], { stdio: 'pipe' });
+  const receipt = readJson('experiments/acg-quorum/cross-plane-attestation-receipt.json');
+  const v = validateCrossPlaneAttestation(receipt);
+  assert(v.ok && v.proofOk, `the committed cross-plane attestation must validate: ${v.findings.join('; ')}`);
+  assert(receipt.verdict.crossPlaneCorroborated === true, 'the committed attestation must be cross-plane corroborated');
+  assert(Array.isArray(receipt.planes) && receipt.planes.includes('linux') && receipt.planes.includes('windows'), 'the attestation must span both os-planes (linux + windows)');
+  assert(receipt.quorum.crossPlane === true && receipt.quorum.verdict === 'pass', 'the re-derived quorum must pass cross-plane');
+  assert(receipt.provenance && receipt.provenance.runId, 'the attestation must record the CI run provenance of its witnesses');
+  return { planes: receipt.planes, commit: String(receipt.quorum.consensus.sourceCommit).slice(0, 9), confidence: receipt.quorum.confidence, provenanceRun: receipt.provenance.runId };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
