@@ -75,6 +75,7 @@
 | --- | --- | --- |
 | **Run Corroboration Grid** | `runCorroborationGrid` | Run the multi-witness Actor Corroboration Grid end-to-end. |
 | **Verify Release Provenance** | `verifyReleaseProvenance` | Verify the attestation chain before installing a release. |
+| **Run Throughput-to-Disk Ladder** | `runThroughputLadder` | Run the C# `tpd` disk-throughput ladder and record a per-rung MBps receipt for best-effort cross-witness corroboration (no LabVIEW). |
 
 ## Agent surface
 

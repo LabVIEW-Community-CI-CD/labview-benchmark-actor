@@ -143,6 +143,10 @@
       {
         "command": "labviewBenchmarkActor.verifyReleaseProvenance",
         "title": "LabVIEW Benchmark Actor: Verify Release Provenance"
+      },
+      {
+        "command": "labviewBenchmarkActor.runThroughputLadder",
+        "title": "LabVIEW Benchmark Actor: Run Throughput-to-Disk Ladder"
       }
     ],
     "languageModelTools": [
