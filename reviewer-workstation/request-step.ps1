@@ -7,7 +7,7 @@ param([string]$RequestId, [int]$TimeoutSec = 900, [int]$IntervalSec = 3)
 # done. Bounded by IntervalSec / TimeoutSec (the one sanctioned poll in the agentic flow). Emits
 # {"outcome":"timeout"} if the deadline passes with no answer.
 $ErrorActionPreference = 'Stop'
-$doneDir = Join-Path $env:APPDATA 'Code\User\globalStorage\labview-community-ci-cd.labview-benchmark-actor\handoff\done'
+$doneDir = Join-Path $env:APPDATA 'Code\User\globalStorage\svelderrainruiz.labview-benchmark-actor\handoff\done'
 $donePath = Join-Path $doneDir ($RequestId + '.json')
 $deadline = (Get-Date).AddSeconds($TimeoutSec)
 while ($true) {

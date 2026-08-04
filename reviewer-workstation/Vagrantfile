@@ -103,7 +103,7 @@ Vagrant.configure("2") do |config|
       catch { Write-Host "  present (version check skipped)" }
     } else { Write-Host "  MISSING" }
     Write-Host "[smoke] TC-10 -- folded MCP server inside the installed extension:"
-    $ext = Get-ChildItem "$env:USERPROFILE\.vscode\extensions" -Directory -Filter 'labview-community-ci-cd.labview-benchmark-actor-*' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $ext = Get-ChildItem "$env:USERPROFILE\.vscode\extensions" -Directory -Filter 'svelderrainruiz.labview-benchmark-actor-*' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($ext) {
       $mcp = Join-Path $ext.FullName 'out\acg-mcp-bundle\acg-mcp\grid-tools.mjs'
       Write-Host "  extension dir: $($ext.Name)"

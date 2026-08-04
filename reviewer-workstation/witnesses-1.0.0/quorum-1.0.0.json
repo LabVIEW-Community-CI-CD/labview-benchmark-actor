@@ -1,0 +1,20 @@
+{
+  "schema": "labview-benchmark-actor/acg-quorum-verdict-v1",
+  "verdict": "pass",
+  "confidence": 1,
+  "threshold": 0.5,
+  "witnesses": 2,
+  "concurring": 2,
+  "majority": true,
+  "distinctEnvironments": true,
+  "consensusVerdict": "pass",
+  "consensus": {
+    "version": "1.0.0",
+    "sourceCommit": "1054b07e7932244743f2a29a8e29d64a86780d9c",
+    "verdict": "pass",
+    "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+    "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8",
+    "ubuntu": "resolute"
+  },
+  "divergences": []
+}
