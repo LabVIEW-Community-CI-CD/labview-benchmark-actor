@@ -1,0 +1,68 @@
+# ACG Ubuntu witness -- a reproducible, provider-portable machine-corroboration witness (ADR-0015 / LBA-REQ-024).
+#
+# ONE Vagrantfile, spawnable via `vagrant up` on BOTH the `virtualbox` provider (a Linux host) AND the
+# `vmware_desktop` provider (a Windows / macOS host with VMware). It provisions a PLAIN Ubuntu box -- NO LabVIEW
+# is needed, because the ACG witness anchors are the deterministic SwiftShader viewer render + the gate suite,
+# both pure software -- and runs the SAME witness pipeline the native LINUX witness runs (witness-bootstrap.sh):
+# clone the candidate (auth-free, from a host-side git bundle), `npm ci` + `npm run compile`, `lba verify`, the
+# deterministic screenshot render, the hardware-capability probe, then assemble the `acg-witness-bundle`.
+#
+# Because BOTH providers spawn the SAME box + run the SAME pipeline, two witnesses (one per host) reproduce
+# byte-identical anchors -> a clean quorum (confidence 1.0), and the whole witness environment is captured
+# in-repo (auditable, turnkey) instead of a hand-built guest. The two spawns get DISTINCT planes by default
+# (VAGRANT-VBOX on a Linux host, VAGRANT-VMWARE on a Windows host) so the quorum's distinct-environment rule
+# (ADR-0017) is satisfied.
+#
+# Bring-up (see README.md):
+#   Linux host   (VirtualBox): WITNESS_REF=release/1.0.0 vagrant up --provider virtualbox
+#   Windows host (VMware):     set WITNESS_REF=release/1.0.0 && vagrant up --provider vmware_desktop
+#   Pin a commit:              WITNESS_COMMIT=<sha> vagrant up ...
+#   Collect:                   reviewer-workstation/witness-vm/out/witness-<PLANE>.bundle.json
+
+require "fileutils"
+REPO_ROOT = File.expand_path("../..", __dir__)
+
+Vagrant.configure("2") do |config|
+  # A plain Ubuntu box available for BOTH providers (bento ships virtualbox + vmware_desktop + parallels).
+  # Override with WITNESS_BOX (e.g. a 26.04 box when available, to match a native resolute host exactly).
+  config.vm.box = ENV.fetch("WITNESS_BOX", "bento/ubuntu-24.04")
+  config.vm.hostname = "acg-witness"
+
+  # The repo is PRIVATE, so the guest cannot `git clone` from GitHub. Transfer it auth-free: create a git
+  # BUNDLE of the candidate ref on the HOST before `up`; it rides the default /vagrant synced folder into the
+  # guest, where the bootstrap clones from it. (The proven win-plane-validate transfer pattern.)
+  config.trigger.before :up do |t|
+    t.name = "bundle-candidate"
+    t.info = "Bundling the candidate (#{ENV.fetch('WITNESS_REF', 'develop')}) for the witness guest..."
+    t.run = { inline: %(bash -lc 'git -C "#{REPO_ROOT}" bundle create "#{__dir__}/candidate.bundle" "#{ENV.fetch("WITNESS_REF", "develop")}"') }
+  end
+  # Reclaim the (large) bundle from the host after the box is destroyed.
+  config.trigger.after :destroy do |t|
+    t.run = { inline: %(bash -lc 'rm -f "#{__dir__}/candidate.bundle"') }
+  end
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui = false
+    vb.memory = ENV.fetch("WITNESS_MEM", "4096")
+    vb.cpus   = ENV.fetch("WITNESS_CPUS", "4")
+    vb.name   = "acg-witness"
+  end
+
+  config.vm.provider "vmware_desktop" do |v|
+    v.gui = false
+    v.vmx["memsize"]     = ENV.fetch("WITNESS_MEM", "4096")
+    v.vmx["numvcpus"]    = ENV.fetch("WITNESS_CPUS", "4")
+    v.vmx["displayName"] = "acg-witness"
+  end
+
+  # Default the plane from the HOST os so the two spawns are DISTINCT enrolled environments automatically:
+  # a Windows host (VMware) -> VAGRANT-VMWARE, any other host (VirtualBox) -> VAGRANT-VBOX. Override WITNESS_PLANE.
+  default_plane = Vagrant::Util::Platform.windows? ? "VAGRANT-VMWARE" : "VAGRANT-VBOX"
+
+  config.vm.provision "witness", type: "shell", path: "witness-bootstrap.sh", privileged: false,
+    env: {
+      "WITNESS_PLANE"  => ENV.fetch("WITNESS_PLANE",  default_plane),
+      "WITNESS_REF"    => ENV.fetch("WITNESS_REF",    "develop"),
+      "WITNESS_COMMIT" => ENV.fetch("WITNESS_COMMIT", ""),
+    }
+end
