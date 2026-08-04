@@ -60,7 +60,7 @@ the coordination bus as the runtime containers; the **component view** is
 components inside those containers; and the **deployment view** is §3.2 — the
 multi-VM / Codespace topology.
 
-### 3.1 Packaging / boundary view — addresses LBA-REQ-001, LBA-REQ-008, LBA-REQ-085
+### 3.1 Packaging / boundary view — addresses LBA-REQ-001, LBA-REQ-008, LBA-REQ-085, LBA-REQ-086
 - The extension is a self-contained `.vsix`. Reused `vi-history-suite` logic is
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
@@ -68,6 +68,10 @@ multi-VM / Codespace topology.
   pins every zip entry timestamp to 1980-01-01 so repackaging the same committed
   source yields a byte-identical artifact, so the reviewed `vsixSha256` can equal
   the shipped one.
+- It is byte-reproducible ACROSS planes too (ADR-0067): the normalizer also pins
+  entry mode + version-made-by, and `.gitattributes` + `tsconfig` `newLine: lf`
+  force LF content, so a Windows build and a Linux build of the same commit are
+  byte-identical — proven by a dual-OS (ubuntu+windows) CI build+compare.
 
 ### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051, LBA-REQ-052, LBA-REQ-053, LBA-REQ-054, LBA-REQ-055, LBA-REQ-056, LBA-REQ-057, LBA-REQ-058, LBA-REQ-059, LBA-REQ-060, LBA-REQ-061, LBA-REQ-062, LBA-REQ-063, LBA-REQ-064, LBA-REQ-065, LBA-REQ-066, LBA-REQ-067, LBA-REQ-068, LBA-REQ-069, LBA-REQ-070, LBA-REQ-071, LBA-REQ-072, LBA-REQ-073, LBA-REQ-074, LBA-REQ-075, LBA-REQ-076, LBA-REQ-077, LBA-REQ-078, LBA-REQ-079, LBA-REQ-080, LBA-REQ-081, LBA-REQ-082, LBA-REQ-083, LBA-REQ-084
 - One artifact, two install targets (Codespace, Vagrant golden VM).
@@ -328,6 +332,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-78 | Prove the mesh fulfillment engine (AD-68/LBA-REQ-073) is BENCHMARK-GENERIC -- fulfill the VI Analyzer benchmark (LBA-REQ-081 identity, distinct from launch) through the SAME engine, two golden actors returning their VI Analyzer trend from the real evidence (reusing trendFromEvidence 081 + meshFulfillment 073) | the mesh had only ever carried launch; nothing proved it carries the suite -- the Phase 2 <-> Phase 3 convergence (ADR-0064) | LBA-REQ-083 |
 | AD-79 | Make cross-plane comparison STRESS-AWARE -- fold the mesh-stress calibration (LBA-REQ-032 ladder + concurrent-actor recovery) into a per-measurement stress-quality weight (idle 1.0 .. saturate 0.0) that DISCOUNTS a result captured on a stressed actor | comparisons (072/081/050) treated each actor at face value, but the roadmap Phase 4 requires discounting contended actors -- a stressed actor's timing is not a fair sample (ADR-0065) | LBA-REQ-084 |
 | AD-80 | Make the packaged `.vsix` BYTE-REPRODUCIBLE -- a post-package normalizer (`scripts/normalize-vsix.mjs`, pure Node) pins every zip entry's DOS timestamp to 1980-01-01 (content untouched), so repackaging the same committed source yields a byte-identical artifact | the release-review chain binds an artifact by its vsixSha256 (068/069/071) but vsce/yazl stamps each entry mtime with the package wall-clock time + ignores SOURCE_DATE_EPOCH, so two builds of the same commit hash differently -- the reviewed hash could never be proven equal to the shipped one (ADR-0066) | LBA-REQ-085 |
+| AD-81 | Make the `.vsix` CROSS-PLANE byte-reproducible -- extend the normalizer to pin entry mode + version-made-by (not just timestamps) and force LF on packaged content (`.gitattributes` + `tsconfig` `newLine: lf`), so a Windows build and a Linux build of the same commit are byte-identical, proven by a dual-OS (ubuntu+windows) CI build+compare | a plane is the OS the extension runs in (windows/linux); same-plane reproducibility (AD-80) still left a Windows-reviewed build != the Linux-published build, so reviewed != shipped across planes and two planes could not corroborate one artifact (ADR-0067) | LBA-REQ-086 |
 
 ## 5. Risks and open questions
 

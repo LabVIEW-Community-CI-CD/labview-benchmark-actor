@@ -113,6 +113,7 @@ progressively.
 | LBA-REQ-083 | The system shall fulfill the VI Analyzer benchmark through the mesh fulfillment engine as a benchmark distinct from launch, so a fail-closed gate proves the mesh carries more than one benchmark family (the engine is benchmark-generic). | The mesh (Phase 3) had only ever fulfilled the launch benchmark; the fulfillment engine (LBA-REQ-073) is written generically but nothing PROVED it carries the suite. VI Analyzer now has real 2-plane captures + a proven identity (LBA-REQ-081), so it is the natural 2nd family -- the Phase 2 <-> Phase 3 convergence. | `viAnalyzerMeshRun.mjs` REUSES `meshFulfillment` (073) + `trendFromEvidence` (081): two golden actors return their VI Analyzer trend from the real evidence, the 073 engine fulfills the run, and a `mesh-benchmark-family-run@1` proves it is a distinct family from launch. | `node experiments/mesh-fulfillment/viAnalyzerMeshRun.selftest.mjs` (7/7) + the committed run (via the CLI, re-derived from the evidence) + the fulfillment + the distinct-from-launch identity; gated by `mesh-benchmark-family-vi-analyzer`. |
 | LBA-REQ-084 | The system shall assign each benchmark measurement a stress-quality weight from the mesh-stress calibration and discount a measurement captured on a stressed actor, so a fail-closed gate proves a cross-plane comparison down-weights results captured under contention. | Cross-plane comparison (LBA-REQ-072/081, grid LBA-REQ-050) treats each actor's result at face value, but the roadmap Phase 4 requires the mesh-stress calibration to DISCOUNT a result captured on a stressed actor -- a contended actor's timing is not a fair sample. The calibration exists (LBA-REQ-032, monotone/separable/repeatable ladder + independent per-actor stress recovery) but nothing turned it into a per-measurement discount. | `stressDiscountedComparison.mjs` folds the committed real ladder (calibration authority) + concurrent-actors capture (recovered per-actor stress) into a `stress-discounted-comparison@1`: each measurement gets a stress-quality weight (idle 1.0 .. saturate 0.0) + is discounted at/above heavy; grounded in the real captures. | `node experiments/mesh-stress-signature/stressDiscountedComparison.selftest.mjs` (7/7) + the committed comparison (via the CLI) + the idle-full/saturate-discounted grounding; gated by `stress-discounted-comparison`. |
 | LBA-REQ-085 | The system shall pin every entry timestamp in the packaged `.vsix` to a fixed constant so that repackaging the same committed source yields a byte-identical artifact, so a fail-closed gate proves a reviewed `.vsix` sha256 can equal the shipped `.vsix` sha256. | The release-review chain binds an artifact by its `vsixSha256` (the reviewer signs a candidate's hash LBA-REQ-068/069; the composite decision blocks publish unless the tagged candidate's hash matches LBA-REQ-071), but `vsce package` (yazl) stamps each zip entry's mtime with the package wall-clock time and ignores `SOURCE_DATE_EPOCH`, so two builds of the SAME commit differ by ~72 timestamp bytes and hash differently -- the reviewed hash could never be proven equal to the shipped hash. | `scripts/normalize-vsix.mjs` (pure Node, no deps) walks the zip (EOCD -> each central-directory record -> its local header) and patches only the 2-byte DOS mod-time + mod-date to 1980-01-01, leaving names/order/compression/content untouched; `npm run package` runs it after `vsce package` so the shipped artifact depends only on the committed content, never the build time. | `node test/normalize-vsix.mjs` (two same-content zips with different mtimes normalize byte-identical + idempotent + epoch-pinned + fail-closed on a non-zip) run by `npm test`, plus the wiring + a synchronous behavioral re-proof; gated by `reproducible-vsix-normalizer`. |
+| LBA-REQ-086 | The system shall package the `.vsix` byte-identically on the windows and linux planes -- pinning its OS-dependent zip metadata (entry timestamp, mode, version-made-by) and forcing LF on its packaged content -- so a fail-closed gate proves a windows build and a linux build of the same commit have the same sha256. | A plane is the OS the extension runs in (windows, linux); the human reviews on the windows plane and CI publishes on the linux plane, and a genuine corroboration needs a windows- AND a linux-plane witness to agree on ONE artifact. But `vsce`/`yazl` writes OS-dependent metadata (mtime from the clock, mode from `fs.stat`, a version-made-by host byte) and `tsc`/checkout can emit CRLF, so a Windows build and a Linux build of the same commit had different sha256 -- the reviewed artifact was never the shipped one, and two planes could not corroborate one identical artifact. | `scripts/normalize-vsix.mjs` pins every entry's timestamp (1980-01-01) + external attributes (regular file 0644) + version-made-by (Unix); `.gitattributes` forces LF on the packaged files (scoped past the Windows-captured fixtures) + `tsconfig.json` sets `newLine: lf`, so the packaged bytes depend only on the committed content, not the plane. | `.github/workflows/vsix-cross-plane-repro.yml` builds `npm run package` on ubuntu-latest AND windows-latest and asserts the two sha256 are identical (fail-closed); the offline gate `vsix-cross-plane-repro-workflow-wired` guards the workflow + prerequisites; `test/normalize-vsix.mjs` covers the mode/version pinning. |
 
 ---
 
@@ -2641,6 +2642,38 @@ progressively.
   asserts the CI-built .vsix sha256 equals the reviewed `vsixSha256`, wired into `extension-release.yml` after
   packaging. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-086: The cross-plane byte-reproducible extension package (a Windows build equals a Linux build)
+
+- Status: Proven
+- Area: Packaging / boundary (ADR-0067 -- the cross-plane byte-reproducible extension package)
+- Statement: The system shall package the `.vsix` byte-identically on the windows and linux planes -- pinning its
+  OS-dependent zip metadata (entry timestamp, mode, version-made-by) and forcing LF on its packaged content -- so
+  a fail-closed gate proves a windows build and a linux build of the same commit have the same sha256.
+- Rationale: ADR-0066 made the `.vsix` reproducible on a SINGLE plane, but the plane model is that a plane is the
+  OS the extension runs in (windows, linux), and a genuine corroboration needs a windows- and a linux-plane
+  witness to agree on ONE artifact. Two facts blocked that: the human reviews on windows and CI publishes on
+  linux, so a Windows build != a Linux build meant the reviewed `vsixSha256` (LBA-REQ-068/069) was never the
+  shipped one (the v1.0.0 defect); and two independent planes each computed a different hash, so "the planes
+  agree on the same `.vsix`" was unprovable. The divergence is OS-dependent zip metadata (mtime, mode, host byte)
+  + CRLF-vs-LF packaged content (including `tsc` output, whose `newLine` defaults to the platform).
+- Acceptance Criteria:
+  - `scripts/normalize-vsix.mjs` pins, for every entry, the DOS mod-time/date (1980-01-01), the external file
+    attributes (regular file, mode 0644), and the version-made-by host (Unix) -- so entry metadata no longer
+    depends on the building plane's OS or umask.
+  - `.gitattributes` pins LF on the files packaged into the `.vsix` (and the `experiments/` sources bundled into
+    `out/acg-mcp-bundle`), scoped to avoid the Windows-captured experiment fixtures, and `tsconfig.json` sets
+    `newLine: lf` so `tsc` emits LF on every plane -- the packaged content is identical regardless of a plane's
+    `core.autocrlf`.
+  - `.github/workflows/vsix-cross-plane-repro.yml` builds the normalized `.vsix` on `ubuntu-latest` AND
+    `windows-latest` and asserts the two sha256 are identical, failing closed when they diverge.
+  - The offline gate `vsix-cross-plane-repro-workflow-wired` proves the workflow builds on both planes + compares
+    the sha + fails closed, and that the determinism prerequisites (`newLine: lf`, the LF `.gitattributes`) hold;
+    `test/normalize-vsix.mjs` covers the mode/version pinning.
+- Change Guidance: the normalizer is `scripts/normalize-vsix.mjs`; the LF pins are in `.gitattributes` +
+  `tsconfig.json`; the dual-OS proof is `.github/workflows/vsix-cross-plane-repro.yml`; the offline gate is
+  `vsix-cross-plane-repro-workflow-wired`. This cross-plane identity is the foundation for the two-plane
+  corroboration re-seal (LBA-REQ-024/026). Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2732,3 +2765,4 @@ progressively.
 | LBA-REQ-083 | Deployment (mesh carries VI Analyzer benchmark) | T-083 |
 | LBA-REQ-084 | Analysis (stress-discounted comparison) | T-084 |
 | LBA-REQ-085 | Packaging / boundary (byte-reproducible .vsix) | T-085 |
+| LBA-REQ-086 | Packaging / boundary (cross-plane byte-reproducible .vsix) | T-086 |

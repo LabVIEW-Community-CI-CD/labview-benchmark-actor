@@ -1,0 +1,84 @@
+name: vsix cross-plane repro
+
+# Proves the packaged .vsix is BYTE-IDENTICAL when built on the windows plane and the linux plane
+# (ADR-0067 / LBA-REQ-086). scripts/normalize-vsix.mjs pins the OS-dependent zip metadata (entry timestamps +
+# mode + version-made-by) and .gitattributes + tsconfig newLine=lf force LF content on every plane, so the SAME
+# commit must package to the SAME sha256 on both ubuntu-latest and windows-latest. That identical artifact is the
+# foundation for reviewed(windows)==shipped(linux) and for a genuine two-plane corroboration over ONE artifact.
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'media/**'
+      - 'scripts/normalize-vsix.mjs'
+      - 'scripts/stage-media.mjs'
+      - 'scripts/stage-acg-mcp.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.vscodeignore'
+      - '.gitattributes'
+      - '.github/workflows/vsix-cross-plane-repro.yml'
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build .vsix (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.18.1'
+      - run: npm ci
+      - name: Package the normalized .vsix
+        run: npm run package
+      - name: Compute sha256 (portable, via node)
+        id: sha
+        shell: bash
+        run: |
+          sha=$(node -e "const{createHash}=require('crypto'),{readFileSync}=require('fs');process.stdout.write(createHash('sha256').update(readFileSync('labview-benchmark-actor.vsix')).digest('hex'))")
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "$RUNNER_OS .vsix sha256: $sha"
+      - name: Stage sha + .vsix for comparison
+        shell: bash
+        run: |
+          mkdir -p out-artifacts
+          printf '%s' "${{ steps.sha.outputs.sha256 }}" > "out-artifacts/${{ matrix.os }}.sha256"
+          cp labview-benchmark-actor.vsix "out-artifacts/${{ matrix.os }}.vsix"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.os }}
+          path: out-artifacts/*
+
+  compare:
+    name: assert cross-plane byte-identity
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: shas
+      - name: Assert linux .vsix sha256 == windows .vsix sha256
+        shell: bash
+        run: |
+          set -eu
+          lin=$(cat shas/vsix-ubuntu-latest/ubuntu-latest.sha256)
+          win=$(cat shas/vsix-windows-latest/windows-latest.sha256)
+          echo "linux   : $lin"
+          echo "windows : $win"
+          if [ "$lin" != "$win" ]; then
+            echo "::error::.vsix is NOT cross-plane byte-identical (linux=$lin windows=$win). The reviewed==shipped + two-plane corroboration guarantee (ADR-0067 / LBA-REQ-086) is broken. Download the vsix-ubuntu-latest + vsix-windows-latest artifacts and 'cmp -l' them to find the differing bytes." >&2
+            exit 1
+          fi
+          echo "cross-plane byte-identical .vsix: $lin"

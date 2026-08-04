@@ -3098,7 +3098,9 @@ check('reproducible-vsix-normalizer', () => {
   assert(normalizeZipTimestamps(early) === 1 && normalizeZipTimestamps(late) === 1, 'normalized the single entry in each');
   assert(early.equals(late), 'after normalize: same-content zips with different timestamps are byte-identical (reproducible)');
   assert(early.readUInt16LE(10) === 0x0000 && early.readUInt16LE(12) === 0x0021, 'DOS timestamp pinned to 1980-01-01');
-  return { wired: 'package + test', pinned: '1980-01-01', proof: 'same-content/different-mtime => byte-identical' };
+  const cd = early.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  assert(cd !== -1 && early.readUInt16LE(cd + 4) === 0x033f && early.readUInt32LE(cd + 38) === 0x81a40000, 'version-made-by + external mode pinned (cross-plane)');
+  return { wired: 'package + test', pinned: '1980-01-01 + mode 0644 + Unix host', proof: 'same-content/different-mtime => byte-identical' };
 });
 
 // Reviewed == shipped gate (ADR-0066 follow-on / LBA-REQ-085): the extension-release workflow must assert the
@@ -3133,6 +3135,28 @@ check('reviewed-vsix-matches-shipped', () => {
     for (const p of [vsix, okJson, badJson]) rmSync(p, { force: true });
   }
   return { wired: 'workflow + npm test', proof: 'match ok / mismatch fail-closed' };
+});
+
+// Cross-plane .vsix byte-reproducibility (ADR-0067 / LBA-REQ-086): a Windows build and a Linux build of the SAME
+// commit must be byte-identical, so a windows-plane and a linux-plane witness corroborate ONE artifact and
+// reviewed(windows)==shipped(linux) holds. This gate guards, offline: the dual-OS build+compare workflow exists
+// (builds on ubuntu AND windows, compares sha256, fails closed) AND the determinism prerequisites are in place
+// (tsc emits LF via newLine=lf; the packaged content + bundled experiment sources are LF-pinned in .gitattributes).
+check('vsix-cross-plane-repro-workflow-wired', () => {
+  const wf = join(pkgRoot, '.github', 'workflows', 'vsix-cross-plane-repro.yml');
+  assert(existsSync(wf), 'the vsix cross-plane repro workflow must exist');
+  const t = readFileSync(wf, 'utf8').replace(/\r\n/g, '\n');
+  assert(/ubuntu-latest/.test(t) && /windows-latest/.test(t), 'must build on BOTH ubuntu-latest and windows-latest');
+  assert(/npm run package/.test(t), 'must build the normalized .vsix via npm run package');
+  assert(/sha256/i.test(t), 'must compute the .vsix sha256');
+  assert(/NOT cross-plane byte-identical/.test(t) && /exit 1/.test(t), 'the compare job must fail closed when the two planes disagree');
+  // Determinism prerequisites: tsc emits LF on every plane + the packaged/bundled files are LF-pinned.
+  const tsconfig = readJson('tsconfig.json');
+  assert(tsconfig.compilerOptions?.newLine === 'lf', 'tsconfig must pin newLine=lf so tsc emits LF on every plane');
+  const attrs = readFileSync(join(pkgRoot, '.gitattributes'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/^\*\.mjs text eol=lf$/m.test(attrs), '.gitattributes must LF-pin *.mjs (packaged media + bundled acg-mcp sources)');
+  assert(/^\*\.ts text eol=lf$/m.test(attrs), '.gitattributes must LF-pin *.ts (so tsc string literals are LF on every plane)');
+  return { planes: ['linux', 'windows'], proof: 'npm run package on both -> identical sha256 (fail-closed)' };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

@@ -7,7 +7,7 @@
 // Both staged files are build outputs (gitignored); the .vsix bundles them. Deterministic: identical fixture
 // => identical media/mprr-series.json, so the deployed viewer + the screenshot harness render the same series.
 
-import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ingestShortPackets } from '../experiments/mprr-ring/mprrRing.mjs';
@@ -147,5 +147,17 @@ if (!agents.ok) {
 // Staged via read+write (same 9p/drvfs EPERM avoidance as media/viewerCursor.mjs above).
 writeFileSync(join(repo, 'media', 'AGENTS.md'), readFileSync(join(repo, 'extension-agents', 'AGENTS.md')));
 writeFileSync(join(repo, 'media', 'agents.manifest.json'), readFileSync(join(repo, 'extension-agents', 'agents.manifest.json')));
+
+// Cross-plane .vsix reproducibility (ADR-0067 / LBA-REQ-086): LF-normalize every staged TEXT asset so the packaged
+// bytes are identical on every plane regardless of the source files' checkout line endings (several fixtures are
+// raw-copied from experiments/ whose JSON is not universally LF-pinned). Build outputs only; icon.png etc. untouched.
+for (const f of readdirSync(join(repo, 'media'))) {
+  if (/\.(mjs|js|json|md)$/.test(f)) {
+    const p = join(repo, 'media', f);
+    const orig = readFileSync(p, 'utf8');
+    const lf = orig.replace(/\r\n/g, '\n');
+    if (lf !== orig) writeFileSync(p, lf);
+  }
+}
 
 console.log(`staged media/viewerCursor.mjs + media/counter-render.mjs + media/benchmark-panels.mjs + media/launch-capture.mjs + media/frame-correlator.mjs + media/captureStatus.mjs + media/mprr-series.json (${series.length} points) + benchmark fixtures + media/AGENTS.md`);
