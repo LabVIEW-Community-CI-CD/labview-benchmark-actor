@@ -91,5 +91,6 @@
 | LBA-REQ-082 | The benchmark-suite parity observatory (one view over the parity families) | Proven | §3.2 Deployment | ADR-0063 | T-082 | 6 |
 | LBA-REQ-083 | The mesh carries a second benchmark family (VI Analyzer) | Proven | §3.2 Deployment | ADR-0064 | T-083 | 6 |
 | LBA-REQ-084 | The stress-discounted cross-plane comparison (discount a result captured on a stressed actor) | Proven | §3.2 Deployment | ADR-0065 | T-084 | 6 |
+| LBA-REQ-085 | The byte-reproducible extension package (the reviewed .vsix equals the shipped .vsix) | Proven | §3.1 Packaging / boundary | ADR-0066 | T-085 | 4 |
 
-_Generated for 84 requirements._
+_Generated for 85 requirements._

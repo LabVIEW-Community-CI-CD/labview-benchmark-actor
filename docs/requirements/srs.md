@@ -112,6 +112,7 @@ progressively.
 | LBA-REQ-082 | The system shall fold the benchmark suite's cross-plane parity receipts into one coverage matrix, so a fail-closed gate proves which benchmark families have proven cross-plane parity and records their LINUX-vs-WIN timing. | The suite has two parity families (launch LBA-REQ-072 + VI Analyzer LBA-REQ-081), each a separate gate with its own schema, but no single view of which families are cross-plane parity-proven -- the roadmap Phase 2 capstone + Phase 4 (comparison at scale) bridge; the mesh observatory (LBA-REQ-075) is the pattern to mirror. | `suiteParityObservatory.mjs` folds the committed parity receipts into a `benchmark-suite-parity-observatory@1` coverage matrix (family + identity + parity flags + LINUX/WIN performance), re-derived byte-stably from the source receipts (currency); it EXTENDS with no new machinery as families land. | `node experiments/benchmark-suite/suiteParityObservatory.selftest.mjs` (7/7) + the committed observatory (via the CLI) + the re-fold currency + the grounding; gated by `benchmark-suite-parity-observatory`. |
 | LBA-REQ-083 | The system shall fulfill the VI Analyzer benchmark through the mesh fulfillment engine as a benchmark distinct from launch, so a fail-closed gate proves the mesh carries more than one benchmark family (the engine is benchmark-generic). | The mesh (Phase 3) had only ever fulfilled the launch benchmark; the fulfillment engine (LBA-REQ-073) is written generically but nothing PROVED it carries the suite. VI Analyzer now has real 2-plane captures + a proven identity (LBA-REQ-081), so it is the natural 2nd family -- the Phase 2 <-> Phase 3 convergence. | `viAnalyzerMeshRun.mjs` REUSES `meshFulfillment` (073) + `trendFromEvidence` (081): two golden actors return their VI Analyzer trend from the real evidence, the 073 engine fulfills the run, and a `mesh-benchmark-family-run@1` proves it is a distinct family from launch. | `node experiments/mesh-fulfillment/viAnalyzerMeshRun.selftest.mjs` (7/7) + the committed run (via the CLI, re-derived from the evidence) + the fulfillment + the distinct-from-launch identity; gated by `mesh-benchmark-family-vi-analyzer`. |
 | LBA-REQ-084 | The system shall assign each benchmark measurement a stress-quality weight from the mesh-stress calibration and discount a measurement captured on a stressed actor, so a fail-closed gate proves a cross-plane comparison down-weights results captured under contention. | Cross-plane comparison (LBA-REQ-072/081, grid LBA-REQ-050) treats each actor's result at face value, but the roadmap Phase 4 requires the mesh-stress calibration to DISCOUNT a result captured on a stressed actor -- a contended actor's timing is not a fair sample. The calibration exists (LBA-REQ-032, monotone/separable/repeatable ladder + independent per-actor stress recovery) but nothing turned it into a per-measurement discount. | `stressDiscountedComparison.mjs` folds the committed real ladder (calibration authority) + concurrent-actors capture (recovered per-actor stress) into a `stress-discounted-comparison@1`: each measurement gets a stress-quality weight (idle 1.0 .. saturate 0.0) + is discounted at/above heavy; grounded in the real captures. | `node experiments/mesh-stress-signature/stressDiscountedComparison.selftest.mjs` (7/7) + the committed comparison (via the CLI) + the idle-full/saturate-discounted grounding; gated by `stress-discounted-comparison`. |
+| LBA-REQ-085 | The system shall pin every entry timestamp in the packaged `.vsix` to a fixed constant so that repackaging the same committed source yields a byte-identical artifact, so a fail-closed gate proves a reviewed `.vsix` sha256 can equal the shipped `.vsix` sha256. | The release-review chain binds an artifact by its `vsixSha256` (the reviewer signs a candidate's hash LBA-REQ-068/069; the composite decision blocks publish unless the tagged candidate's hash matches LBA-REQ-071), but `vsce package` (yazl) stamps each zip entry's mtime with the package wall-clock time and ignores `SOURCE_DATE_EPOCH`, so two builds of the SAME commit differ by ~72 timestamp bytes and hash differently -- the reviewed hash could never be proven equal to the shipped hash. | `scripts/normalize-vsix.mjs` (pure Node, no deps) walks the zip (EOCD -> each central-directory record -> its local header) and patches only the 2-byte DOS mod-time + mod-date to 1980-01-01, leaving names/order/compression/content untouched; `npm run package` runs it after `vsce package` so the shipped artifact depends only on the committed content, never the build time. | `node test/normalize-vsix.mjs` (two same-content zips with different mtimes normalize byte-identical + idempotent + epoch-pinned + fail-closed on a non-zip) run by `npm test`, plus the wiring + a synchronous behavioral re-proof; gated by `reproducible-vsix-normalizer`. |
 
 ---
 
@@ -2606,6 +2607,39 @@ progressively.
   `stress-discounted-comparison` in `verify-local-gates`. Folding the discount weight into the benchmark grid /
   observatory is a follow-on. Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-085: The byte-reproducible extension package (the reviewed .vsix equals the shipped .vsix)
+
+- Status: Proven
+- Area: Packaging / boundary (ADR-0066 -- the byte-reproducible extension package)
+- Statement: The system shall pin every entry timestamp in the packaged `.vsix` to a fixed constant so that
+  repackaging the same committed source yields a byte-identical artifact, so a fail-closed gate proves a reviewed
+  `.vsix` sha256 can equal the shipped `.vsix` sha256.
+- Rationale: the release-review chain binds a specific artifact by its `vsixSha256` -- the reviewer signs a visual
+  PASS over a candidate's hash (LBA-REQ-068/069) and the composite release-decision (LBA-REQ-071) blocks publishing
+  unless the tagged candidate's hash matches the reviewed one. That binding assumed the `.vsix` is a pure function
+  of the committed source, but `vsce package` (yazl) stamps every entry's mtime with the package wall-clock time
+  (`new Date()`) and does not honor `SOURCE_DATE_EPOCH`, so two builds of the same commit differ by ~72 timestamp
+  bytes -- identical names/order/compression/content, different sha256. The reviewed hash could therefore never be
+  proven equal to the shipped hash except by hand-carrying one build (as the v1.0.0 ship did).
+- Acceptance Criteria:
+  - `scripts/normalize-vsix.mjs` is pure Node with no dependencies and walks the zip structure
+    (End-of-Central-Directory -> each central-directory record -> the local file header it points to), patching
+    ONLY the 2-byte DOS mod-time + 2-byte DOS mod-date fields to a fixed constant (1980-01-01) and leaving every
+    other byte -- entry names, order, compression, content, CRCs -- untouched.
+  - `npm run package` runs `vsce package` and then the normalizer, so the shipped artifact is always normalized;
+    because the output depends only on the committed content (never the build time), building the same committed
+    source twice yields a byte-identical `.vsix` with a stable sha256.
+  - `test/normalize-vsix.mjs` (run by `npm test`) builds two zips with identical content but different entry
+    timestamps and proves they normalize to byte-identical output, that normalization is idempotent, that the
+    timestamp is pinned to the epoch, and that a non-zip buffer fails closed (no silent no-op).
+  - The gate `reproducible-vsix-normalizer` proves offline: the `package` + `test` scripts still invoke the
+    normalizer (the wiring cannot silently regress), and a hand-built stored-entry zip re-proves synchronously that
+    two same-content zips with different timestamps normalize byte-identical + epoch-pinned.
+- Change Guidance: the normalizer + test live at `scripts/normalize-vsix.mjs` + `test/normalize-vsix.mjs`; the gate
+  `reproducible-vsix-normalizer` is in `verify-local-gates`. A follow-on can add a release-workflow step that
+  rebuilds the tagged commit and asserts the published sha256 equals the reviewed one end-to-end. Authored under
+  the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2696,3 +2730,4 @@ progressively.
 | LBA-REQ-082 | Deployment (benchmark-suite parity observatory) | T-082 |
 | LBA-REQ-083 | Deployment (mesh carries VI Analyzer benchmark) | T-083 |
 | LBA-REQ-084 | Analysis (stress-discounted comparison) | T-084 |
+| LBA-REQ-085 | Packaging / boundary (byte-reproducible .vsix) | T-085 |

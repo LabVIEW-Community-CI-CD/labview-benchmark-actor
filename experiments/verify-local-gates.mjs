@@ -29,6 +29,7 @@ import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
 import { validateViAnalyzerReport } from './vi-analyzer/validate-vi-analyzer-report.mjs';
 import { parseAsciiReport, parseSummary } from './vi-analyzer/parse-vi-analyzer-ascii.mjs';
 import { verifyManifest as verifyExtensionAgentsManifest, agentsSha256, readManifest as readExtensionAgentsManifest, AGENTS_MD as EXTENSION_AGENTS_MD } from '../scripts/agentsManifest.mjs';
+import { normalizeZipTimestamps } from '../scripts/normalize-vsix.mjs';
 import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 import { sealBootBenchmark } from './mprr-boot-benchmark/seal-boot-benchmark.mjs';
 import { parseSerialLog, parseSerialMarkerLine } from './mprr-boot-benchmark/serial-marker.mjs';
@@ -3031,6 +3032,72 @@ check('dod-definition-present', () => {
   assert(/name:\s*DoD Gate/.test(wfText), 'workflow must publish the "DoD Gate / dod" context (name: DoD Gate + job dod)');
   assert(/job|dod:/.test(wfText) && /verify-local-gates\.mjs/.test(wfText), 'the DoD Gate job must enforce the DoD by running the local gate suite');
   return { doc: 'docs/dod/definition-of-done.md', context: 'DoD Gate / dod', exitCriteria: 7 };
+});
+
+// Reproducible .vsix gate (ADR-0066 / LBA-REQ-085): the packaged artifact must be BYTE-REPRODUCIBLE so the
+// vsix a human reviews equals the vsix CI ships. vsce/yazl stamps each zip entry's mtime with the package time
+// (ignoring SOURCE_DATE_EPOCH), so scripts/normalize-vsix.mjs pins every entry's DOS timestamp to 1980-01-01.
+// This gate guards (a) the wiring (package pipeline + test proof still call it) and (b) the behavior (two zips
+// with identical content but different entry timestamps normalize to BYTE-IDENTICAL output). Dep-free: builds a
+// tiny stored-entry zip by hand so the proof runs synchronously without pulling in a zip library.
+function tinyStoredZip(dosTime, dosDate) {
+  const name = Buffer.from('a');
+  const data = Buffer.from('A');
+  const local = Buffer.alloc(30 + name.length);
+  local.writeUInt32LE(0x04034b50, 0); // local file header signature
+  local.writeUInt16LE(20, 4); // version needed
+  local.writeUInt16LE(0, 6); // flags
+  local.writeUInt16LE(0, 8); // method: stored
+  local.writeUInt16LE(dosTime, 10);
+  local.writeUInt16LE(dosDate, 12);
+  local.writeUInt32LE(0, 14); // crc (normalizer does not validate)
+  local.writeUInt32LE(data.length, 18); // compressed size
+  local.writeUInt32LE(data.length, 22); // uncompressed size
+  local.writeUInt16LE(name.length, 26); // name length
+  local.writeUInt16LE(0, 28); // extra length
+  name.copy(local, 30);
+  const cdOffset = local.length + data.length;
+  const central = Buffer.alloc(46 + name.length);
+  central.writeUInt32LE(0x02014b50, 0); // central directory header signature
+  central.writeUInt16LE(20, 4); // version made by
+  central.writeUInt16LE(20, 6); // version needed
+  central.writeUInt16LE(0, 8); // flags
+  central.writeUInt16LE(0, 10); // method
+  central.writeUInt16LE(dosTime, 12);
+  central.writeUInt16LE(dosDate, 14);
+  central.writeUInt32LE(0, 16); // crc
+  central.writeUInt32LE(data.length, 20); // compressed size
+  central.writeUInt32LE(data.length, 24); // uncompressed size
+  central.writeUInt16LE(name.length, 28); // name length
+  central.writeUInt16LE(0, 30); // extra length
+  central.writeUInt16LE(0, 32); // comment length
+  central.writeUInt16LE(0, 34); // disk number start
+  central.writeUInt16LE(0, 36); // internal attributes
+  central.writeUInt32LE(0, 38); // external attributes
+  central.writeUInt32LE(0, 42); // relative offset of local header
+  name.copy(central, 46);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0); // EOCD signature
+  eocd.writeUInt16LE(1, 8); // cd entries this disk
+  eocd.writeUInt16LE(1, 10); // total entries
+  eocd.writeUInt32LE(central.length, 12); // cd size
+  eocd.writeUInt32LE(cdOffset, 16); // cd offset
+  return Buffer.concat([local, data, central, eocd]);
+}
+check('reproducible-vsix-normalizer', () => {
+  // Wiring guard: the package pipeline must run the normalizer and npm test must run its behavioral proof.
+  const pkg = readJson('package.json');
+  assert(/normalize-vsix\.mjs/.test(pkg.scripts?.package || ''), 'the "package" script must pipe the vsix through scripts/normalize-vsix.mjs');
+  assert(/normalize-vsix\.mjs/.test(pkg.scripts?.test || ''), 'the "test" script must run test/normalize-vsix.mjs (the reproducibility proof)');
+  assert(existsSync(join(pkgRoot, 'scripts', 'normalize-vsix.mjs')), 'scripts/normalize-vsix.mjs must exist');
+  // Behavioral guard: same content + different entry timestamps => byte-identical after normalize.
+  const early = tinyStoredZip(0x1234, 0x2abc);
+  const late = tinyStoredZip(0x5678, 0x5abc);
+  assert(!early.equals(late), 'precondition: differing timestamps => differing bytes');
+  assert(normalizeZipTimestamps(early) === 1 && normalizeZipTimestamps(late) === 1, 'normalized the single entry in each');
+  assert(early.equals(late), 'after normalize: same-content zips with different timestamps are byte-identical (reproducible)');
+  assert(early.readUInt16LE(10) === 0x0000 && early.readUInt16LE(12) === 0x0021, 'DOS timestamp pinned to 1980-01-01');
+  return { wired: 'package + test', pinned: '1980-01-01', proof: 'same-content/different-mtime => byte-identical' };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
