@@ -1,16 +1,18 @@
 {
   "schema": "labview-benchmark-actor/cleanroom-gate-suite-receipt-v1",
   "verdict": "pass",
-  "generatedAt": "2026-08-04T06:57:54Z",
+  "generatedAt": "2026-08-04T10:27:51Z",
   "host": "lba-ubuntu2604-witness",
   "component": "extension",
   "lbabus": {
     "path": "node scripts/lba.mjs verify",
     "version": "1.0.0",
-    "sourceCommit": "b8dd4fca6946aa23f0f4ef360c79822e55e2fae5",
+    "sourceCommit": "1054b07e7932244743f2a29a8e29d64a86780d9c",
     "sourceRole": "extension-candidate"
   },
-  "suite": "extension release gate suite (node scripts/lba.mjs verify) at the ext 1.0.0 candidate b8dd4fc, on Ubuntu-26.04 VMware guest",
+  "suite": "extension release gate suite (node scripts/lba.mjs verify) at the ext 1.0.0 candidate 1054b07 (Track B folded in) on the VMWARE plane",
   "gatesFailed": 0,
-  "gates": [{ "name": "lba-verify", "ok": true, "detail": "180/180 checks passed on linux-x64" }]
+  "gates": [
+    { "name": "lba-verify", "ok": true, "detail": "180/180 checks passed on linux-x64 (node v22.23.2)" }
+  ]
 }

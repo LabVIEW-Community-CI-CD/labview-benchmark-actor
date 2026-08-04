@@ -1,15 +1,15 @@
 {
   "schema": "labview-benchmark-actor/hardware-capability@v1",
-  "probedAt": "2026-08-04T06:16:30.958Z",
+  "probedAt": "2026-08-04T09:57:57.428Z",
   "platform": "linux-x64",
   "cpu": {
     "model": "Intel(R) Core(TM) Ultra 9 275HX",
     "logicalCores": 24,
-    "speedMHzMax": 4974
+    "speedMHzMax": 5057
   },
   "memory": {
     "totalGiB": 61,
-    "freeGiB": 39.7
+    "freeGiB": 38.1
   },
   "gpus": [
     {
@@ -18,7 +18,7 @@
     }
   ],
   "containerRuntime": "linux/x86_64 24cpu 65465221120b",
-  "loadAvg1m": 0.73,
+  "loadAvg1m": 0.7,
   "parallelismBudget": {
     "cpuWorkers": 23,
     "gpuLanes": 1,

@@ -271,15 +271,15 @@
           "signoffs": {
             "LINUX": {
               "agreed": true,
-              "reviewedCommit": "237532781f593c4d9e6d8b97059188c9447c50dc",
-              "at": "2026-08-03T21:07:37Z",
-              "note": "Validated on the LINUX plane (node v22.22.1) at develop 2375327 -- the 1.0.0 Marketplace release: product-facing README (all links absolute/marketplace-safe; retains the repo-standards-review v0.2.19 / d44f210d stamp + the absorbed-mprr/ADR-0009 citation the gates require), the governed join-the-mesh quickstart (26514 set + navigation), and version 0.5.0 -> 1.0.0 + CHANGELOG [1.0.0]. Docs/packaging only -- no src change from 0.5.0, so the shipped .vsix surface is unchanged (the agreement file is tools/, excluded from the .vsix). lba verify 180/180 on linux-x64; agent-last-gate PASS 8/8 (npm run package -> labview-benchmark-actor.vsix 116.4 KB, vsix-allow-set clean, icon 128x128, manifest-changelog has 1.0.0, marketplace-safe README, metadata complete); npm test green (compile + activation + viewer + mcp-stdio + mcp-doc-drift). LINUX agrees to publish extension 1.0.0 at 2375327; the WIN plane sign-off + the human reviewer-VM visual judgment pass remain before tagging ext-v1.0.0."
+              "reviewedCommit": "1054b07e7932244743f2a29a8e29d64a86780d9c",
+              "at": "2026-08-04T11:46:02.731Z",
+              "note": "Re-validated on the LINUX plane (node v22.22.1) at release/1.0.0 1054b07 -- the 1.0.0 candidate re-cut to fold in Track B (reviewer-workstation witness VM + throughput-to-disk ladder command, #371). npm test PASS (25 commands incl runThroughputLadder + 2 LM tools), node scripts/lba.mjs verify 180/180. Machine-corroboration witness rendered the deterministic benchmark viewer (seriesHash 7ad1c75d, pngSha256 26efa11e -- canonical, agrees byte-identical with the VMWARE witness). vsce packaging is not byte-reproducible, so the LINUX build hash differs from the WIN-reviewed candidate vsix 3b5238ea921d5fdfc951f1401a8ce7015df373a79df82ff7f9e58e724cca8412; commit 1054b07 is the release identity. The only payload delta vs the previously sealed 282d0268 is the win32-guarded runThroughputLadder command (errors \"Linux/macOS tool\" on Windows). LINUX agrees to publish extension 1.0.0."
             },
             "WIN": {
               "agreed": true,
-              "reviewedCommit": "7ead6193ceac07f11f7f50e31ff9787d88d2c271",
-              "at": "2026-08-03T21:27:43Z",
-              "note": "Independently validated on the WIN plane (the actor reviewer VM: native Windows 11 10.0.26200, win32-x64/AMD64, node v22.15.0, npm 10.9.2, git 2.54.0.windows.1) at release/1.0.0 tip 7ead619. Because the labview-benchmark-actor repo is private and the reviewer VM holds no persisted credential, release/1.0.0 was transferred to the VM via an auth-free git bundle produced on the LINUX host (git bundle verify: complete history, ref refs/heads/release/1.0.0 = 7ead619), then git clone -b release/1.0.0 <bundle>; HEAD verified 7ead619 on branch release/1.0.0. 7ead619 = LINUX-reviewed develop 2375327 + the LINUX agreement commit, and the agreement file is under tools/ (excluded from the .vsix via .vscodeignore), so the shipped extension surface is byte-identical to LINUX's 2375327. npm ci clean. Per-suite test matrix on win32-x64 (each suite run individually, not the && chain): viewer-render, viewer-plain-render, panels-render, mcp-server (the folded 4 core + 9 grid = 13-tool stdio surface round-trips initialize + tools/list + tools/call), and mcp-tool-doc all PASS. ENVIRONMENTAL NOTE (same as 0.4.0/0.5.0): the one activation assertion 'captureLaunch surfaces the LabVIEW-not-found guard when no LabVIEW is configured' is written for the LabVIEW-less Linux CI host; this WIN reviewer VM has real LabVIEW 2026 installed at a candidate path so resolveLabview() legitimately returns a real path and the not-found guard correctly does not fire -- the extension is behaving correctly, the assertion is simply not applicable on a real-LabVIEW host. Reproduced the intended no-LabVIEW condition via a transient node --require shim (kept OUTSIDE the repo checkout; no repo/source/test file modified) masking ONLY the two exact LabVIEW.exe candidate paths in fs.existsSync -> extension-activation then PASSES with exit 0 / zero FAIL lines: activate() registered 24 commands + 2 LM tools + prerequisite remediation + clean deactivate. agent-last-gate --skip-tests PASS 8/8 on win32-x64: build-and-tests (asserted green above), vsix ~116 KB (well under the 1024 KB ceiling), vsix-allow-set clean, icon 128x128, manifest-changelog has a section for 1.0.0, marketplace-safe README (no repo-relative links), manifest metadata complete (keywords/categories/bugs/homepage/publisher/displayName/description). The 1.0.0 release-prep itself is docs/packaging only (product-facing README + the governed join-the-mesh quickstart + version 0.5.0 -> 1.0.0 + CHANGELOG [1.0.0]); the shipped 24-command + 2-LM-tool feature surface is the accumulated governed develop work. WIN agrees to publish extension 1.0.0 at 7ead619; the human reviewer-VM visual judgment pass remains an operator/reviewer action before tagging ext-v1.0.0."
+              "reviewedCommit": "1054b07e7932244743f2a29a8e29d64a86780d9c",
+              "at": "2026-08-04T11:47:17.049Z",
+              "note": "Independently validated on the WIN plane (the actor reviewer VM, native Windows 11) at release/1.0.0 1054b07: git checkout 1054b07 (HEAD confirmed), npm ci (276 packages) + npm run compile (exit 0) + npm run package -> vsix sha256 3b5238ea921d5fdfc951f1401a8ce7015df373a79df82ff7f9e58e724cca8412, code --install-extension confirmed svelderrainruiz.labview-benchmark-actor@1.0.0; a real live LabVIEW-2026-launch benchmark run-1785842247349 (495 frames @12fps/41023ms, peakCpu 100%, peakRam 6310MB, peakDiskWrite 122.3MB/s, ffmpeg-gdigrab); an enrolled human WINDOWS_VM reviewer verdict PASS Ed25519-signed (reviewer@vi-tech.nl, verdictDigest f3e0c5eb) + net-staged over lbabus net (DONE task rev-1.0.0-net, host ACK). WIN agrees to publish extension 1.0.0."
             }
           },
           "visualReview": {
@@ -288,8 +288,8 @@
               "target": {
                 "component": "extension",
                 "version": "1.0.0",
-                "commit": "b8dd4fca6946aa23f0f4ef360c79822e55e2fae5",
-                "vsixSha256": "282d0268da8cf059d85dc57d06411f63bfdaf10d38d46f02891fdf4575765f27"
+                "commit": "1054b07e7932244743f2a29a8e29d64a86780d9c",
+                "vsixSha256": "3b5238ea921d5fdfc951f1401a8ce7015df373a79df82ff7f9e58e724cca8412"
               },
               "verdict": "pass",
               "reviewer": "reviewer@vi-tech.nl",
@@ -298,21 +298,21 @@
               "evidence": [
                 {
                   "kind": "real-benchmark-live",
-                  "ref": "run-1785822167369: 1281 frames @ 12fps, durationMs=106368, peakCpu=100%, peakRam=4897MB, peakDiskWrite=238.6MB/s, plane=WIN, workload=labview-launch (ffmpeg-gdigrab)"
+                  "ref": "run-1785842247349: 495 frames @12fps/41023ms, peakCpu 100%, peakRam 6310MB, peakDiskWrite 122.3MB/s, plane=WIN, workload=labview-launch (ffmpeg-gdigrab)"
                 }
               ],
-              "renderedAt": "2026-08-04T05:46:05.977Z"
+              "renderedAt": "2026-08-04T11:27:45.626Z"
             },
             "signOff": {
               "schema": "labview-benchmark-actor/acg-human-signoff-v1",
               "subject": {
-                "verdictDigest": "db73d01c22cb79ca4e957c9eb222d837db6ee2728a7af584d85dca58992ca174",
+                "verdictDigest": "f3e0c5ebfde97b8daf62859b4455629392be202c9607b71aa9efdb732f467a8e",
                 "consensusVerdict": "pass",
                 "target": {
                   "component": "extension",
                   "version": "1.0.0",
-                  "commit": "b8dd4fca6946aa23f0f4ef360c79822e55e2fae5",
-                  "vsixSha256": "282d0268da8cf059d85dc57d06411f63bfdaf10d38d46f02891fdf4575765f27"
+                  "commit": "1054b07e7932244743f2a29a8e29d64a86780d9c",
+                  "vsixSha256": "3b5238ea921d5fdfc951f1401a8ce7015df373a79df82ff7f9e58e724cca8412"
                 }
               },
               "reviewer": "reviewer@vi-tech.nl",
@@ -320,8 +320,8 @@
               "station": "WINDOWS_VM",
               "algorithm": "ed25519",
               "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
-              "signedAt": "2026-08-04T05:46:05.980Z",
-              "signature": "Yxtmf8bz8fJthTvc5isv8A+OGeXl5nVwlv7jLsCXVyc+qxzPOaTy/Cumi1IfiU3shGa1a8Jz+R3DkIgxqY2oAw=="
+              "signedAt": "2026-08-04T11:27:45.627Z",
+              "signature": "RUt8WXTVDhh0QpmMMhRea/E95tzx6pUyJzEJSnExYXIZa3EBoUHoozH1AxsmuPRTlgmxw/c4vb68sbxutWplDA=="
             }
           }
         }

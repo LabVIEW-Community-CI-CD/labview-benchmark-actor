@@ -2,7 +2,7 @@
   "schema": "labview-benchmark-actor/mprr-viewer-screenshot-receipt@v1",
   "producedBy": "VMWARE",
   "engine": "headless chromium (playwright)",
-  "producedAt": "2026-08-04T06:53:04.045Z",
+  "producedAt": "2026-08-04T10:27:51.881Z",
   "fixture": "experiments/mprr-ring/fixtures/short-packet-run.json",
   "metric": "cumulativeBytes",
   "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
