@@ -16,6 +16,7 @@ extension-agents/agents.manifest.json text eol=lf
 # (experiments/mesh-stress-signature/fixtures/win-vm-*.json are intentionally CRLF and are neither packaged nor bundled).
 *.mjs text eol=lf
 *.js text eol=lf
+*.ts text eol=lf
 *.md text eol=lf
 /package.json text eol=lf
 /README.md text eol=lf

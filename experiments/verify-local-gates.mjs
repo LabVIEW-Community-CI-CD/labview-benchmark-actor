@@ -3155,7 +3155,7 @@ check('vsix-cross-plane-repro-workflow-wired', () => {
   assert(tsconfig.compilerOptions?.newLine === 'lf', 'tsconfig must pin newLine=lf so tsc emits LF on every plane');
   const attrs = readFileSync(join(pkgRoot, '.gitattributes'), 'utf8').replace(/\r\n/g, '\n');
   assert(/^\*\.mjs text eol=lf$/m.test(attrs), '.gitattributes must LF-pin *.mjs (packaged media + bundled acg-mcp sources)');
-  assert(/^media\/\*\.json text eol=lf$/m.test(attrs), '.gitattributes must LF-pin the packaged media/*.json');
+  assert(/^\*\.ts text eol=lf$/m.test(attrs), '.gitattributes must LF-pin *.ts (so tsc string literals are LF on every plane)');
   return { planes: ['linux', 'windows'], proof: 'npm run package on both -> identical sha256 (fail-closed)' };
 });
 const passed = checks.filter((c) => c.pass).length;
