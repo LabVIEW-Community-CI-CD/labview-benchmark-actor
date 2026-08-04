@@ -130,7 +130,9 @@ C. Documentation
 Verdict: if A + B look publish-ready, this candidate is cleared for the Marketplace.
 Report issues back to the agent; nothing is published until you approve.
 '@
-  $tmp = Join-Path $env:TEMP 'lba-review-checklist.txt'
+  # Cross-platform host temp dir: $env:TEMP is null when this script runs under pwsh on the LINUX
+  # (VirtualBox) lane -- use [IO.Path]::GetTempPath() (returns %TEMP% on Windows, /tmp on Linux).
+  $tmp = Join-Path ([System.IO.Path]::GetTempPath()) 'lba-review-checklist.txt'
   Set-Content -Path $tmp -Value $checklist -Encoding ASCII
   Step 'upload review checklist -> C:/lba-review/REVIEW-CHECKLIST.txt'
   vagrant upload $tmp 'C:/lba-review/REVIEW-CHECKLIST.txt' $Machine | Out-Null
