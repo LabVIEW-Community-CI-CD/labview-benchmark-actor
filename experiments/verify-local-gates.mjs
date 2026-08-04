@@ -1899,6 +1899,18 @@ check('mesh-run-ingest', () => {
   return { selftest: 'meshIngest 8/8', requirement: 'LBA-REQ-091', adr: 'ADR-0074' };
 });
 
+// LBA-REQ-092 / ADR-0075: RUN-BOUND CROSS-PLANE CORROBORATE + COMPARE -- meshCorroborate.corroborateRun consumes the
+// run-bound receipt-collection@1 (LBA-REQ-091 ingest) and corroborates the collected plane receipts cross-plane (>= 2
+// distinct planes, all PASS, each re-deriving the dispatch identity) + REUSES benchmark-store compareRuns for the
+// WIN-vs-LINUX delta, emitting a run-bound mesh-cross-plane-report@1. Asserts the selftest (8/8) + that the committed
+// two-plane fan-out collection corroborates cross-plane (the CLI exits 0 only when corroborated, fail-closed).
+check('mesh-cross-plane-corroborate', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshCorroborate.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshCorroborate.mjs'), '--collection', join(dir, 'mesh-run-collection.json')], { stdio: 'pipe' });
+  return { selftest: 'meshCorroborate 8/8', corroborated: 'committed LINUX+WIN collection', requirement: 'LBA-REQ-092', adr: 'ADR-0075' };
+});
+
 // LBA-REQ-077 / ADR-0058: the opt-in VERIFIED TIER -- each returned actor receipt is SIGNED by the actor's
 // ENROLLED Ed25519 key (reusing the ADR-0016 acg-provenance attestation engine), and a verified-receipt-collection@1
 // admits a receipt only when it carries a valid attestation from its declared, enrolled actor. Asserts the

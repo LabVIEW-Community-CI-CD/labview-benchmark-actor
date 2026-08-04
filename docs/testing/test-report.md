@@ -21,7 +21,7 @@ the `LBA Local Gates verify` CI job.
 
 ## 2. Executed verification evidence (ISO/IEC/IEEE 29119-3)
 
-### 2.1 Local gate suite — 189 fail-closed checks
+### 2.1 Local gate suite — 190 fail-closed checks
 
 Run by `node experiments/verify-local-gates.mjs`. All must pass. The full gate inventory (the executed
 test items at the gate granularity) is:
@@ -144,6 +144,7 @@ mesh-board-view
 mesh-calibration-view
 mesh-concurrent-actors-real
 mesh-coverage-observatory
+mesh-cross-plane-corroborate
 mesh-live-fanout-wired
 mesh-live-ladder-real
 mesh-log-append-only
@@ -250,11 +251,11 @@ The controlled state of the repository's configuration items, derived from the r
 
 | Configuration item class | Count | Register |
 | --- | --- | --- |
-| Requirements (total) | 91 | docs/requirements/srs.md, rtm.csv |
-| — Status: Proven | 90 | rtm.csv |
+| Requirements (total) | 92 | docs/requirements/srs.md, rtm.csv |
+| — Status: Proven | 91 | rtm.csv |
 | — Status: Superseded | 1 | rtm.csv |
-| Architecture decisions (ADRs) | 74 | docs/architecture/adr/README.md |
-| Governed gates | 189 | experiments/verify-local-gates.mjs |
+| Architecture decisions (ADRs) | 75 | docs/architecture/adr/README.md |
+| Governed gates | 190 | experiments/verify-local-gates.mjs |
 | Correspondence rules | 7 | experiments/reqs-coverage/verify-correspondences.mjs |
 | Governed test items | 91 | docs/testing/test-plan.md |
 
@@ -273,4 +274,4 @@ the same correspondence graph (ADR-0013).
 `node experiments/reqs-coverage/generate-test-report.mjs` rewrites this file; `--check` (the
 `test-report-current` gate) fails closed on drift, so the report can never silently lag the apparatus.
 
-_Generated from 189 gates, 7 correspondence rules, 91 requirements, 74 ADRs, 91 test items._
+_Generated from 190 gates, 7 correspondence rules, 92 requirements, 75 ADRs, 91 test items._
