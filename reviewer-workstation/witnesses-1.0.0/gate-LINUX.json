@@ -1,0 +1,18 @@
+{
+  "schema": "labview-benchmark-actor/cleanroom-gate-suite-receipt-v1",
+  "verdict": "pass",
+  "generatedAt": "2026-08-03T00:00:00Z",
+  "host": "sergio-ThinkPad-P16-Gen-3",
+  "component": "extension",
+  "lbabus": {
+    "path": "node scripts/lba.mjs verify",
+    "version": "1.0.0",
+    "sourceCommit": "b8dd4fca6946aa23f0f4ef360c79822e55e2fae5",
+    "sourceRole": "extension-candidate"
+  },
+  "suite": "extension release gate suite (node scripts/lba.mjs verify) at the ext 1.0.0 candidate b8dd4fc -- version+sourceCommit name the EXTENSION candidate the composite gate binds to (LBA-REQ-070), not the bundled lbabus binary",
+  "gatesFailed": 0,
+  "gates": [
+    { "name": "lba-verify", "ok": true, "detail": "180/180 checks passed on linux-x64 (node v22.22.1)" }
+  ]
+}

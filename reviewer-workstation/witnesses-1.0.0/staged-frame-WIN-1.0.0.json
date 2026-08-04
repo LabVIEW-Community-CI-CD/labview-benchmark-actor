@@ -1,0 +1,26 @@
+{
+  "schema": "labview-benchmark-actor/closed-loop-readback@1",
+  "transport": "lbabus net -- bus-msg@1, ADR-0003/0004 (TCP)",
+  "listenTcp": 7420,
+  "expected": {
+    "type": "DONE",
+    "task": "rev-1.0.0-net"
+  },
+  "matched": true,
+  "reply": {
+    "transport": "TCP",
+    "remote": "127.0.0.1:57632",
+    "ts": "2026-08-04T07:13:21.295Z",
+    "senderId": "WIN",
+    "seq": "1785827601",
+    "type": "DONE",
+    "task": "rev-1.0.0-net",
+    "ackOf": null,
+    "payload": "ext 1.0.0 staged + live-launch benchmarked (run-1785822167369): 1281 frames @12fps/106368ms, peakCpu 100%, peakRam 4897MB; review OK"
+  },
+  "framesHeard": 1,
+  "startedAt": "2026-08-04T07:12:11.827Z",
+  "resolvedAt": "2026-08-04T07:13:22.531Z",
+  "listenerExit": 0,
+  "note": "VM agent reply correlated by task id; loop closed over TCP (no GitHub Discussion)."
+}
