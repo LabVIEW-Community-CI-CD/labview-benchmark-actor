@@ -8,3 +8,18 @@ experiments/ollama-bus/*.sh text eol=lf
 # it must stay LF on every plane (a Windows CRLF checkout would otherwise hash differently than the manifest).
 extension-agents/AGENTS.md text eol=lf
 extension-agents/agents.manifest.json text eol=lf
+
+# Cross-plane .vsix byte-reproducibility (ADR-0067 / LBA-REQ-086): the files packaged into the .vsix -- and the
+# experiments/ sources bundled into out/acg-mcp-bundle by stage-acg-mcp -- must be LF on EVERY plane so a Windows
+# build and a Linux build of the same commit are byte-identical. *.mjs/*.js/*.md carry no committed CRLF, so LF is
+# safe repo-wide; *.json is scoped to the packaged media set to avoid the Windows-captured experiment fixtures
+# (experiments/mesh-stress-signature/fixtures/win-vm-*.json are intentionally CRLF and are neither packaged nor bundled).
+*.mjs text eol=lf
+*.js text eol=lf
+*.md text eol=lf
+/package.json text eol=lf
+/README.md text eol=lf
+/CHANGELOG.md text eol=lf
+/LICENSE text eol=lf
+media/*.json text eol=lf
+media/icon.png binary

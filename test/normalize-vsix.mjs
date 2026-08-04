@@ -45,7 +45,14 @@ assert.notStrictEqual(firstLocal, -1, 'has a local file header');
 assert.strictEqual(a.readUInt16LE(firstLocal + 10), 0x0000, 'DOS mod time pinned to 0x0000');
 assert.strictEqual(a.readUInt16LE(firstLocal + 12), 0x0021, 'DOS mod date pinned to 0x0021 (1980-01-01)');
 
+// Cross-plane metadata is pinned too: the central-directory record's version-made-by (@+4) = Unix 6.3 and its
+// external file attributes (@+38) = regular file 0644, regardless of the building plane's OS / umask.
+const firstCentral = a.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+assert.notStrictEqual(firstCentral, -1, 'has a central-directory record');
+assert.strictEqual(a.readUInt16LE(firstCentral + 4), 0x033f, 'version-made-by pinned to Unix 6.3');
+assert.strictEqual(a.readUInt32LE(firstCentral + 38), 0x81a40000, 'external attrs pinned to regular-file 0644 (cross-plane)');
+
 // Fail-closed: a non-zip buffer throws (no silent no-op).
 assert.throws(() => normalizeZipTimestamps(Buffer.from('not a zip at all')), /End-of-Central-Directory/, 'non-zip fails closed');
 
-console.log('normalize-vsix: PASS -- same-content zips with different mtimes normalize byte-identical + idempotent + DOS-epoch pinned + fail-closed on non-zip');
+console.log('normalize-vsix: PASS -- same-content zips normalize byte-identical + idempotent + DOS-epoch + mode/version pinned (cross-plane) + fail-closed on non-zip');
