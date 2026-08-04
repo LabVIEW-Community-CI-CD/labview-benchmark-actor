@@ -1,0 +1,64 @@
+{
+  "schema": "labview-benchmark-actor/throughput-ladder-receipt@v1",
+  "tool": "tpd (throughput-to-disk; socket -> disk, --fsync-every 64M; no LabVIEW)",
+  "plane": "REVIEWER-LINUX",
+  "os": "linux",
+  "host": "sergio-ThinkPad-P16-Gen-3",
+  "dotnet": "10.0.110",
+  "capturedAt": "2026-08-04T09:59:47.965Z",
+  "frame": "256K",
+  "samplesPerRung": 3,
+  "warmupPerRung": 1,
+  "transport": "tcp",
+  "rungs": [
+    {
+      "bytes": "256M",
+      "bytesExact": 268435456,
+      "frame": "256K",
+      "samplesMbps": [
+        1534.9,
+        1389.9,
+        1402.1
+      ],
+      "meanMbps": 1442.3,
+      "stddevMbps": 80.43,
+      "covPct": 5.58,
+      "meanSecs": 0.183
+    },
+    {
+      "bytes": "512M",
+      "bytesExact": 536870912,
+      "frame": "256K",
+      "samplesMbps": [
+        1710.4,
+        1630.9,
+        1508
+      ],
+      "meanMbps": 1616.4,
+      "stddevMbps": 101.97,
+      "covPct": 6.31,
+      "meanSecs": 0.34
+    },
+    {
+      "bytes": "1G",
+      "bytesExact": 1073741824,
+      "frame": "256K",
+      "samplesMbps": [
+        1792.3,
+        1610.7,
+        1638.9
+      ],
+      "meanMbps": 1680.6,
+      "stddevMbps": 97.73,
+      "covPct": 5.81,
+      "meanSecs": 0.625
+    }
+  ],
+  "summary": {
+    "rungCount": 3,
+    "meanMbps": 1579.8,
+    "minMbps": 1442.3,
+    "maxMbps": 1680.6,
+    "maxRungCovPct": 6.31
+  }
+}

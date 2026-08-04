@@ -9,7 +9,7 @@
 #>
 param([Parameter(Mandatory)][string]$Vsix)
 $ErrorActionPreference = 'Stop'
-$expected = 'labview-community-ci-cd.labview-benchmark-actor'
+$expected = 'svelderrainruiz.labview-benchmark-actor'
 
 $consoleUser = (Get-CimInstance Win32_ComputerSystem).UserName   # e.g. actor\vitech (null if no one logged on)
 $extDirArgs = @()

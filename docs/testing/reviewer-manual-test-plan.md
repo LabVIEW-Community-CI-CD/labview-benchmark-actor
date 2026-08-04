@@ -60,7 +60,7 @@ workspace root.
 - **Pre:** VM provisioned; VS Code installed.
 - **Steps:**
   1. Open VS Code. Open **Extensions** (Ctrl+Shift+X) and confirm `labview-benchmark-actor`
-     (publisher `labview-community-ci-cd`) is installed and enabled.
+     (publisher `svelderrainruiz`) is installed and enabled.
   2. Open the Command Palette and confirm all seven commands appear under the
      "LabVIEW Benchmark Actor:" prefix.
 - **Expected:** the extension is listed and enabled; all seven commands are present.

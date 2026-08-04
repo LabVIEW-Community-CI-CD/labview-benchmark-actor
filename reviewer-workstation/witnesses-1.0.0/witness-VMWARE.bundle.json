@@ -1,0 +1,31 @@
+{
+  "schema": "labview-benchmark-actor/acg-witness-bundle-v1",
+  "plane": "VMWARE",
+  "os": "linux",
+  "gate": {
+    "verdict": "pass",
+    "lbabus": {
+      "version": "1.0.0",
+      "sourceCommit": "1054b07e7932244743f2a29a8e29d64a86780d9c"
+    }
+  },
+  "screenshot": {
+    "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+    "pngSha256": "26efa11e65400fbafa00a3af1feb07df815ab7e24b2429eafd91c8e5a42d70f8"
+  },
+  "ubuntu": "resolute",
+  "capability": {
+    "platform": "linux-x64",
+    "cpu": {
+      "model": "Intel(R) Core(TM) Ultra 7 255H",
+      "logicalCores": 4,
+      "speedMHzMax": null
+    },
+    "memory": {
+      "totalGiB": 5.3,
+      "freeGiB": 4.6
+    },
+    "gpus": []
+  },
+  "assembledAt": "2026-08-04T10:28:55.290Z"
+}
