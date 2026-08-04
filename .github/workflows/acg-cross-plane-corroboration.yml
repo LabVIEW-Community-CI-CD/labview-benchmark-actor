@@ -1,0 +1,70 @@
+name: acg cross-plane corroboration
+
+# Produces a GENUINE Actor Corroboration Grid witness on the LINUX plane (ubuntu-latest) AND the WINDOWS plane
+# (windows-latest) from the same commit -- each plane runs the extension gate (npm test) and emits a witness
+# bundle over the deterministic corroboration anchors (extension version, sourceCommit, gate verdict, viewer
+# seriesHash). The corroborate job runs the corrected cross-plane quorum (ADR-0068 -- independence is the OS-plane)
+# and asserts the two planes CORROBORATE (verdict pass + crossPlane) -- the first genuine two-plane corroboration,
+# automated + live. Enabled by ADR-0067 (cross-plane byte-reproducibility: both planes build the SAME artifact).
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'experiments/acg-quorum/**'
+      - 'experiments/mprr-ring/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/acg-cross-plane-corroboration.yml'
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  witness:
+    name: witness (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: Run the extension gate on this plane (the witness verdict)
+        run: npm test
+      - name: Produce the plane witness
+        shell: bash
+        run: |
+          mkdir -p witness
+          if [ "$RUNNER_OS" = "Windows" ]; then plane=ACTIONS-WINDOWS; else plane=ACTIONS-UBUNTU; fi
+          node experiments/acg-quorum/produce-witness.mjs --plane "$plane" --verdict pass --commit "${{ github.sha }}" > "witness/${{ matrix.os }}.bundle.json"
+          echo "--- ${{ matrix.os }} witness ---"; cat "witness/${{ matrix.os }}.bundle.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: witness-${{ matrix.os }}
+          path: witness/*.bundle.json
+
+  corroborate:
+    name: assert cross-plane corroboration
+    needs: witness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          path: witnesses
+      - name: Corroborate the linux + windows plane witnesses
+        run: |
+          node experiments/acg-quorum/corroborate-planes.mjs \
+            witnesses/witness-ubuntu-latest/ubuntu-latest.bundle.json \
+            witnesses/witness-windows-latest/windows-latest.bundle.json

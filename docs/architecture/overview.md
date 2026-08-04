@@ -229,7 +229,7 @@ multi-VM / Codespace topology.
   target, so full standards compliance is verified continuously and cannot
   silently regress (LBA-REQ-037, ADR-0027).
 
-### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026, LBA-REQ-027, LBA-REQ-028, LBA-REQ-029, LBA-REQ-031
+### 3.9 Corroboration-grid view — addresses LBA-REQ-023, LBA-REQ-024, LBA-REQ-025, LBA-REQ-026, LBA-REQ-027, LBA-REQ-028, LBA-REQ-029, LBA-REQ-031, LBA-REQ-087
 
 The Actor Corroboration Grid (ADR-0014) corroborates a component release across
 independent, heterogeneous witnesses. Each witness — initially a Codespace-Linux node,
@@ -334,6 +334,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-80 | Make the packaged `.vsix` BYTE-REPRODUCIBLE -- a post-package normalizer (`scripts/normalize-vsix.mjs`, pure Node) pins every zip entry's DOS timestamp to 1980-01-01 (content untouched), so repackaging the same committed source yields a byte-identical artifact | the release-review chain binds an artifact by its vsixSha256 (068/069/071) but vsce/yazl stamps each entry mtime with the package wall-clock time + ignores SOURCE_DATE_EPOCH, so two builds of the same commit hash differently -- the reviewed hash could never be proven equal to the shipped one (ADR-0066) | LBA-REQ-085 |
 | AD-81 | Make the `.vsix` CROSS-PLANE byte-reproducible -- extend the normalizer to pin entry mode + version-made-by (not just timestamps) and force LF on packaged content (`.gitattributes` + `tsconfig` `newLine: lf`), so a Windows build and a Linux build of the same commit are byte-identical, proven by a dual-OS (ubuntu+windows) CI build+compare | a plane is the OS the extension runs in (windows/linux); same-plane reproducibility (AD-80) still left a Windows-reviewed build != the Linux-published build, so reviewed != shipped across planes and two planes could not corroborate one artifact (ADR-0067) | LBA-REQ-086 |
 | AD-82 | Correct witness independence to the OS-PLANE (windows/linux) -- a quorum is independent only when it spans BOTH planes; N linux contexts (codespace+vbox+native) are ONE plane (independence.mjs + compare-witnesses.mjs key on os, not a plane/os context label). The committed DEV grid is single-plane so the ACG now HONESTLY fails closed (withholds corroboration) pending a windows-plane witness | ADR-0017 counted CODESPACE/linux + LINUX/linux as distinct, so a linux-only quorum was falsely "independent" -- but a plane is the OS the extension runs in; the shipped 1.0.0 corroboration is a flagged defect (ADR-0068) | LBA-REQ-026 |
+| AD-83 | Produce a GENUINE windows-plane witness in CI (windows-latest) + a linux one (ubuntu-latest) and prove they CROSS-PLANE corroborate LIVE -- closing the "pending a windows witness" gap ADR-0068 found; produce-witness.mjs emits a witness over the deterministic anchors (version/sourceCommit/verdict/viewer seriesHash) + corroborate-planes.mjs runs the corrected quorum fail-closed | windows-latest is a genuine windows plane (the extension runs + the gate passes there) + the viewer seriesHash is deterministic data identical on every plane, so a real two-plane corroboration is automatable (ADR-0069) | LBA-REQ-087 |
 
 ## 5. Risks and open questions
 

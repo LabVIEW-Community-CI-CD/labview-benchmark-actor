@@ -60,8 +60,9 @@ export function compareWitnesses(bundles, { threshold = 0.5 } = {}) {
   bundles.forEach((b, i) => {
     for (const k of allAnchors) {
       if (!applies(k, b)) continue;
+      if (anchors[i][k] == null) continue; // an unprovided OPTIONAL anchor (e.g. an un-rendered Linux pngSha256) is not a comparison
       applicable++;
-      if (anchors[i][k] != null && anchors[i][k] === cons[k]) matched++;
+      if (anchors[i][k] === cons[k]) matched++;
       else divergences.push({ witness: b.plane ?? `#${i}`, anchor: k, got: anchors[i][k], consensus: cons[k] });
     }
   });

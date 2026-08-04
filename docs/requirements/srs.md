@@ -114,6 +114,7 @@ progressively.
 | LBA-REQ-084 | The system shall assign each benchmark measurement a stress-quality weight from the mesh-stress calibration and discount a measurement captured on a stressed actor, so a fail-closed gate proves a cross-plane comparison down-weights results captured under contention. | Cross-plane comparison (LBA-REQ-072/081, grid LBA-REQ-050) treats each actor's result at face value, but the roadmap Phase 4 requires the mesh-stress calibration to DISCOUNT a result captured on a stressed actor -- a contended actor's timing is not a fair sample. The calibration exists (LBA-REQ-032, monotone/separable/repeatable ladder + independent per-actor stress recovery) but nothing turned it into a per-measurement discount. | `stressDiscountedComparison.mjs` folds the committed real ladder (calibration authority) + concurrent-actors capture (recovered per-actor stress) into a `stress-discounted-comparison@1`: each measurement gets a stress-quality weight (idle 1.0 .. saturate 0.0) + is discounted at/above heavy; grounded in the real captures. | `node experiments/mesh-stress-signature/stressDiscountedComparison.selftest.mjs` (7/7) + the committed comparison (via the CLI) + the idle-full/saturate-discounted grounding; gated by `stress-discounted-comparison`. |
 | LBA-REQ-085 | The system shall pin every entry timestamp in the packaged `.vsix` to a fixed constant so that repackaging the same committed source yields a byte-identical artifact, so a fail-closed gate proves a reviewed `.vsix` sha256 can equal the shipped `.vsix` sha256. | The release-review chain binds an artifact by its `vsixSha256` (the reviewer signs a candidate's hash LBA-REQ-068/069; the composite decision blocks publish unless the tagged candidate's hash matches LBA-REQ-071), but `vsce package` (yazl) stamps each zip entry's mtime with the package wall-clock time and ignores `SOURCE_DATE_EPOCH`, so two builds of the SAME commit differ by ~72 timestamp bytes and hash differently -- the reviewed hash could never be proven equal to the shipped hash. | `scripts/normalize-vsix.mjs` (pure Node, no deps) walks the zip (EOCD -> each central-directory record -> its local header) and patches only the 2-byte DOS mod-time + mod-date to 1980-01-01, leaving names/order/compression/content untouched; `npm run package` runs it after `vsce package` so the shipped artifact depends only on the committed content, never the build time. | `node test/normalize-vsix.mjs` (two same-content zips with different mtimes normalize byte-identical + idempotent + epoch-pinned + fail-closed on a non-zip) run by `npm test`, plus the wiring + a synchronous behavioral re-proof; gated by `reproducible-vsix-normalizer`. |
 | LBA-REQ-086 | The system shall package the `.vsix` byte-identically on the windows and linux planes -- pinning its OS-dependent zip metadata (entry timestamp, mode, version-made-by) and forcing LF on its packaged content -- so a fail-closed gate proves a windows build and a linux build of the same commit have the same sha256. | A plane is the OS the extension runs in (windows, linux); the human reviews on the windows plane and CI publishes on the linux plane, and a genuine corroboration needs a windows- AND a linux-plane witness to agree on ONE artifact. But `vsce`/`yazl` writes OS-dependent metadata (mtime from the clock, mode from `fs.stat`, a version-made-by host byte) and `tsc`/checkout can emit CRLF, so a Windows build and a Linux build of the same commit had different sha256 -- the reviewed artifact was never the shipped one, and two planes could not corroborate one identical artifact. | `scripts/normalize-vsix.mjs` pins every entry's timestamp (1980-01-01) + external attributes (regular file 0644) + version-made-by (Unix); `.gitattributes` forces LF on the packaged files (scoped past the Windows-captured fixtures) + `tsconfig.json` sets `newLine: lf`, so the packaged bytes depend only on the committed content, not the plane. | `.github/workflows/vsix-cross-plane-repro.yml` builds `npm run package` on ubuntu-latest AND windows-latest and asserts the two sha256 are identical (fail-closed); the offline gate `vsix-cross-plane-repro-workflow-wired` guards the workflow + prerequisites; `test/normalize-vsix.mjs` covers the mode/version pinning. |
+| LBA-REQ-087 | The system shall produce a genuine witness on the windows plane and the linux plane and prove, in CI, that they cross-plane corroborate over the deterministic anchors, so a fail-closed gate blocks any claim of two-plane corroboration unless both planes actually agree. | ADR-0068 found the ACG's live corroboration single-plane (linux-only) -- genuine cross-plane was PENDING a windows-plane witness, and none was committed. But `windows-latest` CI is a genuine windows plane (the extension runs + the gate passes there), so a real windows witness can be produced automatically; the viewer `seriesHash` is deterministic DATA (identical on every plane), so a linux + windows witness carry the same OS-independent anchors. | `experiments/acg-quorum/produce-witness.mjs` emits an acg-witness-bundle-v1 from the current plane (os, version, sourceCommit, gate verdict, and the seriesHash projected from the committed mprr fixture by the shipped viewer code); pngSha256 is an optional Linux-only anchor. `.github/workflows/acg-cross-plane-corroboration.yml` runs it on ubuntu-latest AND windows-latest (each after `npm test`) and `corroborate-planes.mjs` runs the corrected quorum. | `node experiments/acg-quorum/produce-witness.selftest.mjs` (a linux+windows pair corroborates; a single-plane, divergent, or non-pass pair fails closed) gated by `acg-cross-plane-corroboration`; the workflow drift gate `acg-cross-plane-corroboration-workflow-wired`; the live dual-OS corroborate job. |
 
 ---
 
@@ -2678,6 +2679,35 @@ progressively.
   `vsix-cross-plane-repro-workflow-wired`. This cross-plane identity is the foundation for the two-plane
   corroboration re-seal (LBA-REQ-024/026). Authored under the singular-requirement directive (one `shall`).
 
+### LBA-REQ-087: Genuine cross-plane corroboration (a windows-latest + ubuntu-latest witness prove two planes agree)
+
+- Status: Proven
+- Area: Assurance / corroboration grid (ADR-0069 -- genuine cross-plane corroboration)
+- Statement: The system shall produce a genuine witness on the windows plane and the linux plane and prove, in CI,
+  that they cross-plane corroborate over the deterministic anchors, so a fail-closed gate blocks any claim of
+  two-plane corroboration unless both planes actually agree.
+- Rationale: ADR-0068 corrected independence to the OS-plane and found the ACG's live corroboration single-plane
+  (linux-only) -- genuine cross-plane was PENDING a windows-plane witness, and none was committed. But GitHub
+  Actions `windows-latest` is a genuine windows plane (the extension activates + the gate suite passes there), so a
+  real windows witness can be produced automatically from the same commit. The corroboration anchor that matters
+  cross-plane is deterministic DATA: the viewer `seriesHash` (the shipped viewer's projection of the committed mprr
+  fixture) is identical on every plane, so a linux + windows witness carry the same OS-independent anchors.
+- Acceptance Criteria:
+  - `experiments/acg-quorum/produce-witness.mjs` emits an acg-witness-bundle-v1 from the CURRENT plane: os from the
+    platform, version from package.json, sourceCommit from the commit, verdict from the plane's own gate run, and
+    seriesHash computed from the committed mprr fixture; pngSha256 is optional (a non-rendering plane omits it, and
+    assembleWitness + compareWitnesses treat a null Linux-only anchor as not-claimed, not a divergence).
+  - `.github/workflows/acg-cross-plane-corroboration.yml` runs the producer on ubuntu-latest AND windows-latest
+    (each after `npm test` -- the plane's verdict) and the corroborate job runs `corroborate-planes.mjs`, FAILING
+    CLOSED unless the two planes concur AND span distinct OS-planes (crossPlane).
+  - `produce-witness.selftest.mjs` proves a linux+windows pair corroborates while a single-plane, divergent, or
+    non-pass pair fails closed (gate `acg-cross-plane-corroboration`); a drift gate keeps the workflow wired.
+- Change Guidance: the producer + corroboration live at `experiments/acg-quorum/produce-witness.mjs` +
+  `corroborate-planes.mjs` (+ `produce-witness.selftest.mjs`); the live proof is
+  `.github/workflows/acg-cross-plane-corroboration.yml`; gates `acg-cross-plane-corroboration` +
+  `acg-cross-plane-corroboration-workflow-wired`. Folding the produced witnesses into the full grid (attestation +
+  human sign-off) and the 1.0.0 re-seal is the next step. Authored under the singular-requirement directive (one `shall`).
+
 ---
 
 ## Traceability (requirement → architecture view / test)
@@ -2770,3 +2800,4 @@ progressively.
 | LBA-REQ-084 | Analysis (stress-discounted comparison) | T-084 |
 | LBA-REQ-085 | Packaging / boundary (byte-reproducible .vsix) | T-085 |
 | LBA-REQ-086 | Packaging / boundary (cross-plane byte-reproducible .vsix) | T-086 |
+| LBA-REQ-087 | Corroboration grid (genuine cross-plane corroboration) | T-087 |
