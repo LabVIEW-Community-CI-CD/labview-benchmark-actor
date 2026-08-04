@@ -9,62 +9,75 @@
 
 import { readFileSync } from 'node:fs';
 
-// A witness's environment signature = its plane + os (the provider/OS axis ADR-0017 requires diversity across).
-export function environmentOf(bundle) {
-  return `${bundle?.plane ?? '?'}/${bundle?.os ?? '?'}`;
+// A witness's PLANE is the OS the extension runs in -- exactly two: 'windows' | 'linux'. This is the ONLY axis
+// corroboration independence is measured on (ADR-0068 corrects ADR-0017): two witnesses are independent only if
+// they run on DIFFERENT OS-planes. The bundle's `plane` field is a CONTEXT/hypervisor label (codespace, vbox,
+// vmware, ...) and does NOT by itself establish diversity -- N linux contexts (codespace + vbox + a native host)
+// are ONE linux plane, not N independent witnesses. Hypervisor is a provisioning attribute, never a plane.
+export function planeOf(bundle) {
+  return String(bundle?.os ?? '?').toLowerCase();
 }
 
-// The set of enrolled environment ids from an enrollment doc ({ environments: [{ id | plane, os }] }).
+// Back-compat alias: environmentOf now returns the OS-plane (was `${plane}/${os}`).
+export const environmentOf = planeOf;
+
+// The set of enrolled OS-planes from an enrollment doc ({ planes: [{ plane }] } or legacy { environments: [{ os }] }).
+// The enrolled key is the OS-plane, so prefer an entry's `os`, then a bare `plane` (already an os value), then `id`.
 export function enrolledEnvironmentSet(enrollment) {
-  return new Set((enrollment?.environments ?? []).map((e) => e.id ?? `${e.plane}/${e.os}`));
+  const entries = enrollment?.planes ?? enrollment?.environments ?? [];
+  return new Set(entries.map((e) => String(e.os ?? e.plane ?? e.id ?? '?').toLowerCase()));
 }
 
-// Assess the independence of a witness set. witnesses = [{ bundle, identity }] where `identity` is the recorded
-// provenance identity (ADR-0016 attestation). A witness counts toward the quorum ONLY if its environment is
-// enrolled, its identity is recorded, and its environment has not already been counted (duplicates collapse).
+// Assess the CROSS-PLANE independence of a witness set. witnesses = [{ bundle, identity }] where `identity` is the
+// recorded provenance identity (ADR-0016 attestation). A witness counts toward the quorum ONLY if its OS-plane is
+// enrolled, its identity is recorded, and that plane has not already been counted (a second witness on the same
+// plane is redundant for plane diversity -- it collapses). Independent iff >= quorumMin DISTINCT enrolled planes
+// are counted (with only two planes, that means BOTH linux AND windows).
 export function assessIndependence(witnesses, { enrolledEnvironments, quorumMin = 2 } = {}) {
   const enrolled = enrolledEnvironments instanceof Set ? enrolledEnvironments : enrolledEnvironmentSet(enrolledEnvironments);
-  const seen = new Set();
+  const seenPlanes = new Set();
   const counted = [];
   const excluded = [];
   const list = Array.isArray(witnesses) ? witnesses : [];
   list.forEach((w, i) => {
-    const label = w?.bundle?.plane ?? `#${i}`;
-    const environment = environmentOf(w?.bundle);
+    const context = w?.bundle?.plane ?? `#${i}`; // hypervisor/context label (recorded, NOT the plane)
+    const plane = planeOf(w?.bundle);
     const identity = w?.identity ?? null;
-    if (!enrolled.has(environment)) {
-      excluded.push({ witness: label, environment, reason: 'environment is not enrolled' });
+    if (!enrolled.has(plane)) {
+      excluded.push({ witness: context, plane, reason: 'OS-plane is not enrolled' });
     } else if (!identity) {
-      excluded.push({ witness: label, environment, reason: 'witness identity is not recorded in the provenance' });
-    } else if (seen.has(environment)) {
-      excluded.push({ witness: label, environment, reason: 'duplicates an already-counted environment' });
+      excluded.push({ witness: context, plane, reason: 'witness identity is not recorded in the provenance' });
+    } else if (seenPlanes.has(plane)) {
+      excluded.push({ witness: context, plane, reason: 'duplicates an already-counted OS-plane (same OS = one plane)' });
     } else {
-      seen.add(environment);
-      counted.push({ witness: label, environment, identity });
+      seenPlanes.add(plane);
+      counted.push({ witness: context, plane, identity });
     }
   });
-  const distinctEnrolledEnvironments = [...seen];
-  const independent = distinctEnrolledEnvironments.length >= quorumMin;
+  const distinctPlanes = [...seenPlanes];
+  const crossPlane = distinctPlanes.length >= quorumMin;
+  const independent = crossPlane;
   const reasons = [];
   if (!independent) {
-    reasons.push(`only ${distinctEnrolledEnvironments.length} distinct enrolled environment(s) with a recorded identity; need >= ${quorumMin}`);
+    reasons.push(`only ${distinctPlanes.length} distinct enrolled OS-plane(s) with a recorded identity (${distinctPlanes.join(', ') || 'none'}); a cross-plane quorum needs >= ${quorumMin} (linux AND windows)`);
   }
   return {
-    schema: 'labview-benchmark-actor/acg-independence-verdict-v1',
+    schema: 'labview-benchmark-actor/acg-independence-verdict-v2',
     independent,
+    crossPlane,
     quorumMin,
-    distinctEnrolledEnvironments,
+    distinctPlanes,
     counted,
     excluded,
     reasons,
   };
 }
 
-// Fail-closed helper: reject the quorum (throw) unless it is independent.
+// Fail-closed helper: reject the quorum (throw) unless it spans distinct OS-planes (cross-plane independent).
 export function assertIndependentQuorum(witnesses, opts = {}) {
   const verdict = assessIndependence(witnesses, opts);
   if (!verdict.independent) {
-    throw new Error(`quorum REJECTED (not independent): ${verdict.reasons.join('; ')}`);
+    throw new Error(`quorum REJECTED (not cross-plane independent): ${verdict.reasons.join('; ')}`);
   }
   return verdict;
 }

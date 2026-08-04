@@ -60,7 +60,7 @@ export function runGrid({ witnesses = [], allowlist = {}, enrollment = { environ
     machineCorroborated,
     witnesses: witnesses.length,
     stages: {
-      independence: { ok: independence.independent, environments: independence.distinctEnrolledEnvironments },
+      independence: { ok: independence.independent, planes: independence.distinctPlanes },
       quorum: { ok: quorum.verdict === 'pass', verdict: quorum.verdict, confidence: quorum.confidence },
       attestation: { ok: attestation.consume },
       mesh: { ok: mesh.quorum.verdict === 'pass', ledgerHash: mesh.ledgerHash },

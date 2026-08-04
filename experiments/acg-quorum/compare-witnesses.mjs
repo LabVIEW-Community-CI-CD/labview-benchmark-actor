@@ -7,10 +7,10 @@
 //   LINUX-ONLY anchors (agree across the os==="linux" subset only): pngSha256 (pinned render stack), ubuntu codename.
 //   WITNESSES (recorded, never gated): hardware-capability, host, timestamps.
 //
-// Verdict PASSES iff (a) the witnesses span DISTINCT enrolled environments (no N-of-a-kind -- ADR-0017),
-// (b) a MAJORITY concur on their applicable OS-independent anchors, (c) the consensus gate verdict is "pass",
-// and (d) the graded confidence (matched / applicable anchor comparisons) >= threshold. Otherwise it FAILS
-// CLOSED, naming each dissenting witness + anchor. Dependency-free (Node builtins only).
+// Verdict PASSES iff (a) the witnesses span DISTINCT OS-PLANES (linux AND windows -- ADR-0068 corrects ADR-0017;
+// N linux contexts are ONE plane), (b) a MAJORITY concur on their applicable OS-independent anchors, (c) the
+// consensus gate verdict is "pass", and (d) the graded confidence (matched / applicable anchor comparisons) >=
+// threshold. Otherwise it FAILS CLOSED, naming each dissenting witness + anchor. Dependency-free (Node builtins only).
 
 import { readFileSync } from 'node:fs';
 
@@ -67,24 +67,26 @@ export function compareWitnesses(bundles, { threshold = 0.5 } = {}) {
   });
   const confidence = applicable ? matched / applicable : 0;
 
-  // Independence (ADR-0017): distinct enrolled environments -- reject N-of-a-kind.
-  const distinctEnvironments = new Set(bundles.map((b) => `${b.plane}/${b.os}`)).size >= 2;
+  // Independence (ADR-0068 corrects ADR-0017): the witnesses must span DISTINCT OS-PLANES (linux AND windows).
+  // A plane is the OS the extension runs in; the bundle `plane` field is a hypervisor/context label and does NOT
+  // establish plane diversity -- N linux contexts (codespace + vbox + a native host) are ONE linux plane.
+  const crossPlane = new Set(bundles.map((b) => String(b?.os ?? '?').toLowerCase())).size >= 2;
   // Majority concurrence on the OS-independent anchors.
   const concurs = (i) => OS_INDEPENDENT.every((k) => anchors[i][k] != null && anchors[i][k] === cons[k]);
   const concurring = bundles.filter((_, i) => concurs(i)).length;
   const majority = concurring > bundles.length / 2;
   const verdictPass = cons.verdict === 'pass';
 
-  const pass = distinctEnvironments && majority && verdictPass && confidence >= threshold;
+  const pass = crossPlane && majority && verdictPass && confidence >= threshold;
   return {
-    schema: 'labview-benchmark-actor/acg-quorum-verdict-v1',
+    schema: 'labview-benchmark-actor/acg-quorum-verdict-v2',
     verdict: pass ? 'pass' : 'fail',
     confidence,
     threshold,
     witnesses: bundles.length,
     concurring,
     majority,
-    distinctEnvironments,
+    crossPlane,
     consensusVerdict: cons.verdict,
     consensus: cons,
     divergences,

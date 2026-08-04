@@ -2,10 +2,11 @@
 // compare-ladders.mjs -- ACG benchmark-VARIATION corroboration (LBA-REQ-024 lineage; the best-effort successor
 // to the deterministic screenshot-hash quorum in compare-witnesses.mjs). Ingests N throughput-ladder-receipt@v1
 // (one per witness), aligns the rungs, and emits a corroboration verdict: the witnesses CORROBORATE when they
-// span DISTINCT enrolled environments (ADR-0017) AND every shared rung's cross-witness throughput agrees within
-// a tolerance band (default 20% coefficient-of-variation). It ALWAYS reports the measured variation (per-rung
-// cross-witness mean / stddev / CoV) -- real disk benchmarks VARY run-to-run and box-to-box, so the value is the
-// quantified spread, best-effort, NOT byte-identity. Dependency-free (Node builtins only).
+// span DISTINCT OS-PLANES (linux AND windows -- ADR-0068 corrects ADR-0017; a single-plane ladder set is not
+// corroborated) AND every shared rung's cross-witness throughput agrees within a tolerance band (default 20%
+// coefficient-of-variation). It ALWAYS reports the measured variation (per-rung cross-witness mean / stddev /
+// CoV) -- real disk benchmarks VARY run-to-run and box-to-box, so the value is the quantified spread, best-effort,
+// NOT byte-identity. Dependency-free (Node builtins only).
 
 import { readFileSync } from 'node:fs';
 
@@ -24,8 +25,10 @@ export function compareLadders(receipts, { tolerancePct = DEFAULT_TOLERANCE_PCT 
   }
   const rungSets = receipts.map((r) => new Set((r.rungs || []).map((x) => x.bytes)));
   const common = [...rungSets[0]].filter((b) => rungSets.every((s) => s.has(b)));
-  const planes = receipts.map((r) => `${r.plane}/${r.os ?? '?'}`);
-  const distinctEnvironments = new Set(planes).size >= 2;
+  const contexts = receipts.map((r) => r.plane);
+  // Independence (ADR-0068 corrects ADR-0017): the ladders must span DISTINCT OS-PLANES (linux AND windows); the
+  // receipt `plane` field is a hypervisor/context label, NOT the plane -- N linux ladders are one linux plane.
+  const crossPlane = new Set(receipts.map((r) => String(r?.os ?? '?').toLowerCase())).size >= 2;
 
   const rungs = common.map((bytes) => {
     const perWitness = receipts.map((r) => ({ plane: r.plane, mbps: (r.rungs.find((x) => x.bytes === bytes) || {}).meanMbps }));
@@ -43,20 +46,20 @@ export function compareLadders(receipts, { tolerancePct = DEFAULT_TOLERANCE_PCT 
   });
 
   const allCorroborate = rungs.length > 0 && rungs.every((r) => r.corroborated);
-  const pass = distinctEnvironments && allCorroborate;
+  const pass = crossPlane && allCorroborate;
   return {
     schema: VERDICT_SCHEMA,
     verdict: pass ? 'pass' : 'fail',
     tolerancePct,
     witnesses: receipts.length,
-    planes,
-    distinctEnvironments,
+    contexts,
+    crossPlane,
     commonRungs: common,
     rungs,
     maxCrossCovPct: rungs.length ? round(Math.max(...rungs.map((r) => r.crossCovPct))) : null,
     reason: pass
-      ? `all ${rungs.length} rung(s) corroborate within ${tolerancePct}% across ${receipts.length} distinct witnesses`
-      : !distinctEnvironments ? 'the witnesses are not distinct enrolled environments (no N-of-a-kind, ADR-0017)'
+      ? `all ${rungs.length} rung(s) corroborate within ${tolerancePct}% across ${receipts.length} cross-plane witnesses`
+      : !crossPlane ? 'the witness ladders are not cross-plane (they must span linux AND windows -- ADR-0068; a single-plane ladder set is not corroborated)'
         : rungs.length === 0 ? 'no rungs are common to all witnesses'
           : `${rungs.filter((r) => !r.corroborated).length} rung(s) exceed the ${tolerancePct}% tolerance`,
   };

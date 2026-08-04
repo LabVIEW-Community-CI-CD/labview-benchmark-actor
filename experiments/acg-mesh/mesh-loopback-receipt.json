@@ -1,7 +1,7 @@
 {
   "schema": "labview-benchmark-actor/acg-mesh-loopback-receipt-v1",
   "transport": "lbabus bus-msg@1 (ADR-0003) over loopback 127.0.0.1 TCP",
-  "producedAt": "2026-08-01T11:38:14.502Z",
+  "producedAt": "2026-08-04T14:40:15.794Z",
   "beaconed": [
     "acg-witness:codespace",
     "acg-witness:host-linux"
@@ -15,14 +15,14 @@
     "missing": [],
     "mismatched": [],
     "quorum": {
-      "schema": "labview-benchmark-actor/acg-quorum-verdict-v1",
-      "verdict": "pass",
+      "schema": "labview-benchmark-actor/acg-quorum-verdict-v2",
+      "verdict": "fail",
       "confidence": 0.9166666666666666,
       "threshold": 0.5,
       "witnesses": 2,
       "concurring": 2,
       "majority": true,
-      "distinctEnvironments": true,
+      "crossPlane": false,
       "consensusVerdict": "pass",
       "consensus": {
         "version": "0.13.0",
