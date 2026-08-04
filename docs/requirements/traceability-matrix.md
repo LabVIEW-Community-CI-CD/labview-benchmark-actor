@@ -77,7 +77,7 @@
 | LBA-REQ-068 | Net-only live VM-agent drive (govern the released-CLI closed loop as a committed receipt) | Proven | §3.2 Deployment | ADR-0049 | T-068 | 6 |
 | LBA-REQ-069 | Release-with-review drive (bind the net-staged candidate to the signed + announced verdict) | Proven | §3.2 Deployment | ADR-0050 | T-069 | 5 |
 | LBA-REQ-070 | Composite release decision (bind the machine corroboration gate to the human visual gate over one net-staged candidate) | Proven | §3.2 Deployment | ADR-0051 | T-070 | 6 |
-| LBA-REQ-071 | Enforce the composite release decision in the extension release workflow | Proven | §3.2 Deployment | ADR-0052 | T-071 | 4 |
+| LBA-REQ-071 | Enforce the composite release decision in the extension release workflow | Proven | §3.2 Deployment | ADR-0052, ADR-0073 | T-071 | 4 |
 | LBA-REQ-072 | Cross-plane launch-benchmark parity (identity is the spec, not the series) | Proven | §3.2 Deployment | ADR-0053 | T-072 | 6 |
 | LBA-REQ-073 | Mesh-run cross-plane fulfillment (the North Star loop) | Proven | §3.2 Deployment | ADR-0054 | T-073 | 5 |
 | LBA-REQ-074 | GitHub-native mesh-run dispatch transport (repository_dispatch) | Proven | §3.2 Deployment | ADR-0055 | T-074 | 6 |
@@ -96,6 +96,6 @@
 | LBA-REQ-087 | Genuine cross-plane corroboration (a windows-latest + ubuntu-latest witness prove two planes agree) | Proven | §3.9 Corroboration-grid | ADR-0069 | T-087 | 5 |
 | LBA-REQ-088 | Durable genuine cross-plane corroboration attestation (capture the live two-plane proof as a committed receipt) | Proven | §3.9 Corroboration-grid | ADR-0070 | T-088 | 5 |
 | LBA-REQ-089 | Signed cross-plane corroboration (the enrolled human sign-off over the genuine crossPlane quorum) | Proven | §3.9 Corroboration-grid | ADR-0071 | T-089 | 6 |
-| LBA-REQ-090 | Genuine cross-plane composite release decision (the fuller 1.0.0 re-seal) | Proven | §3.9 Corroboration-grid | ADR-0072 | T-090 | 5 |
+| LBA-REQ-090 | Genuine cross-plane composite release decision (the fuller 1.0.0 re-seal) | Proven | §3.9 Corroboration-grid | ADR-0072 | T-090 | 6 |
 
 _Generated for 90 requirements._

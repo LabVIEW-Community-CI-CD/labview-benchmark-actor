@@ -3237,7 +3237,7 @@ check('acg-signed-cross-plane-corroboration', () => {
 // machine quorum is crossPlane. The selftest also proves the shipped single-plane composite is the defect this corrects.
 check('acg-crossplane-composite-reseal', () => {
   execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'crossplane-composite-reseal.selftest.mjs')], { stdio: 'pipe' });
-  const receipt = readJson('reviewer-workstation/composite-release-decision-crossplane-receipt.json');
+  const receipt = readJson('reviewer-workstation/composite-release-decision-receipt.json');
   const v = validateCompositeRelease(receipt);
   assert(v.ok && v.proofOk, `the committed crossPlane composite must validate: ${v.findings.join('; ')}`);
   assert(receipt.verdict.compositeReleaseProven === true, 'the crossPlane composite must be a proven composite decision');
