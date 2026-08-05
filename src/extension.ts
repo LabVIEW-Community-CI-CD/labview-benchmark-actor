@@ -846,7 +846,9 @@ function capturesRoot(context: vscode.ExtensionContext): string {
 }
 function resolveLabview(): string | null {
   const configured = captureCfg<string>('labviewPath', '').trim();
-  if (configured) return configured;
+  // Validate a configured labviewPath actually exists (mirrors resolveFfmpegChecked's runnable check): a bogus
+  // path would otherwise pass the guard and start a doomed capture (ffmpeg + sampler) that can never launch LabVIEW.
+  if (configured) return existsSync(configured) ? configured : null;
   const candidates = [
     'C:\\Program Files (x86)\\National Instruments\\LabVIEW 2026\\LabVIEW.exe',
     'C:\\Program Files\\National Instruments\\LabVIEW 2026\\LabVIEW.exe',

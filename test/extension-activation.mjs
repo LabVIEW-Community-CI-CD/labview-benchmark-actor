@@ -621,13 +621,17 @@ try {
     assert(sentCommands.length === sentBeforeInvalid, 'createCleanroom aborts (sends no cloner command) when any input fails validation');
   }
 
-  // captureLaunch on a host without LabVIEW.exe (the Linux test host) -> the "LabVIEW.exe not found" guard, and
-  // it returns BEFORE any spawn (the ffmpeg/proc capture itself is cleanroom-gated + live-proven, never faked).
+  // captureLaunch with no resolvable LabVIEW -> the "LabVIEW.exe not found" guard, returning BEFORE any spawn
+  // (the ffmpeg/proc capture itself is cleanroom-gated + live-proven, never faked). Point labviewPath at a
+  // guaranteed-nonexistent file so this stays hermetic on a real LabVIEW dev host, where the default
+  // C:\Program Files\...\LabVIEW 2026\LabVIEW.exe candidate exists and resolveLabview would otherwise pass.
   const errsBeforeCapture = errorMessages.length;
+  configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
   await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+  delete configStore.labviewPath;
   assert(
     errorMessages.slice(errsBeforeCapture).some((m) => /LabVIEW\.exe not found/.test(m)),
-    'captureLaunch surfaces the LabVIEW-not-found guard when no LabVIEW is configured'
+    'captureLaunch surfaces the LabVIEW-not-found guard when no LabVIEW is resolvable'
   );
 
   // lmTextResult fallback: when the host predates the LanguageModelToolResult/TextPart classes, the tools return
@@ -716,12 +720,16 @@ try {
   const openText = openResult && openResult.content && openResult.content[0] && openResult.content[0].value;
   assert(typeof openText === 'string' && /panel/i.test(openText), 'the open-panel LM tool opens a panel + returns text');
 
-  // Capture commands (LBA-REQ-009): on a host without LabVIEW the capture short-circuits at resolveLabview,
+  // Capture commands (LBA-REQ-009): with no resolvable LabVIEW the capture short-circuits at resolveLabview,
   // covering resolveFfmpeg + resolveLabview + captureCfg + the early guards. The ffmpeg/sampler spawn + the
-  // frame correlator run on a Windows cleanroom (LabVIEW + ffmpeg), not in this unit test.
+  // frame correlator run on a Windows cleanroom (LabVIEW + ffmpeg), not in this unit test. labviewPath points at
+  // a guaranteed-nonexistent file so this is hermetic even on a host that HAS LabVIEW 2026 installed.
+  const errsBeforeNoLv = errorMessages.length;
+  configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
   await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+  delete configStore.labviewPath;
   assert(
-    errorMessages.some((m) => /LabVIEW\.exe not found/.test(m)),
+    errorMessages.slice(errsBeforeNoLv).some((m) => /LabVIEW\.exe not found/.test(m)),
     'captureLaunch reports missing LabVIEW (resolveLabview -> null) and returns before spawning ffmpeg'
   );
   await registered.find((r) => r.id === 'labviewBenchmarkActor.stopCapture').handler();
