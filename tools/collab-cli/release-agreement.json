@@ -326,7 +326,7 @@
           }
         },
         "1.1.0": {
-          "summary": "LabVIEW Benchmark Actor 1.1.0 -- adds the cross-platform 'Capture LabVIEW Launch (mprr)' command (labviewBenchmarkActor.captureLaunchMprr, #389) for VBox-VNC/SDK VM launch-capture, plus an ffmpeg pre-flight + guided install prompt that replaces the fresh-Marketplace-install 'spawn ffmpeg ENOENT' failure (#398). Extension-only minor over 1.0.0; reviewed==shipped reproducible .vsix (sha256 0c47f62463c8...).",
+          "summary": "LabVIEW Benchmark Actor 1.1.0 -- adds the cross-platform 'Capture LabVIEW Launch (mprr)' command (labviewBenchmarkActor.captureLaunchMprr, #389) for VBox-VNC/SDK VM launch-capture, plus an ffmpeg pre-flight + guided install prompt that replaces the fresh-Marketplace-install 'spawn ffmpeg ENOENT' failure (#398). Extension-only minor over 1.0.0; reviewed==shipped reproducible .vsix (sha256 e997edc1a21e...).",
           "signoffs": {
             "LINUX": {
               "agreed": true,
@@ -338,7 +338,7 @@
               "agreed": true,
               "reviewedCommit": "e314d191ba819192333b8ef4a3b5d81d35d4d577",
               "at": "2026-08-05T12:22:51.672Z",
-              "note": "Independently validated on the WIN plane (the actor reviewer VM, native Windows 11, node v22.15.0) at release/1.1.0 e314d191 via reviewer-workstation/win-plane-validate.sh: npm ci + npm run compile + per-suite tests (viewer-render, viewer-plain-render, panels-render, mcp-server, mcp-tool-doc all green) + masked activation (registered 26 commands) + packaging gate (agent-last-gate PASS 8/8) -> winPlaneReady:true. A real live LabVIEW-2026 launch benchmark run-1785928248745 (196 frames @12fps/16243ms, peakCpu 100%, peakRam 4799MB, peakDiskWrite 49.4MB/s, ffmpeg-gdigrab); an enrolled human WINDOWS_VM reviewer verdict PASS Ed25519-signed (reviewer@vi-tech.nl, decision approve) over the reproducible vsix 0c47f62463c8. WIN agrees to publish extension 1.1.0."
+              "note": "Independently validated on the WIN plane (the actor reviewer VM, native Windows 11, node v22.15.0) at release/1.1.0 e314d191 via reviewer-workstation/win-plane-validate.sh: npm ci + npm run compile + per-suite tests (viewer-render, viewer-plain-render, panels-render, mcp-server, mcp-tool-doc all green) + masked activation (registered 26 commands) + packaging gate (agent-last-gate PASS 8/8) -> winPlaneReady:true. A real live LabVIEW-2026 launch benchmark run-1785928248745 (196 frames @12fps/16243ms, peakCpu 100%, peakRam 4799MB, peakDiskWrite 49.4MB/s, ffmpeg-gdigrab); an enrolled human WINDOWS_VM reviewer verdict PASS Ed25519-signed (reviewer@vi-tech.nl, decision approve) over the reproducible vsix e997edc1a21e. WIN agrees to publish extension 1.1.0."
             }
           },
           "visualReview": {
@@ -348,7 +348,7 @@
                 "component": "extension",
                 "version": "1.1.0",
                 "commit": "e314d191ba819192333b8ef4a3b5d81d35d4d577",
-                "vsixSha256": "0c47f62463c84fd01f9394bdd9524966ed6e26f8cc46ff679ce7a5d2e5356643"
+                "vsixSha256": "e997edc1a21e322a1c1f05cb696fbefbbd993406142c7fa1cb99d606b10f483a"
               },
               "verdict": "pass",
               "reviewer": "reviewer@vi-tech.nl",
@@ -360,18 +360,18 @@
                   "ref": "run-1785928248745: 196 frames @12fps/16243ms, peakCpu 100%, peakRam 4799MB, peakDiskWrite 49.4MB/s, peakDiskRead 45MB/s, plane=WIN, workload=labview-launch (ffmpeg-gdigrab)"
                 }
               ],
-              "renderedAt": "2026-08-05T12:16:07.262Z"
+              "renderedAt": "2026-08-05T13:18:34.745Z"
             },
             "signOff": {
               "schema": "labview-benchmark-actor/acg-human-signoff-v1",
               "subject": {
-                "verdictDigest": "056ca671636efb7de59ee2f1a6d88170e331d5d03ce0d805ddf1c2c25d36771a",
+                "verdictDigest": "166c5ebd2404ac53f97358560ae4a94c9a80cebc0ef5746eb529d99e7ec6cf05",
                 "consensusVerdict": "pass",
                 "target": {
                   "component": "extension",
                   "version": "1.1.0",
                   "commit": "e314d191ba819192333b8ef4a3b5d81d35d4d577",
-                  "vsixSha256": "0c47f62463c84fd01f9394bdd9524966ed6e26f8cc46ff679ce7a5d2e5356643"
+                  "vsixSha256": "e997edc1a21e322a1c1f05cb696fbefbbd993406142c7fa1cb99d606b10f483a"
                 }
               },
               "reviewer": "reviewer@vi-tech.nl",
@@ -379,8 +379,8 @@
               "station": "WINDOWS_VM",
               "algorithm": "ed25519",
               "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
-              "signedAt": "2026-08-05T12:16:07.263Z",
-              "signature": "K97x/kOS2IvB6RRCuLYJFQjLQ21MBjAJFx/kUW67aNaepjn3DrJ7gHrCXUy6D/TzsquUYwAetpduX8/uIRvtDA=="
+              "signedAt": "2026-08-05T13:18:34.745Z",
+              "signature": "0LFoFgBs197PP9pWWsFJbQSzJmEPOWl7svEwHgNOur//q2DwZsS0Mso55LVe9Zggzx0hbMna64/R493Aa6r4AA=="
             }
           }
         }
