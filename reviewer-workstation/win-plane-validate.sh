@@ -39,6 +39,6 @@ echo "[host] staging bundle + validator + mask into $VM:C:\\lba-validate"
 "${GC[@]}" copyto --target-directory 'C:\lba-validate\' "$BUNDLE" >/dev/null
 "${GC[@]}" copyto --target-directory 'C:\lba-validate\' "$HERE/labview-mask.cjs" "$HERE/win-plane-validate.ps1" >/dev/null
 
-echo "[host] validating $BRANCH in-VM (npm ci + per-suite tests + masked activation + packaging gate)"
+echo "[host] validating $BRANCH in-VM (npm ci + npm run compile + per-suite tests + masked activation + packaging gate)"
 "${GC[@]}" run --exe "$PS" --wait-stdout -- powershell -NoProfile -ExecutionPolicy Bypass \
   -File 'C:\lba-validate\win-plane-validate.ps1' -Bundle 'C:\lba-validate\rel.bundle' -Branch "$BRANCH"

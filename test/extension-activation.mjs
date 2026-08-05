@@ -748,13 +748,17 @@ try {
     assert(ext.resolveFfmpegChecked() === join(ladRoot, 'lba', 'ffmpeg.exe'), 'resolveFfmpegChecked honours the staged %LOCALAPPDATA%\\lba\\ffmpeg.exe');
     rmSync(ladRoot, { recursive: true, force: true });
     if (savedLad === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLad;
-    // absent everywhere: clear PATH so the `ffmpeg` probe ENOENTs even on a dev host that HAS ffmpeg installed.
+    // absent everywhere: clear PATH *and* point %LOCALAPPDATA% at a staged-ffmpeg-free dir so the `ffmpeg` probe
+    // ENOENTs even on a host that HAS ffmpeg on PATH or staged under %LOCALAPPDATA%\lba\ffmpeg.exe (the reviewer WIN VM).
     const savedPath = process.env.PATH;
+    const savedLadAbsent = process.env.LOCALAPPDATA;
     process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz');
+    process.env.LOCALAPPDATA = join(tmpdir(), 'lba-no-localappdata-ffmpeg-xyz');
     try {
       assert(ext.resolveFfmpegChecked() === null, 'resolveFfmpegChecked returns null when ffmpeg is absent everywhere');
     } finally {
       process.env.PATH = savedPath;
+      if (savedLadAbsent === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadAbsent;
     }
   }
 
@@ -762,7 +766,9 @@ try {
   // capture is created (the reported v1.0.0 complaint). Drive each remediation button.
   {
     const savedPath = process.env.PATH;
+    const savedLadPrompt = process.env.LOCALAPPDATA;
     process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz'); // force ffmpeg-absent (the dev host may have ffmpeg)
+    process.env.LOCALAPPDATA = join(tmpdir(), 'lba-no-localappdata-ffmpeg-xyz'); // ...and no %LOCALAPPDATA%\lba\ffmpeg.exe (the reviewer WIN VM stages one)
     configStore.labviewPath = process.execPath; // resolveLabview -> non-empty -> passes the LabVIEW guard
     const cap = () => registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
 
@@ -786,6 +792,7 @@ try {
     await cap(); // no button chosen -> aborts cleanly (covers the no-choice branch)
     delete configStore.labviewPath;
     process.env.PATH = savedPath;
+    if (savedLadPrompt === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadPrompt;
   }
 
   // captureLaunchMprr (cross-platform mprr capture, LBA-REQ-009): drive the FULL command with a mocked `node`
