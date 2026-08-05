@@ -63,7 +63,7 @@
 | LBA-REQ-054 | Benchmark Observatory (suite-wide coverage + determinism map) | Proven | §3.2 Deployment | ADR-0034 | T-054 | 4 |
 | LBA-REQ-055 | Handoff Beacon -- capture-status (human-in-the-loop signal) | Proven | §3.2 Deployment | ADR-0035 | T-055 | 6 |
 | LBA-REQ-056 | Handoff Beacon -- agent->human request (human-step barrier) | Proven | §3.2 Deployment | ADR-0036 | T-056 | 7 |
-| LBA-REQ-057 | Handoff Beacon -- reviewer visual verdict (signed human PASS/FAIL) | Proven | §3.2 Deployment | ADR-0037 | T-057 | 9 |
+| LBA-REQ-057 | Handoff Beacon -- reviewer visual verdict (signed human PASS/FAIL) | Proven | §3.2 Deployment | ADR-0037 | T-057 | 11 |
 | LBA-REQ-058 | Handoff Beacon -- reviewer verdict bus announcement | Proven | §3.2 Deployment | ADR-0038 | T-058 | 6 |
 | LBA-REQ-059 | Host<->VM-agent closed loop over the lbabus net TCP bus | Proven | §3.2 Deployment | ADR-0039 | T-059 | 8 |
 | LBA-REQ-060 | Live-only net coordination -- the receive-log + net poll read side | Proven | §3.2 Deployment | ADR-0040 | T-060 | 4 |

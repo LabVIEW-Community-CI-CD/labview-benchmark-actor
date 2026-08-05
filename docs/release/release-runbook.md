@@ -62,10 +62,12 @@ First **discover where your key is + the exact station-bound sign commands** wit
 `labviewBenchmarkActor.reviewerKeyPath`; it reports the key path + existence, never the
 key material). Then:
 
-1. **Visual verdict.** Point the renderer at the target and stage the candidate with
-   `reviewer-workstation/render-verdict.sh` (`set-target`, then `collect` after the
-   in-VM "Render Reviewer Verdict"). The reviewer's PASS is Ed25519-signed by
-   `reviewer-workstation/sign-visual-verdict.mjs` (issue #411) → a
+1. **Visual verdict.** Stage the candidate (`stage-local-vsix.ps1`), then point the renderer
+   at the target with `reviewer-workstation/render-verdict.sh` (`set-target`, then `collect`
+   after the in-VM "Render Reviewer Verdict"). `set-target` runs the **reviewed==shipped sha
+   guard** (issue #411): it refuses to bind the target unless the .vsix staged in the VM matches
+   `--vsix-sha256` (run it standalone with `render-verdict.sh guard --vsix-sha256 <sha>`). The
+   reviewer's PASS is Ed25519-signed by `reviewer-workstation/sign-visual-verdict.mjs` → a
    `visual-verdict-X.Y.Z.json` record in `~/lba-vm-share/`.
 2. **Machine quorum sign-off.** Use the host wrapper
    `reviewer-workstation/render-quorum.sh` (issue #415), which mirrors `render-verdict.sh`:
