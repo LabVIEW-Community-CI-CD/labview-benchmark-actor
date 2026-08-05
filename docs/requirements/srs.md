@@ -120,6 +120,7 @@ progressively.
 | LBA-REQ-090 | The system shall re-seal the 1.0.0 composite release decision over the genuine cross-plane quorum -- binding the crossPlane machine corroboration (LBA-REQ-089) to a signed human visual PASS of the byte-reproducible candidate over one net-staged candidate -- so a fail-closed gate blocks the composite unless its machine quorum is genuinely cross-plane, both gates carry verified enrolled sign-offs, and all bind to one candidate. | LBA-REQ-089 re-sealed the MACHINE corroboration, but the shipped 1.0.0 COMPOSITE decision (ADR-0051, the capstone binding the machine gate to the human visual gate over one net-staged candidate) still stood on the single-plane quorum. The extension runtime (src/out/media) is byte-identical from the originally-reviewed 1.0.0 (1054b07) through the quorum commit (2a0352c), so the reviewer's original genuine review re-binds to the byte-reproducible, cross-plane candidate. | `reviewer-workstation/sign-visual-verdict.mjs` (deterministic offline visual-verdict signer). The genuine composite `reviewer-workstation/composite-release-decision-receipt.json` (collapsed to the crossPlane re-seal, ADR-0073) is assembled via the REUSED composite verifier from the crossPlane quorum (LBA-REQ-088) + the enrolled machine sign-off (LBA-REQ-089) + a signed WINDOWS_VM visual PASS (vsix 2ec7bd31 @ 2a0352c) + the genuine WIN staging -- all 5 bindings hold, quorum crossPlane, both gates signed by reviewer@vi-tech.nl. verify-composite-release now REQUIRES crossPlane. | `node reviewer-workstation/crossplane-composite-reseal.selftest.mjs` (the committed crossPlane composite validates as proven + its quorum is crossPlane; verify-composite-release clears it + rejects a single-plane variant) gated by `acg-crossplane-composite-reseal`. |
 | LBA-REQ-091 | The system shall ingest a live mesh-run dispatch and the actors' returned plane-tagged receipts into a run-bound actor-tasking + receipt-collection bound to the dispatchId -- so a fail-closed gate blocks fulfillment unless every collected receipt provably ran the dispatched benchmark on a tasked plane. | The fan-out (LBA-REQ-076) validates COMMITTED tasking + collection fixtures, but a LIVE run must bind the actual dispatch (the workflow `client_payload`) + the actors' returned receipt artifacts into that contract; nothing governed that ingestion step, so an agent-driven live run could feed the fulfillment gate a receipt set assembled outside the real dispatch. | `meshIngest.mjs` reads a validated live dispatch (`requestOk` + identity self-consistency, LBA-REQ-074) + a folder of `returned-receipt@1` files and REUSES the LBA-REQ-076 fan-out (`deriveTasking` + `buildCollection` + `validateTasking` + `validateCollection`) to produce a run-bound tasking + collection bound to the `dispatchId`; fails closed on an uncovered plane, a declared/receipt plane mismatch, a receipt identity mismatch, an unbound task, a duplicate actor, a malformed dispatch, or a malformed returned receipt. | `node experiments/mesh-fulfillment/meshIngest.selftest.mjs` (8/8); gated by `mesh-run-ingest`. |
 | LBA-REQ-092 | The system shall corroborate a run-bound receipt collection across its planes and compare the planes' benchmark metrics -- so a fail-closed gate blocks a cross-plane result unless the collected receipts span >= 2 distinct OS-planes, every plane's benchmark PASSED, and each re-derives the dispatched benchmark identity. | LBA-REQ-091 binds a live dispatch + returned receipts into a run-bound collection, but nothing consumed it to a single cross-plane verdict + comparison; "corroborated + compared" (the campaign milestone) was ungoverned over the ingested receipts. | `meshCorroborate.mjs` (`corroborateRun`) corroborates the collected plane receipts cross-plane (>= 2 planes, all PASS, each re-deriving `dispatchIdentity{metric,workload,n}` = the collection identity) + REUSES benchmark-store `compareRuns` (LBA-REQ-010) for the WIN-vs-LINUX delta, emitting a run-bound `mesh-cross-plane-report@1`; fails closed on a single-plane collection, a non-PASS plane, an identity mismatch, a malformed collection, a non-trend receipt, or a plane mismatch. | `node experiments/mesh-fulfillment/meshCorroborate.selftest.mjs` (8/8) + the committed two-plane collection corroborates; gated by `mesh-cross-plane-corroborate`. |
+| LBA-REQ-093 | The system shall pin the exact Node.js version that packages the `.vsix` in a repo-root `.nvmrc` sourced by every release-path workflow, so a fail-closed gate proves the reviewed build and the CI publish build use the identical Node version and cannot drift across a Node minor. | LBA-REQ-085/086 make the `.vsix` byte-reproducible within a Node major, but the packaged bytes are reproducible only within an EXACT Node version -- a Node minor can perturb them -- and every release-path workflow pinned `node-version: '24'`, which floats to the latest 24.x in the runner cache, so a future minor could silently drift CI's sha from the reviewed sha and re-break the reviewed==shipped gate at publish, the most expensive place to find it. | A repo-root `.nvmrc` pins the exact version (`24.19.0`); `extension-release.yml`, `vsix-cross-plane-repro.yml`, and `acg-cross-plane-corroboration.yml` source it via `node-version-file: .nvmrc` (no floating literal); `lba release-preflight` asserts the local Node equals `.nvmrc`. | The gate `release-path-node-pinned` proves `.nvmrc` pins an exact version and every release-path workflow sources it (pinning no floating literal), and the `scripts/lba.mjs` selftest proves the exact-version preflight (an equal Node clears, a later 24.x fails). |
 
 ---
 
@@ -2862,6 +2863,37 @@ progressively.
   - Proven deterministically by `meshCorroborate.selftest.mjs` (8/8) + the committed two-plane fan-out collection
     corroborating, gated by `mesh-cross-plane-corroborate` in `verify-local-gates`.
 
+### LBA-REQ-093: The Node-version-pinned reproducible package (reviewed Node equals shipped Node)
+
+- Status: Proven
+- Area: Packaging / boundary (ADR-0076 -- the Node-version-pinned reproducible `.vsix`, issue #408)
+- Statement: The system shall pin the exact Node.js version that packages the `.vsix` in a repo-root `.nvmrc`
+  sourced by every release-path workflow, so a fail-closed gate proves the reviewed build and the CI publish
+  build use the identical Node version and cannot drift across a Node minor.
+- Rationale: LBA-REQ-085 (timestamp pin) and LBA-REQ-086 (cross-plane metadata + LF) make the `.vsix`
+  byte-reproducible, but only WITHIN an exact Node version: the packaged bytes are a function of the toolchain, and
+  a Node minor can perturb them. Every release-path workflow used `actions/setup-node@v5` with `node-version: '24'`,
+  which resolves to whatever latest 24.x is in the runner tool cache at run time. The reviewed sha is built locally
+  on a fixed 24.x; if CI later floats to a different 24.x whose bytes differ, the reviewed==shipped gate
+  (`reviewed-vsix-matches-shipped`, LBA-REQ-085) fails at publish -- the most expensive place to discover it. The
+  1.1.0 lesson (a node-22 review vs a node-24 publish producing different shas) is folded into
+  `lba release-preflight`, but the residual minor-drift risk needed a committed pin.
+- Acceptance Criteria:
+  - A repo-root `.nvmrc` pins the EXACT release Node version (e.g. `24.19.0`), not a major.
+  - `.github/workflows/extension-release.yml`, `.github/workflows/vsix-cross-plane-repro.yml`, and
+    `.github/workflows/acg-cross-plane-corroboration.yml` each source Node via `node-version-file: .nvmrc` and pin
+    no floating `node-version:` literal, so the local reviewed build and the CI publish build resolve the same Node.
+  - `lba release-preflight X.Y.Z` fails closed when the local Node version does not equal `.nvmrc` (an exact-version
+    check that supersedes the node-major check when `.nvmrc` is present).
+  - The gate `release-path-node-pinned` (`verify-local-gates`) proves offline that `.nvmrc` pins an exact version
+    and every release-path workflow sources it from `.nvmrc` with no floating literal; the `scripts/lba.mjs`
+    selftest proves the exact-version preflight (an equal Node clears, a later 24.x minor fails).
+- Change Guidance: to bump the pinned Node, edit `.nvmrc` to the new exact `X.Y.Z`, re-run `npm run package` to
+  confirm the reviewed sha still matches CI, and re-run the cross-plane byte-repro grid; no workflow edits are
+  needed (the pin is the single source). The pin + bump procedure is documented in
+  `docs/release/release-procedure.md` + `docs/release/release-runbook.md`. Filed as issue #408 while driving the
+  1.1.1 Marketplace publish; authored under the singular-requirement directive (one `shall`).
+
 ## Traceability (requirement → architecture view / test)
 
 | Requirement | Architecture view | Test items |
@@ -2958,3 +2990,4 @@ progressively.
 | LBA-REQ-090 | Corroboration grid (genuine cross-plane composite re-seal) | T-090 |
 | LBA-REQ-091 | Deployment (run-bound mesh ingestion) | T-091 |
 | LBA-REQ-092 | Deployment (run-bound cross-plane corroborate + compare) | T-092 |
+| LBA-REQ-093 | Packaging / boundary (Node-version-pinned reproducible .vsix) | T-093 |

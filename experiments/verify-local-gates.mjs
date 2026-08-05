@@ -305,7 +305,7 @@ check('test-report-current', () => {
 //     cited file or a dropped invariant is rejected).
 check('release-procedure-references-resolve', () => {
   execFileSync(process.execPath, [join(here, 'release', 'verify-release-procedure.selftest.mjs')], { stdio: 'pipe' });
-  return { standard: 'ISO/IEC/IEEE 15289 + 12207', selftest: 'verify-release-procedure 3/3 (conformant + fail-closed)' };
+  return { standard: 'ISO/IEC/IEEE 15289 + 12207', selftest: 'verify-release-procedure 6/6 (procedure + runbook conformant + fail-closed)' };
 });
 
 // 6h. Continuous compliance self-audit (CAPSTONE, LBA-REQ-037): score THIS repo against the
@@ -2707,9 +2707,11 @@ check('composite-release-decision', () => {
 // extension-release.yml runs the CLI in the publish-gating agreement job (release needs: [build, agreement]).
 check('composite-release-enforced', () => {
   const cli = join(here, '..', 'tools', 'collab-cli', 'verify-composite-release.mjs');
-  // the committed composite receipt (ext 1.1.1) clears the release gate...
-  execFileSync(process.execPath, [cli, '--component', 'extension', '1.1.1'], { stdio: 'pipe' });
-  // ...and a version with no proven composite decision fails closed (exit 1).
+  // The committed receipt's candidate.version is the SINGLE SOURCE OF TRUTH (#416): assert the receipt is
+  // PROVEN for ITS OWN version, so a release version bump touches only the receipt, never this gate file.
+  const receiptVersion = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'composite-release-decision-receipt.json'), 'utf8')).candidate.version;
+  execFileSync(process.execPath, [cli, '--component', 'extension', receiptVersion], { stdio: 'pipe' });
+  // ...and a synthetic version with no proven composite decision fails closed (exit 1).
   let blocked = false;
   try { execFileSync(process.execPath, [cli, '--component', 'extension', '0.9.9-none'], { stdio: 'pipe' }); }
   catch { blocked = true; }
@@ -2718,7 +2720,7 @@ check('composite-release-enforced', () => {
   const wf = readFileSync(join(here, '..', '.github', 'workflows', 'extension-release.yml'), 'utf8');
   assert(/verify-composite-release\.mjs --component extension/.test(wf), 'extension-release.yml runs the composite-release enforcement CLI');
   assert(/needs:\s*\[build,\s*agreement\]/.test(wf), 'the release job needs the agreement job, so the composite gate blocks the publish');
-  return { cli: 'verify-composite-release', clears: 'extension 1.1.1', failsClosed: true, wired: true };
+  return { cli: 'verify-composite-release', clears: `extension ${receiptVersion}`, failsClosed: true, wired: true };
 });
 
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
@@ -3200,6 +3202,25 @@ check('vsix-cross-plane-repro-workflow-wired', () => {
   return { planes: ['linux', 'windows'], proof: 'npm run package on both -> identical sha256 (fail-closed)' };
 });
 
+// Release-path node identity (#408): the .vsix is byte-reproducible only within an EXACT node version (a node
+// minor can perturb the packaged bytes). A repo-root .nvmrc pins that exact version, and EVERY release-path
+// workflow (extension-release, vsix-cross-plane-repro, acg-cross-plane-corroboration) must source node from it
+// via `node-version-file: .nvmrc` -- never a floating `node-version: '24'` -- so reviewed(local)==shipped(CI).
+check('release-path-node-pinned', () => {
+  const nvmrc = join(pkgRoot, '.nvmrc');
+  assert(existsSync(nvmrc), 'a repo-root .nvmrc must pin the exact release node version');
+  const pin = readFileSync(nvmrc, 'utf8').trim();
+  assert(/^\d+\.\d+\.\d+$/.test(pin), `.nvmrc must pin an EXACT node version (got "${pin}")`);
+  const releasePathWorkflows = ['extension-release.yml', 'vsix-cross-plane-repro.yml', 'acg-cross-plane-corroboration.yml'];
+  for (const name of releasePathWorkflows) {
+    const t = readFileSync(join(pkgRoot, '.github', 'workflows', name), 'utf8').replace(/\r\n/g, '\n');
+    assert(/setup-node/.test(t), `${name} must set up node`);
+    assert(/node-version-file:\s*\.nvmrc/.test(t), `${name} must source node from .nvmrc (node-version-file: .nvmrc)`);
+    assert(!/node-version:\s*['"]/.test(t), `${name} must NOT pin a floating node-version literal (use .nvmrc)`);
+  }
+  return { nvmrc: pin, workflows: releasePathWorkflows.length, sourced: 'node-version-file: .nvmrc' };
+});
+
 // Genuine cross-plane corroboration (ADR-0069 / LBA-REQ-087): a LINUX plane and a WINDOWS plane each produce a
 // witness over the deterministic anchors (version/sourceCommit/verdict/seriesHash) and the corrected quorum
 // (ADR-0068 -- independence is the OS-plane) proves they CROSS-PLANE corroborate. Run the producer + corroboration
@@ -3276,6 +3297,15 @@ check('acg-crossplane-composite-reseal', () => {
   for (const k of ['machinePublish', 'visualPublish', 'stagedOverNet', 'visualTargetBound', 'machineConsensusBound']) assert(receipt.binding[k] === true, `binding ${k} must hold`);
   return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), crossPlane: true };
 });
+// Release-agreement recorder (#419): the turnkey helper that inserts a components.<comp>.releases.<version>
+// entry (both planes agreed:true + the embedded signed visualReview) as a MINIMAL structured edit, refuses to
+// clobber, and fails closed unless BOTH release gates pass. Guarded by its selftest so a release entry is never
+// hand-edited JSON again.
+check('record-release-agreement-selftested', () => {
+  execFileSync(process.execPath, [join(here, '..', 'tools', 'collab-cli', 'record-release-agreement.selftest.mjs')], { stdio: 'pipe' });
+  return { helper: 'tools/collab-cli/record-release-agreement.mjs', proof: 'records + minimal-diff + no-clobber + empty-seed (both gates pass)' };
+});
+
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

@@ -30,8 +30,20 @@ attestation is proven included in that log.
   checks), `coverage`, `dod`, and `Docs Link Check / lychee` pass on `develop`.
 - The version to release is decided (SemVer) and, for the extension, will match
   `version` in `package.json`.
+- **Build/review on the pinned node (LBA-REQ-085, issue #408).** The published
+  `.vsix` is byte-reproducible only within an exact node version, so the release
+  path is pinned by the repo-root `.nvmrc`. Run `nvm use` (or install that exact
+  version) before packaging; every release-path workflow sources the same pin via
+  `node-version-file: .nvmrc`. **To bump the pinned node**, edit `.nvmrc` to the new
+  exact `X.Y.Z`, re-`npm run package` to confirm the reviewed sha still matches CI,
+  and re-run the byte-repro grid — the pin is the single source; no workflow edits are
+  needed.
 - Enrolled corroboration witnesses (at least the quorum minimum, from distinct
   environments per LBA-REQ-026) are available to attest.
+
+> **Concrete sequence:** the copy-pasteable, agent-executable end-to-end steps (exact
+> commands, artifact locations, and ordering, captured from the 1.1.1 publish) live in
+> the companion runbook `docs/release/release-runbook.md`.
 
 ## Procedure
 

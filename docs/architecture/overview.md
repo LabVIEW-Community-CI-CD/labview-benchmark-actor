@@ -60,7 +60,7 @@ the coordination bus as the runtime containers; the **component view** is
 components inside those containers; and the **deployment view** is §3.2 — the
 multi-VM / Codespace topology.
 
-### 3.1 Packaging / boundary view — addresses LBA-REQ-001, LBA-REQ-008, LBA-REQ-085, LBA-REQ-086
+### 3.1 Packaging / boundary view — addresses LBA-REQ-001, LBA-REQ-008, LBA-REQ-085, LBA-REQ-086, LBA-REQ-093
 - The extension is a self-contained `.vsix`. Reused `vi-history-suite` logic is
   vendored or a pinned published dependency — never a relative path.
 - A moved-module manifest records the extraction so the origin can be retired.
@@ -72,6 +72,12 @@ multi-VM / Codespace topology.
   entry mode + version-made-by, and `.gitattributes` + `tsconfig` `newLine: lf`
   force LF content, so a Windows build and a Linux build of the same commit are
   byte-identical — proven by a dual-OS (ubuntu+windows) CI build+compare.
+- The Node.js version that packages the `.vsix` is pinned exactly (issue #408): a
+  repo-root `.nvmrc` (`24.19.0`) is sourced by every release-path workflow via
+  `node-version-file: .nvmrc`, because the packaged bytes are reproducible only
+  within an exact Node version (a Node minor can perturb them), so the reviewed
+  (local) build and the CI publish build resolve the same Node and cannot drift —
+  gated by `release-path-node-pinned` (LBA-REQ-093).
 
 ### 3.2 Deployment view — addresses LBA-REQ-002, LBA-REQ-006, LBA-REQ-033, LBA-REQ-038, LBA-REQ-039, LBA-REQ-040, LBA-REQ-041, LBA-REQ-042, LBA-REQ-043, LBA-REQ-044, LBA-REQ-045, LBA-REQ-046, LBA-REQ-047, LBA-REQ-048, LBA-REQ-049, LBA-REQ-050, LBA-REQ-051, LBA-REQ-052, LBA-REQ-053, LBA-REQ-054, LBA-REQ-055, LBA-REQ-056, LBA-REQ-057, LBA-REQ-058, LBA-REQ-059, LBA-REQ-060, LBA-REQ-061, LBA-REQ-062, LBA-REQ-063, LBA-REQ-064, LBA-REQ-065, LBA-REQ-066, LBA-REQ-067, LBA-REQ-068, LBA-REQ-069, LBA-REQ-070, LBA-REQ-071, LBA-REQ-072, LBA-REQ-073, LBA-REQ-074, LBA-REQ-075, LBA-REQ-076, LBA-REQ-077, LBA-REQ-078, LBA-REQ-079, LBA-REQ-080, LBA-REQ-081, LBA-REQ-082, LBA-REQ-083, LBA-REQ-084, LBA-REQ-091, LBA-REQ-092
 - One artifact, two install targets (Codespace, Vagrant golden VM).
@@ -341,6 +347,7 @@ chain is attested and logged before installing it (verify-before-install, LBA-RE
 | AD-87 | Enforce genuine cross-plane on release + COLLAPSE the 1.0.0 composite (AD-86/LBA-REQ-090 finalized) -- the operator authorized the collapse: the crossPlane composite REPLACES composite-release-decision-receipt.json (transitional -crossplane- receipt removed; old single-plane seal in git history) + verify-composite-release REQUIRES the machine quorum be crossPlane, so a single-plane composite (the shipped 1.0.0 defect) is rejected fail-closed | ADR-0072 left the shipped composite frozen + flagged the enforcement flip + collapse as the operator-gated final step; the operator said collapse -- supersedes ADR-0072's non-destructive stance (ADR-0073) | LBA-REQ-071 |
 | AD-88 | Ingest a LIVE mesh-run dispatch + the actors' returned plane-tagged receipts (returned-receipt@1) into a run-bound tasking + collection bound to the dispatchId (meshIngest.mjs REUSES the AD-69/LBA-REQ-074 dispatch validation + the AD-71/LBA-REQ-076 fan-out derive/validate) -- the LIVE data path into the committed fan-out contract, so an agent-driven run cannot feed fulfillment a receipt set that never descended from the real dispatch | the fan-out (AD-71) validates COMMITTED fixtures; the agent-autonomy N=2 campaign needs a run-bound, fail-closed ingestion seam for the real dispatch + returned receipts, reusing the existing gating (ADR-0074) | LBA-REQ-091 |
 | AD-89 | Reduce the LBA-REQ-091 run-bound collection to a single cross-plane verdict + comparison (meshCorroborate.corroborateRun): corroborate the collected plane receipts cross-plane (>= 2 planes, all PASS, each re-deriving the AD-53/LBA-REQ-072 dispatch identity) + REUSE the LBA-REQ-010 benchmark-store compareRuns for the WIN-vs-LINUX delta, emitting a run-bound mesh-cross-plane-report@1 | increment 1 (AD-88) bound the live dispatch + returned receipts but nothing corroborated + compared them; the agent-autonomy N=2 milestone needs a fail-closed cross-plane verdict + comparison over the ingested receipts, reusing compareRuns + dispatchIdentity (ADR-0075) | LBA-REQ-092 |
+| AD-90 | Pin the EXACT Node.js version that packages the `.vsix` in a repo-root `.nvmrc` (`24.19.0`) sourced by every release-path workflow via `node-version-file: .nvmrc` -- the third leg of reproducibility after AD-80 (timestamp pin) + AD-81 (cross-plane metadata/LF) -- and upgrade `lba release-preflight` to an exact-version check, so the reviewed (local) build and the CI publish build resolve the same Node | AD-80/AD-81 make the `.vsix` byte-reproducible only WITHIN a Node major, but a Node minor can perturb the packaged bytes and the release-path workflows pinned a floating `node-version: '24'`, so CI could silently drift from the locally-reviewed sha and re-break reviewed==shipped (LBA-REQ-085) at publish (ADR-0076 / issue #408) | LBA-REQ-093 |
 
 ## 5. Risks and open questions
 
