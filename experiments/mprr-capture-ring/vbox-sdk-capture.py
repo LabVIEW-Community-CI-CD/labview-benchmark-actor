@@ -61,6 +61,22 @@ def ssh(cmd, wait=True):
         return None
     return subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+def ssh_out(cmd):
+    args = ['ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=12', '-i', SSH_KEY, '-p', SSH_PORT, SSH_USER + '@127.0.0.1', cmd]
+    return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.decode('utf-8', 'ignore')
+
+def ensure_labview_closed(timeout_s=12):
+    # Cold pre-clean: kill LabVIEW, then POLL until it is ACTUALLY gone. A FIXED wait races the relaunch and can
+    # leave the Getting-Started window on screen for the whole capture -> a static frame -> a bogus ~60ms settle
+    # (settle-detect pins the first frame). Polling guarantees a true cold desktop before each launch.
+    ssh(KILL + ' 2>NUL & exit 0', wait=True)
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if 'LabVIEW.exe' not in ssh_out('tasklist /fi "IMAGENAME eq LabVIEW.exe" 2>NUL'):
+            return True
+        time.sleep(0.5)
+    return False
+
 from vboxapi import VirtualBoxManager
 mgr = VirtualBoxManager()
 vbox = mgr.getVirtualBox()
@@ -77,7 +93,8 @@ try:
     fmt = const.BitmapFormat_RGBA
     period = 1.0 / FPS
     for it in range(ITERS):
-        ssh(KILL + ' 2>NUL & ping -n 3 127.0.0.1 >NUL & exit 0', wait=True)  # cold pre-clean
+        ensure_labview_closed()  # kill + POLL-until-gone (a fixed wait races the relaunch -> static-GS ~60ms artifact)
+        time.sleep(0.8)          # let the desktop repaint (GS window gone) before the cold launch
         res = display.getScreenResolution(0)
         w, h = int(res[0]), int(res[1])
         frames = []
