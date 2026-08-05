@@ -6,6 +6,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+### Fixed
+- **A winget-installed ffmpeg is now detected without restarting VS Code** (issue #405). The "Install ffmpeg
+  (winget)" button installs Gyan.FFmpeg, which symlinks `ffmpeg.exe` into `%LOCALAPPDATA%\Microsoft\WinGet\Links`
+  and adds that folder to the user `PATH` — but the running extension host keeps the pre-install `PATH` and *Reload
+  Window* does **not** refresh it, so the capture kept prompting to install ffmpeg even after it was installed. The
+  ffmpeg check now looks in the stable winget `Links` location directly, so re-running the capture works right after
+  the install completes; the install message no longer tells you to restart VS Code.
+
 ## [1.1.0] - 2026-08-05
 
 ### Added

@@ -8,7 +8,7 @@
 // Usage: npm test   (== npm run compile && node test/extension-activation.mjs)
 
 import Module, { createRequire } from 'node:module';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync, copyFileSync, chmodSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -748,6 +748,27 @@ try {
     assert(ext.resolveFfmpegChecked() === join(ladRoot, 'lba', 'ffmpeg.exe'), 'resolveFfmpegChecked honours the staged %LOCALAPPDATA%\\lba\\ffmpeg.exe');
     rmSync(ladRoot, { recursive: true, force: true });
     if (savedLad === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLad;
+    // issue #405: a winget-installed ffmpeg (the "Install ffmpeg (winget)" button) symlinks ffmpeg.exe under
+    // %LOCALAPPDATA%\Microsoft\WinGet\Links and adds that dir to the USER PATH; the extension-host process keeps the
+    // PRE-install PATH (Reload Window does NOT refresh it), so resolveFfmpegChecked must find the freshly installed
+    // ffmpeg via the stable winget Links location EVEN WHEN it is not on this process's (stale) PATH.
+    const wgRoot = join(tmpdir(), 'lba-test-winget-links-' + Date.now());
+    const wgLinks = join(wgRoot, 'Microsoft', 'WinGet', 'Links');
+    mkdirSync(wgLinks, { recursive: true });
+    const wgFfmpeg = join(wgLinks, 'ffmpeg.exe');
+    copyFileSync(process.execPath, wgFfmpeg); // a real spawnable binary (node stands in) so ffmpegRunnable passes
+    try { chmodSync(wgFfmpeg, 0o755); } catch { /* no-op on Windows */ }
+    const savedPathWg = process.env.PATH;
+    const savedLadWg = process.env.LOCALAPPDATA;
+    process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz'); // ffmpeg NOT on this (stale) process PATH
+    process.env.LOCALAPPDATA = wgRoot;
+    try {
+      assert(ext.resolveFfmpegChecked() === wgFfmpeg, 'resolveFfmpegChecked finds a winget-installed ffmpeg (WinGet\\Links) not on the stale PATH (issue #405)');
+    } finally {
+      process.env.PATH = savedPathWg;
+      if (savedLadWg === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadWg;
+      rmSync(wgRoot, { recursive: true, force: true });
+    }
     // absent everywhere: clear PATH *and* point %LOCALAPPDATA% at a staged-ffmpeg-free dir so the `ffmpeg` probe
     // ENOENTs even on a host that HAS ffmpeg on PATH or staged under %LOCALAPPDATA%\lba\ffmpeg.exe (the reviewer WIN VM).
     const savedPath = process.env.PATH;
