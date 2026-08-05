@@ -56,7 +56,11 @@ candidate `.vsix` is staged in the VM (sha verified) via
 
 ## 4. Signing (the two human sign-offs, in the VM)
 
-The enrolled reviewer key lives in the VM (issue #414), so signing happens guest-side:
+The enrolled reviewer key lives in the VM (issue #414), so signing happens guest-side.
+First **discover where your key is + the exact station-bound sign commands** with
+`scripts/lba.mjs signing-status` (set `LBA_VM_PASS` so it can read the VM's
+`labviewBenchmarkActor.reviewerKeyPath`; it reports the key path + existence, never the
+key material). Then:
 
 1. **Visual verdict.** Point the renderer at the target and stage the candidate with
    `reviewer-workstation/render-verdict.sh` (`set-target`, then `collect` after the
