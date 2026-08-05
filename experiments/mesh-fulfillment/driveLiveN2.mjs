@@ -32,20 +32,25 @@ const RETURNED_SCHEMA = 'labview-benchmark-actor/returned-receipt@1';
  * different benchmarks (n / metric / workload mismatch -> identity mismatch) or either verdict is not PASS.
  */
 export function assembleLiveN2({
-  linuxTrend, winTrend, dispatchId,
+  linuxTrend, winTrend, linuxActors, winActors, dispatchId,
   dispatchedAt = null, linuxActorId = 'lba-cleanroom-clone-01', winActorId = 'actor',
   requester = 'agent@labview-benchmark-actor',
 } = {}) {
-  if (!linuxTrend || !winTrend) throw new Error('assembleLiveN2: linuxTrend and winTrend are required');
+  // Normalize each plane to a ROSTER of { actorId, trend } -- a plane can carry N redundant actors (quorum). The
+  // single-trend form (linuxTrend/winTrend) stays supported for the N=2 case.
+  const linuxRoster = linuxActors ?? (linuxTrend ? [{ actorId: linuxActorId, trend: linuxTrend }] : []);
+  const winRoster = winActors ?? (winTrend ? [{ actorId: winActorId, trend: winTrend }] : []);
+  if (linuxRoster.length === 0 || winRoster.length === 0) throw new Error('assembleLiveN2: at least one LINUX and one WIN actor are required');
   if (typeof dispatchId !== 'string' || !dispatchId) throw new Error('assembleLiveN2: dispatchId is required');
-  const benchmark = { metric: linuxTrend.metric, workload: linuxTrend.workload, n: linuxTrend.n };
+  const ref = linuxRoster[0].trend;
+  const benchmark = { metric: ref.metric, workload: ref.workload, n: ref.n };
   const dispatch = buildRequest({
-    dispatchId, benchmarkId: linuxTrend.workload, benchmark,
-    minActors: 2, requestedPlanes: ['LINUX', 'WIN'], requester, dispatchedAt,
+    dispatchId, benchmarkId: ref.workload, benchmark,
+    minActors: linuxRoster.length + winRoster.length, requestedPlanes: ['LINUX', 'WIN'], requester, dispatchedAt,
   });
   const returned = [
-    { schema: RETURNED_SCHEMA, taskId: `${dispatchId}::LINUX`, actorId: linuxActorId, plane: 'LINUX', receipt: linuxTrend },
-    { schema: RETURNED_SCHEMA, taskId: `${dispatchId}::WIN`, actorId: winActorId, plane: 'WIN', receipt: winTrend },
+    ...linuxRoster.map((a) => ({ schema: RETURNED_SCHEMA, taskId: `${dispatchId}::LINUX`, actorId: a.actorId, plane: 'LINUX', receipt: a.trend })),
+    ...winRoster.map((a) => ({ schema: RETURNED_SCHEMA, taskId: `${dispatchId}::WIN`, actorId: a.actorId, plane: 'WIN', receipt: a.trend })),
   ];
   const ingest = ingestRun({ dispatch, returned });
   const cor = corroborateRun({ collection: ingest.collection, benchmarkId: benchmark.workload });
@@ -64,40 +69,65 @@ function runPlaneTrend(label, runnerRel, env, outPath) {
   return JSON.parse(readFileSync(outPath, 'utf8'));
 }
 
+/** Parse LBA_LINUX_ACTORS="actorId:sshPort:vncPort,actorId:sshPort:vncPort" -> roster; defaults to a single actor. */
+function parseLinuxActors() {
+  const spec = process.env.LBA_LINUX_ACTORS;
+  if (spec && spec.trim()) {
+    return spec.split(',').map((s) => {
+      const [actorId, sshPort, vncPort] = s.split(':');
+      return { actorId, sshPort, vncPort };
+    });
+  }
+  return [{
+    actorId: process.env.LBA_LINUX_ACTOR_ID ?? 'lba-cleanroom-clone-01',
+    sshPort: process.env.LBA_LINUX_SSH_PORT ?? '2223',
+    vncPort: process.env.LBA_LINUX_VNC_PORT ?? '5900',
+  }];
+}
+
 function main() {
   const iterations = process.env.LBA_ITERATIONS ?? '3';
   const durationMs = process.env.LBA_DURATION_MS ?? '16000';
   const fps = process.env.LBA_FPS ?? '12';
   const sshKey = process.env.LBA_SSH_KEY;
+  const linuxUser = process.env.LBA_LINUX_SSH_USER ?? 'actor';
+  const linuxVncPw = process.env.LBA_LINUX_VNC_PASSWORD;
   const outDir = process.env.LBA_OUT_DIR ?? join(tmpdir(), 'lba-live-n2');
   const dispatchId = process.env.LBA_DISPATCH_ID ?? `mesh-run-labview-ide-launch-live-${new Date().toISOString().slice(0, 10)}`;
   mkdirSync(join(outDir, 'returned'), { recursive: true });
-
   const shared = { LBA_ITERATIONS: iterations, LBA_DURATION_MS: durationMs, LBA_FPS: fps, ...(sshKey ? { LBA_SSH_KEY: sshKey } : {}) };
-  const linuxTrend = runPlaneTrend('LINUX', 'live-vbox-labview-trend.mjs', {
-    ...shared,
-    LBA_SSH_PORT: process.env.LBA_LINUX_SSH_PORT ?? '2223',
-    LBA_SSH_USER: process.env.LBA_LINUX_SSH_USER ?? 'actor',
-    LBA_VNC_PORT: process.env.LBA_LINUX_VNC_PORT ?? '5900',
-    ...(process.env.LBA_LINUX_VNC_PASSWORD ? { LBA_VNC_PASSWORD: process.env.LBA_LINUX_VNC_PASSWORD } : {}),
-  }, join(outDir, 'linux-trend.json'));
-  const winTrend = runPlaneTrend('WIN', 'win-vbox-sdk-labview-trend.mjs', {
-    ...shared,
-    LBA_SSH_PORT: process.env.LBA_WIN_SSH_PORT ?? '2200',
-    LBA_SSH_USER: process.env.LBA_WIN_SSH_USER ?? 'vagrant',
-    LBA_WIN_TASK: process.env.LBA_WIN_TASK ?? 'LBA-LaunchLabVIEW',
-  }, join(outDir, 'win-trend.json'));
 
-  const r = assembleLiveN2({ linuxTrend, winTrend, dispatchId, dispatchedAt: new Date().toISOString().slice(0, 10) });
+  // LINUX plane: one trend per rostered actor (N>=1 -> quorum). WIN plane: the SDK actor.
+  const linuxActors = parseLinuxActors().map((a) => ({
+    actorId: a.actorId,
+    trend: runPlaneTrend(`LINUX/${a.actorId}`, 'live-vbox-labview-trend.mjs', {
+      ...shared,
+      LBA_SSH_PORT: a.sshPort, LBA_SSH_USER: linuxUser, LBA_VNC_PORT: a.vncPort,
+      ...(linuxVncPw ? { LBA_VNC_PASSWORD: linuxVncPw } : {}),
+    }, join(outDir, `linux-${a.actorId}.json`)),
+  }));
+  const winActors = [{
+    actorId: process.env.LBA_WIN_ACTOR_ID ?? 'actor',
+    trend: runPlaneTrend('WIN', 'win-vbox-sdk-labview-trend.mjs', {
+      ...shared,
+      LBA_SSH_PORT: process.env.LBA_WIN_SSH_PORT ?? '2200',
+      LBA_SSH_USER: process.env.LBA_WIN_SSH_USER ?? 'vagrant',
+      LBA_WIN_TASK: process.env.LBA_WIN_TASK ?? 'LBA-LaunchLabVIEW',
+    }, join(outDir, 'win-actor.json')),
+  }];
+
+  const r = assembleLiveN2({ linuxActors, winActors, dispatchId, dispatchedAt: new Date().toISOString().slice(0, 10) });
   writeFileSync(join(outDir, 'dispatch.json'), `${JSON.stringify(r.dispatch, null, 2)}\n`);
-  writeFileSync(join(outDir, 'returned', 'linux.json'), `${JSON.stringify(r.returned[0], null, 2)}\n`);
-  writeFileSync(join(outDir, 'returned', 'win.json'), `${JSON.stringify(r.returned[1], null, 2)}\n`);
+  r.returned.forEach((rr) => writeFileSync(join(outDir, 'returned', `${rr.plane.toLowerCase()}-${rr.actorId}.json`), `${JSON.stringify(rr, null, 2)}\n`));
   writeFileSync(join(outDir, 'report.json'), `${JSON.stringify(r.report, null, 2)}\n`);
 
-  if (!r.ok) { console.error(`\n\u2717 live N=2 FAILED (dispatch ${dispatchId})`); for (const f of r.findings) console.error(`  - ${f}`); process.exit(1); }
+  const n = r.returned.length;
+  if (!r.ok) { console.error(`\n\u2717 live N=${n} FAILED (dispatch ${dispatchId})`); for (const f of r.findings) console.error(`  - ${f}`); process.exit(1); }
+  const q = r.report.corroboration.quorum;
   const d = r.comparison?.deltas?.latest;
-  console.log(`\n\u2713 live N=2 OK: dispatch ${dispatchId} \u2014 cross-plane corroborated [${r.report.planes.join(', ')}] (all PASS, identity-bound)`);
-  console.log(`  LINUX mean ${linuxTrend.stats.mean}ms  vs  WIN mean ${winTrend.stats.mean}ms` + (d ? `  |  latest WIN\u2212LINUX = ${d.delta}ms (${d.pctOfLinux}% of LINUX)` : ''));
+  console.log(`\n\u2713 live N=${n} OK: dispatch ${dispatchId} \u2014 cross-plane corroborated [${r.report.planes.join(', ')}] (all PASS, identity-bound)`);
+  for (const p of r.report.planes) console.log(`  ${p}: ${q.perPlane[p].count} actor(s) ${JSON.stringify(q.perPlane[p].actors)} means ${JSON.stringify(q.perPlane[p].meansMs)}ms`);
+  if (d) console.log(`  compare: latest WIN\u2212LINUX = ${d.delta}ms (${d.pctOfLinux}% of LINUX)`);
   console.log(`  artifacts -> ${outDir}`);
 }
 

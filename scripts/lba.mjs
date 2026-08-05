@@ -39,7 +39,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 8; // bump when you refine this tool (see the banner above)
+export const ITERATION = 9; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -196,7 +196,7 @@ export const COMMANDS = {
   },
   'mesh-live': {
     desc: 'agent-drive the FULL live N=2: run BOTH plane trends, wrap receipts, then cross-plane corroborate + compare (needs both live actor VMs)',
-    run: () => runScript('live N=2 (both planes -> corroborate)', 'experiments/mesh-fulfillment/driveLiveN2.mjs'),
+    run: () => runScript('live N-actor mesh (run every rostered actor -> corroborate)', 'experiments/mesh-fulfillment/driveLiveN2.mjs'),
   },
 };
 
@@ -244,6 +244,13 @@ const SELFTEST = [
     const r = driveMeshRun({ dispatch, returned });
     return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound
       && r.report.corroboration.quorum.perPlane.LINUX.count === 2 && r.comparison !== null;
+  }],
+  ['assembleLiveN2 accepts a multi-actor LINUX roster (quorum N>2) from the committed n3 trends', () => {
+    const c01 = JSON.parse(read('experiments/mesh-fulfillment/n3-live-run/returned/linux-clone01.json')).receipt;
+    const c02 = JSON.parse(read('experiments/mesh-fulfillment/n3-live-run/returned/linux-clone02.json')).receipt;
+    const win = JSON.parse(read('experiments/mesh-fulfillment/n3-live-run/returned/win-actor.json')).receipt;
+    const r = assembleLiveN2({ linuxActors: [{ actorId: 'clone-01', trend: c01 }, { actorId: 'clone-02', trend: c02 }], winActors: [{ actorId: 'actor', trend: win }], dispatchId: 'selftest-live-n3-roster' });
+    return r.ok && r.report.corroboration.quorum.perPlane.LINUX.count === 2 && r.report.corroboration.allPass && r.comparison !== null;
   }],
 ];
 function runSelftest() {
