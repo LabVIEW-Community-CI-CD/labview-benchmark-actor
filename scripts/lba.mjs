@@ -37,8 +37,9 @@ import { capacityWeightedPartition } from '../experiments/parallel/parallelWorkl
 import { describeFlow, analyzeFlow } from '../experiments/first-win/firstWinOnboarding.mjs';
 import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIngest.mjs';
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
+import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 6; // bump when you refine this tool (see the banner above)
+export const ITERATION = 7; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -193,6 +194,10 @@ export const COMMANDS = {
       if (d) console.log(`  compare: latest launch WIN\u2212LINUX = ${d.delta}ms (${d.pctOfLinux}% of LINUX baseline)`);
     },
   },
+  'mesh-live': {
+    desc: 'agent-drive the FULL live N=2: run BOTH plane trends, wrap receipts, then cross-plane corroborate + compare (needs both live actor VMs)',
+    run: () => runScript('live N=2 (both planes -> corroborate)', 'experiments/mesh-fulfillment/driveLiveN2.mjs'),
+  },
 };
 
 // ---- selftest (extend me) -----------------------------------------------------------------------
@@ -225,6 +230,12 @@ const SELFTEST = [
     const dispatch = JSON.parse(read('experiments/mesh-fulfillment/n2-live-run/dispatch.json'));
     const returned = readReturned(join(repoRoot, 'experiments/mesh-fulfillment/n2-live-run/returned'));
     const r = driveMeshRun({ dispatch, returned });
+    return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound && r.comparison !== null;
+  }],
+  ['assembleLiveN2 wraps the two committed real plane trends into a cross-plane corroborated report (identity-bound, all PASS)', () => {
+    const lin = JSON.parse(read('experiments/mesh-fulfillment/n2-live-run/returned/linux.json')).receipt;
+    const win = JSON.parse(read('experiments/mesh-fulfillment/n2-live-run/returned/win.json')).receipt;
+    const r = assembleLiveN2({ linuxTrend: lin, winTrend: win, dispatchId: 'selftest-live-n2' });
     return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound && r.comparison !== null;
   }],
 ];
