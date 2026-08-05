@@ -60,6 +60,7 @@ export function corroborateRun({ collection, benchmarkId } = {}) {
 
   const identity = collection?.identity ?? null;
   const byPlane = new Map();
+  const actorsByPlane = new Map();
   const verdicts = {};
   let identityBound = true;
   for (const c of collected) {
@@ -73,12 +74,27 @@ export function corroborateRun({ collection, benchmarkId } = {}) {
     verdicts[c.plane] = r.verdict;
     if (r.verdict !== 'PASS') findings.push(`plane ${c.plane}: verdict is ${r.verdict} (not PASS)`);
     if (!byPlane.has(c.plane)) byPlane.set(c.plane, r);
+    if (!actorsByPlane.has(c.plane)) actorsByPlane.set(c.plane, []);
+    actorsByPlane.get(c.plane).push({ actorId: c.actorId ?? null, meanMs: r.stats?.mean ?? null });
   }
 
   const planes = [...byPlane.keys()].sort();
   const crossPlane = planes.length >= 2;
   if (!crossPlane) findings.push(`corroboration is not cross-plane (planes: ${planes.join(', ') || 'none'})`);
   const allPass = planes.length > 0 && planes.every((p) => verdicts[p] === 'PASS');
+
+  // Quorum: the collection can carry REDUNDANT actors per plane (each independently ran + returned the SAME
+  // dispatched benchmark). The cross-plane verdict dedups to one representative per plane for the compare, but
+  // every extra actor is an INDEPENDENT corroboration -- surface the per-plane actor roster + count so N>2
+  // redundant actors are VISIBLE (not silently dropped). Each rostered actor already passed the per-receipt guards
+  // above (trend/plane/identity/verdict), so a plane with count>=2 is corroborated by >=2 agreeing actors.
+  const quorum = { perPlane: {}, minActorsPerPlane: 0, redundant: false };
+  for (const p of planes) {
+    const roster = actorsByPlane.get(p) ?? [];
+    quorum.perPlane[p] = { actors: roster.map((a) => a.actorId), count: roster.length, meansMs: roster.map((a) => a.meanMs) };
+  }
+  quorum.minActorsPerPlane = planes.length ? Math.min(...planes.map((p) => quorum.perPlane[p].count)) : 0;
+  quorum.redundant = quorum.minActorsPerPlane >= 2; // every corroborated plane independently confirmed by >= 2 actors
 
   // Compare (REUSE compareRuns): pair LINUX (baseline) + WIN (candidate) when both are present.
   let comparison = null;
@@ -94,7 +110,7 @@ export function corroborateRun({ collection, benchmarkId } = {}) {
     dispatchId: collection?.dispatchId ?? null,
     identity,
     planes,
-    corroboration: { crossPlane, allPass, identityBound, verdicts },
+    corroboration: { crossPlane, allPass, identityBound, verdicts, quorum },
     comparison,
     corroborated,
   };

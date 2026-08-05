@@ -126,5 +126,45 @@ check('empty collection fails closed', () => {
   assert(!r.ok && r.findings.some((f) => /no collected receipts/.test(f)), 'must fail empty collection');
 });
 
+// 9. redundant actors per plane are corroborated + SURFACED (quorum), not silently dropped (N>2 readiness)
+check('quorum surfaces redundant actors per plane', () => {
+  const col = mkCollection([
+    mkCollected('LINUX', 'clone-01', mkTrend('LINUX', { values: [1848, 1832, 1919, 1835, 1857] })),
+    mkCollected('LINUX', 'clone-02', mkTrend('LINUX', { values: [1917, 1747, 1833, 1801, 1780] })),
+    mkCollected('WIN', 'actor', mkTrend('WIN', { values: [6930, 6754, 7073, 6497, 6808] })),
+  ]);
+  const r = corroborateRun({ collection: col });
+  assert(r.ok, `expected corroborated; findings: ${r.findings.join('; ')}`);
+  const q = r.corroboration.quorum;
+  assert(q.perPlane.LINUX.count === 2 && q.perPlane.LINUX.actors.join(',') === 'clone-01,clone-02', 'LINUX corroborated by 2 named actors');
+  assert(q.perPlane.WIN.count === 1, 'WIN has 1 actor');
+  assert(q.minActorsPerPlane === 1 && q.redundant === false, 'not fully redundant while WIN has a single actor');
+  assert(r.comparison && r.comparison.deltas.latest.delta === 6808 - 1857, 'compare uses the FIRST actor per plane as the representative');
+});
+
+// 10. a non-PASS SECOND actor on a plane still fails closed -> EVERY rostered actor is validated, not just the first
+check('a bad second actor on a plane fails closed', () => {
+  const col = mkCollection([
+    mkCollected('LINUX', 'clone-01', mkTrend('LINUX')),
+    mkCollected('LINUX', 'clone-02', mkTrend('LINUX', { verdict: 'REGRESSED' })),
+    mkCollected('WIN', 'actor', mkTrend('WIN')),
+  ]);
+  const r = corroborateRun({ collection: col });
+  assert(!r.ok && r.findings.some((f) => /not PASS/.test(f)), 'a non-PASS redundant actor must fail closed');
+});
+
+// 11. both planes redundantly corroborated by >= 2 actors -> quorum.redundant true
+check('fully redundant quorum (>=2 actors on every plane)', () => {
+  const col = mkCollection([
+    mkCollected('LINUX', 'clone-01', mkTrend('LINUX')),
+    mkCollected('LINUX', 'clone-02', mkTrend('LINUX')),
+    mkCollected('WIN', 'actor-a', mkTrend('WIN')),
+    mkCollected('WIN', 'actor-b', mkTrend('WIN')),
+  ]);
+  const r = corroborateRun({ collection: col });
+  assert(r.ok, `expected corroborated; findings: ${r.findings.join('; ')}`);
+  assert(r.corroboration.quorum.minActorsPerPlane === 2 && r.corroboration.quorum.redundant === true, 'every plane confirmed by >= 2 actors');
+});
+
 console.log(`\nmeshCorroborate selftest: ${pass}/${pass + fail} passed`);
 process.exit(fail === 0 ? 0 : 1);
