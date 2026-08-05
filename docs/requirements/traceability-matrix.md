@@ -99,5 +99,6 @@
 | LBA-REQ-090 | Genuine cross-plane composite release decision (the fuller 1.0.0 re-seal) | Proven | §3.9 Corroboration-grid | ADR-0072 | T-090 | 6 |
 | LBA-REQ-091 | Run-bound mesh ingestion (bind a live dispatch + the actors' returned receipts) | Proven | §3.2 Deployment | ADR-0074 | T-091 | 5 |
 | LBA-REQ-092 | Run-bound cross-plane corroborate + compare (the ingested collection) | Proven | §3.2 Deployment | ADR-0075 | T-092 | 6 |
+| LBA-REQ-093 | The Node-version-pinned reproducible package (reviewed Node equals shipped Node) | Proven | §3.1 Packaging / boundary | ADR-0076 | T-093 | 7 |
 
-_Generated for 92 requirements._
+_Generated for 93 requirements._
