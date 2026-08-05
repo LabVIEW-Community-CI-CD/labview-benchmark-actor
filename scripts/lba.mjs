@@ -40,7 +40,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 10; // bump when you refine this tool (see the banner above)
+export const ITERATION = 11; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -109,14 +109,27 @@ export function governCheck(id) {
 // build, so a review/candidate captured on node 22 fails the reviewed==shipped gate (verify-published-vsix).
 // These pure, deterministic checks catch that (+ version/CHANGELOG drift) BEFORE a publish; the `release-preflight`
 // command layers the 3 live publish agreement gates on top.
-export function releasePreflightStatic({ version, nodeVersion, pkgVersion, changelog }) {
+export function releasePreflightStatic({ version, nodeVersion, pkgVersion, changelog, nvmrc, compositeVersion }) {
   const major = Number(String(nodeVersion).replace(/^v/, '').split('.')[0]);
   const escaped = String(version).replace(/\./g, '\\.');
-  return [
-    { label: 'node major is 24 (the CI publish plane; .vsix repro is node-major-bound)', ok: major === 24, note: `node ${nodeVersion}` },
-    { label: `package.json version == ${version}`, ok: pkgVersion === version, note: `package.json ${pkgVersion}` },
-    { label: `CHANGELOG has a [${version}] section`, ok: new RegExp(`^## \\[${escaped}\\]`, 'm').test(changelog || ''), note: '' },
-  ];
+  const localNode = String(nodeVersion).replace(/^v/, '');
+  const pinned = (nvmrc == null || String(nvmrc).trim() === '') ? null : String(nvmrc).trim().replace(/^v/, '');
+  const checks = [];
+  // node identity (#408): when a repo-root .nvmrc pins an EXACT release node version, assert the local node
+  // EQUALS it (the .vsix is byte-reproducible only within a node version); otherwise fall back to major==24.
+  if (pinned) {
+    checks.push({ label: `node version == .nvmrc (${pinned}); .vsix repro is node-version-bound`, ok: localNode === pinned, note: `node ${nodeVersion}` });
+  } else {
+    checks.push({ label: 'node major is 24 (the CI publish plane; .vsix repro is node-major-bound)', ok: major === 24, note: `node ${nodeVersion}` });
+  }
+  checks.push({ label: `package.json version == ${version}`, ok: pkgVersion === version, note: `package.json ${pkgVersion}` });
+  checks.push({ label: `CHANGELOG has a [${version}] section`, ok: new RegExp(`^## \\[${escaped}\\]`, 'm').test(changelog || ''), note: '' });
+  // composite receipt is the single source of truth for the enforced version (#416): the committed receipt's
+  // candidate.version must equal the release version, else the publish gates enforce a stale/mismatched version.
+  if (compositeVersion !== undefined) {
+    checks.push({ label: `composite receipt candidate.version == ${version}`, ok: compositeVersion === version, note: `receipt ${compositeVersion}` });
+  }
+  return checks;
 }
 
 // ---- agent-driven mesh run: chain the governed stages over one dispatch + returned receipts -------
@@ -169,6 +182,8 @@ export const COMMANDS = {
         nodeVersion: process.version,
         pkgVersion: JSON.parse(read('package.json')).version,
         changelog: read('CHANGELOG.md'),
+        nvmrc: read('.nvmrc'),
+        compositeVersion: (() => { try { return JSON.parse(read('reviewer-workstation/composite-release-decision-receipt.json')).candidate.version; } catch { return undefined; } })(),
       });
       const gates = [
         ['release-agreement WIN+LINUX agreed', 'tools/collab-cli/verify-release-agreement.mjs'],
@@ -262,6 +277,18 @@ const SELFTEST = [
   ['release-preflight static checks fail closed on a node-22 build + version + CHANGELOG mismatch', () => {
     const c = releasePreflightStatic({ version: '1.1.1', nodeVersion: 'v22.22.1', pkgVersion: '1.1.0', changelog: '## [1.1.0]\n' });
     return c.length === 3 && c.every((x) => !x.ok);
+  }],
+  ['release-preflight pins the EXACT node version when .nvmrc is present (#408): equal clears, a different 24.x fails', () => {
+    const base = { version: '1.1.1', pkgVersion: '1.1.1', changelog: '## [1.1.1]\n', nvmrc: '24.19.0\n' };
+    const equal = releasePreflightStatic({ ...base, nodeVersion: 'v24.19.0' });
+    const drift = releasePreflightStatic({ ...base, nodeVersion: 'v24.20.0' }); // a later 24.x minor
+    return equal[0].ok === true && drift[0].ok === false && /node version == \.nvmrc/.test(equal[0].label);
+  }],
+  ['release-preflight enforces the committed composite receipt version == release version (#416)', () => {
+    const base = { nodeVersion: 'v24.19.0', pkgVersion: '1.1.1', changelog: '## [1.1.1]\n', nvmrc: '24.19.0' };
+    const match = releasePreflightStatic({ ...base, version: '1.1.1', compositeVersion: '1.1.1' });
+    const stale = releasePreflightStatic({ ...base, version: '1.1.1', compositeVersion: '1.1.0' });
+    return match.length === 4 && match.every((x) => x.ok) && stale[3].ok === false;
   }],
   ['capacity-weighted partition splits a task set disjointly, covers it, and honours weight', () => {
     // rg-free (CI runners have no ripgrep): a synthetic task set exercises the pure partitioner.
