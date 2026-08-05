@@ -11,15 +11,17 @@
 # same way .github/workflows/devcontainer-prebuild.yml publishes the Linux devcontainer image.
 #
 # WINDOWS-container engine required (Docker Desktop switched to Windows containers, or a Windows Server
-# host); it CANNOT build on a Linux Docker engine. The build context is tools/collab-cli (NOT the repo
-# root): this lane needs only the collab-cli source, and the repo root carries multi-GB reviewer-
-# workstation + clean-room LabVIEW-feed artifacts a lean lbabus image must never pull in. Build with the
-# Windows-container engine:
+# host); it CANNOT build on a Linux Docker engine. The build context is the REPO ROOT (NOT tools/collab-cli):
+# the shared LbaBus.csproj embeds the repo's canonical docs/requirements/* BY REFERENCE (../../docs/...), so
+# those files must be inside the context. The repo-root .dockerignore keeps the context lean (it drops
+# node_modules/.git/ISOs/host bin+obj; the multi-GB reviewer-workstation + clean-room LabVIEW-feed artifacts
+# are gitignored and absent on a clean checkout). This mirrors the Linux lane (ci/Dockerfile[.linux]). Build
+# with the Windows-container engine, FROM THE REPO ROOT:
 #
 #   # fast standalone gate (build + the cross-process lease stress check):
-#   docker build -f tools/collab-cli/ci/Dockerfile.windows --target ci-stress -t lbabus-win-verify:stress tools/collab-cli
+#   docker build -f tools/collab-cli/ci/Dockerfile.windows --target ci-stress -t lbabus-win-verify:stress .
 #   # the full pullable verification artifact:
-#   docker build -f tools/collab-cli/ci/Dockerfile.windows -t lbabus-win-verify:latest tools/collab-cli
+#   docker build -f tools/collab-cli/ci/Dockerfile.windows -t lbabus-win-verify:latest .
 #   docker run --rm lbabus-win-verify:latest        # re-run the verification from the published image
 
 ARG DOTNET_SDK=mcr.microsoft.com/dotnet/sdk:8.0-windowsservercore-ltsc2022
@@ -33,17 +35,19 @@ ARG DOTNET_RUNTIME=mcr.microsoft.com/dotnet/runtime:8.0-windowsservercore-ltsc20
 FROM ${DOTNET_SDK} AS build
 SHELL ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';"]
 WORKDIR C:\src
+# Repo-root build context (see header): the whole repo lands in C:\src, trimmed by the repo-root
+# .dockerignore. Publishing tools\collab-cli\LbaBus.csproj lets its ../../docs/requirements/* embed resolve.
 COPY . .
 # PowerShell SHELL: `;` separates statements and backtick continues the line. Windows PowerShell 5.1
 # does NOT propagate a native tool's non-zero exit, so guard each publish with an explicit $LASTEXITCODE
 # check -- otherwise a failed publish would not fail the image build.
-RUN dotnet publish LbaBus.csproj -c Release -o C:\out\cli; `
+RUN dotnet publish tools\collab-cli\LbaBus.csproj -c Release -o C:\out\cli; `
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; `
-    dotnet publish ci\LbaBus.Ci\LbaBus.Ci.csproj -c Release -o C:\out\ci; `
+    dotnet publish tools\collab-cli\ci\LbaBus.Ci\LbaBus.Ci.csproj -c Release -o C:\out\ci; `
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; `
-    dotnet publish ci\LbaBus.Ci.Mock\LbaBus.Ci.Mock.csproj -c Release -o C:\out\mock; `
+    dotnet publish tools\collab-cli\ci\LbaBus.Ci.Mock\LbaBus.Ci.Mock.csproj -c Release -o C:\out\mock; `
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; `
-    dotnet publish ci\LbaBus.Ci.Stress\LbaBus.Ci.Stress.csproj -c Release -o C:\out\stress; `
+    dotnet publish tools\collab-cli\ci\LbaBus.Ci.Stress\LbaBus.Ci.Stress.csproj -c Release -o C:\out\stress; `
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # ---- ci-stress: cross-process lease mutual-exclusion regression gate on WINDOWS (fast standalone) --
@@ -60,7 +64,7 @@ RUN dotnet C:\out\stress\lbabus-stress.dll --lbabus C:\out\cli\lbabus.dll --agen
 # The ENTRYPOINT is the per-actor workload; the orchestrator passes -Peers <comma-separated names>.
 FROM ${DOTNET_RUNTIME} AS mesh
 COPY --from=build C:\out C:\out
-COPY ci\mesh-actor.ps1 C:\mesh-actor.ps1
+COPY tools\collab-cli\ci\mesh-actor.ps1 C:\mesh-actor.ps1
 EXPOSE 7420 7421/udp
 ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\mesh-actor.ps1"]
 
@@ -68,8 +72,8 @@ ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "
 FROM ${DOTNET_RUNTIME} AS verify
 WORKDIR C:\repo
 COPY --from=build C:\out C:\out
-COPY ci C:\repo\tools\collab-cli\ci
-COPY ci\verify-windows.ps1 C:\verify-windows.ps1
+COPY tools\collab-cli\ci C:\repo\tools\collab-cli\ci
+COPY tools\collab-cli\ci\verify-windows.ps1 C:\verify-windows.ps1
 # build-time gate: the exact verification `docker run` re-runs, so a broken lbabus fails the image build.
 RUN powershell -NoProfile -ExecutionPolicy Bypass -File C:\verify-windows.ps1 -Out C:\out -Repo C:\repo
 ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\verify-windows.ps1"]
