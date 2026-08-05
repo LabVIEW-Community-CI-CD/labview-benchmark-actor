@@ -29,6 +29,15 @@ if (!existsSync(compiled)) {
   process.exit(1);
 }
 
+// Deterministically drive `process.platform` so both the Windows-only capture body and the non-Windows
+// guard (issue #423) are exercised on any CI host -- including the Linux coverage runner, where the real
+// platform would otherwise skip one branch and drop coverage. Returns a restore fn.
+function setPlatform(value) {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { value, configurable: true });
+  return () => Object.defineProperty(process, 'platform', original);
+}
+
 // Mock the `vscode` module (host-provided at runtime; unavailable in plain node).
 const registered = [];
 const registeredTools = [];
@@ -621,19 +630,14 @@ try {
     assert(sentCommands.length === sentBeforeInvalid, 'createCleanroom aborts (sends no cloner command) when any input fails validation');
   }
 
-  // captureLaunch platform guard + missing-labview guard:
-  // - non-Windows must fail FAST with a Windows-only redirect to the cross-platform mprr capture command.
-  // - Windows continues to use the LabVIEW.exe resolver and surfaces the existing not-found guard.
-  // Point labviewPath at a guaranteed-nonexistent file so the Windows branch stays hermetic on a real host.
-  const errsBeforeCapture = errorMessages.length;
-  const executedBeforeCapture = executedCommands.length;
-  configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
-  if (process.platform !== 'win32') {
+  // captureLaunch non-Windows guard (issue #423): must fail FAST with a Windows-only redirect to the
+  // cross-platform mprr capture command. Force a non-win32 platform so this is deterministic on any CI host.
+  {
+    const restorePlatform = setPlatform('linux');
+    const errsBeforeCapture = errorMessages.length;
+    const executedBeforeCapture = executedCommands.length;
     errorResponseQueue.push('Run mprr capture');
-  }
-  await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
-  delete configStore.labviewPath;
-  if (process.platform !== 'win32') {
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
     assert(
       errorMessages.slice(errsBeforeCapture).some((m) => /Windows-only/.test(m) && /mprr/.test(m)),
       'captureLaunch redirects non-Windows hosts to the mprr capture command'
@@ -642,11 +646,14 @@ try {
       executedCommands.slice(executedBeforeCapture).includes('labviewBenchmarkActor.captureLaunchMprr'),
       'captureLaunch can jump directly to captureLaunchMprr from the non-Windows guard'
     );
-  } else {
+    // ...and the dismissed branch: closing the Windows-only dialog does NOT jump to mprr.
+    const executedBeforeDismiss = executedCommands.length;
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
     assert(
-      errorMessages.slice(errsBeforeCapture).some((m) => /LabVIEW\.exe not found/.test(m)),
-      'captureLaunch surfaces the LabVIEW-not-found guard when no LabVIEW is resolvable'
+      !executedCommands.slice(executedBeforeDismiss).includes('labviewBenchmarkActor.captureLaunchMprr'),
+      'captureLaunch non-Windows guard does nothing when the redirect prompt is dismissed'
     );
+    restorePlatform();
   }
 
   // lmTextResult fallback: when the host predates the LanguageModelToolResult/TextPart classes, the tools return
@@ -735,31 +742,19 @@ try {
   const openText = openResult && openResult.content && openResult.content[0] && openResult.content[0].value;
   assert(typeof openText === 'string' && /panel/i.test(openText), 'the open-panel LM tool opens a panel + returns text');
 
-  // Capture commands (LBA-REQ-009): platform-safe guard coverage.
-  // - non-Windows: captureLaunch fails FAST with a redirect to the cross-platform mprr flow.
-  // - Windows: with no resolvable LabVIEW, captureLaunch short-circuits at resolveLabview.
+  // captureLaunch Windows body: with no resolvable LabVIEW it short-circuits at resolveLabview with the
+  // "LabVIEW.exe not found" guard BEFORE spawning ffmpeg. Force win32 so the Windows body runs on any CI host;
   // labviewPath points at a guaranteed-nonexistent file so this is hermetic even on a host that HAS LabVIEW 2026.
-  const errsBeforeNoLv = errorMessages.length;
-  const executedBeforeNoLv = executedCommands.length;
-  configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
-  if (process.platform !== 'win32') {
-    errorResponseQueue.push('Run mprr capture');
-  }
-  await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
-  delete configStore.labviewPath;
-  if (process.platform === 'win32') {
+  {
+    const restorePlatform = setPlatform('win32');
+    const errsBeforeNoLv = errorMessages.length;
+    configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
+    await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+    delete configStore.labviewPath;
+    restorePlatform();
     assert(
       errorMessages.slice(errsBeforeNoLv).some((m) => /LabVIEW\.exe not found/.test(m)),
       'captureLaunch reports missing LabVIEW (resolveLabview -> null) and returns before spawning ffmpeg'
-    );
-  } else {
-    assert(
-      errorMessages.slice(errsBeforeNoLv).some((m) => /Windows-only/.test(m) && /mprr/.test(m)),
-      'captureLaunch redirects non-Windows hosts to the mprr command instead of probing LabVIEW.exe'
-    );
-    assert(
-      executedCommands.slice(executedBeforeNoLv).includes('labviewBenchmarkActor.captureLaunchMprr'),
-      'captureLaunch non-Windows guard can invoke captureLaunchMprr directly'
     );
   }
   await registered.find((r) => r.id === 'labviewBenchmarkActor.stopCapture').handler();
@@ -821,9 +816,11 @@ try {
     }
   }
 
-  // Windows-only ffmpeg pre-flight remediation flow: with LabVIEW present but ffmpeg absent, captureLaunch prompts
-  // Install/download/set-path and aborts BEFORE creating any capture (the v1.0.0 ENOENT complaint).
-  if (process.platform === 'win32') {
+  // ffmpeg pre-flight remediation flow (v1.0.0 ENOENT complaint): with LabVIEW present but ffmpeg absent,
+  // captureLaunch prompts Install/download/set-path and aborts BEFORE creating any capture. Force win32 so the
+  // Windows body runs deterministically on any CI host.
+  {
+    const restorePlatform = setPlatform('win32');
     const savedPath = process.env.PATH;
     const savedLadPrompt = process.env.LOCALAPPDATA;
     process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz'); // force ffmpeg-absent (the dev host may have ffmpeg)
@@ -852,6 +849,7 @@ try {
     delete configStore.labviewPath;
     process.env.PATH = savedPath;
     if (savedLadPrompt === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadPrompt;
+    restorePlatform();
   }
 
   // captureLaunchMprr (cross-platform mprr capture, LBA-REQ-009): drive the FULL command with a mocked `node`
