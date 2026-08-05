@@ -2701,6 +2701,16 @@ check('composite-release-decision', () => {
   return { selftest: 'composite-release-decision 7/7', candidate: `${r.candidate.component} ${r.candidate.version}`, machine: r.binding.machinePublish, visual: r.binding.visualPublish, bound: true };
 });
 
+// Issue #410 (LBA-REQ-070 / ADR-0051): the one-shot composite receipt ASSEMBLER fuses the four release pieces
+// (candidate, machine quorum + sign-off, signed visual verdict, staged net frame) into the composite receipt AND
+// fails closed with a PRECISE per-field diff the moment any piece names a different candidate -- so a binding
+// mismatch is caught at assembly, not as a late opaque publish-gate failure. Asserts the selftest (7/7) + that
+// the assembler reproduces the committed receipt from its own pieces (offline, deterministic).
+check('assemble-composite', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'assemble-composite.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'assemble-composite 7/7', proves: 'precise fail-closed candidate binding + composite assembly' };
+});
+
 // LBA-REQ-071 / ADR-0052: composite release ENFORCEMENT -- the extension release workflow blocks publishing
 // unless a committed composite release-decision proves both gates pass for the tagged candidate. Asserts (offline)
 // that the enforcement CLI clears the committed candidate + fails closed for a version with no decision, AND that

@@ -76,7 +76,7 @@
 | LBA-REQ-067 | Remove the GitHub-Discussion transport from the lbabus CLI | Proven | §3.2 Deployment | ADR-0047 | T-067 | 5 |
 | LBA-REQ-068 | Net-only live VM-agent drive (govern the released-CLI closed loop as a committed receipt) | Proven | §3.2 Deployment | ADR-0049 | T-068 | 6 |
 | LBA-REQ-069 | Release-with-review drive (bind the net-staged candidate to the signed + announced verdict) | Proven | §3.2 Deployment | ADR-0050 | T-069 | 5 |
-| LBA-REQ-070 | Composite release decision (bind the machine corroboration gate to the human visual gate over one net-staged candidate) | Proven | §3.2 Deployment | ADR-0051 | T-070 | 6 |
+| LBA-REQ-070 | Composite release decision (bind the machine corroboration gate to the human visual gate over one net-staged candidate) | Proven | §3.2 Deployment | ADR-0051 | T-070 | 8 |
 | LBA-REQ-071 | Enforce the composite release decision in the extension release workflow | Proven | §3.2 Deployment | ADR-0052, ADR-0073 | T-071 | 4 |
 | LBA-REQ-072 | Cross-plane launch-benchmark parity (identity is the spec, not the series) | Proven | §3.2 Deployment | ADR-0053 | T-072 | 6 |
 | LBA-REQ-073 | Mesh-run cross-plane fulfillment (the North Star loop) | Proven | §3.2 Deployment | ADR-0054 | T-073 | 5 |
