@@ -114,6 +114,11 @@ key material). Then:
    is lost.
 2. Open the PR to `main` and merge with `--no-ff` (never squash a release), so
    `main` ↔ `develop` never diverge (`docs/cm/cm-plan.md`).
+3. After the back-merge to `develop`, verify shared lineage:
+   `node experiments/release/verify-release-lineage.mjs --check` (fails closed if any `ext-v*`
+   tag is not an ancestor of BOTH `main` and `develop`, issue #417). If a prior release diverged
+   and `develop` already carries its content, reconcile with `git merge -s ours origin/main`
+   into `develop` (records shared ancestry without changing develop's tree).
 
 ## 7. Publish
 

@@ -22,7 +22,7 @@
 | LBA-REQ-013 | Prioritized, addressable coordination messages | Superseded | §3.7 Agentic-infrastructure | ADR-0048 | T-013 | 2 |
 | LBA-REQ-014 | Cross-plane benchmark comparison | Proven | §3.6 Analysis | — | T-014 | 17 |
 | LBA-REQ-015 | VI Analyzer as a cross-plane benchmark | Proven | §3.6 Analysis | — | T-015 | 17 |
-| LBA-REQ-016 | GitFlow branch governance | Proven | §3.8 Configuration-management & assurance | ADR-0010 | T-016 | 3 |
+| LBA-REQ-016 | GitFlow branch governance | Proven | §3.8 Configuration-management & assurance | ADR-0010 | T-016 | 5 |
 | LBA-REQ-017 | LabVIEW authoring-lane dependency manifest | Proven | §3.8 Configuration-management & assurance | — | T-017 | 3 |
 | LBA-REQ-018 | Provider-delegated cleanroom AI uplift | Proven | §3.7 Agentic-infrastructure | ADR-0011 | T-018 | 17 |
 | LBA-REQ-019 | MCP server agent tool surface | Proven | §3.7 Agentic-infrastructure | ADR-0012 | T-019 | 7 |
