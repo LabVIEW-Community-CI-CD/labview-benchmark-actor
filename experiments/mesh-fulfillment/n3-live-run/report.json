@@ -1,0 +1,114 @@
+{
+  "schema": "labview-benchmark-actor/mesh-cross-plane-report@1",
+  "requirement": "LBA-REQ-092",
+  "adr": "ADR-0075",
+  "dispatchId": "mesh-run-labview-ide-launch-n3-2026-08-05",
+  "identity": "9fd14fed62e22425cede480c8b36d146f9a6a8e07d95dbf2d33e59d9b9c01817",
+  "planes": [
+    "LINUX",
+    "WIN"
+  ],
+  "corroboration": {
+    "crossPlane": true,
+    "allPass": true,
+    "identityBound": true,
+    "verdicts": {
+      "LINUX": "PASS",
+      "WIN": "PASS"
+    },
+    "quorum": {
+      "perPlane": {
+        "LINUX": {
+          "actors": [
+            "lba-cleanroom-clone-01",
+            "lba-cleanroom-clone-02"
+          ],
+          "count": 2,
+          "meansMs": [
+            1815.7,
+            2097.3
+          ]
+        },
+        "WIN": {
+          "actors": [
+            "actor"
+          ],
+          "count": 1,
+          "meansMs": [
+            3305.7
+          ]
+        }
+      },
+      "minActorsPerPlane": 1,
+      "redundant": false
+    }
+  },
+  "comparison": {
+    "schema": "labview-benchmark-actor/cross-plane-compare@v1",
+    "benchmarkId": "labview-ide-launch",
+    "linux": {
+      "latest": 1501,
+      "mean": 1815.7,
+      "median": 1523,
+      "min": 1501,
+      "max": 2423,
+      "spread": 922,
+      "baselineMs": 1523
+    },
+    "win": {
+      "latest": 3138,
+      "mean": 3305.7,
+      "median": 3224,
+      "min": 3138,
+      "max": 3555,
+      "spread": 417,
+      "baselineMs": 3224
+    },
+    "deltas": {
+      "latest": {
+        "linux": 1501,
+        "win": 3138,
+        "delta": 1637,
+        "pctOfLinux": 109.1
+      },
+      "mean": {
+        "linux": 1815.7,
+        "win": 3305.7,
+        "delta": 1489.9999999999998,
+        "pctOfLinux": 82.1
+      },
+      "median": {
+        "linux": 1523,
+        "win": 3224,
+        "delta": 1701,
+        "pctOfLinux": 111.7
+      },
+      "min": {
+        "linux": 1501,
+        "win": 3138,
+        "delta": 1637,
+        "pctOfLinux": 109.1
+      },
+      "max": {
+        "linux": 2423,
+        "win": 3555,
+        "delta": 1132,
+        "pctOfLinux": 46.7
+      },
+      "spread": {
+        "linux": 922,
+        "win": 417,
+        "delta": -505,
+        "pctOfLinux": -54.8
+      },
+      "baselineMs": {
+        "linux": 1523,
+        "win": 3224,
+        "delta": 1701,
+        "pctOfLinux": 111.7
+      }
+    },
+    "digests": {}
+  },
+  "corroborated": true
+}
