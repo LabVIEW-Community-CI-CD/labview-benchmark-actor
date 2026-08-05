@@ -41,4 +41,4 @@ node experiments/mesh-runs/compare-mesh-runs.mjs       # compare every stored ru
 `meshFormMs` (per actor: `mesh start` → `MESH OK`, from the log timestamps) is the container-mesh benchmark
 metric — it is the mesh-formation leg, the reliable analog of the boot-benchmark's `meshFormMs` span.
 
-Prereq: build the image once — `docker build -f tools/collab-cli/ci/Dockerfile.linux --target mesh -t lbabus-linux-verify:mesh tools/collab-cli`.
+Prereq: build the image once — `docker build -f tools/collab-cli/ci/Dockerfile.linux --target mesh -t lbabus-linux-verify:mesh .`.

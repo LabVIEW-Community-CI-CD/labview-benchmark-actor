@@ -1,6 +1,8 @@
-# Docker build-context excludes. The repo ROOT is the build context for BOTH the docker-windows clean-room
-# mirror (cleanroom/docker-windows/Dockerfile.windows) and the tools/collab-cli/ci release harness. Without
-# this, the root shipped ~105 MB of node_modules into the context (WIN measured 105 MB -> 3.5 MB with it).
+# Docker build-context excludes. The repo ROOT is the build context for the docker-windows clean-room
+# mirror (cleanroom/docker-windows/Dockerfile.windows) AND the tools/collab-cli/ci release harness --
+# including the lean lbabus verify twins (ci/Dockerfile.windows, ci/Dockerfile.linux), which publish the
+# CLI that embeds docs/requirements/* by reference, so they too build from the repo root. Without this,
+# the root shipped ~105 MB of node_modules into the context (WIN measured 105 MB -> 3.5 MB with it).
 #
 # Do NOT exclude what the builds COPY: cleanroom/, tools/, experiments/, docs/, and the maintainer-staged
 # .lv-feed / .lv-cli-feed offline LabVIEW feeds (the mirror COPYs those in; they are gitignored, not here).
@@ -12,3 +14,12 @@ reports
 .vagrant
 *.iso
 *.vsix
+# Host .NET build outputs under the collab-cli tree: the lbabus verify images (ci/Dockerfile[.windows|.linux])
+# publish INSIDE the container, so a stale host bin/obj (whose project.assets.json carries host NuGet paths)
+# must never enter the context. Scoped to tools/collab-cli/ -- the faithful port of the now-removed
+# tools/collab-cli/.dockerignore, from when that directory was itself the build context.
+tools/collab-cli/bin
+tools/collab-cli/obj
+tools/collab-cli/**/bin
+tools/collab-cli/**/obj
+tools/collab-cli/ci/results

@@ -22,6 +22,7 @@ on:
   pull_request:
     paths:
       - 'tools/collab-cli/**'
+      - 'docs/requirements/**'
       - '.github/workflows/lbabus-verify-windows.yml'
   workflow_dispatch:
 
@@ -71,7 +72,7 @@ jobs:
         run: |
           $imageTags = @()
           foreach ($t in "${{ steps.tags.outputs.tags }}".Split(' ')) { $imageTags += @('-t', "${env:IMAGE}:$t") }
-          docker build -f tools/collab-cli/ci/Dockerfile.windows --target verify @imageTags tools/collab-cli
+          docker build -f tools/collab-cli/ci/Dockerfile.windows --target verify @imageTags .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Re-run the verification through the ENTRYPOINT -- the exact pull-and-run consumer path.

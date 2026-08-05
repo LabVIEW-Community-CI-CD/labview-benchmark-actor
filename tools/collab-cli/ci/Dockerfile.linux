@@ -6,15 +6,17 @@
 #
 # This image is a PULLABLE lbabus Linux verification artifact: `docker run` executes the full harness
 # (verify-linux.sh) and exits non-zero on any failure. The SAME script gates the build (RUN in the `verify`
-# stage), so a broken lbabus fails the image. The build context is tools/collab-cli (NOT the repo root):
-# this lane needs only the collab-cli source, and the repo root carries multi-GB reviewer-workstation +
-# clean-room LabVIEW-feed artifacts a lean image must never pull in (the scoped .dockerignore drops host
-# bin/obj). Runs on the standard Linux Docker engine.
+# stage), so a broken lbabus fails the image. The build context is the REPO ROOT (NOT tools/collab-cli):
+# the shared LbaBus.csproj embeds the repo's canonical docs/requirements/* BY REFERENCE (../../docs/...), so
+# those files must be inside the context. The repo-root .dockerignore keeps the context lean (it drops
+# node_modules/.git/ISOs/host bin+obj; the multi-GB reviewer-workstation + clean-room LabVIEW-feed artifacts
+# are gitignored and absent on a clean checkout). Mirrors the repo-root ci/Dockerfile. Runs on the standard
+# Linux Docker engine, FROM THE REPO ROOT:
 #
 #   # fast standalone gate (build + the cross-process lease stress check):
-#   docker build -f tools/collab-cli/ci/Dockerfile.linux --target ci-stress -t lbabus-linux-verify:stress tools/collab-cli
+#   docker build -f tools/collab-cli/ci/Dockerfile.linux --target ci-stress -t lbabus-linux-verify:stress .
 #   # the full pullable verification artifact:
-#   docker build -f tools/collab-cli/ci/Dockerfile.linux -t lbabus-linux-verify:latest tools/collab-cli
+#   docker build -f tools/collab-cli/ci/Dockerfile.linux -t lbabus-linux-verify:latest .
 #   docker run --rm lbabus-linux-verify:latest   # re-run the verification from the published image
 
 ARG DOTNET_SDK=mcr.microsoft.com/dotnet/sdk:8.0
@@ -27,12 +29,14 @@ ARG DOTNET_RUNTIME=mcr.microsoft.com/dotnet/runtime:8.0
 # ---- build: publish the CLI + case runner + GitHub mock + stress gate with the Linux .NET SDK -----------
 FROM ${DOTNET_SDK} AS build
 WORKDIR /src
+# Repo-root build context (see header): the whole repo lands in /src, trimmed by the repo-root
+# .dockerignore. Publishing tools/collab-cli/LbaBus.csproj lets its ../../docs/requirements/* embed resolve.
 COPY . .
 RUN set -eux; \
-    dotnet publish LbaBus.csproj -c Release -o /out/cli; \
-    dotnet publish ci/LbaBus.Ci/LbaBus.Ci.csproj -c Release -o /out/ci; \
-    dotnet publish ci/LbaBus.Ci.Mock/LbaBus.Ci.Mock.csproj -c Release -o /out/mock; \
-    dotnet publish ci/LbaBus.Ci.Stress/LbaBus.Ci.Stress.csproj -c Release -o /out/stress
+    dotnet publish tools/collab-cli/LbaBus.csproj -c Release -o /out/cli; \
+    dotnet publish tools/collab-cli/ci/LbaBus.Ci/LbaBus.Ci.csproj -c Release -o /out/ci; \
+    dotnet publish tools/collab-cli/ci/LbaBus.Ci.Mock/LbaBus.Ci.Mock.csproj -c Release -o /out/mock; \
+    dotnet publish tools/collab-cli/ci/LbaBus.Ci.Stress/LbaBus.Ci.Stress.csproj -c Release -o /out/stress
 
 # ---- ci-stress: cross-process lease mutual-exclusion regression gate (fast standalone) ------------------
 # Mirrors the Windows ci-stress stage (LBABUS #15/#18) and the repo-root ci/Dockerfile ci-stress target.
@@ -46,7 +50,7 @@ RUN dotnet /out/stress/lbabus-stress.dll --lbabus /out/cli/lbabus.dll --agents 1
 # the orchestrator passes the peer list (comma-separated container names) via MESH_PEERS.
 FROM ${DOTNET_RUNTIME} AS mesh
 COPY --from=build /out /out
-COPY ci/mesh-actor.sh /mesh-actor.sh
+COPY tools/collab-cli/ci/mesh-actor.sh /mesh-actor.sh
 # Normalize line endings: a build context checked out on Windows (autocrlf) delivers CRLF, which makes the
 # bash entrypoint choke ($'\r'). sed is a no-op on an already-LF file, so this is safe on every host.
 RUN sed -i 's/\r$//' /mesh-actor.sh && chmod +x /mesh-actor.sh
@@ -63,16 +67,20 @@ WORKDIR /src
 COPY . /src
 # Pre-warm the NuGet cache ONLINE (build has network) with the exact runtime publish, so the container's
 # start-time build is OFFLINE + fast + deterministic (mirrors the VM's baked /opt/lba/nuget). Keep only the
-# populated cache; discard the throwaway binary so the build genuinely re-runs on start.
-RUN set -eux; NUGET_PACKAGES=/nuget dotnet publish LbaBus.csproj -c Release -r linux-x64 --self-contained \
+# populated cache; discard the throwaway binary so the build genuinely re-runs on start. Repo-root context:
+# the CLI project is tools/collab-cli/LbaBus.csproj, whose ../../docs/requirements/* embed resolves against
+# the full repo copied to /src.
+RUN set -eux; NUGET_PACKAGES=/nuget dotnet publish tools/collab-cli/LbaBus.csproj -c Release -r linux-x64 --self-contained \
       -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o /throwaway; \
-    rm -rf /throwaway /src/bin /src/obj
+    rm -rf /throwaway /src/tools/collab-cli/bin /src/tools/collab-cli/obj
 # Offline NuGet config: the start-time build resolves ONLY from the vendored cache (no network variance).
-RUN printf '<?xml version="1.0"?>\n<configuration>\n  <packageSources><clear/></packageSources>\n  <fallbackPackageFolders><clear/><add key="lba" value="/nuget"/></fallbackPackageFolders>\n</configuration>\n' > /src/NuGet.config
-COPY ci/mesh-actor.sh /mesh-actor.sh
-COPY ci/boot-entrypoint.sh /boot-entrypoint.sh
+RUN printf '<?xml version="1.0"?>\n<configuration>\n  <packageSources><clear/></packageSources>\n  <fallbackPackageFolders><clear/><add key="lba" value="/nuget"/></fallbackPackageFolders>\n</configuration>\n' > /src/tools/collab-cli/NuGet.config
+COPY tools/collab-cli/ci/mesh-actor.sh /mesh-actor.sh
+COPY tools/collab-cli/ci/boot-entrypoint.sh /boot-entrypoint.sh
 RUN sed -i 's/\r$//' /mesh-actor.sh /boot-entrypoint.sh && chmod +x /mesh-actor.sh /boot-entrypoint.sh
-ENV LBA_SRC=/src LBA_NUGET=/nuget LBA_DEST=/usr/local/bin/lbabus
+# LBA_SRC points at the collab-cli project dir so boot-entrypoint.sh publishes $LBA_SRC/LbaBus.csproj (its
+# ../../docs/requirements/* embed resolves to /src/docs/requirements) and picks up the offline NuGet.config.
+ENV LBA_SRC=/src/tools/collab-cli LBA_NUGET=/nuget LBA_DEST=/usr/local/bin/lbabus
 EXPOSE 7420 7421/udp
 ENTRYPOINT ["bash", "/boot-entrypoint.sh"]
 
@@ -80,9 +88,12 @@ ENTRYPOINT ["bash", "/boot-entrypoint.sh"]
 FROM ${DOTNET_RUNTIME} AS verify
 WORKDIR /repo
 COPY --from=build /out /out
-COPY ci /repo/tools/collab-cli/ci
-COPY ci/verify-linux.sh /verify-linux.sh
-RUN chmod +x /verify-linux.sh
+COPY tools/collab-cli/ci /repo/tools/collab-cli/ci
+COPY tools/collab-cli/ci/verify-linux.sh /verify-linux.sh
+# Normalize line endings: a build context checked out on Windows (autocrlf) delivers CRLF, which makes the
+# bash shebang choke ($'\r'). sed is a no-op on an already-LF file, so this is safe on every host (parity
+# with the mesh/bootbench stages above). Fixes both the build-time RUN gate below and the ENTRYPOINT re-run.
+RUN sed -i 's/\r$//' /verify-linux.sh && chmod +x /verify-linux.sh
 # build-time gate: the exact verification `docker run` re-runs, so a broken lbabus fails the image build.
 # ripgrep is intentionally ABSENT here, so requiresRipgrep harness cases SKIP (the ci-no-rg equivalent)
 # while the mock-requiring defect cases RUN.

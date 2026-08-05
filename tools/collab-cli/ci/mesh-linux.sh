@@ -9,7 +9,7 @@
 #
 # Exits 0 on a full mesh (all actors 0); 1 if any actor did not complete. Self-cleaning.
 #
-#   docker build -f tools/collab-cli/ci/Dockerfile.linux --target mesh -t lbabus-linux-verify:mesh tools/collab-cli
+#   docker build -f tools/collab-cli/ci/Dockerfile.linux --target mesh -t lbabus-linux-verify:mesh .
 #   bash tools/collab-cli/ci/mesh-linux.sh --actors 3
 #   bash tools/collab-cli/ci/mesh-linux.sh --actors 128   # scale headroom on a big-RAM Linux host
 set -u
