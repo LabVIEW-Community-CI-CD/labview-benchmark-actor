@@ -634,26 +634,29 @@ try {
   // cross-platform mprr capture command. Force a non-win32 platform so this is deterministic on any CI host.
   {
     const restorePlatform = setPlatform('linux');
-    const errsBeforeCapture = errorMessages.length;
-    const executedBeforeCapture = executedCommands.length;
-    errorResponseQueue.push('Run mprr capture');
-    await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
-    assert(
-      errorMessages.slice(errsBeforeCapture).some((m) => /Windows-only/.test(m) && /mprr/.test(m)),
-      'captureLaunch redirects non-Windows hosts to the mprr capture command'
-    );
-    assert(
-      executedCommands.slice(executedBeforeCapture).includes('labviewBenchmarkActor.captureLaunchMprr'),
-      'captureLaunch can jump directly to captureLaunchMprr from the non-Windows guard'
-    );
-    // ...and the dismissed branch: closing the Windows-only dialog does NOT jump to mprr.
-    const executedBeforeDismiss = executedCommands.length;
-    await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
-    assert(
-      !executedCommands.slice(executedBeforeDismiss).includes('labviewBenchmarkActor.captureLaunchMprr'),
-      'captureLaunch non-Windows guard does nothing when the redirect prompt is dismissed'
-    );
-    restorePlatform();
+    try {
+      const errsBeforeCapture = errorMessages.length;
+      const executedBeforeCapture = executedCommands.length;
+      errorResponseQueue.push('Run mprr capture');
+      await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+      assert(
+        errorMessages.slice(errsBeforeCapture).some((m) => /Windows-only/.test(m) && /mprr/.test(m)),
+        'captureLaunch redirects non-Windows hosts to the mprr capture command'
+      );
+      assert(
+        executedCommands.slice(executedBeforeCapture).includes('labviewBenchmarkActor.captureLaunchMprr'),
+        'captureLaunch can jump directly to captureLaunchMprr from the non-Windows guard'
+      );
+      // ...and the dismissed branch: closing the Windows-only dialog does NOT jump to mprr.
+      const executedBeforeDismiss = executedCommands.length;
+      await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+      assert(
+        !executedCommands.slice(executedBeforeDismiss).includes('labviewBenchmarkActor.captureLaunchMprr'),
+        'captureLaunch non-Windows guard does nothing when the redirect prompt is dismissed'
+      );
+    } finally {
+      restorePlatform();
+    }
   }
 
   // lmTextResult fallback: when the host predates the LanguageModelToolResult/TextPart classes, the tools return
@@ -747,15 +750,19 @@ try {
   // labviewPath points at a guaranteed-nonexistent file so this is hermetic even on a host that HAS LabVIEW 2026.
   {
     const restorePlatform = setPlatform('win32');
-    const errsBeforeNoLv = errorMessages.length;
-    configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
-    await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
-    delete configStore.labviewPath;
-    restorePlatform();
-    assert(
-      errorMessages.slice(errsBeforeNoLv).some((m) => /LabVIEW\.exe not found/.test(m)),
-      'captureLaunch reports missing LabVIEW (resolveLabview -> null) and returns before spawning ffmpeg'
-    );
+    try {
+      const errsBeforeNoLv = errorMessages.length;
+      configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
+      await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+      delete configStore.labviewPath;
+      assert(
+        errorMessages.slice(errsBeforeNoLv).some((m) => /LabVIEW\.exe not found/.test(m)),
+        'captureLaunch reports missing LabVIEW (resolveLabview -> null) and returns before spawning ffmpeg'
+      );
+    } finally {
+      delete configStore.labviewPath;
+      restorePlatform();
+    }
   }
   await registered.find((r) => r.id === 'labviewBenchmarkActor.stopCapture').handler();
   assert(
@@ -823,33 +830,36 @@ try {
     const restorePlatform = setPlatform('win32');
     const savedPath = process.env.PATH;
     const savedLadPrompt = process.env.LOCALAPPDATA;
-    process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz'); // force ffmpeg-absent (the dev host may have ffmpeg)
-    process.env.LOCALAPPDATA = join(tmpdir(), 'lba-no-localappdata-ffmpeg-xyz'); // ...and no %LOCALAPPDATA%\lba\ffmpeg.exe (the reviewer WIN VM stages one)
-    configStore.labviewPath = process.execPath; // resolveLabview -> non-empty -> passes the LabVIEW guard
-    const cap = () => registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+    try {
+      process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz'); // force ffmpeg-absent (the dev host may have ffmpeg)
+      process.env.LOCALAPPDATA = join(tmpdir(), 'lba-no-localappdata-ffmpeg-xyz'); // ...and no %LOCALAPPDATA%\lba\ffmpeg.exe (the reviewer WIN VM stages one)
+      configStore.labviewPath = process.execPath; // resolveLabview -> non-empty -> passes the LabVIEW guard
+      const cap = () => registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
 
-    const n0 = errorMessages.length;
-    const s0 = sentCommands.length;
-    errorResponseQueue.push('Install ffmpeg (winget)');
-    await cap();
-    assert(errorMessages.slice(n0).some((m) => /ffmpeg is required/i.test(m)), 'captureLaunch prompts when ffmpeg is missing');
-    assert(sentCommands.slice(s0).some((c) => /winget install/i.test(c)), 'the Install button runs winget');
+      const n0 = errorMessages.length;
+      const s0 = sentCommands.length;
+      errorResponseQueue.push('Install ffmpeg (winget)');
+      await cap();
+      assert(errorMessages.slice(n0).some((m) => /ffmpeg is required/i.test(m)), 'captureLaunch prompts when ffmpeg is missing');
+      assert(sentCommands.slice(s0).some((c) => /winget install/i.test(c)), 'the Install button runs winget');
 
-    const e0 = openedExternal.length;
-    errorResponseQueue.push('Download ffmpeg\u2026');
-    await cap();
-    assert(openedExternal.slice(e0).some((u) => /ffmpeg/i.test(u)), 'the Download button opens the ffmpeg builds page');
+      const e0 = openedExternal.length;
+      errorResponseQueue.push('Download ffmpeg\u2026');
+      await cap();
+      assert(openedExternal.slice(e0).some((u) => /ffmpeg/i.test(u)), 'the Download button opens the ffmpeg builds page');
 
-    const c0 = executedCommands.length;
-    errorResponseQueue.push('Set ffmpeg path\u2026');
-    await cap();
-    assert(executedCommands.slice(c0).some((x) => /openSettings/i.test(x)), 'the Set-ffmpeg-path button opens the ffmpegPath setting');
+      const c0 = executedCommands.length;
+      errorResponseQueue.push('Set ffmpeg path\u2026');
+      await cap();
+      assert(executedCommands.slice(c0).some((x) => /openSettings/i.test(x)), 'the Set-ffmpeg-path button opens the ffmpegPath setting');
 
-    await cap(); // no button chosen -> aborts cleanly (covers the no-choice branch)
-    delete configStore.labviewPath;
-    process.env.PATH = savedPath;
-    if (savedLadPrompt === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadPrompt;
-    restorePlatform();
+      await cap(); // no button chosen -> aborts cleanly (covers the no-choice branch)
+    } finally {
+      delete configStore.labviewPath;
+      process.env.PATH = savedPath;
+      if (savedLadPrompt === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadPrompt;
+      restorePlatform();
+    }
   }
 
   // captureLaunchMprr (cross-platform mprr capture, LBA-REQ-009): drive the FULL command with a mocked `node`

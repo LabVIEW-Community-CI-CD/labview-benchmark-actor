@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">
-<coverage lines-valid="4528" lines-covered="4319" line-rate="0.9538" branches-valid="1285" branches-covered="1078" branch-rate="0.8389" timestamp="1785955256699" complexity="0" version="0.1">
+<coverage lines-valid="4528" lines-covered="4319" line-rate="0.9538" branches-valid="1285" branches-covered="1078" branch-rate="0.8389" timestamp="1785955918305" complexity="0" version="0.1">
   <sources>
     <source>/home/sergio/repos/gh/labview-benchmark-actor.worktrees/issue-423-fix</source>
   </sources>
