@@ -324,6 +324,65 @@
               "signature": "RUt8WXTVDhh0QpmMMhRea/E95tzx6pUyJzEJSnExYXIZa3EBoUHoozH1AxsmuPRTlgmxw/c4vb68sbxutWplDA=="
             }
           }
+        },
+        "1.1.0": {
+          "summary": "LabVIEW Benchmark Actor 1.1.0 -- adds the cross-platform 'Capture LabVIEW Launch (mprr)' command (labviewBenchmarkActor.captureLaunchMprr, #389) for VBox-VNC/SDK VM launch-capture, plus an ffmpeg pre-flight + guided install prompt that replaces the fresh-Marketplace-install 'spawn ffmpeg ENOENT' failure (#398). Extension-only minor over 1.0.0; reviewed==shipped reproducible .vsix (sha256 e997edc1a21e...).",
+          "signoffs": {
+            "LINUX": {
+              "agreed": true,
+              "reviewedCommit": "e314d191ba819192333b8ef4a3b5d81d35d4d577",
+              "at": "2026-08-05T12:22:51.672Z",
+              "note": "Validated on the LINUX plane (node v22.22.1) at release/1.1.0 e314d191: node scripts/lba.mjs verify 190/190; npm test all suites PASS (activate() registered 26 commands incl the new captureLaunchMprr + 2 LM tools; viewer/panels/mcp/normalize-vsix/verify-published-vsix green). The 1.1.0 candidate reconciles main via a content-free merge and carries the WIN-plane validator (npm run compile + fresh checkout) and the host-independent ffmpeg-absent test fixes. LINUX agrees to publish extension 1.1.0."
+            },
+            "WIN": {
+              "agreed": true,
+              "reviewedCommit": "e314d191ba819192333b8ef4a3b5d81d35d4d577",
+              "at": "2026-08-05T12:22:51.672Z",
+              "note": "Independently validated on the WIN plane (the actor reviewer VM, native Windows 11, node v22.15.0) at release/1.1.0 e314d191 via reviewer-workstation/win-plane-validate.sh: npm ci + npm run compile + per-suite tests (viewer-render, viewer-plain-render, panels-render, mcp-server, mcp-tool-doc all green) + masked activation (registered 26 commands) + packaging gate (agent-last-gate PASS 8/8) -> winPlaneReady:true. A real live LabVIEW-2026 launch benchmark run-1785928248745 (196 frames @12fps/16243ms, peakCpu 100%, peakRam 4799MB, peakDiskWrite 49.4MB/s, ffmpeg-gdigrab); an enrolled human WINDOWS_VM reviewer verdict PASS Ed25519-signed (reviewer@vi-tech.nl, decision approve) over the reproducible vsix e997edc1a21e. WIN agrees to publish extension 1.1.0."
+            }
+          },
+          "visualReview": {
+            "verdict": {
+              "schema": "labview-benchmark-actor/reviewer-verdict@1",
+              "target": {
+                "component": "extension",
+                "version": "1.1.0",
+                "commit": "e314d191ba819192333b8ef4a3b5d81d35d4d577",
+                "vsixSha256": "e997edc1a21e322a1c1f05cb696fbefbbd993406142c7fa1cb99d606b10f483a"
+              },
+              "verdict": "pass",
+              "reviewer": "reviewer@vi-tech.nl",
+              "station": "WINDOWS_VM",
+              "notes": "",
+              "evidence": [
+                {
+                  "kind": "real-benchmark-live",
+                  "ref": "run-1785928248745: 196 frames @12fps/16243ms, peakCpu 100%, peakRam 4799MB, peakDiskWrite 49.4MB/s, peakDiskRead 45MB/s, plane=WIN, workload=labview-launch (ffmpeg-gdigrab)"
+                }
+              ],
+              "renderedAt": "2026-08-05T13:18:34.745Z"
+            },
+            "signOff": {
+              "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+              "subject": {
+                "verdictDigest": "166c5ebd2404ac53f97358560ae4a94c9a80cebc0ef5746eb529d99e7ec6cf05",
+                "consensusVerdict": "pass",
+                "target": {
+                  "component": "extension",
+                  "version": "1.1.0",
+                  "commit": "e314d191ba819192333b8ef4a3b5d81d35d4d577",
+                  "vsixSha256": "e997edc1a21e322a1c1f05cb696fbefbbd993406142c7fa1cb99d606b10f483a"
+                }
+              },
+              "reviewer": "reviewer@vi-tech.nl",
+              "decision": "approve",
+              "station": "WINDOWS_VM",
+              "algorithm": "ed25519",
+              "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
+              "signedAt": "2026-08-05T13:18:34.745Z",
+              "signature": "0LFoFgBs197PP9pWWsFJbQSzJmEPOWl7svEwHgNOur//q2DwZsS0Mso55LVe9Zggzx0hbMna64/R493Aa6r4AA=="
+            }
+          }
         }
       }
     }

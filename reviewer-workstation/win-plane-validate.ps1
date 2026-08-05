@@ -1,6 +1,6 @@
 # win-plane-validate.ps1 -- in-VM WIN-plane build/test validation of a release branch (run inside the reviewer VM).
-# Ensures a checkout of $Branch from a host-supplied git bundle (auth-free), then: npm ci, a per-suite test
-# matrix (each suite run individually, not the && chain), a masked-activation re-run that reproduces the
+# Ensures a checkout of $Branch from a host-supplied git bundle (auth-free), then: npm ci, npm run compile, a
+# per-suite test matrix (each suite run individually, not the && chain), a masked-activation re-run that reproduces the
 # LabVIEW-less condition the captureLaunch not-found assertion is written for, and the packaging gate
 # (agent-last-gate --skip-tests). Emits ONE line: WINPLANE_JSON={...receipt...}. Logs under the parent of -Work.
 #
@@ -23,7 +23,7 @@ $logdir = Split-Path $Work
 function Run-Cmd([string]$c, [string]$logfile) { & cmd /c "$c > `"$logfile`" 2>&1"; return ($LASTEXITCODE -eq 0) }
 
 $r = [ordered]@{
-  node=''; npm=''; git=''; platform=''; branch=''; head=''; cloned=$false; npmCi=$null;
+  node=''; npm=''; git=''; platform=''; branch=''; head=''; cloned=$false; npmCi=$null; compile=$null;
   suites=[ordered]@{}; maskedActivation=$null; maskedActivationCommands=$null; agentLastGate=$null;
   gateTail=''; winPlaneReady=$false
 }
@@ -32,7 +32,9 @@ $r.npm  = ((& cmd /c "npm -v") 2>&1 | Out-String).Trim()
 $r.git  = ((& git --version) 2>&1 | Out-String).Trim()
 $r.platform = ($env:PROCESSOR_ARCHITECTURE + ' / ' + [System.Environment]::OSVersion.VersionString)
 
-# Ensure a checkout of $Branch from the bundle (idempotent: reuse an existing checkout).
+# Ensure a FRESH checkout of $Branch from the bundle. On a normal run, remove any stale prior checkout so a
+# RE-RUN validates the CURRENT bundle HEAD (a reused checkout is NOT advanced by a new bundle); -SkipCi keeps it.
+if (-not $SkipCi -and (Test-Path $Work)) { Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue }
 if (-not (Test-Path (Join-Path $Work '.git'))) {
   if (-not (Test-Path $logdir)) { New-Item -ItemType Directory -Force -Path $logdir | Out-Null }
   & git clone -b $Branch $Bundle $Work 2>&1 | Out-File (Join-Path $logdir 'clone.log') -Encoding utf8
@@ -50,6 +52,11 @@ if ($SkipCi -and (Test-Path (Join-Path $Work 'node_modules'))) {
 } else {
   $r.npmCi = (Run-Cmd 'npm ci' (Join-Path $logdir 'npmci.log'))
 }
+
+# Compile TS -> out/. The suites load the COMPILED out/extension.js (test/*.mjs exit 1 with "out/extension.js not
+# found" otherwise); the packaged `npm test` does this via its `npm run compile &&` prefix, so a direct per-suite
+# run MUST compile first or every suite (and the masked activation) fails to find out/.
+$r.compile = (Run-Cmd 'npm run compile' (Join-Path $logdir 'compile.log'))
 
 # Per-suite test matrix (each suite individually -- the packaged `npm test` && chain stops at the first fail).
 $suites = [ordered]@{
@@ -79,6 +86,6 @@ if (Test-Path (Join-Path $logdir 'gate.log')) { $r.gateTail = ((Get-Content (Joi
 $nonActivationGreen = $true
 foreach ($k in $r.suites.Keys) { if ($k -ne 'extension-activation' -and -not $r.suites[$k]) { $nonActivationGreen = $false } }
 $ciOk = ($r.npmCi -eq $true) -or ($r.npmCi -is [string])
-$r.winPlaneReady = ($nonActivationGreen -and ($r.maskedActivation -eq $true) -and ($r.agentLastGate -eq $true) -and $ciOk)
+$r.winPlaneReady = ($nonActivationGreen -and ($r.maskedActivation -eq $true) -and ($r.agentLastGate -eq $true) -and $ciOk -and ($r.compile -eq $true))
 
 Write-Output ('WINPLANE_JSON=' + ($r | ConvertTo-Json -Compress -Depth 6))
