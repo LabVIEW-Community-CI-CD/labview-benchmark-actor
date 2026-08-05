@@ -23,6 +23,8 @@ on:
     paths:
       - 'tools/collab-cli/**'
       - 'docs/requirements/**'
+      # the '.' build context is trimmed by the root .dockerignore, so a change to it can alter the image
+      - '.dockerignore'
       - '.github/workflows/lbabus-verify-windows.yml'
   workflow_dispatch:
 
