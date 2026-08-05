@@ -1036,6 +1036,17 @@ async function captureLaunchCommand(context: vscode.ExtensionContext, output: vs
     void vscode.window.showWarningMessage('A LabVIEW capture is already running. Stop it first.');
     return;
   }
+  if (process.platform !== 'win32') {
+    const RUN_MPRR = 'Run mprr capture';
+    const choice = await vscode.window.showErrorMessage(
+      'Capture LabVIEW Launch is Windows-only (gdigrab + LabVIEW.exe). On Linux/macOS, use "Capture LabVIEW Launch (mprr, cross-platform VM)".',
+      RUN_MPRR
+    );
+    if (choice === RUN_MPRR) {
+      void vscode.commands.executeCommand('labviewBenchmarkActor.captureLaunchMprr');
+    }
+    return;
+  }
   const labview = resolveLabview();
   if (!labview) {
     void vscode.window.showErrorMessage(
