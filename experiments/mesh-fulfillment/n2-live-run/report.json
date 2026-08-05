@@ -15,6 +15,30 @@
     "verdicts": {
       "LINUX": "PASS",
       "WIN": "PASS"
+    },
+    "quorum": {
+      "perPlane": {
+        "LINUX": {
+          "actors": [
+            "lba-cleanroom-clone-01"
+          ],
+          "count": 1,
+          "meansMs": [
+            1866.3
+          ]
+        },
+        "WIN": {
+          "actors": [
+            "actor"
+          ],
+          "count": 1,
+          "meansMs": [
+            6919
+          ]
+        }
+      },
+      "minActorsPerPlane": 1,
+      "redundant": false
     }
   },
   "comparison": {
