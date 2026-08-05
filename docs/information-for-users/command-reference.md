@@ -18,7 +18,7 @@
 
 | Command | ID | What it does |
 | --- | --- | --- |
-| **Capture LabVIEW Launch** | `captureLaunch` | Record the screen at exactly 12 FPS + sample CPU/RAM/disk while LabVIEW launches (VM-local). |
+| **Capture LabVIEW Launch** | `captureLaunch` | Record the screen at exactly 12 FPS + sample CPU/RAM/disk while LabVIEW launches (VM-local). **Requires `ffmpeg`** on the machine (Windows `gdigrab`). If ffmpeg is not found the command does not fail silently -- it offers a one-click **winget** install, a **download** link, or a **Set ffmpeg path** shortcut. Point `labviewBenchmarkActor.ffmpegPath` at an existing `ffmpeg.exe` to override resolution. |
 | **Capture LabVIEW Launch (mprr, cross-platform VM)** | `captureLaunchMprr` | Benchmark a LabVIEW launch on a target VirtualBox VM through the mprr visual ring (SSH-trigger `xinit labview64` + VBox-VNC capture) -- cross-platform, so it runs from a Linux/Wayland host unlike the Windows `gdigrab` capture. Configure the target via `mprrSshPort`/`mprrVncPort`/`mprrVncPassword`/`mprrIterations`. |
 | **Stop LabVIEW Capture** | `stopCapture` | Stop the active capture and assemble the launch record. |
 | **Open Benchmark Frame Correlator** | `openFrameCorrelator` | Scrub a time cursor across the metric curves + the captured screenshot at each frame. |

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { execFile, spawn, ChildProcess } from 'node:child_process';
+import { execFile, spawn, spawnSync, ChildProcess } from 'node:child_process';
 import { readFileSync, mkdirSync, readdirSync, statSync, writeFileSync, existsSync, watch } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -854,15 +854,56 @@ function resolveLabview(): string | null {
   return candidates.find((c) => existsSync(c)) || null;
 }
 
-// ffmpeg resolution: explicit setting -> the VM-local copy install-lba.cmd stages under %LOCALAPPDATA%\lba ->
-// `ffmpeg` on PATH. So a capture is one-click after install even when ffmpeg is not otherwise on the system.
-function resolveFfmpeg(): string {
+// ffmpeg resolution + a runnability probe: explicit ffmpegPath setting -> the VM-local copy install-lba.cmd stages
+// under %LOCALAPPDATA%\lba -> `ffmpeg` on PATH. resolveFfmpegChecked returns null when NONE is a spawnable binary,
+// so the capture fails FAST with an actionable prompt instead of a raw `spawn ffmpeg ENOENT` mid-run (the v1.0.0
+// Marketplace complaint: a fresh install has no ffmpeg on PATH).
+export function ffmpegRunnable(cmd: string): boolean {
+  try {
+    // `-version` is a fast, side-effect-free probe. We only care that the binary SPAWNS (no ENOENT): a present
+    // ffmpeg exits 0, and even a mismatched build still spawns. spawnSync sets `.error` (does not throw) on ENOENT.
+    return !spawnSync(cmd, ['-version'], { windowsHide: true, timeout: 5000 }).error;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveFfmpegChecked(): string | null {
   const configured = captureCfg<string>('ffmpegPath', '').trim();
-  if (configured) return configured;
+  if (configured) return ffmpegRunnable(configured) ? configured : null;
   const localAppData = process.env.LOCALAPPDATA;
   const staged = localAppData ? path.join(localAppData, 'lba', 'ffmpeg.exe') : '';
   if (staged && existsSync(staged)) return staged;
-  return 'ffmpeg';
+  return ffmpegRunnable('ffmpeg') ? 'ffmpeg' : null;
+}
+
+// When ffmpeg is missing, GUIDE the user (one-click winget, manual download, or point at an existing ffmpeg.exe)
+// instead of failing the capture with a raw spawn error. gdigrab needs ffmpeg present; the Marketplace build does
+// not bundle it (that would add ~70MB + ffmpeg's GPL/LGPL licensing to the listing).
+async function promptInstallFfmpeg(output: vscode.OutputChannel): Promise<void> {
+  const INSTALL = 'Install ffmpeg (winget)';
+  const DOWNLOAD = 'Download ffmpeg\u2026';
+  const SET_PATH = 'Set ffmpeg path\u2026';
+  const choice = await vscode.window.showErrorMessage(
+    'ffmpeg is required to capture a LabVIEW launch but was not found on this machine. Install it (one click via winget), download it, or point the extension at an existing ffmpeg.exe.',
+    { modal: true },
+    INSTALL,
+    DOWNLOAD,
+    SET_PATH
+  );
+  if (choice === INSTALL) {
+    const term = vscode.window.createTerminal('Install ffmpeg');
+    term.show(true);
+    term.sendText('winget install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements');
+    void vscode.window.showInformationMessage(
+      'Installing ffmpeg via winget in the terminal. When it finishes, RESTART VS Code so ffmpeg is on PATH, then run the capture again.'
+    );
+  } else if (choice === DOWNLOAD) {
+    void vscode.env.openExternal(vscode.Uri.parse('https://www.gyan.dev/ffmpeg/builds/'));
+  } else if (choice === SET_PATH) {
+    void vscode.commands.executeCommand('workbench.action.openSettings', 'labviewBenchmarkActor.ffmpegPath');
+  }
+  output.appendLine('capture aborted: ffmpeg not found (prompted winget install / download / set-path).');
 }
 
 // PowerShell sampler: fast System.Diagnostics.PerformanceCounter reads (NextValue() is sub-ms, unlike the old
@@ -983,12 +1024,18 @@ async function captureLaunchCommand(context: vscode.ExtensionContext, output: vs
     void vscode.window.showWarningMessage('A LabVIEW capture is already running. Stop it first.');
     return;
   }
-  const ffmpeg = resolveFfmpeg();
   const labview = resolveLabview();
   if (!labview) {
     void vscode.window.showErrorMessage(
       'LabVIEW.exe not found. Set "labviewBenchmarkActor.labviewPath" to your LabVIEW 2026 LabVIEW.exe.'
     );
+    return;
+  }
+  // Pre-flight ffmpeg: a fresh Marketplace install has no ffmpeg on PATH (users hit `spawn ffmpeg.exe ENOENT`).
+  // Fail-fast with an actionable prompt instead of launching a doomed capture (LabVIEW + sampler + beacon).
+  const ffmpeg = resolveFfmpegChecked();
+  if (!ffmpeg) {
+    await promptInstallFfmpeg(output);
     return;
   }
   const dir = path.join(capturesRoot(context), `run-${Date.now()}`);

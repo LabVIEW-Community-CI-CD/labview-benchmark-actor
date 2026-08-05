@@ -41,6 +41,9 @@ const warnMessages = [];
 const warnResponseQueue = [];
 const sentCommands = [];
 const inputQueue = [];
+const errorResponseQueue = [];
+const openedExternal = [];
+const configStore = {};
 let agentsContentProvider = null;
 const mockVscode = {
   window: {
@@ -72,7 +75,7 @@ const mockVscode = {
     }),
     showErrorMessage: (message) => {
       errorMessages.push(message);
-      return undefined;
+      return Promise.resolve(errorResponseQueue.length ? errorResponseQueue.shift() : undefined);
     },
     createWebviewPanel: (viewType, title) => {
       const panel = {
@@ -118,12 +121,15 @@ const mockVscode = {
     },
     executeCommand: async (id) => { executedCommands.push(id); return undefined; },
   },
+  env: {
+    openExternal: (uri) => { openedExternal.push(uri && uri.toString ? uri.toString() : String(uri)); return Promise.resolve(true); },
+  },
   workspace: {
     registerTextDocumentContentProvider: (_scheme, provider) => {
       agentsContentProvider = provider;
       return { dispose() {} };
     },
-    getConfiguration: () => ({ get: (_key, dflt) => dflt }),
+    getConfiguration: () => ({ get: (key, dflt) => (Object.prototype.hasOwnProperty.call(configStore, key) ? configStore[key] : dflt) }),
     workspaceFolders: [{ uri: { path: repoRoot, fsPath: repoRoot } }],
     fs: {
       stat: async (uri) => {
@@ -165,7 +171,11 @@ const mockVscode = {
 // captureLaunchMprr spawns a real `node` run of the mprr runner; this mock lets the test drive its
 // success / non-zero-exit / spawn-error branches deterministically (the test sets `spawnMode`).
 let spawnMode = { code: 0 };
+// spawnSync stays REAL (captured before the Module._load patch below): resolveFfmpegChecked/ffmpegRunnable probe
+// `<ffmpeg> -version` to detect ENOENT, and the ffmpeg pre-flight test wants that genuine spawn behaviour.
+const realChildProcess = require('node:child_process');
 const childProcessMock = {
+  spawnSync: (...args) => realChildProcess.spawnSync(...args),
   execFile: (_file, _args, optionsOrCallback, maybeCallback) => {
     const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
     callback(Object.assign(new Error('spawn lbabus ENOENT'), { code: 'ENOENT' }));
@@ -719,6 +729,64 @@ try {
     infoMessages.some((m) => /No LabVIEW capture is running/.test(m)),
     'stopCapture reports no active capture'
   );
+
+  // ffmpeg pre-flight (v1.0.0 "spawn ffmpeg.exe ENOENT" fix, LBA-REQ-009): resolveFfmpegChecked returns null unless
+  // ffmpeg is a spawnable binary, so the capture fails FAST with an actionable prompt instead of a raw spawn error.
+  {
+    assert(ext.ffmpegRunnable(process.execPath) === true, 'ffmpegRunnable detects a spawnable binary (node stands in)');
+    assert(ext.ffmpegRunnable(join(tmpdir(), 'no-such-ffmpeg-xyz')) === false, 'ffmpegRunnable is false for a missing binary');
+    configStore.ffmpegPath = process.execPath;
+    assert(ext.resolveFfmpegChecked() === process.execPath, 'resolveFfmpegChecked returns a configured runnable ffmpeg');
+    configStore.ffmpegPath = join(tmpdir(), 'no-such-ffmpeg-xyz');
+    assert(ext.resolveFfmpegChecked() === null, 'resolveFfmpegChecked rejects a configured-but-unspawnable ffmpeg');
+    delete configStore.ffmpegPath;
+    const ladRoot = join(tmpdir(), 'lba-test-localappdata-' + Date.now());
+    mkdirSync(join(ladRoot, 'lba'), { recursive: true });
+    writeFileSync(join(ladRoot, 'lba', 'ffmpeg.exe'), '');
+    const savedLad = process.env.LOCALAPPDATA;
+    process.env.LOCALAPPDATA = ladRoot;
+    assert(ext.resolveFfmpegChecked() === join(ladRoot, 'lba', 'ffmpeg.exe'), 'resolveFfmpegChecked honours the staged %LOCALAPPDATA%\\lba\\ffmpeg.exe');
+    rmSync(ladRoot, { recursive: true, force: true });
+    if (savedLad === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLad;
+    // absent everywhere: clear PATH so the `ffmpeg` probe ENOENTs even on a dev host that HAS ffmpeg installed.
+    const savedPath = process.env.PATH;
+    process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz');
+    try {
+      assert(ext.resolveFfmpegChecked() === null, 'resolveFfmpegChecked returns null when ffmpeg is absent everywhere');
+    } finally {
+      process.env.PATH = savedPath;
+    }
+  }
+
+  // captureLaunch with LabVIEW present but ffmpeg absent -> PROMPT (winget / download / set-path) + abort BEFORE any
+  // capture is created (the reported v1.0.0 complaint). Drive each remediation button.
+  {
+    const savedPath = process.env.PATH;
+    process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz'); // force ffmpeg-absent (the dev host may have ffmpeg)
+    configStore.labviewPath = process.execPath; // resolveLabview -> non-empty -> passes the LabVIEW guard
+    const cap = () => registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+
+    const n0 = errorMessages.length;
+    const s0 = sentCommands.length;
+    errorResponseQueue.push('Install ffmpeg (winget)');
+    await cap();
+    assert(errorMessages.slice(n0).some((m) => /ffmpeg is required/i.test(m)), 'captureLaunch prompts when ffmpeg is missing');
+    assert(sentCommands.slice(s0).some((c) => /winget install/i.test(c)), 'the Install button runs winget');
+
+    const e0 = openedExternal.length;
+    errorResponseQueue.push('Download ffmpeg\u2026');
+    await cap();
+    assert(openedExternal.slice(e0).some((u) => /ffmpeg/i.test(u)), 'the Download button opens the ffmpeg builds page');
+
+    const c0 = executedCommands.length;
+    errorResponseQueue.push('Set ffmpeg path\u2026');
+    await cap();
+    assert(executedCommands.slice(c0).some((x) => /openSettings/i.test(x)), 'the Set-ffmpeg-path button opens the ffmpegPath setting');
+
+    await cap(); // no button chosen -> aborts cleanly (covers the no-choice branch)
+    delete configStore.labviewPath;
+    process.env.PATH = savedPath;
+  }
 
   // captureLaunchMprr (cross-platform mprr capture, LBA-REQ-009): drive the FULL command with a mocked `node`
   // spawn of the mprr runner -- success (trend written -> info + Open Trend JSON), the info-dismissed branch, a
