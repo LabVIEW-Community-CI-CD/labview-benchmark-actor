@@ -3293,6 +3293,16 @@ check('acg-signed-cross-plane-corroboration', () => {
   return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), approvals: receipt.decision.approvals };
 });
 
+// Issue #415 (LBA-REQ-089): render-quorum.sh's host-side VERIFY leg -- verify-quorum-signoff.mjs confirms a
+// VM-produced quorum sign-off genuinely signs THIS attestation's quorum bundleDigest with an ENROLLED key AND that
+// the attested quorum is a genuine passing cross-plane consensus (a signed single-plane/non-pass quorum is the
+// shipped 1.0.0 defect). Asserts the selftest (7/7). The VM-bridge legs (stage/sign/collect) are the operator's
+// key act against the VM-resident enrolled key; the wrapper drives them but the private key never leaves the VM.
+check('verify-quorum-signoff', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'verify-quorum-signoff.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'verify-quorum-signoff 7/7', proves: 'host-side quorum sign-off verify (enrolled + passing crossPlane), fail-closed' };
+});
+
 // The genuine cross-plane COMPOSITE re-seal (ADR-0072 / LBA-REQ-090): the 1.0.0 composite release decision rebuilt
 // over the genuine two-plane quorum (LBA-REQ-088) + the enrolled machine sign-off (LBA-REQ-089) + a signed human
 // visual PASS of the byte-reproducible candidate + the genuine WIN staging -- all five bindings hold AND the

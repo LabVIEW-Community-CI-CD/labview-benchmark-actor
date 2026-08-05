@@ -67,9 +67,13 @@ key material). Then:
    in-VM "Render Reviewer Verdict"). The reviewer's PASS is Ed25519-signed by
    `reviewer-workstation/sign-visual-verdict.mjs` (issue #411) → a
    `visual-verdict-X.Y.Z.json` record in `~/lba-vm-share/`.
-2. **Machine quorum sign-off.** Sign the cross-plane quorum verdict with
-   `reviewer-workstation/sign-release-quorum.mjs` in the VM (issue #415). (Note the
-   guestcontrol `cmd /c` node-invocation gotcha when driving node inside the guest.)
+2. **Machine quorum sign-off.** Use the host wrapper
+   `reviewer-workstation/render-quorum.sh` (issue #415), which mirrors `render-verdict.sh`:
+   `LBA_VM_PASS=… render-quorum.sh all --version X.Y.Z --attestation ~/lba-vm-share/attestation-X.Y.Z.json`
+   stages the attestation into the VM, runs `sign-release-quorum.mjs` **in the VM** against the
+   VM-resident enrolled key (the key never leaves the VM; it wraps the guestcontrol `cmd /c`
+   node-invocation gotcha), collects the signed `quorum-signoff-X.Y.Z.json` to `~/lba-vm-share/`,
+   and verifies it (`verify-quorum-signoff.mjs`: enrolled key + passing cross-plane quorum, fail-closed).
 3. Verify both locally before sealing: `tools/collab-cli/verify-visual-review.mjs` and
    the composite verifier `tools/collab-cli/verify-composite-release.mjs`.
 
