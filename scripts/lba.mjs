@@ -41,7 +41,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 12; // bump when you refine this tool (see the banner above)
+export const ITERATION = 13; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -162,9 +162,9 @@ export function signingCommands({ station, reviewerId, reviewerKeyPath, version 
   const visual = `LBA_VM_PASS=… reviewer-workstation/render-verdict.sh set-target --version ${ver} --commit <sha> --vsix-sha256 <sha256>  →  run "Render Reviewer Verdict" in the VM  →  reviewer-workstation/render-verdict.sh collect --version ${ver} --out ~/lba-vm-share/visual-verdict-${ver}.json`;
   let quorum;
   if (station === STATIONS.VM) {
-    // Key lives in the VM -> sign IN the VM. Invoke via `cmd /c` from the repo clone so guestcontrol does not
-    // eat node's argv[0] as the main module (the MODULE_NOT_FOUND gotcha to be wrapped by render-quorum.sh, #415).
-    quorum = `VBoxManage guestcontrol actor --username vagrant --password "$LBA_VM_PASS" run --exe 'C:\\Windows\\System32\\cmd.exe' --wait-stdout --wait-stderr -- cmd /c "cd /d C:\\lba-validate\\repo && node reviewer-workstation\\sign-release-quorum.mjs --key ${keyPath} --reviewer ${id} --station WINDOWS_VM --quorum <attestation-${ver}.json> --out <quorum-signoff-${ver}.json>"`;
+    // Key lives in the VM -> sign IN the VM via the host wrapper (issue #415), which stages attestation,
+    // handles the guestcontrol `cmd /c` gotcha, collects the sign-off, and verifies enrollment+digest.
+    quorum = `LBA_VM_PASS=… reviewer-workstation/render-quorum.sh sign --version ${ver} --attestation ~/lba-vm-share/attestation-${ver}.json --out ~/lba-vm-share/quorum-signoff-${ver}.json`;
   } else {
     // Key lives on this host -> sign on the host directly.
     quorum = `node reviewer-workstation/sign-release-quorum.mjs --key ${keyPath} --reviewer ${id} --station LINUX_CODESPACE --quorum ~/lba-vm-share/attestation-${ver}.json --out ~/lba-vm-share/quorum-signoff-${ver}.json`;
@@ -431,13 +431,13 @@ const SELFTEST = [
     const stale = releasePreflightStatic({ ...base, version: '1.1.1', compositeVersion: '1.1.0' });
     return match.length === 4 && match.every((x) => x.ok) && stale[3].ok === false;
   }],
-  ['signing-status binds the QUORUM sign-off to the VM when the enrolled key lives there (#414), key never read', () => {
+  ['signing-status binds the QUORUM sign-off to render-quorum.sh on VM-key stations (#415), key never read', () => {
     const enrolled = readReviewerAllowlist()['reviewer@vi-tech.nl'];
     const s = signingStatus({ reviewerId: 'reviewer@vi-tech.nl', reviewerKeyPath: 'C:\\lba-review\\reviewer-vitech.pem', keyExists: true, station: STATIONS.VM, enrolledPublicKey: enrolled, version: '1.2.0' });
-    // ok, quorum command runs IN the VM (cmd /c from the repo clone), visual uses render-verdict.sh, and the
+    // ok, quorum command routes through render-quorum.sh, visual uses render-verdict.sh, and the
     // committed private-key PATH is echoed but never its material.
-    return s.ok && s.station === STATIONS.VM && /cmd \/c .*sign-release-quorum\.mjs/.test(s.commands.quorum)
-      && /render-verdict\.sh/.test(s.commands.visual) && s.commands.quorum.includes('reviewer-vitech.pem') && !/PRIVATE KEY/.test(s.commands.quorum);
+    return s.ok && s.station === STATIONS.VM && /render-quorum\.sh sign/.test(s.commands.quorum)
+      && /render-verdict\.sh/.test(s.commands.visual) && !/PRIVATE KEY/.test(s.commands.quorum);
   }],
   ['signing-status binds the QUORUM sign-off to the HOST (plain CLI, no cmd /c) when the key is host-resident (#414)', () => {
     const enrolled = readReviewerAllowlist()['reviewer@vi-tech.nl'];

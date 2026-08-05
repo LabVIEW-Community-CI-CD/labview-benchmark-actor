@@ -94,6 +94,22 @@ is green, masked activation passes, and the packaging gate passes.
 > validator routes every npm/node call through `cmd /c` (npm.cmd) and must itself be launched with
 > `-ExecutionPolicy Bypass` (the driver does this for you).
 
+## VM-side quorum sign-off (turnkey host wrapper)
+
+When the enrolled reviewer key is VM-resident (the common case), sign the machine quorum
+with [render-quorum.sh](render-quorum.sh):
+
+```sh
+LBA_VM_PASS='<guest-password>' reviewer-workstation/render-quorum.sh sign --version 1.2.3
+```
+
+By default it reads `~/lba-vm-share/attestation-1.2.3.json`, stages it into the VM,
+runs `reviewer-workstation/sign-release-quorum.mjs` **in the VM** (`cmd /c` from
+`C:\lba-validate\repo`), collects `~/lba-vm-share/quorum-signoff-1.2.3.json`, then
+verifies the sign-off against the attestation quorum and
+[reviewer-allowlist.json](../tools/collab-cli/reviewer-allowlist.json). The private key
+never leaves the VM.
+
 ## Drive it from a Copilot agent (in the VM)
 
 Once the extension is installed in the VM, open VS Code there. The **Get started with LabVIEW Benchmark
