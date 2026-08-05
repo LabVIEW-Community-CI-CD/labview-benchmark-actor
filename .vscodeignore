@@ -18,6 +18,7 @@ node_modules/**
 .devcontainer/**
 .dockerignore
 .editorconfig
+.nvmrc
 .gitattributes
 package-lock.json
 .gitignore
