@@ -31,13 +31,13 @@ tag on `main` remains the sole publish authority (GitFlow never weakens it).
 
 ### Merge method by branch type
 
-The repository enables squash, merge-commit, and rebase merges; this convention uses **squash** and **`--no-ff` merge commits**, selected by branch type so the GitFlow topology stays sound (rebase-merge is not part of the convention):
+The repository enables squash, merge-commit, and rebase merges; this convention uses **`--no-ff` merge commits** into the long-lived branches (canonical GitFlow, nvie.com), so the GitFlow topology stays sound and `main` ↔ `develop` stay in sync (squash and rebase-merge are not part of the convention):
 
-- **Feature → `develop`: squash merge.** Each reviewed pull request lands as one logical, revertible commit, keeping `develop` linear.
+- **Feature → `develop`: `--no-ff` merge commit.** Each reviewed pull request lands as a two-parent merge that groups together the feature's commits and preserves the historical existence of the feature branch, so a whole feature is easy to see and revert.
 - **Release → `main` and back into `develop`: `--no-ff` merge commit.** The two-parent merge preserves shared ancestry so `main` and `develop` never diverge into different commit SHAs for identical content.
 - **Hotfix → `main` and back into `develop` (or the active `release/*`): `--no-ff` merge commit**, for the same shared-ancestry reason.
 
-Squash is reserved for the single-target feature path only: squashing a release or hotfix into both `main` and `develop` would create unrelated commits for identical content and make subsequent `main` ↔ `develop` merges replay phantom conflicts.
+Every merge into a long-lived branch (`main`, `develop`) is `--no-ff`, so shared ancestry is always preserved and `main` ↔ `develop` never diverge into different commit SHAs for identical content. Squash and rebase-merge are not used on these paths, as they would create unrelated commits for identical content and make subsequent `main` ↔ `develop` merges replay phantom conflicts. (The `develop` branch ruleset therefore does **not** require linear history.)
 
 ## Standards-release stamp (ISO 10007 identification)
 

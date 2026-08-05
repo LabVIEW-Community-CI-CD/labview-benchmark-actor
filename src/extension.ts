@@ -846,7 +846,9 @@ function capturesRoot(context: vscode.ExtensionContext): string {
 }
 function resolveLabview(): string | null {
   const configured = captureCfg<string>('labviewPath', '').trim();
-  if (configured) return configured;
+  // Validate a configured labviewPath actually exists (mirrors resolveFfmpegChecked's runnable check): a bogus
+  // path would otherwise pass the guard and start a doomed capture (ffmpeg + sampler) that can never launch LabVIEW.
+  if (configured) return existsSync(configured) ? configured : null;
   const candidates = [
     'C:\\Program Files (x86)\\National Instruments\\LabVIEW 2026\\LabVIEW.exe',
     'C:\\Program Files\\National Instruments\\LabVIEW 2026\\LabVIEW.exe',
@@ -874,7 +876,17 @@ export function resolveFfmpegChecked(): string | null {
   const localAppData = process.env.LOCALAPPDATA;
   const staged = localAppData ? path.join(localAppData, 'lba', 'ffmpeg.exe') : '';
   if (staged && existsSync(staged)) return staged;
-  return ffmpegRunnable('ffmpeg') ? 'ffmpeg' : null;
+  if (ffmpegRunnable('ffmpeg')) return 'ffmpeg';
+  // A winget-installed ffmpeg (the "Install ffmpeg (winget)" button installs Gyan.FFmpeg) symlinks ffmpeg.exe into
+  // %LOCALAPPDATA%\Microsoft\WinGet\Links and adds that dir to the USER PATH -- but this extension-host process
+  // still holds the PRE-install PATH (VS Code's "Reload Window" does NOT refresh the process environment), so the
+  // `ffmpeg`-on-PATH probe above misses it right after installing (issue #405). Check the stable winget Links
+  // location directly so the capture works without a full VS Code restart.
+  if (localAppData) {
+    const wingetLink = path.join(localAppData, 'Microsoft', 'WinGet', 'Links', 'ffmpeg.exe');
+    if (existsSync(wingetLink) && ffmpegRunnable(wingetLink)) return wingetLink;
+  }
+  return null;
 }
 
 // When ffmpeg is missing, GUIDE the user (one-click winget, manual download, or point at an existing ffmpeg.exe)
@@ -896,7 +908,7 @@ async function promptInstallFfmpeg(output: vscode.OutputChannel): Promise<void> 
     term.show(true);
     term.sendText('winget install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements');
     void vscode.window.showInformationMessage(
-      'Installing ffmpeg via winget in the terminal. When it finishes, RESTART VS Code so ffmpeg is on PATH, then run the capture again.'
+      'Installing ffmpeg via winget in the terminal. When it finishes, just run the capture again \u2014 the extension detects the freshly installed ffmpeg (from %LOCALAPPDATA%\\Microsoft\\WinGet\\Links), so no VS Code restart is needed.'
     );
   } else if (choice === DOWNLOAD) {
     void vscode.env.openExternal(vscode.Uri.parse('https://www.gyan.dev/ffmpeg/builds/'));

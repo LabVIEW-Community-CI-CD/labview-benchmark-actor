@@ -8,7 +8,7 @@
 // Usage: npm test   (== npm run compile && node test/extension-activation.mjs)
 
 import Module, { createRequire } from 'node:module';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, statSync, copyFileSync, chmodSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -621,13 +621,17 @@ try {
     assert(sentCommands.length === sentBeforeInvalid, 'createCleanroom aborts (sends no cloner command) when any input fails validation');
   }
 
-  // captureLaunch on a host without LabVIEW.exe (the Linux test host) -> the "LabVIEW.exe not found" guard, and
-  // it returns BEFORE any spawn (the ffmpeg/proc capture itself is cleanroom-gated + live-proven, never faked).
+  // captureLaunch with no resolvable LabVIEW -> the "LabVIEW.exe not found" guard, returning BEFORE any spawn
+  // (the ffmpeg/proc capture itself is cleanroom-gated + live-proven, never faked). Point labviewPath at a
+  // guaranteed-nonexistent file so this stays hermetic on a real LabVIEW dev host, where the default
+  // C:\Program Files\...\LabVIEW 2026\LabVIEW.exe candidate exists and resolveLabview would otherwise pass.
   const errsBeforeCapture = errorMessages.length;
+  configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
   await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+  delete configStore.labviewPath;
   assert(
     errorMessages.slice(errsBeforeCapture).some((m) => /LabVIEW\.exe not found/.test(m)),
-    'captureLaunch surfaces the LabVIEW-not-found guard when no LabVIEW is configured'
+    'captureLaunch surfaces the LabVIEW-not-found guard when no LabVIEW is resolvable'
   );
 
   // lmTextResult fallback: when the host predates the LanguageModelToolResult/TextPart classes, the tools return
@@ -716,12 +720,16 @@ try {
   const openText = openResult && openResult.content && openResult.content[0] && openResult.content[0].value;
   assert(typeof openText === 'string' && /panel/i.test(openText), 'the open-panel LM tool opens a panel + returns text');
 
-  // Capture commands (LBA-REQ-009): on a host without LabVIEW the capture short-circuits at resolveLabview,
+  // Capture commands (LBA-REQ-009): with no resolvable LabVIEW the capture short-circuits at resolveLabview,
   // covering resolveFfmpeg + resolveLabview + captureCfg + the early guards. The ffmpeg/sampler spawn + the
-  // frame correlator run on a Windows cleanroom (LabVIEW + ffmpeg), not in this unit test.
+  // frame correlator run on a Windows cleanroom (LabVIEW + ffmpeg), not in this unit test. labviewPath points at
+  // a guaranteed-nonexistent file so this is hermetic even on a host that HAS LabVIEW 2026 installed.
+  const errsBeforeNoLv = errorMessages.length;
+  configStore.labviewPath = join(tmpdir(), 'lba-no-labview-here-xyz', 'LabVIEW.exe');
   await registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+  delete configStore.labviewPath;
   assert(
-    errorMessages.some((m) => /LabVIEW\.exe not found/.test(m)),
+    errorMessages.slice(errsBeforeNoLv).some((m) => /LabVIEW\.exe not found/.test(m)),
     'captureLaunch reports missing LabVIEW (resolveLabview -> null) and returns before spawning ffmpeg'
   );
   await registered.find((r) => r.id === 'labviewBenchmarkActor.stopCapture').handler();
@@ -748,6 +756,27 @@ try {
     assert(ext.resolveFfmpegChecked() === join(ladRoot, 'lba', 'ffmpeg.exe'), 'resolveFfmpegChecked honours the staged %LOCALAPPDATA%\\lba\\ffmpeg.exe');
     rmSync(ladRoot, { recursive: true, force: true });
     if (savedLad === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLad;
+    // issue #405: a winget-installed ffmpeg (the "Install ffmpeg (winget)" button) symlinks ffmpeg.exe under
+    // %LOCALAPPDATA%\Microsoft\WinGet\Links and adds that dir to the USER PATH; the extension-host process keeps the
+    // PRE-install PATH (Reload Window does NOT refresh it), so resolveFfmpegChecked must find the freshly installed
+    // ffmpeg via the stable winget Links location EVEN WHEN it is not on this process's (stale) PATH.
+    const wgRoot = join(tmpdir(), 'lba-test-winget-links-' + Date.now());
+    const wgLinks = join(wgRoot, 'Microsoft', 'WinGet', 'Links');
+    mkdirSync(wgLinks, { recursive: true });
+    const wgFfmpeg = join(wgLinks, 'ffmpeg.exe');
+    copyFileSync(process.execPath, wgFfmpeg); // a real spawnable binary (node stands in) so ffmpegRunnable passes
+    try { chmodSync(wgFfmpeg, 0o755); } catch { /* no-op on Windows */ }
+    const savedPathWg = process.env.PATH;
+    const savedLadWg = process.env.LOCALAPPDATA;
+    process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz'); // ffmpeg NOT on this (stale) process PATH
+    process.env.LOCALAPPDATA = wgRoot;
+    try {
+      assert(ext.resolveFfmpegChecked() === wgFfmpeg, 'resolveFfmpegChecked finds a winget-installed ffmpeg (WinGet\\Links) not on the stale PATH (issue #405)');
+    } finally {
+      process.env.PATH = savedPathWg;
+      if (savedLadWg === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadWg;
+      rmSync(wgRoot, { recursive: true, force: true });
+    }
     // absent everywhere: clear PATH *and* point %LOCALAPPDATA% at a staged-ffmpeg-free dir so the `ffmpeg` probe
     // ENOENTs even on a host that HAS ffmpeg on PATH or staged under %LOCALAPPDATA%\lba\ffmpeg.exe (the reviewer WIN VM).
     const savedPath = process.env.PATH;

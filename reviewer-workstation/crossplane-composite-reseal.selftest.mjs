@@ -43,9 +43,9 @@ ok('machine + human gates bind to one candidate (all 5 bindings)', () => {
   assert.equal(crossplane.candidate.vsixSha256, crossplane.visual.verdict.target.vsixSha256, 'visual target names the candidate vsix');
 });
 
-// 4. the release enforcement CLEARS the collapsed crossPlane composite for extension 1.1.0.
-ok('verify-composite-release clears the crossPlane 1.1.0 composite', () => {
-  const d = verifyCompositeRelease({ receipt: crossplane, component: 'extension', version: '1.1.0' });
+// 4. the release enforcement CLEARS the collapsed crossPlane composite for extension 1.1.1.
+ok('verify-composite-release clears the crossPlane 1.1.1 composite', () => {
+  const d = verifyCompositeRelease({ receipt: crossplane, component: 'extension', version: '1.1.1' });
   assert.equal(d.publish, true, `should clear: ${d.reasons.join('; ')}`);
 });
 
@@ -54,7 +54,7 @@ ok('verify-composite-release clears the crossPlane 1.1.0 composite', () => {
 ok('verify-composite-release rejects a single-plane composite (the 1.0.0 defect)', () => {
   const singlePlane = clone(crossplane);
   singlePlane.machine.quorumVerdict.crossPlane = false; // as the shipped LINUX + VMware-Ubuntu quorum was
-  const d = verifyCompositeRelease({ receipt: singlePlane, component: 'extension', version: '1.1.0' });
+  const d = verifyCompositeRelease({ receipt: singlePlane, component: 'extension', version: '1.1.1' });
   assert.equal(d.publish, false);
   assert.ok(d.reasons.some((r) => /cross-plane/.test(r)), 'expected a cross-plane rejection reason');
 });

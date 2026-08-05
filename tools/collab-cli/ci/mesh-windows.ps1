@@ -14,7 +14,7 @@
   containers and the network on exit).
 
 .EXAMPLE
-  docker build -f tools/collab-cli/ci/Dockerfile.windows --target mesh -t lbabus-win-verify:mesh tools/collab-cli
+  docker build -f tools/collab-cli/ci/Dockerfile.windows --target mesh -t lbabus-win-verify:mesh .
   pwsh -File tools/collab-cli/ci/mesh-windows.ps1 -Actors 3
 #>
 [CmdletBinding()]

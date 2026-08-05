@@ -6,6 +6,21 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-05
+
+### Fixed
+- **A winget-installed ffmpeg is now detected without restarting VS Code** (issue #405). The "Install ffmpeg
+  (winget)" button installs Gyan.FFmpeg, which symlinks `ffmpeg.exe` into `%LOCALAPPDATA%\Microsoft\WinGet\Links`
+  and adds that folder to the user `PATH` — but the running extension host keeps the pre-install `PATH` and *Reload
+  Window* does **not** refresh it, so the capture kept prompting to install ffmpeg even after it was installed. The
+  ffmpeg check now looks in the stable winget `Links` location directly, so re-running the capture works right after
+  the install completes; the install message no longer tells you to restart VS Code.
+- **A misconfigured `labviewBenchmarkActor.labviewPath` now gives the clear "LabVIEW.exe not found" prompt** instead
+  of starting a capture (ffmpeg + resource sampler) that can never launch LabVIEW. The LabVIEW pre-flight now
+  validates the configured path exists, mirroring the existing runnable-check on a configured `ffmpegPath`. This
+  also makes the capture activation tests hermetic on a real LabVIEW dev host (where LabVIEW 2026 is installed at
+  the default path).
+
 ## [1.1.0] - 2026-08-05
 
 ### Added

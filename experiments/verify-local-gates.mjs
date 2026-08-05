@@ -2707,8 +2707,8 @@ check('composite-release-decision', () => {
 // extension-release.yml runs the CLI in the publish-gating agreement job (release needs: [build, agreement]).
 check('composite-release-enforced', () => {
   const cli = join(here, '..', 'tools', 'collab-cli', 'verify-composite-release.mjs');
-  // the committed composite receipt (ext 1.1.0) clears the release gate...
-  execFileSync(process.execPath, [cli, '--component', 'extension', '1.1.0'], { stdio: 'pipe' });
+  // the committed composite receipt (ext 1.1.1) clears the release gate...
+  execFileSync(process.execPath, [cli, '--component', 'extension', '1.1.1'], { stdio: 'pipe' });
   // ...and a version with no proven composite decision fails closed (exit 1).
   let blocked = false;
   try { execFileSync(process.execPath, [cli, '--component', 'extension', '0.9.9-none'], { stdio: 'pipe' }); }
@@ -2718,7 +2718,7 @@ check('composite-release-enforced', () => {
   const wf = readFileSync(join(here, '..', '.github', 'workflows', 'extension-release.yml'), 'utf8');
   assert(/verify-composite-release\.mjs --component extension/.test(wf), 'extension-release.yml runs the composite-release enforcement CLI');
   assert(/needs:\s*\[build,\s*agreement\]/.test(wf), 'the release job needs the agreement job, so the composite gate blocks the publish');
-  return { cli: 'verify-composite-release', clears: 'extension 1.1.0', failsClosed: true, wired: true };
+  return { cli: 'verify-composite-release', clears: 'extension 1.1.1', failsClosed: true, wired: true };
 });
 
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
