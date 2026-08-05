@@ -4,6 +4,7 @@
 - Date: 2026-08-01
 - Deciders: LINUX plane (operator-directed)
 - Relates to: LBA-REQ-026, ADR-0014 (Actor Corroboration Grid umbrella)
+- Superseded-by: ADR-0068 on the independence-axis definition -- a plane is the OS the extension runs in (windows|linux), and independence is CROSS-PLANE, not plane/os context diversity (N linux contexts are one plane).
 
 ## Context
 

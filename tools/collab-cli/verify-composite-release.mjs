@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // verify-composite-release.mjs -- fail-closed release gate for the COMPOSITE release decision (LBA-REQ-071,
-// ADR-0052). A component release may publish ONLY when the committed composite-release-decision receipt for that
-// <component, version> proves BOTH the machine corroboration gate (gateReleasePublish, ADR-0018) AND the human
-// visual gate (gateVisualReview, LBA-REQ-057) pass AND both name the SAME net-staged candidate (LBA-REQ-068/069).
+// ADR-0052; cross-plane enforcement ADR-0073). A component release may publish ONLY when the committed
+// composite-release-decision receipt for that <component, version> proves BOTH the machine corroboration gate
+// (gateReleasePublish, ADR-0018) AND the human visual gate (gateVisualReview, LBA-REQ-057) pass, both name the SAME
+// net-staged candidate (LBA-REQ-068/069), AND the machine quorum is genuinely CROSS-PLANE (spans both os-planes --
+// LBA-REQ-088/ADR-0070), so a single-plane composite (the shipped 1.0.0 defect) is rejected fail-closed.
 //
 // This is the ENFORCEMENT of the governed composite decision (LBA-REQ-070/ADR-0051): the extension-release
 // workflow runs this in the `agreement` job, and the `release` (publish) job depends on `agreement`, so no .vsix
@@ -28,6 +30,7 @@ export function verifyCompositeRelease({ receipt, component, version } = {}) {
   const v = validateReceipt(receipt);
   for (const f of v.findings) reasons.push(f);
   if (!v.proofOk) reasons.push('the composite release decision is not proven (both gates must publish, bound to one net-staged candidate)');
+  if (receipt?.machine?.quorumVerdict?.crossPlane !== true) reasons.push('the composite machine quorum is not genuinely cross-plane -- it must span BOTH os-planes (windows AND linux), not a single-plane quorum (LBA-REQ-088/ADR-0070)');
   return { publish: reasons.length === 0, reasons };
 }
 

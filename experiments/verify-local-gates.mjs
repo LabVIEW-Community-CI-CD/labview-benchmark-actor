@@ -29,6 +29,8 @@ import { summarizeViAnalyzerReport } from './vi-analyzer/viAnalyzerResult.mjs';
 import { validateViAnalyzerReport } from './vi-analyzer/validate-vi-analyzer-report.mjs';
 import { parseAsciiReport, parseSummary } from './vi-analyzer/parse-vi-analyzer-ascii.mjs';
 import { verifyManifest as verifyExtensionAgentsManifest, agentsSha256, readManifest as readExtensionAgentsManifest, AGENTS_MD as EXTENSION_AGENTS_MD } from '../scripts/agentsManifest.mjs';
+import { normalizeZipTimestamps } from '../scripts/normalize-vsix.mjs';
+import { verifyPublishedVsix, sha256File } from '../scripts/verify-published-vsix.mjs';
 import { RATE_PROFILES, runProfile } from './mprr-ring/mprrPacketHarness.mjs';
 import { sealBootBenchmark } from './mprr-boot-benchmark/seal-boot-benchmark.mjs';
 import { parseSerialLog, parseSerialMarkerLine } from './mprr-boot-benchmark/serial-marker.mjs';
@@ -61,6 +63,9 @@ import { crossPlaneResourceCompare } from './mprr-capture-ring/resource-cross-pl
 import { validateEphemeralMeshReceipt } from './ephemeral-mesh/ephemeralMesh.mjs';
 import { execFileSync } from 'node:child_process';
 import { compareWitnesses } from './acg-quorum/compare-witnesses.mjs';
+import { validateReceipt as validateCrossPlaneAttestation } from './acg-quorum/cross-plane-attestation.mjs';
+import { validateReceipt as validateSignedCrossPlaneCorroboration } from './acg-quorum/signed-cross-plane-corroboration.mjs';
+import { validateReceipt as validateCompositeRelease } from '../reviewer-workstation/composite-release-decision.mjs';
 import { verifyBeforeConsume } from './acg-provenance/attest.mjs';
 import { assessIndependence, enrolledEnvironmentSet } from './acg-independence/independence.mjs';
 import { buildVerdictBeacon, MeshLedger, quorumFromLedger } from './acg-mesh/verdict-beacon.mjs';
@@ -744,9 +749,11 @@ check('acg-quorum-live-corroboration', () => {
   const host = readJson('experiments/acg-quorum/witnesses/host-linux.bundle.json');
   const receipt = readJson('experiments/acg-quorum/corroboration-receipt.json');
   const verdict = compareWitnesses([codespace, host]);
-  assert(verdict.verdict === 'pass', `live corroboration verdict is ${verdict.verdict}`);
+  // HONEST (ADR-0068): the two committed witnesses are BOTH the linux plane, so the quorum is single-plane and
+  // FAILS CLOSED -- not cross-plane corroborated -- even though the anchors themselves agree (confidence ~0.92).
+  assert(verdict.verdict === 'fail' && verdict.crossPlane === false, `single-plane quorum must fail closed (verdict=${verdict.verdict}, crossPlane=${verdict.crossPlane})`);
   assert(
-    verdict.verdict === receipt.verdict && verdict.confidence === receipt.confidence && verdict.consensusVerdict === receipt.consensusVerdict,
+    verdict.verdict === receipt.verdict && verdict.confidence === receipt.confidence && verdict.crossPlane === receipt.crossPlane && verdict.consensusVerdict === receipt.consensusVerdict,
     'the committed corroboration receipt must match the re-derived verdict'
   );
   assert(JSON.stringify(verdict.consensus) === JSON.stringify(receipt.consensus), 'the committed consensus anchors must match the re-derived ones');
@@ -756,7 +763,7 @@ check('acg-quorum-live-corroboration', () => {
     assert(verdict.consensus[k] != null, `consensus is missing the ${k} anchor`);
     assert(verdict.divergences.every((d) => d.anchor !== k), `the ${k} anchor must corroborate across the witnesses`);
   }
-  return { verdict: verdict.verdict, confidence: +verdict.confidence.toFixed(4), witnesses: verdict.witnesses, tolerated: verdict.divergences.map((d) => d.anchor) };
+  return { verdict: verdict.verdict, crossPlane: verdict.crossPlane, confidence: +verdict.confidence.toFixed(4), witnesses: verdict.witnesses, note: 'anchors agree but single-plane (linux) -> not cross-plane corroborated; pending a windows-plane witness' };
 });
 
 // ACG provenance + attestation engine (ADR-0016, LBA-REQ-025): the enforceable "verify before consume" core --
@@ -961,11 +968,13 @@ check('acg-provenance-verify-before-consume', () => {
   ];
   const receipt = readJson('experiments/acg-provenance/consume-decision-receipt.json');
   const decision = verifyBeforeConsume({ witnesses, allowlist });
-  assert(decision.consume === true, `verify-before-consume blocked: ${decision.reasons.join('; ')}`);
+  // HONEST (ADR-0068): the attestations verify + the identities are distinct, but the re-computed corroboration is
+  // SINGLE-PLANE (linux-only), so consume is correctly BLOCKED -- a release cannot be consumed on one plane.
+  assert(decision.consume === false, `consume must be blocked (single-plane): got consume=${decision.consume}`);
   assert(decision.consume === receipt.consume && JSON.stringify(decision.reasons) === JSON.stringify(receipt.reasons), 'the committed consume decision must match the re-derived one');
-  assert(decision.witnesses.length >= 2 && decision.witnesses.every((w) => w.ok), 'every enrolled witness attestation must verify');
+  assert(decision.witnesses.length >= 2 && decision.witnesses.every((w) => w.ok), 'every enrolled witness attestation must still verify');
   assert(new Set(decision.witnesses.map((w) => w.identity)).size === decision.witnesses.length, 'the witness identities must be distinct');
-  return { consume: decision.consume, witnesses: decision.witnesses.map((w) => w.identity) };
+  return { consume: decision.consume, blockedReason: decision.reasons[0], witnesses: decision.witnesses.map((w) => w.identity) };
 });
 
 // ACG witness-independence engine (ADR-0017, LBA-REQ-026): a quorum is independent only when it spans >= quorumMin
@@ -973,7 +982,7 @@ check('acg-provenance-verify-before-consume', () => {
 // identity-less witnesses do not count -- run its dependency-free self-test as a subprocess.
 check('acg-independence-quorum', () => {
   execFileSync(process.execPath, [join(here, 'acg-independence', 'independence.selftest.mjs')], { stdio: 'pipe' });
-  return { selftest: 'independence 9/9' };
+  return { selftest: 'independence 8/8 (cross-plane)' };
 });
 
 // Live witness-independence evidence (ADR-0017, LBA-REQ-026): the committed {CODESPACE, LINUX} grid must span
@@ -988,10 +997,12 @@ check('acg-independence-live', () => {
   ];
   const receipt = readJson('experiments/acg-independence/independence-receipt.json');
   const verdict = assessIndependence(witnesses, { enrolledEnvironments: enrolledEnvironmentSet(enrollment) });
-  assert(verdict.independent === true, `the live grid is not independent: ${verdict.reasons.join('; ')}`);
+  // HONEST (ADR-0068): the committed grid is {codespace, host-linux} -- BOTH the linux plane -- so it is single-
+  // plane and NOT cross-plane independent; the second linux witness collapses (redundant for plane diversity).
+  assert(verdict.independent === false && verdict.crossPlane === false, `single-plane grid must not be independent: ${JSON.stringify(verdict.distinctPlanes)}`);
   assert(JSON.stringify(verdict) === JSON.stringify(receipt), 'the committed independence receipt must match the re-derived verdict');
-  assert(verdict.counted.length >= 2 && verdict.counted.every((c) => c.identity), 'every counted witness must have a recorded identity');
-  return { independent: verdict.independent, environments: verdict.distinctEnrolledEnvironments };
+  assert(verdict.counted.length === 1 && verdict.counted.every((c) => c.identity) && verdict.excluded.length === 1, 'one linux plane counted (with identity); the second linux witness collapses');
+  return { independent: verdict.independent, crossPlane: verdict.crossPlane, distinctPlanes: verdict.distinctPlanes, note: 'single-plane (linux); cross-plane independence pending a windows-plane witness' };
 });
 
 // ACG governance: PRs target develop, not main (ADR-0021, LBA-REQ-030). The base-branch policy -- non-release
@@ -1031,7 +1042,9 @@ check('acg-mesh-loopback-evidence', () => {
   led.record(buildVerdictBeacon(notice('acg-witness:codespace', codespace), { seq: 1 }));
   led.record(buildVerdictBeacon(notice('acg-witness:host-linux', host), { seq: 2 }));
   const out = quorumFromLedger(led, { bundlesByDigest: { [bundleDigest(codespace)]: codespace, [bundleDigest(host)]: host } });
-  assert(out.quorum.verdict === 'pass', `mesh quorum is ${out.quorum.verdict}`);
+  // HONEST (ADR-0068): the beaconed witnesses are BOTH the linux plane, so the mesh quorum is single-plane and
+  // FAILS CLOSED (not cross-plane corroborated) even though both resolve + the anchors agree.
+  assert(out.quorum.verdict === 'fail', `single-plane mesh quorum must fail closed (got ${out.quorum.verdict})`);
   assert(out.resolved === 2 && out.missing.length === 0 && out.mismatched.length === 0, 'both beaconed witnesses must resolve to their bundles');
   assert(out.ledgerHash === receipt.ledgerHash, 'the committed mesh ledgerHash must match the re-derived one');
   assert(out.quorum.verdict === receipt.meshQuorum.quorum.verdict && out.resolved === receipt.meshQuorum.resolved, 'the committed mesh receipt must match the re-derived verdict');
@@ -1061,10 +1074,12 @@ check('acg-reviewer-release-decision', () => {
   const quorumVerdict = readJson('experiments/acg-quorum/corroboration-receipt.json');
   const receipt = readJson('experiments/acg-reviewer/release-decision-receipt.json');
   const decision = gateReleasePublish({ quorumVerdict, signOffs: [] });
-  assert(decision.quorumPass === true, 'the committed corroboration must pass the machine quorum');
-  assert(decision.publish === false, 'publish must be blocked with no recorded human sign-off');
+  // HONEST (ADR-0068): the committed corroboration is now SINGLE-PLANE (verdict fail), so the machine quorum does
+  // NOT pass and publish is blocked for that reason (plus the missing human sign-off) -- fail closed either way.
+  assert(decision.quorumPass === false, 'a single-plane corroboration must NOT pass the machine quorum');
+  assert(decision.publish === false, 'publish must be blocked (single-plane quorum + no human sign-off)');
   assert(decision.publish === receipt.decision.publish && decision.quorumPass === receipt.decision.quorumPass, 'the committed release decision must match the re-derived one');
-  return { publish: decision.publish, quorumPass: decision.quorumPass };
+  return { publish: decision.publish, quorumPass: decision.quorumPass, note: 'single-plane -> quorum withheld; publish blocked' };
 });
 
 // The Actor Corroboration Grid END-TO-END (ADR-0014, LBA-REQ-023, the umbrella): the whole gate -- independence +
@@ -1086,11 +1101,14 @@ check('acg-grid-run-live', () => {
   ];
   const result = runGrid({ witnesses, allowlist: readJson('experiments/acg-provenance/enrollment/allowlist.json'), enrollment: readJson('experiments/acg-independence/enrolled-environments.json'), signOffs: [] });
   const receipt = readJson('experiments/acg-grid/grid-run-receipt.json');
-  assert(result.machineCorroborated === true, 'the real grid must corroborate through every machine stage');
-  for (const s of ['independence', 'quorum', 'attestation', 'mesh']) assert(result.stages[s].ok === true, `machine stage ${s} must pass`);
-  assert(result.released === false, 'released must be blocked pending a human sign-off');
+  // HONEST (ADR-0068): the real {codespace, host-linux} grid is SINGLE-PLANE (both linux), so every machine stage
+  // that depends on cross-plane independence/quorum correctly WITHHOLDS -- the grid is NOT corroborated (pending a
+  // windows-plane witness). This gate proves the end-to-end grid fails closed on single-plane evidence.
+  assert(result.machineCorroborated === false, 'a single-plane grid must NOT be machine-corroborated');
+  for (const s of ['independence', 'quorum', 'attestation', 'mesh']) assert(result.stages[s].ok === false, `machine stage ${s} must withhold on single-plane evidence`);
+  assert(result.released === false, 'released must be blocked (single-plane, and no human sign-off)');
   assert(result.machineCorroborated === receipt.result.machineCorroborated && result.released === receipt.result.released, 'the committed grid-run receipt must match the re-derived run');
-  return { machineCorroborated: result.machineCorroborated, released: result.released };
+  return { machineCorroborated: result.machineCorroborated, released: result.released, note: 'single-plane (linux) -> not corroborated; pending a windows-plane witness' };
 });
 
 // The Merkle TRANSPARENCY LOG (ADR-0022, LBA-REQ-031, the rekor analogue): RFC 6962 domain-separated hashing,
@@ -1866,6 +1884,31 @@ check('mesh-live-fanout-wired', () => {
   const wf = readFileSync(join(here, '..', '.github', 'workflows', 'mesh-run.yml'), 'utf8');
   assert(/meshFanout\.mjs/.test(wf), 'mesh-run.yml runs the fan-out contract (meshFanout.mjs)');
   return { tasks: tasking.tasks.length, collected: collection.collected.length, identity: collection.identity.slice(0, 12), wired: true };
+});
+
+// LBA-REQ-091 / ADR-0074: RUN-BOUND mesh ingestion -- ingest a LIVE dispatch (the workflow client_payload) + the
+// actors' returned plane-tagged receipts (returned-receipt@1 files) into a run-bound actor-tasking + receipt-collection
+// bound to the dispatchId, REUSING the LBA-REQ-074 dispatch validation (meshDispatch.requestOk) + the LBA-REQ-076
+// fan-out gating (meshFanout derive/validate) -- no new gating logic, just the LIVE data path into the committed
+// fan-out contract. Asserts the selftest (8/8): a genuine two-plane run ingests to a two-actor collection, and it
+// fails closed on an uncovered requested plane, a declared/receipt plane mismatch, a receipt whose identity != the
+// dispatched benchmark, an unbound taskId, a duplicate actor, a malformed dispatch, or a malformed returned receipt.
+check('mesh-run-ingest', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshIngest.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'meshIngest 8/8', requirement: 'LBA-REQ-091', adr: 'ADR-0074' };
+});
+
+// LBA-REQ-092 / ADR-0075: RUN-BOUND CROSS-PLANE CORROBORATE + COMPARE -- meshCorroborate.corroborateRun consumes the
+// run-bound receipt-collection@1 (LBA-REQ-091 ingest) and corroborates the collected plane receipts cross-plane (>= 2
+// distinct planes, all PASS, each re-deriving the dispatch identity) + REUSES benchmark-store compareRuns for the
+// WIN-vs-LINUX delta, emitting a run-bound mesh-cross-plane-report@1. Asserts the selftest (8/8) + that the committed
+// two-plane fan-out collection corroborates cross-plane (the CLI exits 0 only when corroborated, fail-closed).
+check('mesh-cross-plane-corroborate', () => {
+  const dir = join(here, 'mesh-fulfillment');
+  execFileSync(process.execPath, [join(dir, 'meshCorroborate.selftest.mjs')], { stdio: 'pipe' });
+  execFileSync(process.execPath, [join(dir, 'meshCorroborate.mjs'), '--collection', join(dir, 'mesh-run-collection.json')], { stdio: 'pipe' });
+  return { selftest: 'meshCorroborate 8/8', corroborated: 'committed LINUX+WIN collection', requirement: 'LBA-REQ-092', adr: 'ADR-0075' };
 });
 
 // LBA-REQ-077 / ADR-0058: the opt-in VERIFIED TIER -- each returned actor receipt is SIGNED by the actor's
@@ -2664,8 +2707,8 @@ check('composite-release-decision', () => {
 // extension-release.yml runs the CLI in the publish-gating agreement job (release needs: [build, agreement]).
 check('composite-release-enforced', () => {
   const cli = join(here, '..', 'tools', 'collab-cli', 'verify-composite-release.mjs');
-  // the committed composite receipt (ext 1.0.0) clears the release gate...
-  execFileSync(process.execPath, [cli, '--component', 'extension', '1.0.0'], { stdio: 'pipe' });
+  // the committed composite receipt (ext 1.1.0) clears the release gate...
+  execFileSync(process.execPath, [cli, '--component', 'extension', '1.1.0'], { stdio: 'pipe' });
   // ...and a version with no proven composite decision fails closed (exit 1).
   let blocked = false;
   try { execFileSync(process.execPath, [cli, '--component', 'extension', '0.9.9-none'], { stdio: 'pipe' }); }
@@ -2675,7 +2718,7 @@ check('composite-release-enforced', () => {
   const wf = readFileSync(join(here, '..', '.github', 'workflows', 'extension-release.yml'), 'utf8');
   assert(/verify-composite-release\.mjs --component extension/.test(wf), 'extension-release.yml runs the composite-release enforcement CLI');
   assert(/needs:\s*\[build,\s*agreement\]/.test(wf), 'the release job needs the agreement job, so the composite gate blocks the publish');
-  return { cli: 'verify-composite-release', clears: 'extension 1.0.0', failsClosed: true, wired: true };
+  return { cli: 'verify-composite-release', clears: 'extension 1.1.0', failsClosed: true, wired: true };
 });
 
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
@@ -3031,6 +3074,207 @@ check('dod-definition-present', () => {
   assert(/name:\s*DoD Gate/.test(wfText), 'workflow must publish the "DoD Gate / dod" context (name: DoD Gate + job dod)');
   assert(/job|dod:/.test(wfText) && /verify-local-gates\.mjs/.test(wfText), 'the DoD Gate job must enforce the DoD by running the local gate suite');
   return { doc: 'docs/dod/definition-of-done.md', context: 'DoD Gate / dod', exitCriteria: 7 };
+});
+
+// Reproducible .vsix gate (ADR-0066 / LBA-REQ-085): the packaged artifact must be BYTE-REPRODUCIBLE so the
+// vsix a human reviews equals the vsix CI ships. vsce/yazl stamps each zip entry's mtime with the package time
+// (ignoring SOURCE_DATE_EPOCH), so scripts/normalize-vsix.mjs pins every entry's DOS timestamp to 1980-01-01.
+// This gate guards (a) the wiring (package pipeline + test proof still call it) and (b) the behavior (two zips
+// with identical content but different entry timestamps normalize to BYTE-IDENTICAL output). Dep-free: builds a
+// tiny stored-entry zip by hand so the proof runs synchronously without pulling in a zip library.
+function tinyStoredZip(dosTime, dosDate) {
+  const name = Buffer.from('a');
+  const data = Buffer.from('A');
+  const local = Buffer.alloc(30 + name.length);
+  local.writeUInt32LE(0x04034b50, 0); // local file header signature
+  local.writeUInt16LE(20, 4); // version needed
+  local.writeUInt16LE(0, 6); // flags
+  local.writeUInt16LE(0, 8); // method: stored
+  local.writeUInt16LE(dosTime, 10);
+  local.writeUInt16LE(dosDate, 12);
+  local.writeUInt32LE(0, 14); // crc (normalizer does not validate)
+  local.writeUInt32LE(data.length, 18); // compressed size
+  local.writeUInt32LE(data.length, 22); // uncompressed size
+  local.writeUInt16LE(name.length, 26); // name length
+  local.writeUInt16LE(0, 28); // extra length
+  name.copy(local, 30);
+  const cdOffset = local.length + data.length;
+  const central = Buffer.alloc(46 + name.length);
+  central.writeUInt32LE(0x02014b50, 0); // central directory header signature
+  central.writeUInt16LE(20, 4); // version made by
+  central.writeUInt16LE(20, 6); // version needed
+  central.writeUInt16LE(0, 8); // flags
+  central.writeUInt16LE(0, 10); // method
+  central.writeUInt16LE(dosTime, 12);
+  central.writeUInt16LE(dosDate, 14);
+  central.writeUInt32LE(0, 16); // crc
+  central.writeUInt32LE(data.length, 20); // compressed size
+  central.writeUInt32LE(data.length, 24); // uncompressed size
+  central.writeUInt16LE(name.length, 28); // name length
+  central.writeUInt16LE(0, 30); // extra length
+  central.writeUInt16LE(0, 32); // comment length
+  central.writeUInt16LE(0, 34); // disk number start
+  central.writeUInt16LE(0, 36); // internal attributes
+  central.writeUInt32LE(0, 38); // external attributes
+  central.writeUInt32LE(0, 42); // relative offset of local header
+  name.copy(central, 46);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0); // EOCD signature
+  eocd.writeUInt16LE(1, 8); // cd entries this disk
+  eocd.writeUInt16LE(1, 10); // total entries
+  eocd.writeUInt32LE(central.length, 12); // cd size
+  eocd.writeUInt32LE(cdOffset, 16); // cd offset
+  return Buffer.concat([local, data, central, eocd]);
+}
+check('reproducible-vsix-normalizer', () => {
+  // Wiring guard: the package pipeline must run the normalizer and npm test must run its behavioral proof.
+  const pkg = readJson('package.json');
+  assert(/normalize-vsix\.mjs/.test(pkg.scripts?.package || ''), 'the "package" script must pipe the vsix through scripts/normalize-vsix.mjs');
+  assert(/normalize-vsix\.mjs/.test(pkg.scripts?.test || ''), 'the "test" script must run test/normalize-vsix.mjs (the reproducibility proof)');
+  assert(existsSync(join(pkgRoot, 'scripts', 'normalize-vsix.mjs')), 'scripts/normalize-vsix.mjs must exist');
+  // Behavioral guard: same content + different entry timestamps => byte-identical after normalize.
+  const early = tinyStoredZip(0x1234, 0x2abc);
+  const late = tinyStoredZip(0x5678, 0x5abc);
+  assert(!early.equals(late), 'precondition: differing timestamps => differing bytes');
+  assert(normalizeZipTimestamps(early) === 1 && normalizeZipTimestamps(late) === 1, 'normalized the single entry in each');
+  assert(early.equals(late), 'after normalize: same-content zips with different timestamps are byte-identical (reproducible)');
+  assert(early.readUInt16LE(10) === 0x0000 && early.readUInt16LE(12) === 0x0021, 'DOS timestamp pinned to 1980-01-01');
+  const cd = early.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  assert(cd !== -1 && early.readUInt16LE(cd + 4) === 0x033f && early.readUInt32LE(cd + 38) === 0x81a40000, 'version-made-by + external mode pinned (cross-plane)');
+  return { wired: 'package + test', pinned: '1980-01-01 + mode 0644 + Unix host', proof: 'same-content/different-mtime => byte-identical' };
+});
+
+// Reviewed == shipped gate (ADR-0066 follow-on / LBA-REQ-085): the extension-release workflow must assert the
+// CI-built .vsix sha256 equals the reviewed vsixSha256 (release-agreement visualReview.verdict.target) BEFORE
+// publishing. Because the .vsix is byte-reproducible on the PUBLISH plane (linux), the artifact a human reviewed
+// on that plane equals the artifact CI ships. This gate guards the wiring (workflow + npm test call the verifier)
+// AND the behavior (a matching sha passes; a review taken on another plane -- a different sha -- fails closed).
+check('reviewed-vsix-matches-shipped', () => {
+  const wf = join(pkgRoot, '.github', 'workflows', 'extension-release.yml');
+  assert(existsSync(wf), 'the extension-release workflow must exist');
+  const wfText = readFileSync(wf, 'utf8').replace(/\r\n/g, '\n');
+  assert(/verify-published-vsix\.mjs/.test(wfText), 'the release workflow must run scripts/verify-published-vsix.mjs (reviewed==shipped)');
+  const pkg = readJson('package.json');
+  assert(/verify-published-vsix\.mjs/.test(pkg.scripts?.test || ''), 'npm test must run test/verify-published-vsix.mjs');
+  // Behavioral: a built .vsix whose sha256 matches the reviewed target passes; a different sha fails closed.
+  const base = join(tmpdir(), `lba-repro-assert-${process.pid}-${Date.now()}`);
+  const vsix = `${base}.vsix`;
+  const okJson = `${base}-ok.json`;
+  const badJson = `${base}-bad.json`;
+  try {
+    writeFileSync(vsix, Buffer.from('gate probe vsix bytes'));
+    const built = sha256File(vsix);
+    const agreement = (sha) => JSON.stringify({ components: { extension: { releases: { '0.0.1': { visualReview: { verdict: { target: { vsixSha256: sha } } } } } } } });
+    writeFileSync(okJson, agreement(built));
+    writeFileSync(badJson, agreement('a'.repeat(64)));
+    const okReceipt = verifyPublishedVsix({ agreementPath: okJson, component: 'extension', version: '0.0.1', vsixPath: vsix });
+    assert(okReceipt.reviewedMatchesShipped === true, 'a matching sha -> reviewed==shipped');
+    let threw = false;
+    try { verifyPublishedVsix({ agreementPath: badJson, component: 'extension', version: '0.0.1', vsixPath: vsix }); } catch { threw = true; }
+    assert(threw, 'a differing reviewed sha must fail closed');
+  } finally {
+    for (const p of [vsix, okJson, badJson]) rmSync(p, { force: true });
+  }
+  return { wired: 'workflow + npm test', proof: 'match ok / mismatch fail-closed' };
+});
+
+// Cross-plane .vsix byte-reproducibility (ADR-0067 / LBA-REQ-086): a Windows build and a Linux build of the SAME
+// commit must be byte-identical, so a windows-plane and a linux-plane witness corroborate ONE artifact and
+// reviewed(windows)==shipped(linux) holds. This gate guards, offline: the dual-OS build+compare workflow exists
+// (builds on ubuntu AND windows, compares sha256, fails closed) AND the determinism prerequisites are in place
+// (tsc emits LF via newLine=lf; the packaged content + bundled experiment sources are LF-pinned in .gitattributes).
+check('vsix-cross-plane-repro-workflow-wired', () => {
+  const wf = join(pkgRoot, '.github', 'workflows', 'vsix-cross-plane-repro.yml');
+  assert(existsSync(wf), 'the vsix cross-plane repro workflow must exist');
+  const t = readFileSync(wf, 'utf8').replace(/\r\n/g, '\n');
+  assert(/ubuntu-latest/.test(t) && /windows-latest/.test(t), 'must build on BOTH ubuntu-latest and windows-latest');
+  assert(/npm run package/.test(t), 'must build the normalized .vsix via npm run package');
+  assert(/sha256/i.test(t), 'must compute the .vsix sha256');
+  assert(/NOT cross-plane byte-identical/.test(t) && /exit 1/.test(t), 'the compare job must fail closed when the two planes disagree');
+  // Determinism prerequisites: tsc emits LF on every plane + the packaged/bundled files are LF-pinned.
+  const tsconfig = readJson('tsconfig.json');
+  assert(tsconfig.compilerOptions?.newLine === 'lf', 'tsconfig must pin newLine=lf so tsc emits LF on every plane');
+  const attrs = readFileSync(join(pkgRoot, '.gitattributes'), 'utf8').replace(/\r\n/g, '\n');
+  assert(/^\*\.mjs text eol=lf$/m.test(attrs), '.gitattributes must LF-pin *.mjs (packaged media + bundled acg-mcp sources)');
+  assert(/^\*\.ts text eol=lf$/m.test(attrs), '.gitattributes must LF-pin *.ts (so tsc string literals are LF on every plane)');
+  return { planes: ['linux', 'windows'], proof: 'npm run package on both -> identical sha256 (fail-closed)' };
+});
+
+// Genuine cross-plane corroboration (ADR-0069 / LBA-REQ-087): a LINUX plane and a WINDOWS plane each produce a
+// witness over the deterministic anchors (version/sourceCommit/verdict/seriesHash) and the corrected quorum
+// (ADR-0068 -- independence is the OS-plane) proves they CROSS-PLANE corroborate. Run the producer + corroboration
+// self-test (a genuine windows+linux pair passes; a single-plane, divergent, or non-pass pair fails closed).
+check('acg-cross-plane-corroboration', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'produce-witness.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'produce-witness 5/5 (linux+windows corroborate; single-plane/divergent/non-pass fail closed)' };
+});
+
+// The MULTI-SUBSTRATE cross-plane corroboration WORKFLOW (ADR-0069 / LBA-REQ-087): builds a genuine witness on
+// several concrete substrates spanning BOTH os-planes -- the LINUX plane (ubuntu-22.04 + ubuntu-24.04) AND the
+// WINDOWS plane (windows-2022 + windows-2025) -- each runs the extension gate (npm test) for its verdict, and the
+// corroborate job asserts ALL substrates corroborate (crossPlane), proving the anchor is substrate-independent.
+// Offline drift gate over the workflow wiring.
+check('acg-cross-plane-corroboration-workflow-wired', () => {
+  const wf = join(pkgRoot, '.github', 'workflows', 'acg-cross-plane-corroboration.yml');
+  assert(existsSync(wf), 'the acg cross-plane corroboration workflow must exist');
+  const t = readFileSync(wf, 'utf8').replace(/\r\n/g, '\n');
+  const linuxSubstrates = [...new Set(t.match(/ubuntu-\d\d\.\d\d/g) || [])];
+  const windowsSubstrates = [...new Set(t.match(/windows-\d{4}/g) || [])];
+  assert(linuxSubstrates.length >= 2, 'must build on >= 2 concrete LINUX substrates (e.g. ubuntu-22.04 + ubuntu-24.04)');
+  assert(windowsSubstrates.length >= 2, 'must build on >= 2 concrete WINDOWS substrates (e.g. windows-2022 + windows-2025)');
+  assert(/produce-witness\.mjs/.test(t), 'each substrate must produce its witness via produce-witness.mjs');
+  assert(/corroborate-planes\.mjs/.test(t), 'the corroborate job must run corroborate-planes.mjs (the quorum) over ALL substrates');
+  assert(/witnesses\/\*\/\*\.bundle\.json/.test(t), 'the corroborate job must ingest ALL substrate witnesses (glob)');
+  assert(/npm test/.test(t), 'each substrate must run the extension gate (npm test) for its verdict');
+  return { linuxSubstrates, windowsSubstrates, proof: 'all substrates span both os-planes -> cross-plane corroborate (fail-closed)' };
+});
+
+// The DURABLE genuine cross-plane corroboration (ADR-0070 / LBA-REQ-088): the live two-plane proof captured as a
+// committed, tamper-evident attestation over two GENUINE CI witnesses (a real linux plane + a real windows plane)
+// with recorded run provenance. Re-derives the os-plane quorum offline + asserts the committed attestation is
+// genuinely cross-plane corroborated (quorum pass + crossPlane), plus the selftest (a single-plane set -- the
+// shipped 1.0.0 defect -- fails closed).
+check('acg-cross-plane-attestation', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'cross-plane-attestation.selftest.mjs')], { stdio: 'pipe' });
+  const receipt = readJson('experiments/acg-quorum/cross-plane-attestation-receipt.json');
+  const v = validateCrossPlaneAttestation(receipt);
+  assert(v.ok && v.proofOk, `the committed cross-plane attestation must validate: ${v.findings.join('; ')}`);
+  assert(receipt.verdict.crossPlaneCorroborated === true, 'the committed attestation must be cross-plane corroborated');
+  assert(Array.isArray(receipt.planes) && receipt.planes.includes('linux') && receipt.planes.includes('windows'), 'the attestation must span both os-planes (linux + windows)');
+  assert(receipt.quorum.crossPlane === true && receipt.quorum.verdict === 'pass', 'the re-derived quorum must pass cross-plane');
+  assert(receipt.provenance && receipt.provenance.runId, 'the attestation must record the CI run provenance of its witnesses');
+  return { planes: receipt.planes, commit: String(receipt.quorum.consensus.sourceCommit).slice(0, 9), confidence: receipt.quorum.confidence, provenanceRun: receipt.provenance.runId };
+});
+
+// The genuine RE-SEAL of the machine corroboration (ADR-0071 / LBA-REQ-089): the durable crossPlane quorum
+// (LBA-REQ-088) carrying an ENROLLED human sign-off over it (ADR-0018 gateReleasePublish). Re-derives the ADR-0018
+// gate + the crossPlane requirement offline; the committed receipt must be a proven signed cross-plane
+// corroboration, and the selftest proves a single-plane / non-pass / unenrolled / forged / unnamed / tampered
+// receipt all fail closed. This is the corrected two-plane analogue of the single-plane quorum-1.0.0.json defect.
+check('acg-signed-cross-plane-corroboration', () => {
+  execFileSync(process.execPath, [join(here, 'acg-quorum', 'signed-cross-plane-corroboration.selftest.mjs')], { stdio: 'pipe' });
+  const receipt = readJson('experiments/acg-quorum/signed-cross-plane-corroboration-receipt.json');
+  const v = validateSignedCrossPlaneCorroboration(receipt);
+  assert(v.ok && v.proofOk, `the committed signed cross-plane corroboration must validate: ${v.findings.join('; ')}`);
+  assert(receipt.verdict.signedCrossPlaneCorroborated === true, 'the committed re-seal must be signed cross-plane corroborated');
+  assert(receipt.quorum.crossPlane === true && receipt.quorum.verdict === 'pass', 'the quorum must pass cross-plane');
+  assert(Array.isArray(receipt.decision.approvals) && receipt.decision.approvals.length >= 1, 'the re-seal must carry >= 1 enrolled approving sign-off');
+  return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), approvals: receipt.decision.approvals };
+});
+
+// The genuine cross-plane COMPOSITE re-seal (ADR-0072 / LBA-REQ-090): the 1.0.0 composite release decision rebuilt
+// over the genuine two-plane quorum (LBA-REQ-088) + the enrolled machine sign-off (LBA-REQ-089) + a signed human
+// visual PASS of the byte-reproducible candidate + the genuine WIN staging -- all five bindings hold AND the
+// machine quorum is crossPlane. The selftest also proves the shipped single-plane composite is the defect this corrects.
+check('acg-crossplane-composite-reseal', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'crossplane-composite-reseal.selftest.mjs')], { stdio: 'pipe' });
+  const receipt = readJson('reviewer-workstation/composite-release-decision-receipt.json');
+  const v = validateCompositeRelease(receipt);
+  assert(v.ok && v.proofOk, `the committed crossPlane composite must validate: ${v.findings.join('; ')}`);
+  assert(receipt.verdict.compositeReleaseProven === true, 'the crossPlane composite must be a proven composite decision');
+  assert(receipt.machine.quorumVerdict.crossPlane === true, 'the composite machine quorum must be genuinely cross-plane');
+  for (const k of ['machinePublish', 'visualPublish', 'stagedOverNet', 'visualTargetBound', 'machineConsensusBound']) assert(receipt.binding[k] === true, `binding ${k} must hold`);
+  return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), crossPlane: true };
 });
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

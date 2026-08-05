@@ -32,7 +32,7 @@
 | LBA-REQ-023 | Actor Corroboration Grid (multi-witness release corroboration) | Proven | §3.9 Corroboration-grid | ADR-0014 | T-023 | 6 |
 | LBA-REQ-024 | Corroboration quorum + graded confidence | Proven | §3.9 Corroboration-grid | ADR-0015 | T-024 | 10 |
 | LBA-REQ-025 | Corroboration provenance + attestation | Proven | §3.9 Corroboration-grid | ADR-0016 | T-025 | 14 |
-| LBA-REQ-026 | Witness independence | Proven | §3.9 Corroboration-grid | ADR-0017 | T-026 | 6 |
+| LBA-REQ-026 | Witness independence | Proven | §3.9 Corroboration-grid | ADR-0017, ADR-0068 | T-026 | 7 |
 | LBA-REQ-027 | Reviewer station + human sign-off | Proven | §3.9 Corroboration-grid | ADR-0018 | T-027 | 6 |
 | LBA-REQ-028 | Mesh verdict beacon | Proven | §3.9 Corroboration-grid | ADR-0019 | T-028 | 6 |
 | LBA-REQ-029 | MCP orchestration surface | Proven | §3.9 Corroboration-grid | ADR-0020 | T-029 | 11 |
@@ -77,7 +77,7 @@
 | LBA-REQ-068 | Net-only live VM-agent drive (govern the released-CLI closed loop as a committed receipt) | Proven | §3.2 Deployment | ADR-0049 | T-068 | 6 |
 | LBA-REQ-069 | Release-with-review drive (bind the net-staged candidate to the signed + announced verdict) | Proven | §3.2 Deployment | ADR-0050 | T-069 | 5 |
 | LBA-REQ-070 | Composite release decision (bind the machine corroboration gate to the human visual gate over one net-staged candidate) | Proven | §3.2 Deployment | ADR-0051 | T-070 | 6 |
-| LBA-REQ-071 | Enforce the composite release decision in the extension release workflow | Proven | §3.2 Deployment | ADR-0052 | T-071 | 4 |
+| LBA-REQ-071 | Enforce the composite release decision in the extension release workflow | Proven | §3.2 Deployment | ADR-0052, ADR-0073 | T-071 | 4 |
 | LBA-REQ-072 | Cross-plane launch-benchmark parity (identity is the spec, not the series) | Proven | §3.2 Deployment | ADR-0053 | T-072 | 6 |
 | LBA-REQ-073 | Mesh-run cross-plane fulfillment (the North Star loop) | Proven | §3.2 Deployment | ADR-0054 | T-073 | 5 |
 | LBA-REQ-074 | GitHub-native mesh-run dispatch transport (repository_dispatch) | Proven | §3.2 Deployment | ADR-0055 | T-074 | 6 |
@@ -91,5 +91,13 @@
 | LBA-REQ-082 | The benchmark-suite parity observatory (one view over the parity families) | Proven | §3.2 Deployment | ADR-0063 | T-082 | 6 |
 | LBA-REQ-083 | The mesh carries a second benchmark family (VI Analyzer) | Proven | §3.2 Deployment | ADR-0064 | T-083 | 6 |
 | LBA-REQ-084 | The stress-discounted cross-plane comparison (discount a result captured on a stressed actor) | Proven | §3.2 Deployment | ADR-0065 | T-084 | 6 |
+| LBA-REQ-085 | The byte-reproducible extension package (the reviewed .vsix equals the shipped .vsix) | Proven | §3.1 Packaging / boundary | ADR-0066 | T-085 | 7 |
+| LBA-REQ-086 | The cross-plane byte-reproducible extension package (a Windows build equals a Linux build) | Proven | §3.1 Packaging / boundary | ADR-0067 | T-086 | 6 |
+| LBA-REQ-087 | Genuine cross-plane corroboration (a windows-latest + ubuntu-latest witness prove two planes agree) | Proven | §3.9 Corroboration-grid | ADR-0069 | T-087 | 5 |
+| LBA-REQ-088 | Durable genuine cross-plane corroboration attestation (capture the live two-plane proof as a committed receipt) | Proven | §3.9 Corroboration-grid | ADR-0070 | T-088 | 5 |
+| LBA-REQ-089 | Signed cross-plane corroboration (the enrolled human sign-off over the genuine crossPlane quorum) | Proven | §3.9 Corroboration-grid | ADR-0071 | T-089 | 6 |
+| LBA-REQ-090 | Genuine cross-plane composite release decision (the fuller 1.0.0 re-seal) | Proven | §3.9 Corroboration-grid | ADR-0072 | T-090 | 6 |
+| LBA-REQ-091 | Run-bound mesh ingestion (bind a live dispatch + the actors' returned receipts) | Proven | §3.2 Deployment | ADR-0074 | T-091 | 5 |
+| LBA-REQ-092 | Run-bound cross-plane corroborate + compare (the ingested collection) | Proven | §3.2 Deployment | ADR-0075 | T-092 | 6 |
 
-_Generated for 84 requirements._
+_Generated for 92 requirements._

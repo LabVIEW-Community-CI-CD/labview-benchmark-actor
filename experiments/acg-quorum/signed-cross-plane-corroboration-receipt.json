@@ -1,0 +1,77 @@
+{
+  "schema": "labview-benchmark-actor/signed-cross-plane-corroboration@1",
+  "requirement": "LBA-REQ-089",
+  "adr": "ADR-0071",
+  "candidate": {
+    "component": "extension",
+    "version": "1.0.0",
+    "commit": "2a0352cc7309fee647a97a87de22e1c33649dfd3"
+  },
+  "provenance": {
+    "workflow": "acg cross-plane corroboration (.github/workflows/acg-cross-plane-corroboration.yml)",
+    "event": "push",
+    "branch": "develop",
+    "runId": "30923501292",
+    "runUrl": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/actions/runs/30923501292",
+    "commit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+    "note": "The two witnesses were produced by real ubuntu-latest (linux plane) + windows-latest (windows plane) runners in this run (LBA-REQ-087) and downloaded from its witness-ubuntu-latest / witness-windows-latest artifacts; anyone can re-download the run artifacts and byte-compare.",
+    "capturedAt": "2026-08-04T15:29:40.423Z",
+    "quorumAttestation": "experiments/acg-quorum/cross-plane-attestation-receipt.json (LBA-REQ-088)",
+    "signOffMethod": "reviewer-workstation/sign-release-quorum.mjs (deterministic, offline; enrolled Ed25519 key local to the reviewer)"
+  },
+  "quorum": {
+    "schema": "labview-benchmark-actor/acg-quorum-verdict-v2",
+    "verdict": "pass",
+    "confidence": 1,
+    "threshold": 0.5,
+    "witnesses": 2,
+    "concurring": 2,
+    "majority": true,
+    "crossPlane": true,
+    "consensusVerdict": "pass",
+    "consensus": {
+      "version": "1.0.0",
+      "sourceCommit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+      "verdict": "pass",
+      "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+      "pngSha256": null,
+      "ubuntu": "noble"
+    },
+    "divergences": []
+  },
+  "signOffs": [
+    {
+      "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+      "subject": {
+        "verdictDigest": "2e313a6acc1ba40c75b32dc62a0a3bcc8943fd88a89e6b8df99240471f002138",
+        "consensusVerdict": "pass"
+      },
+      "reviewer": "reviewer@vi-tech.nl",
+      "decision": "approve",
+      "station": "LINUX_CODESPACE",
+      "algorithm": "ed25519",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
+      "signedAt": "2026-08-04T17:22:11.967Z",
+      "signature": "i/y/CAFCch+jnSXbPIonCOjKOggr4UrmRIgbflWk1CrUPyQl0jhrGow8cuJ7DJdxwrZuuwK3GAq1/cWKm8EpAw=="
+    }
+  ],
+  "reviewerAllowlist": {
+    "reviewer@vi-tech.nl": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n"
+  },
+  "gate": {
+    "minReviewers": 1
+  },
+  "decision": {
+    "machinePublish": true,
+    "crossPlane": true,
+    "namesCandidate": true,
+    "approvals": [
+      "reviewer@vi-tech.nl"
+    ]
+  },
+  "verdict": {
+    "signedCrossPlaneCorroborated": true,
+    "reason": "extension 1.0.0 @ 2a0352cc7 is corroborated across BOTH os-planes (crossPlane, quorum pass) AND carries an enrolled human sign-off over that quorum (reviewer@vi-tech.nl) -- the genuine two-plane re-seal of the machine corroboration"
+  },
+  "digest": "6c255172d9646e8e5596959a3916c844ea870b878fe29438535002ab65565550"
+}

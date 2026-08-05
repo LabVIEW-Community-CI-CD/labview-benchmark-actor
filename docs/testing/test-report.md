@@ -21,12 +21,16 @@ the `LBA Local Gates verify` CI job.
 
 ## 2. Executed verification evidence (ISO/IEC/IEEE 29119-3)
 
-### 2.1 Local gate suite — 180 fail-closed checks
+### 2.1 Local gate suite — 190 fail-closed checks
 
 Run by `node experiments/verify-local-gates.mjs`. All must pass. The full gate inventory (the executed
 test items at the gate granularity) is:
 
 ```
+acg-cross-plane-attestation
+acg-cross-plane-corroboration
+acg-cross-plane-corroboration-workflow-wired
+acg-crossplane-composite-reseal
 acg-governance-pr-base-branch
 acg-governance-pr-base-branch-workflow-wired
 acg-grid-e2e
@@ -44,6 +48,7 @@ acg-quorum-compare-witnesses
 acg-quorum-live-corroboration
 acg-reviewer-release-decision
 acg-reviewer-sign-off
+acg-signed-cross-plane-corroboration
 acg-transparency-log
 acg-transparency-log-live
 acg-transparency-verify-before-install
@@ -139,12 +144,14 @@ mesh-board-view
 mesh-calibration-view
 mesh-concurrent-actors-real
 mesh-coverage-observatory
+mesh-cross-plane-corroborate
 mesh-live-fanout-wired
 mesh-live-ladder-real
 mesh-log-append-only
 mesh-run-attested
 mesh-run-cross-plane-fulfillment
 mesh-run-dispatch-wired
+mesh-run-ingest
 mesh-stress-orchestrator
 mesh-stress-signature-calibrator
 mesh-stress-signature-extractor
@@ -184,8 +191,10 @@ release-lanes-keyless-attested
 release-no-discussion-announce
 release-procedure-references-resolve
 release-with-review-drive
+reproducible-vsix-normalizer
 requirements-quality-29148
 resource-usage-correlation-receipt-green
+reviewed-vsix-matches-shipped
 reviewer-workstation-keyless-verify-wired
 ring-buffer-mirror-replay-deterministic
 rtm-proven-rows-cite-existing-evidence
@@ -203,6 +212,7 @@ viewer-webview-surface-wired
 vipm-functional-package-install
 vm-bridge-human-assisted-secret-safety
 vm-live-status-idle-analysis
+vsix-cross-plane-repro-workflow-wired
 win-pdh-sampler-12fps
 win-vm-concurrent-mesh-real
 win-vm-mesh-ladder-real
@@ -241,13 +251,13 @@ The controlled state of the repository's configuration items, derived from the r
 
 | Configuration item class | Count | Register |
 | --- | --- | --- |
-| Requirements (total) | 84 | docs/requirements/srs.md, rtm.csv |
-| — Status: Proven | 83 | rtm.csv |
+| Requirements (total) | 92 | docs/requirements/srs.md, rtm.csv |
+| — Status: Proven | 91 | rtm.csv |
 | — Status: Superseded | 1 | rtm.csv |
-| Architecture decisions (ADRs) | 65 | docs/architecture/adr/README.md |
-| Governed gates | 180 | experiments/verify-local-gates.mjs |
+| Architecture decisions (ADRs) | 75 | docs/architecture/adr/README.md |
+| Governed gates | 190 | experiments/verify-local-gates.mjs |
 | Correspondence rules | 7 | experiments/reqs-coverage/verify-correspondences.mjs |
-| Governed test items | 84 | docs/testing/test-plan.md |
+| Governed test items | 91 | docs/testing/test-plan.md |
 
 Baselines are cut on the `main` branch via SemVer tags (GitFlow); each release is keyless-signed and
 corroborated across planes before publication (see `docs/cm/cm-plan.md` and the release procedure).
@@ -264,4 +274,4 @@ the same correspondence graph (ADR-0013).
 `node experiments/reqs-coverage/generate-test-report.mjs` rewrites this file; `--check` (the
 `test-report-current` gate) fails closed on drift, so the report can never silently lag the apparatus.
 
-_Generated from 180 gates, 7 correspondence rules, 84 requirements, 65 ADRs, 84 test items._
+_Generated from 190 gates, 7 correspondence rules, 92 requirements, 75 ADRs, 91 test items._

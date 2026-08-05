@@ -2,7 +2,7 @@
   "name": "labview-benchmark-actor",
   "displayName": "LabVIEW Benchmark Actor",
   "description": "Standalone agentic benchmark-actor infrastructure with cross-plane coordination (lbabus) for LabVIEW benchmarking.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "svelderrainruiz",
   "license": "0BSD",
   "author": "Sergio Velderrain",
@@ -99,6 +99,10 @@
       {
         "command": "labviewBenchmarkActor.captureLaunch",
         "title": "LabVIEW Benchmark Actor: Capture LabVIEW Launch"
+      },
+      {
+        "command": "labviewBenchmarkActor.captureLaunchMprr",
+        "title": "LabVIEW Benchmark Actor: Capture LabVIEW Launch (mprr, cross-platform VM)"
       },
       {
         "command": "labviewBenchmarkActor.stopCapture",
@@ -255,6 +259,31 @@
           "default": "",
           "markdownDescription": "Path to the `LabVIEW.exe` to launch for a capture. Leave empty to auto-detect LabVIEW 2026 (32-bit then 64-bit) under `National Instruments`."
         },
+        "labviewBenchmarkActor.mprrTargetVm": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Descriptive name of the target VirtualBox VM the **Capture LabVIEW Launch (mprr)** command benchmarks over VBox-VNC. Cross-platform: works on a Linux host (unlike the Windows `gdigrab` capture) by capturing the VM's LabVIEW launch through the mprr visual ring."
+        },
+        "labviewBenchmarkActor.mprrSshPort": {
+          "type": "string",
+          "default": "2223",
+          "markdownDescription": "Host port forwarded to the target VM's SSH (guest 22). The mprr capture SSHes in as the `actor` user (key `~/.ssh/lba_scratch`) to trigger `xinit labview64`."
+        },
+        "labviewBenchmarkActor.mprrVncPort": {
+          "type": "string",
+          "default": "5900",
+          "markdownDescription": "Host port of the target VM's VBox-VNC (VRDE VNC module) that the mprr ring captures frames from."
+        },
+        "labviewBenchmarkActor.mprrVncPassword": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The VBox-VNC password of the target VM (`VBoxManage ... vrdeproperty VNCPassword=...`)."
+        },
+        "labviewBenchmarkActor.mprrIterations": {
+          "type": "number",
+          "default": 5,
+          "markdownDescription": "How many LabVIEW launches the mprr capture measures to build the launchMs trend."
+        },
         "labviewBenchmarkActor.reviewerId": {
           "type": "string",
           "default": "",
@@ -283,8 +312,8 @@
     "compile": "tsc -p ./ && node scripts/stage-media.mjs && node scripts/stage-acg-mcp.mjs",
     "watch": "tsc -watch -p ./",
     "lba": "node scripts/lba.mjs",
-    "test": "npm run compile && node test/extension-activation.mjs && node test/viewer-render.mjs && node test/viewer-plain-render.mjs && node test/panels-render.mjs && node test/mcp-server.mjs && node scripts/mcpToolDoc.mjs --check docs/mcp-tools.md",
-    "package": "vsce package --out labview-benchmark-actor.vsix",
+    "test": "npm run compile && node test/extension-activation.mjs && node test/viewer-render.mjs && node test/viewer-plain-render.mjs && node test/panels-render.mjs && node test/mcp-server.mjs && node test/normalize-vsix.mjs && node test/verify-published-vsix.mjs && node scripts/mcpToolDoc.mjs --check docs/mcp-tools.md",
+    "package": "vsce package --out labview-benchmark-actor.vsix && node scripts/normalize-vsix.mjs labview-benchmark-actor.vsix",
     "test:coverage": "node scripts/coverage.mjs",
     "coverage:bump": "node scripts/coverage.mjs --bump"
   },
@@ -295,5 +324,8 @@
     "c8": "^12.0.0",
     "jsdom": "^30.0.0",
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "markdown-it": "^14.1.0"
   }
 }

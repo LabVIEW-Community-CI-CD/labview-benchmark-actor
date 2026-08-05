@@ -1,23 +1,26 @@
 {
-  "schema": "labview-benchmark-actor/acg-independence-verdict-v1",
-  "independent": true,
+  "schema": "labview-benchmark-actor/acg-independence-verdict-v2",
+  "independent": false,
+  "crossPlane": false,
   "quorumMin": 2,
-  "distinctEnrolledEnvironments": [
-    "CODESPACE/linux",
-    "LINUX/linux"
+  "distinctPlanes": [
+    "linux"
   ],
   "counted": [
     {
       "witness": "CODESPACE",
-      "environment": "CODESPACE/linux",
+      "plane": "linux",
       "identity": "acg-witness:codespace"
-    },
-    {
-      "witness": "LINUX",
-      "environment": "LINUX/linux",
-      "identity": "acg-witness:host-linux"
     }
   ],
-  "excluded": [],
-  "reasons": []
+  "excluded": [
+    {
+      "witness": "LINUX",
+      "plane": "linux",
+      "reason": "duplicates an already-counted OS-plane (same OS = one plane)"
+    }
+  ],
+  "reasons": [
+    "only 1 distinct enrolled OS-plane(s) with a recorded identity (linux); a cross-plane quorum needs >= 2 (linux AND windows)"
+  ]
 }

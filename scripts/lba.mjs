@@ -26,16 +26,20 @@
 //   govern-check <LBA-REQ-NNN>   report which governance surfaces already contain a requirement id
 //   next-ids                     print the next free requirement id and ADR id
 //   init                         plan (or --run) the one-command First Win golden-VM onboarding (LBA-REQ-033)
+//   mesh-run                     agent-drive one mesh run: ingest a live dispatch + returned receipts, then cross-plane corroborate + compare
 //   selftest                     self-check this tool (run by the `agent-tooling-selftest` gate)
 
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { capacityWeightedPartition } from '../experiments/parallel/parallelWorkload.mjs';
 import { describeFlow, analyzeFlow } from '../experiments/first-win/firstWinOnboarding.mjs';
+import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIngest.mjs';
+import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
+import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 4; // bump when you refine this tool (see the banner above)
+export const ITERATION = 9; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -96,6 +100,16 @@ export function governCheck(id) {
   const results = GOVERNANCE_SURFACES.map((s) => ({ label: s.label, file: s.file, present: !!s.has(id, read(s.file) || '') }));
   const missing = results.filter((r) => !r.present);
   return { id, results, ok: missing.length === 0, missing };
+}
+
+// ---- agent-driven mesh run: chain the governed stages over one dispatch + returned receipts -------
+// dispatch (LBA-REQ-074) + returned receipts (agent handoff) --ingest(LBA-REQ-091)--> run-bound collection
+//   --corroborate(LBA-REQ-092)--> cross-plane verdict + compare. Pure: chains the governed engines, adds no gating.
+export function driveMeshRun({ dispatch, returned, benchmarkId } = {}) {
+  const ingest = ingestRun({ dispatch, returned });
+  const cor = corroborateRun({ collection: ingest.collection, benchmarkId: benchmarkId || dispatch?.benchmarkId });
+  const findings = [...ingest.findings.map((f) => `ingest: ${f}`), ...cor.findings.map((f) => `corroborate: ${f}`)];
+  return { ok: ingest.ok && cor.ok, findings, ingest, corroboration: cor.corroboration, comparison: cor.comparison, report: cor.report };
 }
 
 // ---- subcommands --------------------------------------------------------------------------------
@@ -160,6 +174,30 @@ export const COMMANDS = {
       console.log('  node experiments/activation/registerMeshActor.mjs    # mint + register the VM as a mesh actor');
     },
   },
+  'mesh-run': {
+    desc: 'agent-drive one mesh run: ingest a live dispatch + returned receipts, then cross-plane corroborate + compare',
+    run: (args) => {
+      const opt = {};
+      for (let i = 0; i < args.length; i += 1) if (args[i].startsWith('--')) opt[args[i].slice(2)] = args[i + 1] && !args[i + 1].startsWith('--') ? args[(i += 1)] : true;
+      if (typeof opt.dispatch !== 'string' || typeof opt.returned !== 'string') {
+        console.error('usage: lba mesh-run --dispatch <dispatch@1.json> --returned <returned-receipts-dir> [--out <report.json>]');
+        console.error('  demo: lba mesh-run --dispatch experiments/mesh-fulfillment/mesh-run-dispatch-request.json --returned experiments/mesh-fulfillment/returned-demo');
+        process.exit(2);
+      }
+      const dispatch = JSON.parse(readFileSync(resolve(repoRoot, opt.dispatch), 'utf8'));
+      const returned = readReturned(resolve(repoRoot, opt.returned));
+      const r = driveMeshRun({ dispatch, returned });
+      if (typeof opt.out === 'string') writeFileSync(resolve(repoRoot, opt.out), `${JSON.stringify(r.report, null, 2)}\n`);
+      if (!r.ok) { console.error(`\u2717 mesh-run FAILED (dispatch ${dispatch?.dispatchId})`); for (const f of r.findings) console.error(`  - ${f}`); process.exit(1); }
+      const d = r.comparison?.deltas?.latest;
+      console.log(`\u2713 mesh-run OK: dispatch ${dispatch.dispatchId} \u2014 ingested ${returned.length} receipt(s), cross-plane corroborated across [${r.report.planes.join(', ')}] (all PASS, identity-bound)`);
+      if (d) console.log(`  compare: latest launch WIN\u2212LINUX = ${d.delta}ms (${d.pctOfLinux}% of LINUX baseline)`);
+    },
+  },
+  'mesh-live': {
+    desc: 'agent-drive the FULL live N=2: run BOTH plane trends, wrap receipts, then cross-plane corroborate + compare (needs both live actor VMs)',
+    run: () => runScript('live N-actor mesh (run every rostered actor -> corroborate)', 'experiments/mesh-fulfillment/driveLiveN2.mjs'),
+  },
 };
 
 // ---- selftest (extend me) -----------------------------------------------------------------------
@@ -182,6 +220,38 @@ const SELFTEST = [
   }],
   ['host capabilities always include node (labview iff LabVIEWCLI present)', () => hostCapabilities().includes('node')],
   ['first-win onboarding flow: every step realization resolves on disk (LBA-REQ-033)', () => analyzeFlow((rel) => existsSync(join(repoRoot, rel))).allResolved],
+  ['mesh-run driver chains ingest + corroborate over the committed dispatch + returned-demo (LBA-REQ-091/092)', () => {
+    const dispatch = JSON.parse(read('experiments/mesh-fulfillment/mesh-run-dispatch-request.json'));
+    const returned = readReturned(join(repoRoot, 'experiments/mesh-fulfillment/returned-demo'));
+    const r = driveMeshRun({ dispatch, returned });
+    return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.crossPlane && r.comparison !== null;
+  }],
+  ['mesh-run driver corroborates the REAL live N=2 run (n2-live-run: LINUX vbox-vnc 1866ms + WIN vbox-sdk 6919ms, identity-bound)', () => {
+    const dispatch = JSON.parse(read('experiments/mesh-fulfillment/n2-live-run/dispatch.json'));
+    const returned = readReturned(join(repoRoot, 'experiments/mesh-fulfillment/n2-live-run/returned'));
+    const r = driveMeshRun({ dispatch, returned });
+    return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound && r.comparison !== null;
+  }],
+  ['assembleLiveN2 wraps the two committed real plane trends into a cross-plane corroborated report (identity-bound, all PASS)', () => {
+    const lin = JSON.parse(read('experiments/mesh-fulfillment/n2-live-run/returned/linux.json')).receipt;
+    const win = JSON.parse(read('experiments/mesh-fulfillment/n2-live-run/returned/win.json')).receipt;
+    const r = assembleLiveN2({ linuxTrend: lin, winTrend: win, dispatchId: 'selftest-live-n2' });
+    return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound && r.comparison !== null;
+  }],
+  ['mesh-run driver corroborates the REAL live N=3 run (n3-live-run: 2 LINUX actors clone-01+clone-02 + WIN actor -> quorum)', () => {
+    const dispatch = JSON.parse(read('experiments/mesh-fulfillment/n3-live-run/dispatch.json'));
+    const returned = readReturned(join(repoRoot, 'experiments/mesh-fulfillment/n3-live-run/returned'));
+    const r = driveMeshRun({ dispatch, returned });
+    return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound
+      && r.report.corroboration.quorum.perPlane.LINUX.count === 2 && r.comparison !== null;
+  }],
+  ['assembleLiveN2 accepts a multi-actor LINUX roster (quorum N>2) from the committed n3 trends', () => {
+    const c01 = JSON.parse(read('experiments/mesh-fulfillment/n3-live-run/returned/linux-clone01.json')).receipt;
+    const c02 = JSON.parse(read('experiments/mesh-fulfillment/n3-live-run/returned/linux-clone02.json')).receipt;
+    const win = JSON.parse(read('experiments/mesh-fulfillment/n3-live-run/returned/win-actor.json')).receipt;
+    const r = assembleLiveN2({ linuxActors: [{ actorId: 'clone-01', trend: c01 }, { actorId: 'clone-02', trend: c02 }], winActors: [{ actorId: 'actor', trend: win }], dispatchId: 'selftest-live-n3-roster' });
+    return r.ok && r.report.corroboration.quorum.perPlane.LINUX.count === 2 && r.report.corroboration.allPass && r.comparison !== null;
+  }],
 ];
 function runSelftest() {
   let passed = 0;

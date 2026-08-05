@@ -1,0 +1,24 @@
+{
+  "schema": "labview-benchmark-actor/returned-receipt@1",
+  "taskId": "mesh-run-labview-ide-launch-2026-08-03::LINUX",
+  "actorId": "golden-linux",
+  "plane": "LINUX",
+  "receipt": {
+    "schema": "labview-benchmark-actor/workload-trend@1",
+    "metric": "launchMs",
+    "workload": "labview-ide-launch",
+    "plane": "LINUX",
+    "hypervisor": "vbox-vnc",
+    "n": 5,
+    "values": [2414, 2843, 2745, 2664, 2355],
+    "stats": { "min": 2355, "max": 2843, "mean": 2604.2, "median": 2664, "stddev": 189.1, "spread": 488 },
+    "baselineMs": 2664,
+    "toleranceMs": 2000,
+    "latest": 2355,
+    "slopeMsPerRun": -29.7,
+    "driftThresholdMsPerRun": 400,
+    "drifting": false,
+    "regressed": false,
+    "verdict": "PASS"
+  }
+}

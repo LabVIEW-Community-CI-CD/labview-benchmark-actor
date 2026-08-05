@@ -73,7 +73,7 @@ export function assembleWitness({ plane, gate, screenshot, capability, os, ubunt
     },
     screenshot: {
       seriesHash: req(screenshot?.seriesHash, 'screenshot.seriesHash'),
-      pngSha256: req(screenshot?.pngSha256, 'screenshot.pngSha256'),
+      pngSha256: screenshot?.pngSha256 ?? null,
     },
     ubuntu: resolvedOs === 'linux' ? (ubuntu ?? null) : null,
     // RECORDED, never gated (the ADR-0015 "witnesses" tier -- hardware capability travels with the bundle as provenance).

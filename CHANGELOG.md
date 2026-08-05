@@ -6,6 +6,29 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-05
+
+### Added
+- **Cross-platform LabVIEW-launch capture — "Capture LabVIEW Launch (mprr, cross-platform VM)"**
+  (`labviewBenchmarkActor.captureLaunchMprr`). Benchmarks the LabVIEW IDE launch-to-ready through the mprr visual
+  ring against a VirtualBox VM over VNC, deriving the launch time from a perceptual "UI settled" pin — the
+  cross-plane sibling of the Windows-only gdigrab **Capture LabVIEW Launch**, so a launch can be measured the same
+  way on a Linux or a Windows guest.
+
+### Fixed
+- **"Capture LabVIEW Launch" now fails fast with a guided prompt when ffmpeg is missing.** On a fresh install there
+  is no bundled ffmpeg, so the capture spawned `ffmpeg` and failed with `ENOENT` — surfaced late and misleadingly
+  as *"no frames were captured (is ffmpeg installed…)"*. The command now verifies ffmpeg is runnable **before**
+  launching LabVIEW or the sampler and, when it is absent, shows one actionable prompt (install via `winget`, set the
+  `labviewBenchmarkActor.ffmpegPath` setting, or open the ffmpeg download page) instead of a half-broken capture.
+  The ffmpeg prerequisite is now documented in the command reference.
+
+### Changed
+- **Supply-chain hardening: byte-reproducible `.vsix`.** The published `.vsix` builds byte-for-byte identically on
+  Windows and Linux, and the release asserts the reviewed artifact equals the shipped artifact (reviewed == shipped).
+  Resolved a `punycode` deprecation (DEP0040) via a `markdown-it` override while keeping the pinned `@vscode/vsce`
+  and byte-reproducibility intact.
+
 ## [1.0.0] - 2026-08-03
 
 ### Added

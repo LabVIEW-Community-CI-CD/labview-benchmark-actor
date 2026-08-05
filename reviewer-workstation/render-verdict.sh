@@ -45,9 +45,13 @@ case "$sub" in
   set-target)
     command -v node >/dev/null || { echo "render-verdict: node not on PATH" >&2; exit 3; }
     # Build review-target.json locally (node JSON-escapes the evidence refs), then drop it into the VM handoff dir.
+    # Each --evidence ARG is ONE entry, and a ref MAY contain spaces (e.g. "run-42: 495 frames @12fps/1866ms,
+    # peakCpu 100%"). Pass the array NEWLINE-delimited (a ref is single-line) so element boundaries survive --
+    # NOT space-split, which shreds a multi-word ref into many bogus single-word entries.
     tmp="$(mktemp -d)"
-    COMP="$component" VER="$version" COMMIT="$commit" VSIX="$vsix" EVID="${evidence[*]:-}" node -e '
-      const ev = (process.env.EVID || "").trim().split(/\s+/).filter(Boolean).map((s) => { const i = s.indexOf(":"); return { kind: i > 0 ? s.slice(0, i) : "note", ref: i > 0 ? s.slice(i + 1) : s }; });
+    EVID="$(printf '%s\n' "${evidence[@]:-}")"
+    COMP="$component" VER="$version" COMMIT="$commit" VSIX="$vsix" EVID="$EVID" node -e '
+      const ev = (process.env.EVID || "").split("\n").map((s) => s.trim()).filter(Boolean).map((s) => { const i = s.indexOf(":"); return { kind: i > 0 ? s.slice(0, i) : "note", ref: i > 0 ? s.slice(i + 1) : s }; });
       process.stdout.write(JSON.stringify({ component: process.env.COMP, version: process.env.VER, commit: process.env.COMMIT || null, vsixSha256: process.env.VSIX || null, evidence: ev }, null, 2));
     ' > "$tmp/review-target.json"
     gc run --exe 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' --wait-stdout -- powershell -Command "New-Item -ItemType Directory -Force -Path '${guest_handoff}' | Out-Null" >/dev/null 2>&1 || true
@@ -59,7 +63,10 @@ case "$sub" in
     [[ -n "$out" ]] || { echo "render-verdict: collect requires --out <file.json>" >&2; exit 2; }
     src="${guest_handoff}\\verdicts\\${component}-${version}.json"
     # Two-arg copyfrom (guest-source -> host-dest FILE); --target-directory is mis-parsed as a file dest by
-    # some VBoxManage builds ("Destination ... already exists and is a directory").
+    # some VBoxManage builds ("Destination ... already exists and is a directory"). Remove any prior host file
+    # FIRST: VBoxManage copyfrom does NOT truncate an existing target, so a shorter new verdict would leave the
+    # tail of a longer previous one -> two concatenated records = unparseable JSON.
+    rm -f "$out"
     gc copyfrom "$src" "$out" >/dev/null
     echo "[render-verdict] collected the signed verdict -> ${out}" >&2
     ;;

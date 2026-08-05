@@ -1,0 +1,108 @@
+{
+  "schema": "labview-benchmark-actor/cross-plane-corroboration-attestation@1",
+  "requirement": "LBA-REQ-088",
+  "adr": "ADR-0070",
+  "provenance": {
+    "workflow": "acg cross-plane corroboration (.github/workflows/acg-cross-plane-corroboration.yml)",
+    "event": "push",
+    "branch": "develop",
+    "runId": "30923501292",
+    "runUrl": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/actions/runs/30923501292",
+    "commit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+    "note": "The two witnesses were produced by real ubuntu-latest (linux plane) + windows-latest (windows plane) runners in this run (LBA-REQ-087) and downloaded from its witness-ubuntu-latest / witness-windows-latest artifacts; anyone can re-download the run artifacts and byte-compare.",
+    "capturedAt": "2026-08-04T15:29:40.423Z"
+  },
+  "witnesses": [
+    {
+      "schema": "labview-benchmark-actor/acg-witness-bundle-v1",
+      "plane": "ACTIONS-UBUNTU",
+      "os": "linux",
+      "gate": {
+        "verdict": "pass",
+        "lbabus": {
+          "version": "1.0.0",
+          "sourceCommit": "2a0352cc7309fee647a97a87de22e1c33649dfd3"
+        }
+      },
+      "screenshot": {
+        "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+        "pngSha256": null
+      },
+      "ubuntu": "noble",
+      "capability": {
+        "platform": "linux-x64",
+        "cpu": {
+          "model": "INTEL(R) XEON(R) PLATINUM 8573C",
+          "logicalCores": 4,
+          "speedMHzMax": 3147
+        },
+        "memory": {
+          "totalGiB": 15.6,
+          "freeGiB": 14.2
+        },
+        "gpus": []
+      },
+      "assembledAt": "2026-08-04T15:19:06.447Z"
+    },
+    {
+      "schema": "labview-benchmark-actor/acg-witness-bundle-v1",
+      "plane": "ACTIONS-WINDOWS",
+      "os": "windows",
+      "gate": {
+        "verdict": "pass",
+        "lbabus": {
+          "version": "1.0.0",
+          "sourceCommit": "2a0352cc7309fee647a97a87de22e1c33649dfd3"
+        }
+      },
+      "screenshot": {
+        "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+        "pngSha256": null
+      },
+      "ubuntu": null,
+      "capability": {
+        "platform": "win32-x64",
+        "cpu": {
+          "model": "AMD EPYC 7763 64-Core Processor                ",
+          "logicalCores": 4,
+          "speedMHzMax": 2445
+        },
+        "memory": {
+          "totalGiB": 16,
+          "freeGiB": 13.3
+        },
+        "gpus": []
+      },
+      "assembledAt": "2026-08-04T15:19:33.976Z"
+    }
+  ],
+  "quorum": {
+    "schema": "labview-benchmark-actor/acg-quorum-verdict-v2",
+    "verdict": "pass",
+    "confidence": 1,
+    "threshold": 0.5,
+    "witnesses": 2,
+    "concurring": 2,
+    "majority": true,
+    "crossPlane": true,
+    "consensusVerdict": "pass",
+    "consensus": {
+      "version": "1.0.0",
+      "sourceCommit": "2a0352cc7309fee647a97a87de22e1c33649dfd3",
+      "verdict": "pass",
+      "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
+      "pngSha256": null,
+      "ubuntu": "noble"
+    },
+    "divergences": []
+  },
+  "planes": [
+    "linux",
+    "windows"
+  ],
+  "verdict": {
+    "crossPlaneCorroborated": true,
+    "reason": "two genuine planes (linux + windows) corroborate at 1.0.0/2a0352cc7: quorum pass, confidence 1, crossPlane over version/sourceCommit/verdict/seriesHash"
+  },
+  "digest": "aab43febe638a0980c10be9c70357bdeca7e8b0ecf4b93f5878219d7075875c0"
+}

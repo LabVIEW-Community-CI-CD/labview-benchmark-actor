@@ -74,10 +74,10 @@ ok('corrupted signature fails', () => {
   assert.match(r.reasons.join(' '), /signature does not verify/);
 });
 
-// 6. verify-before-consume: two distinct enrolled, attested, corroborating witnesses -> consumable.
-ok('verify-before-consume passes for a fully attested corroborating grid', () => {
+// 6. verify-before-consume: two CROSS-PLANE (linux + windows) enrolled, attested, corroborating witnesses -> consumable.
+ok('verify-before-consume passes for a fully attested cross-plane grid', () => {
   const cs = mkBundle('CODESPACE', { ubuntu: 'noble' });
-  const host = mkBundle('HOST', { ubuntu: 'noble' });
+  const host = mkBundle('WIN', { os: 'windows' });
   const witnesses = [
     { bundle: cs, attestation: signBundle(cs, { privateKeyPem: codespaceKp.privateKeyPem, identity: 'witness:codespace' }) },
     { bundle: host, attestation: signBundle(host, { privateKeyPem: hostKp.privateKeyPem, identity: 'witness:host' }) },

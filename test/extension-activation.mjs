@@ -41,10 +41,13 @@ const warnMessages = [];
 const warnResponseQueue = [];
 const sentCommands = [];
 const inputQueue = [];
+const errorResponseQueue = [];
+const openedExternal = [];
+const configStore = {};
 let agentsContentProvider = null;
 const mockVscode = {
   window: {
-    createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
+    createOutputChannel: () => ({ append() {}, appendLine() {}, show() {}, dispose() {} }),
     showInputBox: async (options) => {
       const value = inputQueue.shift();
       if (options && typeof options.validateInput === 'function' && value !== undefined) {
@@ -57,8 +60,9 @@ const mockVscode = {
     },
     showInformationMessage: (message) => {
       infoMessages.push(message);
-      return infoResponseQueue.length ? infoResponseQueue.shift() : undefined;
+      return Promise.resolve(infoResponseQueue.length ? infoResponseQueue.shift() : undefined);
     },
+    withProgress: async (_options, task) => task({ report() {} }),
     showWarningMessage: (message) => {
       warnMessages.push(message);
       return warnResponseQueue.length ? warnResponseQueue.shift() : undefined;
@@ -71,7 +75,7 @@ const mockVscode = {
     }),
     showErrorMessage: (message) => {
       errorMessages.push(message);
-      return undefined;
+      return Promise.resolve(errorResponseQueue.length ? errorResponseQueue.shift() : undefined);
     },
     createWebviewPanel: (viewType, title) => {
       const panel = {
@@ -101,6 +105,7 @@ const mockVscode = {
     },
   },
   ViewColumn: { Active: -1 },
+  ProgressLocation: { Notification: 15, Window: 10, SourceControl: 1 },
   Uri: {
     joinPath: (base, ...parts) => {
       const joined = [base && (base.fsPath || base.path) ? (base.fsPath || base.path) : '', ...parts].join('/');
@@ -116,12 +121,15 @@ const mockVscode = {
     },
     executeCommand: async (id) => { executedCommands.push(id); return undefined; },
   },
+  env: {
+    openExternal: (uri) => { openedExternal.push(uri && uri.toString ? uri.toString() : String(uri)); return Promise.resolve(true); },
+  },
   workspace: {
     registerTextDocumentContentProvider: (_scheme, provider) => {
       agentsContentProvider = provider;
       return { dispose() {} };
     },
-    getConfiguration: () => ({ get: (_key, dflt) => dflt }),
+    getConfiguration: () => ({ get: (key, dflt) => (Object.prototype.hasOwnProperty.call(configStore, key) ? configStore[key] : dflt) }),
     workspaceFolders: [{ uri: { path: repoRoot, fsPath: repoRoot } }],
     fs: {
       stat: async (uri) => {
@@ -160,10 +168,31 @@ const mockVscode = {
 // Mock `node:child_process` so the CLI-backed commands exercise the prerequisite-absent branch
 // deterministically -- execFile always fails with ENOENT (as if `lbabus` is not installed), regardless
 // of whether the coordination CLI happens to be on the test host's PATH.
+// captureLaunchMprr spawns a real `node` run of the mprr runner; this mock lets the test drive its
+// success / non-zero-exit / spawn-error branches deterministically (the test sets `spawnMode`).
+let spawnMode = { code: 0 };
+// spawnSync stays REAL (captured before the Module._load patch below): resolveFfmpegChecked/ffmpegRunnable probe
+// `<ffmpeg> -version` to detect ENOENT, and the ffmpeg pre-flight test wants that genuine spawn behaviour.
+const realChildProcess = require('node:child_process');
 const childProcessMock = {
+  spawnSync: (...args) => realChildProcess.spawnSync(...args),
   execFile: (_file, _args, optionsOrCallback, maybeCallback) => {
     const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
     callback(Object.assign(new Error('spawn lbabus ENOENT'), { code: 'ENOENT' }));
+  },
+  spawn: (_file, _args, opts) => {
+    const mkStream = () => ({ on(event, cb) { if (event === 'data') { cb(Buffer.from('[mprr] run\n')); } return this; } });
+    const handlers = {};
+    const proc = { stdout: mkStream(), stderr: mkStream(), on(event, cb) { handlers[event] = cb; return this; } };
+    setImmediate(() => {
+      if (spawnMode.error) { if (handlers.error) { handlers.error(new Error('spawn node ENOENT')); } return; }
+      const outTrend = opts && opts.env && opts.env.LBA_OUT;
+      if (spawnMode.code === 0 && outTrend) {
+        writeFileSync(outTrend, JSON.stringify({ schema: 'labview-benchmark-actor/workload-trend@1', plane: 'LINUX', n: 3, verdict: 'PASS', latest: 1919, stats: { mean: 1866.3 } }));
+      }
+      if (handlers.close) { handlers.close(spawnMode.code); }
+    });
+    return proc;
   },
 };
 
@@ -700,6 +729,119 @@ try {
     infoMessages.some((m) => /No LabVIEW capture is running/.test(m)),
     'stopCapture reports no active capture'
   );
+
+  // ffmpeg pre-flight (v1.0.0 "spawn ffmpeg.exe ENOENT" fix, LBA-REQ-009): resolveFfmpegChecked returns null unless
+  // ffmpeg is a spawnable binary, so the capture fails FAST with an actionable prompt instead of a raw spawn error.
+  {
+    assert(ext.ffmpegRunnable(process.execPath) === true, 'ffmpegRunnable detects a spawnable binary (node stands in)');
+    assert(ext.ffmpegRunnable(join(tmpdir(), 'no-such-ffmpeg-xyz')) === false, 'ffmpegRunnable is false for a missing binary');
+    configStore.ffmpegPath = process.execPath;
+    assert(ext.resolveFfmpegChecked() === process.execPath, 'resolveFfmpegChecked returns a configured runnable ffmpeg');
+    configStore.ffmpegPath = join(tmpdir(), 'no-such-ffmpeg-xyz');
+    assert(ext.resolveFfmpegChecked() === null, 'resolveFfmpegChecked rejects a configured-but-unspawnable ffmpeg');
+    delete configStore.ffmpegPath;
+    const ladRoot = join(tmpdir(), 'lba-test-localappdata-' + Date.now());
+    mkdirSync(join(ladRoot, 'lba'), { recursive: true });
+    writeFileSync(join(ladRoot, 'lba', 'ffmpeg.exe'), '');
+    const savedLad = process.env.LOCALAPPDATA;
+    process.env.LOCALAPPDATA = ladRoot;
+    assert(ext.resolveFfmpegChecked() === join(ladRoot, 'lba', 'ffmpeg.exe'), 'resolveFfmpegChecked honours the staged %LOCALAPPDATA%\\lba\\ffmpeg.exe');
+    rmSync(ladRoot, { recursive: true, force: true });
+    if (savedLad === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLad;
+    // absent everywhere: clear PATH *and* point %LOCALAPPDATA% at a staged-ffmpeg-free dir so the `ffmpeg` probe
+    // ENOENTs even on a host that HAS ffmpeg on PATH or staged under %LOCALAPPDATA%\lba\ffmpeg.exe (the reviewer WIN VM).
+    const savedPath = process.env.PATH;
+    const savedLadAbsent = process.env.LOCALAPPDATA;
+    process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz');
+    process.env.LOCALAPPDATA = join(tmpdir(), 'lba-no-localappdata-ffmpeg-xyz');
+    try {
+      assert(ext.resolveFfmpegChecked() === null, 'resolveFfmpegChecked returns null when ffmpeg is absent everywhere');
+    } finally {
+      process.env.PATH = savedPath;
+      if (savedLadAbsent === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadAbsent;
+    }
+  }
+
+  // captureLaunch with LabVIEW present but ffmpeg absent -> PROMPT (winget / download / set-path) + abort BEFORE any
+  // capture is created (the reported v1.0.0 complaint). Drive each remediation button.
+  {
+    const savedPath = process.env.PATH;
+    const savedLadPrompt = process.env.LOCALAPPDATA;
+    process.env.PATH = join(tmpdir(), 'lba-no-ffmpeg-here-xyz'); // force ffmpeg-absent (the dev host may have ffmpeg)
+    process.env.LOCALAPPDATA = join(tmpdir(), 'lba-no-localappdata-ffmpeg-xyz'); // ...and no %LOCALAPPDATA%\lba\ffmpeg.exe (the reviewer WIN VM stages one)
+    configStore.labviewPath = process.execPath; // resolveLabview -> non-empty -> passes the LabVIEW guard
+    const cap = () => registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunch').handler();
+
+    const n0 = errorMessages.length;
+    const s0 = sentCommands.length;
+    errorResponseQueue.push('Install ffmpeg (winget)');
+    await cap();
+    assert(errorMessages.slice(n0).some((m) => /ffmpeg is required/i.test(m)), 'captureLaunch prompts when ffmpeg is missing');
+    assert(sentCommands.slice(s0).some((c) => /winget install/i.test(c)), 'the Install button runs winget');
+
+    const e0 = openedExternal.length;
+    errorResponseQueue.push('Download ffmpeg\u2026');
+    await cap();
+    assert(openedExternal.slice(e0).some((u) => /ffmpeg/i.test(u)), 'the Download button opens the ffmpeg builds page');
+
+    const c0 = executedCommands.length;
+    errorResponseQueue.push('Set ffmpeg path\u2026');
+    await cap();
+    assert(executedCommands.slice(c0).some((x) => /openSettings/i.test(x)), 'the Set-ffmpeg-path button opens the ffmpegPath setting');
+
+    await cap(); // no button chosen -> aborts cleanly (covers the no-choice branch)
+    delete configStore.labviewPath;
+    process.env.PATH = savedPath;
+    if (savedLadPrompt === undefined) delete process.env.LOCALAPPDATA; else process.env.LOCALAPPDATA = savedLadPrompt;
+  }
+
+  // captureLaunchMprr (cross-platform mprr capture, LBA-REQ-009): drive the FULL command with a mocked `node`
+  // spawn of the mprr runner -- success (trend written -> info + Open Trend JSON), the info-dismissed branch, a
+  // non-zero exit, a spawn error, and the runner-missing / no-workspace guards. The real capture runs live
+  // against a VM (proven separately); only the extension glue is exercised here.
+  {
+    const mprr = () => registered.find((r) => r.id === 'labviewBenchmarkActor.captureLaunchMprr').handler();
+    spawnMode = { code: 0 };
+    infoResponseQueue.push('Open Trend JSON');
+    const infoBefore = infoMessages.length;
+    await mprr();
+    assert(
+      infoMessages.slice(infoBefore).some((m) => /launchMs mean 1866/.test(m)),
+      'captureLaunchMprr reports the captured launchMs trend on success + offers Open Trend JSON'
+    );
+    spawnMode = { code: 0 }; // success again, info dismissed -> the open-doc branch is skipped
+    await mprr();
+    spawnMode = { code: 1 };
+    const errBefore = errorMessages.length;
+    await mprr();
+    assert(
+      errorMessages.slice(errBefore).some((m) => /mprr capture failed \(exit 1\)/.test(m)),
+      'captureLaunchMprr surfaces a non-zero exit as an error'
+    );
+    spawnMode = { error: true };
+    const errBefore2 = errorMessages.length;
+    await mprr();
+    assert(
+      errorMessages.slice(errBefore2).some((m) => /mprr capture failed to start/.test(m)),
+      'captureLaunchMprr surfaces a spawn error'
+    );
+    const savedFoldersMprr = mockVscode.workspace.workspaceFolders;
+    mockVscode.workspace.workspaceFolders = [{ uri: { fsPath: tmpdir(), path: tmpdir() } }];
+    const errBefore3 = errorMessages.length;
+    await mprr();
+    assert(
+      errorMessages.slice(errBefore3).some((m) => /mprr runner not found/.test(m)),
+      'captureLaunchMprr guards on a workspace missing the mprr runner'
+    );
+    mockVscode.workspace.workspaceFolders = undefined;
+    const errBefore4 = errorMessages.length;
+    await mprr();
+    assert(
+      errorMessages.slice(errBefore4).some((m) => /needs the labview-benchmark-actor repo open/.test(m)),
+      'captureLaunchMprr guards on no workspace folder'
+    );
+    mockVscode.workspace.workspaceFolders = savedFoldersMprr;
+  }
 
   // Open Frame Correlator, three ways. First with NO captures on disk (a clean nonexistent dir): it guides
   // the user to run Capture LabVIEW Launch (the empty-captures branch).

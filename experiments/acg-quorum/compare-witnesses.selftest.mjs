@@ -16,7 +16,7 @@ const win = (over = {}) => ({ plane: 'WIN', os: 'windows', gate: gate(), screens
 {
   const r = compareWitnesses([linux('CODESPACE'), linux('VBOX'), win()]);
   assert.equal(r.verdict, 'pass'); assert.equal(r.confidence, 1); assert.equal(r.concurring, 3);
-  assert.equal(r.distinctEnvironments, true);
+  assert.equal(r.crossPlane, true);
   ok('heterogeneous 3-witness full agreement -> pass, confidence 1.0');
 }
 // 2. WIN is NOT penalized for lacking the Linux-only anchors (pngSha256/ubuntu are N/A for windows).
@@ -42,11 +42,12 @@ const win = (over = {}) => ({ plane: 'WIN', os: 'windows', gate: gate(), screens
   assert.equal(r.verdict, 'fail'); assert.equal(r.majority, false);
   ok('two OS-independent (seriesHash) divergences -> majority fails -> fail closed');
 }
-// 5. Independence: N-of-a-kind (three identical environments) -> reject (ADR-0017).
+// 5. Independence (ADR-0068): witnesses on the SAME OS-plane -- even DISTINCT linux contexts -- are one plane, not
+//    cross-plane, so the quorum fails closed (a linux-only quorum is not corroborated).
 {
-  const r = compareWitnesses([linux('CODESPACE'), linux('CODESPACE'), linux('CODESPACE')]);
-  assert.equal(r.distinctEnvironments, false); assert.equal(r.verdict, 'fail');
-  ok('N-of-a-kind (no distinct environments) -> fail closed');
+  const r = compareWitnesses([linux('CODESPACE'), linux('VBOX')]);
+  assert.equal(r.crossPlane, false); assert.equal(r.verdict, 'fail');
+  ok('distinct linux contexts are one plane (not cross-plane) -> fail closed');
 }
 // 6. A consensus gate verdict != pass -> fail (a red gate cannot be corroborated to green).
 {
