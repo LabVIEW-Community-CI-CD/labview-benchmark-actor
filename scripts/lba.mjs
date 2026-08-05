@@ -28,6 +28,7 @@
 //   init                         plan (or --run) the one-command First Win golden-VM onboarding (LBA-REQ-033)
 //   mesh-run                     agent-drive one mesh run: ingest a live dispatch + returned receipts, then cross-plane corroborate + compare
 //   release-preflight <X.Y.Z>    release doctor: node major + version + CHANGELOG + the 3 publish agreement gates
+//   signing-status               discover + report the enrolled reviewer key location + where each sign-off runs
 //   selftest                     self-check this tool (run by the `agent-tooling-selftest` gate)
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
@@ -40,7 +41,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 11; // bump when you refine this tool (see the banner above)
+export const ITERATION = 12; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -132,6 +133,108 @@ export function releasePreflightStatic({ version, nodeVersion, pkgVersion, chang
   return checks;
 }
 
+// ---- signing status (#414): discover + report WHERE each release sign-off must run ---------------
+// The two operator Ed25519 sign-offs run WHERE the enrolled reviewer key lives. The VISUAL verdict is always
+// signed IN the reviewer VM by the extension (it reads labviewBenchmarkActor.reviewerKeyPath there). The QUORUM
+// sign-off is a CLI (sign-release-quorum.mjs) that needs an explicit --key <path>; if the enrolled key lives in
+// the VM (the common case), the quorum sign-off MUST run in the VM too, not on the host. Surfacing that binding
+// stops a release from stalling at "I don't know my enrolled key on this host" (hit live in 1.1.1). The pure
+// functions below are deterministic + selftestable; the private key material is NEVER read or printed -- only
+// its path + existence + (optionally) the enrollment of its PUBLIC key.
+export const STATIONS = { VM: 'WINDOWS_VM', HOST: 'HOST', UNKNOWN: 'UNKNOWN' };
+
+// The enrolled reviewer allowlist (reviewer id -> Ed25519 SPKI public-key PEM). Only PUBLIC material.
+export function readReviewerAllowlist() {
+  try {
+    const raw = JSON.parse(read('tools/collab-cli/reviewer-allowlist.json') || '{}');
+    const out = {};
+    for (const [k, v] of Object.entries(raw)) if (k !== '_comment' && typeof v === 'string') out[k] = v;
+    return out;
+  } catch { return {}; }
+}
+
+// The exact quorum + visual sign commands, BOUND to the station where the key lives.
+export function signingCommands({ station, reviewerId, reviewerKeyPath, version } = {}) {
+  const ver = version || 'X.Y.Z';
+  const id = reviewerId || '<reviewer-id>';
+  const keyPath = reviewerKeyPath || '<enrolled-key.pem>';
+  // The visual verdict is ALWAYS rendered + signed in the VM (the extension reads reviewerKeyPath there).
+  const visual = `LBA_VM_PASS=… reviewer-workstation/render-verdict.sh set-target --version ${ver} --commit <sha> --vsix-sha256 <sha256>  →  run "Render Reviewer Verdict" in the VM  →  reviewer-workstation/render-verdict.sh collect --version ${ver} --out ~/lba-vm-share/visual-verdict-${ver}.json`;
+  let quorum;
+  if (station === STATIONS.VM) {
+    // Key lives in the VM -> sign IN the VM. Invoke via `cmd /c` from the repo clone so guestcontrol does not
+    // eat node's argv[0] as the main module (the MODULE_NOT_FOUND gotcha to be wrapped by render-quorum.sh, #415).
+    quorum = `VBoxManage guestcontrol actor --username vagrant --password "$LBA_VM_PASS" run --exe 'C:\\Windows\\System32\\cmd.exe' --wait-stdout --wait-stderr -- cmd /c "cd /d C:\\lba-validate\\repo && node reviewer-workstation\\sign-release-quorum.mjs --key ${keyPath} --reviewer ${id} --station WINDOWS_VM --quorum <attestation-${ver}.json> --out <quorum-signoff-${ver}.json>"`;
+  } else {
+    // Key lives on this host -> sign on the host directly.
+    quorum = `node reviewer-workstation/sign-release-quorum.mjs --key ${keyPath} --reviewer ${id} --station LINUX_CODESPACE --quorum ~/lba-vm-share/attestation-${ver}.json --out ~/lba-vm-share/quorum-signoff-${ver}.json`;
+  }
+  return { visual, quorum };
+}
+
+// Pure signing-status report: given the discovered {reviewerId, reviewerKeyPath, keyExists, station} + the
+// enrolled public key (from the allowlist) and optionally the presented public key, decide fail-closed problems.
+export function signingStatus({ reviewerId, reviewerKeyPath, keyExists, station, enrolledPublicKey, presentedPublicKey, version } = {}) {
+  const problems = [];
+  const id = String(reviewerId || '').trim();
+  const st = station || STATIONS.UNKNOWN;
+  const enrolled = enrolledPublicKey != null && String(enrolledPublicKey).trim() !== '';
+  const norm = (k) => String(k || '').replace(/-----(BEGIN|END) PUBLIC KEY-----/g, '').replace(/\s+/g, '');
+  let keyMatch = 'unknown';
+  if (presentedPublicKey != null && enrolled) keyMatch = norm(presentedPublicKey) === norm(enrolledPublicKey) ? 'match' : 'mismatch';
+
+  if (!id) problems.push('no reviewerId configured (set labviewBenchmarkActor.reviewerId in the reviewer VM)');
+  if (st === STATIONS.UNKNOWN) problems.push('could not locate the signing station or the enrolled key (VM not reachable and no host key configured)');
+  else if (keyExists === false) problems.push(`enrolled key not found at ${reviewerKeyPath || '<unset>'} on ${st}`);
+  if (id && !enrolled) problems.push(`reviewer ${id} is not enrolled in tools/collab-cli/reviewer-allowlist.json`);
+  if (keyMatch === 'mismatch') problems.push(`the presented public key does not match the enrolled allowlist entry for ${id}`);
+
+  const commands = signingCommands({ station: st, reviewerId: id, reviewerKeyPath, version });
+  return {
+    reviewerId: id,
+    reviewerKeyPath: reviewerKeyPath || null,
+    keyExists: keyExists === undefined ? null : keyExists,
+    station: st,
+    enrolled,
+    keyMatch,
+    commands,
+    problems,
+    ok: problems.length === 0,
+  };
+}
+
+// Impure discovery: find the enrolled key + its station. Best-effort + fail-soft (never throws): host env first
+// (LBA_REVIEWER_ID + LBA_REVIEWER_KEY for a host-resident key), then the reviewer VM's VS Code settings.json via
+// `VBoxManage guestcontrol` when LBA_VM_PASS is set + the VM is reachable. Reads only the key PATH, never the key.
+export function discoverSigningStation({ env = process.env, run } = {}) {
+  const vm = env.LBA_VM_NAME || 'actor';
+  const user = env.LBA_VM_USER || 'vagrant';
+  const pass = env.LBA_VM_PASS;
+  const exec = run || ((file, args) => execFileSync(file, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+  // 1) explicit host config: an enrolled key that lives on THIS host.
+  const hostId = String(env.LBA_REVIEWER_ID || '').trim();
+  const hostKey = String(env.LBA_REVIEWER_KEY || '').trim();
+  if (hostId && hostKey) {
+    return { reviewerId: hostId, reviewerKeyPath: hostKey, keyExists: existsSync(hostKey), station: STATIONS.HOST, source: 'host env (LBA_REVIEWER_ID + LBA_REVIEWER_KEY)' };
+  }
+  // 2) the reviewer VM: read its VS Code settings.json for reviewerId + reviewerKeyPath, then probe the key.
+  if (pass) {
+    try {
+      const settings = `C:\\Users\\${user}\\AppData\\Roaming\\Code\\User\\settings.json`;
+      const gc = (inner) => exec('VBoxManage', ['guestcontrol', vm, '--username', user, '--password', pass, 'run', '--exe', 'C:\\Windows\\System32\\cmd.exe', '--wait-stdout', '--', 'cmd', '/c', inner]);
+      const cfg = JSON.parse(gc(`type "${settings}"`));
+      const reviewerId = String(cfg['labviewBenchmarkActor.reviewerId'] || '').trim();
+      const reviewerKeyPath = String(cfg['labviewBenchmarkActor.reviewerKeyPath'] || '').trim();
+      let keyExists = null;
+      if (reviewerKeyPath) {
+        try { keyExists = /(^|\s)YES(\s|$)/.test(gc(`if exist "${reviewerKeyPath}" (echo YES) else (echo NO)`)); } catch { keyExists = null; }
+      }
+      return { reviewerId, reviewerKeyPath: reviewerKeyPath || null, keyExists, station: STATIONS.VM, source: `reviewer VM "${vm}" VS Code settings.json` };
+    } catch { /* VM not reachable / VBoxManage absent -> fall through to UNKNOWN */ }
+  }
+  return { reviewerId: '', reviewerKeyPath: null, keyExists: null, station: STATIONS.UNKNOWN, source: 'none (set LBA_VM_PASS for the VM, or LBA_REVIEWER_ID + LBA_REVIEWER_KEY for a host key)' };
+}
+
 // ---- agent-driven mesh run: chain the governed stages over one dispatch + returned receipts -------
 // dispatch (LBA-REQ-074) + returned receipts (agent handoff) --ingest(LBA-REQ-091)--> run-bound collection
 //   --corroborate(LBA-REQ-092)--> cross-plane verdict + compare. Pure: chains the governed engines, adds no gating.
@@ -196,9 +299,47 @@ export const COMMANDS = {
       });
       const all = [...statics, ...gates];
       for (const c of all) console.log(`  ${c.ok ? '\u2713' : '\u2717'} ${c.label}${c.note ? '  (' + c.note + ')' : ''}`);
+      // signing readiness (#414): surface a missing/unknown enrolled key BEFORE the release stalls at sign-off.
+      // A concrete key/enrollment problem fails preflight; an UNKNOWN station (no VM reachable on this host) is a
+      // non-fatal warning (discovery is environment-dependent), not a hard fail.
+      const disc = discoverSigningStation();
+      const allow = readReviewerAllowlist();
+      const signing = signingStatus({ ...disc, enrolledPublicKey: disc.reviewerId ? allow[disc.reviewerId] : null, version });
+      // When the station can't be discovered on this host (no VM reachable, no host key), the whole signing block
+      // is advisory -- surfaced as a warning, not a hard fail. Only a KNOWN station with a concrete key/enrollment
+      // problem (key missing, reviewer not enrolled, public-key mismatch) fails preflight.
+      const stationKnown = signing.station !== STATIONS.UNKNOWN;
+      if (signing.ok) console.log(`  \u2713 signing key locatable + enrolled (${signing.reviewerId} @ ${signing.station})`);
+      else if (stationKnown) console.log(`  \u2717 signing not ready: ${signing.problems.join('; ')}`);
+      else console.log(`  \u26a0 signing station unknown on this host (run \`lba signing-status\` where the VM/key lives)`);
       const failed = all.filter((c) => !c.ok);
-      console.log(failed.length ? `\n\u2717 release ${version} NOT ready (${failed.length} check(s) failing)` : `\n\u2713 release ${version} preflight all green`);
-      if (failed.length) process.exit(1);
+      const signingFail = stationKnown && !signing.ok;
+      const total = failed.length + (signingFail ? 1 : 0);
+      console.log(total ? `\n\u2717 release ${version} NOT ready (${total} check(s) failing)` : `\n\u2713 release ${version} preflight all green`);
+      if (total) process.exit(1);
+    },
+  },
+  'signing-status': {
+    desc: 'discover + report the enrolled reviewer key location + WHERE each release sign-off must run (#414)',
+    run: (args) => {
+      const opt = {};
+      for (let i = 0; i < args.length; i += 1) if (args[i].startsWith('--')) opt[args[i].slice(2)] = args[i + 1] && !args[i + 1].startsWith('--') ? args[(i += 1)] : true;
+      const version = typeof opt.version === 'string' ? opt.version : undefined;
+      const disc = discoverSigningStation();
+      const allow = readReviewerAllowlist();
+      const s = signingStatus({ ...disc, enrolledPublicKey: disc.reviewerId ? allow[disc.reviewerId] : null, version });
+      console.log('signing status (#414) — the two operator Ed25519 sign-offs run WHERE the enrolled key lives:\n');
+      console.log(`  reviewerId    : ${s.reviewerId || '(none)'}`);
+      console.log(`  reviewerKey   : ${s.reviewerKeyPath || '(unknown)'}`);
+      console.log(`  keyExists     : ${s.keyExists === null ? '(unknown)' : s.keyExists}`);
+      console.log(`  station       : ${s.station}  (${disc.source})`);
+      console.log(`  enrolled      : ${s.enrolled ? 'yes' : 'no'}${s.keyMatch !== 'unknown' ? ` (public-key ${s.keyMatch})` : ''}  [tools/collab-cli/reviewer-allowlist.json]`);
+      console.log(`\n  quorum sign-off (machine consensus) — run on ${s.station === STATIONS.VM ? 'the reviewer VM' : s.station === STATIONS.HOST ? 'this host' : 'the station where the key lives'}:\n    ${s.commands.quorum}`);
+      console.log(`\n  visual verdict (human PASS) — always rendered + signed in the reviewer VM:\n    ${s.commands.visual}`);
+      if (s.ok) { console.log(`\n\u2713 signing ready: ${s.reviewerId} enrolled, key present at ${s.reviewerKeyPath} on ${s.station}`); return; }
+      console.log(`\n\u2717 signing NOT ready (${s.problems.length}):`);
+      for (const p of s.problems) console.log(`  - ${p}`);
+      process.exit(1);
     },
   },
   partition: {
@@ -289,6 +430,35 @@ const SELFTEST = [
     const match = releasePreflightStatic({ ...base, version: '1.1.1', compositeVersion: '1.1.1' });
     const stale = releasePreflightStatic({ ...base, version: '1.1.1', compositeVersion: '1.1.0' });
     return match.length === 4 && match.every((x) => x.ok) && stale[3].ok === false;
+  }],
+  ['signing-status binds the QUORUM sign-off to the VM when the enrolled key lives there (#414), key never read', () => {
+    const enrolled = readReviewerAllowlist()['reviewer@vi-tech.nl'];
+    const s = signingStatus({ reviewerId: 'reviewer@vi-tech.nl', reviewerKeyPath: 'C:\\lba-review\\reviewer-vitech.pem', keyExists: true, station: STATIONS.VM, enrolledPublicKey: enrolled, version: '1.2.0' });
+    // ok, quorum command runs IN the VM (cmd /c from the repo clone), visual uses render-verdict.sh, and the
+    // committed private-key PATH is echoed but never its material.
+    return s.ok && s.station === STATIONS.VM && /cmd \/c .*sign-release-quorum\.mjs/.test(s.commands.quorum)
+      && /render-verdict\.sh/.test(s.commands.visual) && s.commands.quorum.includes('reviewer-vitech.pem') && !/PRIVATE KEY/.test(s.commands.quorum);
+  }],
+  ['signing-status binds the QUORUM sign-off to the HOST (plain CLI, no cmd /c) when the key is host-resident (#414)', () => {
+    const enrolled = readReviewerAllowlist()['reviewer@vi-tech.nl'];
+    const s = signingStatus({ reviewerId: 'reviewer@vi-tech.nl', reviewerKeyPath: '/home/rev/enrolled.pem', keyExists: true, station: STATIONS.HOST, enrolledPublicKey: enrolled });
+    return s.ok && s.station === STATIONS.HOST && /^node reviewer-workstation\/sign-release-quorum\.mjs/.test(s.commands.quorum) && !/cmd \/c/.test(s.commands.quorum);
+  }],
+  ['signing-status fails closed on a missing key, an unenrolled reviewer, a public-key mismatch, and an unknown station (#414)', () => {
+    const enrolled = readReviewerAllowlist()['reviewer@vi-tech.nl'];
+    const missing = signingStatus({ reviewerId: 'reviewer@vi-tech.nl', reviewerKeyPath: 'C:\\lba-review\\reviewer-vitech.pem', keyExists: false, station: STATIONS.VM, enrolledPublicKey: enrolled });
+    const unenrolled = signingStatus({ reviewerId: 'stranger@example.com', reviewerKeyPath: '/k.pem', keyExists: true, station: STATIONS.HOST, enrolledPublicKey: null });
+    const mismatch = signingStatus({ reviewerId: 'reviewer@vi-tech.nl', reviewerKeyPath: '/k.pem', keyExists: true, station: STATIONS.HOST, enrolledPublicKey: enrolled, presentedPublicKey: '-----BEGIN PUBLIC KEY-----\nDEADBEEF\n-----END PUBLIC KEY-----\n' });
+    const unknown = signingStatus({ station: STATIONS.UNKNOWN });
+    return missing.ok === false && /not found/.test(missing.problems.join())
+      && unenrolled.ok === false && /not enrolled/.test(unenrolled.problems.join())
+      && mismatch.ok === false && mismatch.keyMatch === 'mismatch'
+      && unknown.ok === false && /could not locate the signing station/.test(unknown.problems.join());
+  }],
+  ['signing-status confirms a public-key MATCH clears + reports enrolled (#414)', () => {
+    const enrolled = readReviewerAllowlist()['reviewer@vi-tech.nl'];
+    const s = signingStatus({ reviewerId: 'reviewer@vi-tech.nl', reviewerKeyPath: '/k.pem', keyExists: true, station: STATIONS.HOST, enrolledPublicKey: enrolled, presentedPublicKey: enrolled });
+    return s.ok && s.enrolled === true && s.keyMatch === 'match';
   }],
   ['capacity-weighted partition splits a task set disjointly, covers it, and honours weight', () => {
     // rg-free (CI runners have no ripgrep): a synthetic task set exercises the pure partitioner.
