@@ -39,7 +39,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 7; // bump when you refine this tool (see the banner above)
+export const ITERATION = 8; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -237,6 +237,13 @@ const SELFTEST = [
     const win = JSON.parse(read('experiments/mesh-fulfillment/n2-live-run/returned/win.json')).receipt;
     const r = assembleLiveN2({ linuxTrend: lin, winTrend: win, dispatchId: 'selftest-live-n2' });
     return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound && r.comparison !== null;
+  }],
+  ['mesh-run driver corroborates the REAL live N=3 run (n3-live-run: 2 LINUX actors clone-01+clone-02 + WIN actor -> quorum)', () => {
+    const dispatch = JSON.parse(read('experiments/mesh-fulfillment/n3-live-run/dispatch.json'));
+    const returned = readReturned(join(repoRoot, 'experiments/mesh-fulfillment/n3-live-run/returned'));
+    const r = driveMeshRun({ dispatch, returned });
+    return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound
+      && r.report.corroboration.quorum.perPlane.LINUX.count === 2 && r.comparison !== null;
   }],
 ];
 function runSelftest() {

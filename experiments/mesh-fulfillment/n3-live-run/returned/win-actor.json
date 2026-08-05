@@ -1,0 +1,35 @@
+{
+  "schema": "labview-benchmark-actor/returned-receipt@1",
+  "taskId": "mesh-run-labview-ide-launch-n3-2026-08-05::WIN",
+  "actorId": "actor",
+  "plane": "WIN",
+  "receipt": {
+    "schema": "labview-benchmark-actor/workload-trend@1",
+    "metric": "launchMs",
+    "workload": "labview-ide-launch",
+    "plane": "WIN",
+    "hypervisor": "vbox-sdk",
+    "n": 3,
+    "values": [
+      3555,
+      3224,
+      3138
+    ],
+    "stats": {
+      "min": 3138,
+      "max": 3555,
+      "mean": 3305.7,
+      "median": 3224,
+      "stddev": 179.8,
+      "spread": 417
+    },
+    "baselineMs": 3224,
+    "toleranceMs": 2000,
+    "latest": 3138,
+    "slopeMsPerRun": -208.5,
+    "driftThresholdMsPerRun": 400,
+    "drifting": false,
+    "regressed": false,
+    "verdict": "PASS"
+  }
+}
