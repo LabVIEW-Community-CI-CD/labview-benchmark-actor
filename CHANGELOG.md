@@ -6,6 +6,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-05
+
 ### Fixed
 - **A winget-installed ffmpeg is now detected without restarting VS Code** (issue #405). The "Install ffmpeg
   (winget)" button installs Gyan.FFmpeg, which symlinks `ffmpeg.exe` into `%LOCALAPPDATA%\Microsoft\WinGet\Links`

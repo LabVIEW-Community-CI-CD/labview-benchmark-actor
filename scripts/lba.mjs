@@ -27,6 +27,7 @@
 //   next-ids                     print the next free requirement id and ADR id
 //   init                         plan (or --run) the one-command First Win golden-VM onboarding (LBA-REQ-033)
 //   mesh-run                     agent-drive one mesh run: ingest a live dispatch + returned receipts, then cross-plane corroborate + compare
+//   release-preflight <X.Y.Z>    release doctor: node major + version + CHANGELOG + the 3 publish agreement gates
 //   selftest                     self-check this tool (run by the `agent-tooling-selftest` gate)
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
@@ -39,7 +40,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 9; // bump when you refine this tool (see the banner above)
+export const ITERATION = 10; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -102,6 +103,22 @@ export function governCheck(id) {
   return { id, results, ok: missing.length === 0, missing };
 }
 
+// ---- release preflight (release doctor) ---------------------------------------------------------
+// The extension publish plane is node 24 (extension-release.yml `setup-node '24'`). LESSON FROM 1.1.0: the
+// .vsix is byte-reproducible ONLY WITHIN a node major -- a node-22 build has a different sha256 than a node-24
+// build, so a review/candidate captured on node 22 fails the reviewed==shipped gate (verify-published-vsix).
+// These pure, deterministic checks catch that (+ version/CHANGELOG drift) BEFORE a publish; the `release-preflight`
+// command layers the 3 live publish agreement gates on top.
+export function releasePreflightStatic({ version, nodeVersion, pkgVersion, changelog }) {
+  const major = Number(String(nodeVersion).replace(/^v/, '').split('.')[0]);
+  const escaped = String(version).replace(/\./g, '\\.');
+  return [
+    { label: 'node major is 24 (the CI publish plane; .vsix repro is node-major-bound)', ok: major === 24, note: `node ${nodeVersion}` },
+    { label: `package.json version == ${version}`, ok: pkgVersion === version, note: `package.json ${pkgVersion}` },
+    { label: `CHANGELOG has a [${version}] section`, ok: new RegExp(`^## \\[${escaped}\\]`, 'm').test(changelog || ''), note: '' },
+  ];
+}
+
 // ---- agent-driven mesh run: chain the governed stages over one dispatch + returned receipts -------
 // dispatch (LBA-REQ-074) + returned receipts (agent handoff) --ingest(LBA-REQ-091)--> run-bound collection
 //   --corroborate(LBA-REQ-092)--> cross-plane verdict + compare. Pure: chains the governed engines, adds no gating.
@@ -141,6 +158,33 @@ export const COMMANDS = {
   'next-ids': {
     desc: 'print the next free requirement id and ADR id',
     run: () => { console.log(`next requirement: ${nextRequirementId()}`); console.log(`next ADR:         ${nextAdrId()}`); },
+  },
+  'release-preflight': {
+    desc: 'release doctor: node major + version + CHANGELOG + the 3 publish agreement gates for a target version',
+    run: (args) => {
+      const version = args[0];
+      if (!/^\d+\.\d+\.\d+/.test(version || '')) { console.error('usage: lba release-preflight X.Y.Z'); process.exit(2); }
+      const statics = releasePreflightStatic({
+        version,
+        nodeVersion: process.version,
+        pkgVersion: JSON.parse(read('package.json')).version,
+        changelog: read('CHANGELOG.md'),
+      });
+      const gates = [
+        ['release-agreement WIN+LINUX agreed', 'tools/collab-cli/verify-release-agreement.mjs'],
+        ['signed reviewer visual verdict', 'tools/collab-cli/verify-visual-review.mjs'],
+        ['composite release decision', 'tools/collab-cli/verify-composite-release.mjs'],
+      ].map(([label, rel]) => {
+        let ok = false;
+        try { execFileSync(process.execPath, [join(repoRoot, rel), '--component', 'extension', version], { stdio: 'pipe' }); ok = true; } catch { ok = false; }
+        return { label, ok, note: ok ? '' : 'not yet satisfied' };
+      });
+      const all = [...statics, ...gates];
+      for (const c of all) console.log(`  ${c.ok ? '\u2713' : '\u2717'} ${c.label}${c.note ? '  (' + c.note + ')' : ''}`);
+      const failed = all.filter((c) => !c.ok);
+      console.log(failed.length ? `\n\u2717 release ${version} NOT ready (${failed.length} check(s) failing)` : `\n\u2713 release ${version} preflight all green`);
+      if (failed.length) process.exit(1);
+    },
   },
   partition: {
     desc: 'deterministically split the self-test workload into N shards (for parallel/distributed runs)',
@@ -211,6 +255,14 @@ const SELFTEST = [
   ['next ADR id is well-formed and unused', () => /^ADR-\d{4}$/.test(nextAdrId()) && !existsSync(join(repoRoot, 'docs/architecture/adr', `${nextAdrId()}.md`))],
   ['govern-check confirms a modern fully-governed requirement across all surfaces', () => governCheck('LBA-REQ-034').ok],
   ['govern-check fails closed for a non-existent requirement', () => governCheck('LBA-REQ-999').ok === false],
+  ['release-preflight static checks pass for a consistent node-24 / version / CHANGELOG set', () => {
+    const c = releasePreflightStatic({ version: '1.1.1', nodeVersion: 'v24.19.0', pkgVersion: '1.1.1', changelog: '## [1.1.1] - 2026-08-05\n' });
+    return c.length === 3 && c.every((x) => x.ok);
+  }],
+  ['release-preflight static checks fail closed on a node-22 build + version + CHANGELOG mismatch', () => {
+    const c = releasePreflightStatic({ version: '1.1.1', nodeVersion: 'v22.22.1', pkgVersion: '1.1.0', changelog: '## [1.1.0]\n' });
+    return c.length === 3 && c.every((x) => !x.ok);
+  }],
   ['capacity-weighted partition splits a task set disjointly, covers it, and honours weight', () => {
     // rg-free (CI runners have no ripgrep): a synthetic task set exercises the pure partitioner.
     const tasks = Array.from({ length: 20 }, (_, i) => `t${i}`);
