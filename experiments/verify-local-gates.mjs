@@ -1331,6 +1331,17 @@ check('gitflow-branch-governance-documented', () => {
   return { rules: ['feature', 'release', 'hotfix', 'merge-method'], adr: 'ADR-0010' };
 });
 
+// 17c-lineage. Release lineage (LBA-REQ-016, #417 / ADR-0010): every ext-v* release tag must be an ancestor of
+// BOTH main and develop -- a --no-ff release merge to main + a --no-ff back-merge to develop SHARE the release
+// commit; a squashed/divergent back-merge diverges main<->develop and 3-way-conflicts the NEXT release/* (hit live
+// in 1.1.0 AND 1.1.1). Asserts the selftest (5/5: pure verdict + injected-git probe). Run
+// `experiments/release/verify-release-lineage.mjs --check` after a release (full-history checkout) to catch a live
+// divergence; the pure verdict + fail-closed reasons are proven here.
+check('release-lineage', () => {
+  execFileSync(process.execPath, [join(here, 'release', 'verify-release-lineage.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'verify-release-lineage 5/5', proves: 'every ext-v* tag shared by main + develop; fail-closed on divergence (#417)' };
+});
+
 // 17d. Coverage gate (LBA-REQ-016 CM / ISO-IEC-IEEE 29119): the committed Cobertura coverage artifact meets
 //      the parametrized floor in coverage-thresholds.json (the PR Coverage Gate workflow enforces it live and
 //      `npm run coverage:bump` ratchets the floor up gradually). Dep-free static check.
