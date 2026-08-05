@@ -29,6 +29,7 @@
 //   mesh-run                     agent-drive one mesh run: ingest a live dispatch + returned receipts, then cross-plane corroborate + compare
 //   release-preflight <X.Y.Z>    release doctor: node major + version + CHANGELOG + the 3 publish agreement gates
 //   release <X.Y.Z> --dry-run    print the full governed-release phase plan (ordering + deps + the 2 signings) + preflight
+//   release-verify-published <X.Y.Z>  confirm the VS Code Marketplace listing shows the version live after publish (#412)
 //   signing-status               discover + report the enrolled reviewer key location + where each sign-off runs
 //   selftest                     self-check this tool (run by the `agent-tooling-selftest` gate)
 
@@ -42,7 +43,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 13; // bump when you refine this tool (see the banner above)
+export const ITERATION = 14; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -196,6 +197,37 @@ export function renderReleasePlan(plan) {
     lines.push(`        ${p.command}`);
   }
   return lines.join('\n');
+}
+
+// ---- release-verify-published (#412): confirm the Marketplace listing shows the released version live ----------
+// The last mile of a release is off-CI + easy to get subtly wrong; after `vsce publish` nothing confirmed the
+// PUBLIC Marketplace listing actually shows the new version. `assertPublished` is a PURE check over a gallery
+// extensionquery result; the fetch is the command's live leg. Fails closed unless the queried extension matches the
+// expected publisher+name AND lists the target version.
+export function assertPublished(queryResult, { publisher, name, version } = {}) {
+  const ext = queryResult?.results?.[0]?.extensions?.[0] ?? null;
+  if (!ext) return { ok: false, live: false, versions: [], latest: null, reason: 'no extension in the Marketplace query result' };
+  const reasons = [];
+  const pub = ext.publisher?.publisherName ?? ext.publisher?.publisherId ?? '';
+  const nm = ext.extensionName ?? '';
+  if (publisher && String(pub).toLowerCase() !== String(publisher).toLowerCase()) reasons.push(`publisher "${pub}" != "${publisher}"`);
+  if (name && String(nm).toLowerCase() !== String(name).toLowerCase()) reasons.push(`extension "${nm}" != "${name}"`);
+  const versions = Array.isArray(ext.versions) ? ext.versions.map((v) => String(v.version)) : [];
+  const live = versions.includes(String(version));
+  if (!live) reasons.push(`version ${version} is not live on the Marketplace (latest: ${versions[0] ?? 'none'})`);
+  return { ok: reasons.length === 0, live, versions, latest: versions[0] ?? null, reason: reasons.join('; ') };
+}
+
+// Live leg: POST the VS Code Marketplace gallery extensionquery for one extension. `fetchImpl` is injectable so the
+// pure path stays testable; defaults to the global fetch (Node 18+).
+export async function queryMarketplaceExtension({ publisher, name, fetchImpl = globalThis.fetch } = {}) {
+  const res = await fetchImpl('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json;api-version=7.2-preview.1' },
+    body: JSON.stringify({ filters: [{ criteria: [{ filterType: 7, value: `${publisher}.${name}` }] }], flags: 914 }),
+  });
+  if (!res.ok) throw new Error(`Marketplace query failed: HTTP ${res.status}`);
+  return res.json();
 }
 
 // ---- signing status (#414): discover + report WHERE each release sign-off must run ---------------
@@ -411,6 +443,23 @@ export const COMMANDS = {
       console.log('\nthe two irreducible human gates are phases 6 (quorum sign-off) + 8 (visual verdict); everything else is agent-runnable.');
     },
   },
+  'release-verify-published': {
+    desc: 'confirm the VS Code Marketplace listing shows X.Y.Z live after publish (#412)',
+    run: async (args) => {
+      const version = args.find((a) => !a.startsWith('--'));
+      if (!/^\d+\.\d+\.\d+/.test(version || '')) { console.error('usage: lba release-verify-published X.Y.Z [--extension <publisher.name>]'); process.exit(2); }
+      const extIdx = args.indexOf('--extension');
+      const pkg = JSON.parse(read('package.json'));
+      const extId = extIdx >= 0 && args[extIdx + 1] ? args[extIdx + 1] : `${pkg.publisher}.${pkg.name}`;
+      const [publisher, name] = extId.split('.');
+      try {
+        const q = await queryMarketplaceExtension({ publisher, name });
+        const r = assertPublished(q, { publisher, name, version });
+        if (!r.ok) { console.error(`\u2717 ${extId} ${version} NOT confirmed live: ${r.reason}`); process.exit(1); }
+        console.log(`\u2713 ${extId} ${version} is LIVE on the Marketplace (latest ${r.latest}; recent: ${r.versions.slice(0, 5).join(', ')})`);
+      } catch (e) { console.error(`\u2717 Marketplace query error: ${e.message}`); process.exit(1); }
+    },
+  },
   'signing-status': {
     desc: 'discover + report the enrolled reviewer key location + WHERE each release sign-off must run (#414)',
     run: (args) => {
@@ -542,6 +591,18 @@ const SELFTEST = [
   ['release --dry-run render (#409) is pure + names the version, the OPERATOR signings, and the #410 assembler command', () => {
     const out = renderReleasePlan(releasePlan('1.2.0'));
     return /release\/1\.2\.0 from develop/.test(out) && /OPERATOR/.test(out) && /assemble-composite\.mjs/.test(out) && /Ed25519 signings/.test(out);
+  }],
+  ['release-verify-published (#412) confirms a version present in the Marketplace query result', () => {
+    const q = { results: [{ extensions: [{ publisher: { publisherName: 'pub' }, extensionName: 'ext', versions: [{ version: '1.2.0' }, { version: '1.1.1' }] }] }] };
+    const r = assertPublished(q, { publisher: 'pub', name: 'ext', version: '1.2.0' });
+    return r.ok === true && r.live === true && r.latest === '1.2.0';
+  }],
+  ['release-verify-published (#412) fails closed on absent version / publisher mismatch / no extension', () => {
+    const q = { results: [{ extensions: [{ publisher: { publisherName: 'pub' }, extensionName: 'ext', versions: [{ version: '1.1.1' }] }] }] };
+    const absent = assertPublished(q, { publisher: 'pub', name: 'ext', version: '1.2.0' });
+    const wrongPub = assertPublished(q, { publisher: 'other', name: 'ext', version: '1.1.1' });
+    const noExt = assertPublished({ results: [{ extensions: [] }] }, { publisher: 'pub', name: 'ext', version: '1.1.1' });
+    return absent.ok === false && absent.live === false && wrongPub.ok === false && noExt.ok === false;
   }],
   ['signing-status binds the QUORUM sign-off to the VM when the enrolled key lives there (#414), key never read', () => {
     const enrolled = readReviewerAllowlist()['reviewer@vi-tech.nl'];
