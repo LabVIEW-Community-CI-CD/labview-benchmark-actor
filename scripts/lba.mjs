@@ -28,6 +28,7 @@
 //   init                         plan (or --run) the one-command First Win golden-VM onboarding (LBA-REQ-033)
 //   mesh-run                     agent-drive one mesh run: ingest a live dispatch + returned receipts, then cross-plane corroborate + compare
 //   release-preflight <X.Y.Z>    release doctor: node major + version + CHANGELOG + the 3 publish agreement gates
+//   release <X.Y.Z>             resumable status driver: per-phase completion + the exact next actionable step (#409)
 //   release <X.Y.Z> --dry-run    print the full governed-release phase plan (ordering + deps + the 2 signings) + preflight
 //   release-verify-published <X.Y.Z>  confirm the VS Code Marketplace listing shows the version live after publish (#412)
 //   release-cut-github <X.Y.Z> --run <id>  verify the publish-workflow run artifact + cut the immutable ext-v* release (#412)
@@ -44,7 +45,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 15; // bump when you refine this tool (see the banner above)
+export const ITERATION = 16; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -147,19 +148,19 @@ export function releasePreflightStatic({ version, nodeVersion, pkgVersion, chang
 export function releasePlan(version) {
   const v = String(version);
   const phases = [
-    { id: 1, key: 'cut-branch', kind: 'auto', dependsOn: [], title: `cut release/${v} from develop`, command: `git checkout -b release/${v} develop` },
-    { id: 2, key: 'bump', kind: 'auto', dependsOn: [1], title: 'bump package.json + stamp CHANGELOG', command: `npm version ${v} --no-git-tag-version  +  stamp CHANGELOG.md [${v}]` },
-    { id: 3, key: 'build-vsix', kind: 'auto', dependsOn: [2], title: 'build the node-24 candidate .vsix + capture its sha256', command: 'npm run package  +  sha256sum labview-benchmark-actor.vsix' },
-    { id: 4, key: 'dispatch-corroboration', kind: 'auto', dependsOn: [3], title: 'dispatch acg-cross-plane-corroboration.yml at the candidate commit', command: 'gh workflow run acg-cross-plane-corroboration.yml --ref <candidate-commit>' },
-    { id: 5, key: 'build-attestation', kind: 'auto', dependsOn: [4], title: 'build the machine attestation from the run witnesses', command: 'node experiments/acg-quorum/cross-plane-attestation.mjs  (from the corroboration run artifacts)' },
-    { id: 6, key: 'quorum-signoff', kind: 'operator', signing: true, dependsOn: [5], title: 'Ed25519 quorum sign-off over the attestation (enrolled key)', command: 'lba signing-status  ->  sign-release-quorum.mjs in the VM (#415 render-quorum.sh)' },
-    { id: 7, key: 'stage-benchmark', kind: 'operator', dependsOn: [3], title: 'stage + live-benchmark the candidate on the WIN VM (net DONE frame)', command: 'reviewer-workstation/render-verdict.sh set-target --version ' + v + ' … (#411)' },
-    { id: 8, key: 'visual-verdict', kind: 'operator', signing: true, dependsOn: [7], title: 'signed reviewer visual verdict of the built candidate (Ed25519)', command: 'run "Render Reviewer Verdict" in the VM  ->  render-verdict.sh collect' },
-    { id: 9, key: 'assemble-composite', kind: 'auto', dependsOn: [3, 5, 6, 7, 8], title: 'assemble the composite-release-decision receipt (binds all pieces to one candidate)', command: 'node reviewer-workstation/assemble-composite.mjs --component extension --version ' + v + ' … --out reviewer-workstation/composite-release-decision-receipt.json (#410)' },
-    { id: 10, key: 'record-agreement', kind: 'auto', dependsOn: [9], title: 'record WIN+LINUX agreed + visualReview in release-agreement.json', command: 'node tools/collab-cli/record-release-agreement.mjs … (#419)' },
-    { id: 11, key: 'merge-main', kind: 'auto', dependsOn: [10], title: `merge release/${v} -> main (--no-ff)`, command: `gh pr merge <n> --merge  (release/${v} -> main, --no-ff)` },
-    { id: 12, key: 'cut-gh-release', kind: 'operator', dependsOn: [11], title: 'tag + workflow_dispatch extension-release.yml + cut the immutable GitHub Release', command: `gh workflow run extension-release.yml  ->  gh release create ext-v${v} staging/* (bypass token) (#412)` },
-    { id: 13, key: 'publish-backmerge', kind: 'operator', dependsOn: [12], title: 'vsce publish + back-merge to develop (--no-ff)', command: `vsce publish  ->  git merge --no-ff release/${v} into develop (#417)` },
+    { id: 1, key: 'cut-branch', kind: 'auto', exec: 'auto', dependsOn: [], title: `cut release/${v} from develop`, command: `git checkout -b release/${v} develop` },
+    { id: 2, key: 'bump', kind: 'auto', exec: 'auto', dependsOn: [1], title: 'bump package.json + stamp CHANGELOG', command: `npm version ${v} --no-git-tag-version  +  stamp CHANGELOG.md [${v}]` },
+    { id: 3, key: 'build-vsix', kind: 'auto', exec: 'auto', dependsOn: [2], title: 'build the node-24 candidate .vsix + capture its sha256', command: 'npm run package  +  sha256sum labview-benchmark-actor.vsix' },
+    { id: 4, key: 'dispatch-corroboration', kind: 'auto', exec: 'ci', dependsOn: [3], title: 'dispatch acg-cross-plane-corroboration.yml at the candidate commit', command: 'gh workflow run acg-cross-plane-corroboration.yml --ref <candidate-commit>' },
+    { id: 5, key: 'build-attestation', kind: 'auto', exec: 'auto', dependsOn: [4], title: 'build the machine attestation from the run witnesses', command: 'node experiments/acg-quorum/cross-plane-attestation.mjs  (from the corroboration run artifacts)' },
+    { id: 6, key: 'quorum-signoff', kind: 'operator', exec: 'operator', signing: true, dependsOn: [5], title: 'Ed25519 quorum sign-off over the attestation (enrolled key)', command: 'lba signing-status  ->  reviewer-workstation/render-quorum.sh all --version ' + v + ' (#415)' },
+    { id: 7, key: 'stage-benchmark', kind: 'operator', exec: 'operator', dependsOn: [3], title: 'stage + live-benchmark the candidate on the WIN VM (net DONE frame)', command: 'reviewer-workstation/render-verdict.sh set-target --version ' + v + ' … (#411)' },
+    { id: 8, key: 'visual-verdict', kind: 'operator', exec: 'operator', signing: true, dependsOn: [7], title: 'signed reviewer visual verdict of the built candidate (Ed25519)', command: 'run "Render Reviewer Verdict" in the VM  ->  render-verdict.sh collect' },
+    { id: 9, key: 'assemble-composite', kind: 'auto', exec: 'auto', dependsOn: [3, 5, 6, 7, 8], title: 'assemble the composite-release-decision receipt (binds all pieces to one candidate)', command: 'node reviewer-workstation/assemble-composite.mjs --component extension --version ' + v + ' … --out reviewer-workstation/composite-release-decision-receipt.json (#410)' },
+    { id: 10, key: 'record-agreement', kind: 'auto', exec: 'auto', dependsOn: [9], title: 'record WIN+LINUX agreed + visualReview in release-agreement.json', command: 'node tools/collab-cli/record-release-agreement.mjs … (#419)' },
+    { id: 11, key: 'merge-main', kind: 'auto', exec: 'irreversible', dependsOn: [10], title: `merge release/${v} -> main (--no-ff)`, command: `gh pr merge <n> --merge  (release/${v} -> main, --no-ff)` },
+    { id: 12, key: 'cut-gh-release', kind: 'operator', exec: 'irreversible', dependsOn: [11], title: 'tag + workflow_dispatch extension-release.yml + cut the immutable GitHub Release', command: `gh workflow run extension-release.yml  ->  lba release-cut-github ${v} --run <id> --create (#412)` },
+    { id: 13, key: 'publish-backmerge', kind: 'operator', exec: 'irreversible', dependsOn: [12], title: 'vsce publish + back-merge to develop (--no-ff), then confirm the Marketplace', command: `vsce publish  ->  git merge --no-ff release/${v} into develop (#417)  ->  lba release-verify-published ${v} (#412)` },
   ];
   return { version: v, phases };
 }
@@ -198,6 +199,84 @@ export function renderReleasePlan(plan) {
     lines.push(`        ${p.command}`);
   }
   return lines.join('\n');
+}
+
+// ---- release orchestrator status (#409): resumable per-phase completion + the exact next actionable step --------
+// `lba release X.Y.Z` (no --dry-run) is the RESUMABLE driver: it probes which phases are already complete (from the
+// committed receipts / git / the ~/lba-vm-share) and renders the annotated plan + the NEXT command. Idempotent --
+// re-run to refresh. It deliberately does NOT auto-run the IRREVERSIBLE shared actions (merge to main, cut the
+// immutable release, publish) or the operator signings; those are surfaced as hand-offs. The safe deterministic
+// phases reuse the landed helpers (#410 assemble-composite, #419 record-agreement, ...).
+const PHASE_PROBE = {
+  'cut-branch': 'branchExists', bump: 'versionBumped', 'build-vsix': 'vsixBuilt',
+  'dispatch-corroboration': 'attestationReady', 'build-attestation': 'attestationReady',
+  'quorum-signoff': 'quorumSigned', 'stage-benchmark': 'staged', 'visual-verdict': 'visualSigned',
+  'assemble-composite': 'compositeSealed', 'record-agreement': 'agreementRecorded',
+  'merge-main': 'mergedToMain', 'cut-gh-release': 'ghReleaseCut', 'publish-backmerge': 'published',
+};
+
+// Pure: annotate each phase with done/next/pending from the probe facts; the FIRST not-done phase is `next`.
+export function releaseStatus({ version, probes = {} } = {}) {
+  const plan = releasePlan(version);
+  let nextTaken = false;
+  const phases = plan.phases.map((p) => {
+    const done = probes[PHASE_PROBE[p.key]] === true;
+    let status = 'pending';
+    if (done) status = 'done';
+    else if (!nextTaken) { status = 'next'; nextTaken = true; }
+    return { ...p, done, status };
+  });
+  const next = phases.find((p) => p.status === 'next') ?? null;
+  return { version: plan.version, phases, next, complete: !next, doneCount: phases.filter((p) => p.done).length };
+}
+
+// Pure renderer: the plan annotated with completion + the next actionable step (classified auto / ci / operator / confirm).
+export function renderReleaseStatus(status) {
+  const mark = { done: '\u2713', next: '\u25b6', pending: '\u25cb' };
+  const badge = { auto: 'auto    ', ci: 'ci      ', operator: 'OPERATOR', irreversible: 'CONFIRM ' };
+  const lines = [`release ${status.version} \u2014 status (${status.doneCount}/${status.phases.length} phases done; resumable, re-run to refresh):`];
+  for (const p of status.phases) {
+    lines.push(`  ${mark[p.status]} ${String(p.id).padStart(2)}. [${badge[p.exec] ?? p.kind}]${p.signing ? ' *' : '  '} ${p.title}`);
+  }
+  if (status.complete) { lines.push('\n\u2713 all phases complete \u2014 release published.'); return lines.join('\n'); }
+  const n = status.next;
+  const how = n.exec === 'operator' ? 'OPERATOR hand-off (enrolled key / WIN station)'
+    : n.exec === 'irreversible' ? 'IRREVERSIBLE / shared \u2014 confirm before running'
+    : n.exec === 'ci' ? 'dispatches CI' : 'safe to run';
+  lines.push(`\n\u25b6 NEXT \u2014 phase ${n.id} (${how}):\n    ${n.command}`);
+  return lines.join('\n');
+}
+
+// Impure live probes: best-effort, never throws. Reads git / package.json / CHANGELOG / the ~/lba-vm-share receipts /
+// the committed composite receipt + agreement / gh -- to detect which phases are already complete for `version`.
+export function liveReleaseProbes(version, { env = process.env } = {}) {
+  const v = String(version);
+  const share = env.LBA_VM_SHARE || (env.HOME ? join(env.HOME, 'lba-vm-share') : '');
+  const tryGit = (args) => { try { execFileSync('git', args, { stdio: 'pipe' }); return true; } catch { return false; } };
+  const pkg = (() => { try { return JSON.parse(read('package.json')); } catch { return {}; } })();
+  const composite = (() => { try { return JSON.parse(read('reviewer-workstation/composite-release-decision-receipt.json')); } catch { return null; } })();
+  const agreement = (() => { try { return read('tools/collab-cli/release-agreement.json'); } catch { return null; } })();
+  const shareHas = (name) => !!share && existsSync(join(share, name));
+  const compositeSealed = !!composite && composite.candidate?.version === v && composite.verdict?.compositeReleaseProven === true;
+  const mergedToMain = tryGit(['merge-base', '--is-ancestor', `ext-v${v}`, 'origin/main']);
+  // Once a release has a sealed composite or is merged to main, it got PAST the early scaffolding (branch cut,
+  // version bumped, vsix built, attestation ready) even if the release branch was later deleted -- so those
+  // transient probes read done. A sealed composite also implies the quorum + visual + staging were completed.
+  const progressed = compositeSealed || mergedToMain;
+  return {
+    branchExists: progressed || tryGit(['rev-parse', '--verify', '--quiet', `release/${v}`]),
+    versionBumped: progressed || (pkg.version === v && new RegExp(`^## \\[${v.replace(/\./g, '\\.')}\\]`, 'm').test(read('CHANGELOG.md') || '')),
+    vsixBuilt: progressed || (existsSync(join(repoRoot, 'labview-benchmark-actor.vsix')) && pkg.version === v),
+    attestationReady: progressed || shareHas(`attestation-${v}.json`),
+    quorumSigned: compositeSealed || shareHas(`quorum-signoff-${v}.json`),
+    staged: compositeSealed || shareHas(`visual-verdict-${v}.json`) || shareHas(`quorum-signoff-${v}.json`),
+    visualSigned: compositeSealed || shareHas(`visual-verdict-${v}.json`),
+    compositeSealed,
+    agreementRecorded: !!agreement && agreement.includes(v),
+    mergedToMain,
+    ghReleaseCut: (() => { try { execFileSync('gh', ['release', 'view', `ext-v${v}`], { stdio: 'pipe' }); return true; } catch { return false; } })(),
+    published: false, // confirmed separately by `lba release-verify-published` (live Marketplace query)
+  };
 }
 
 // ---- release-verify-published (#412): confirm the Marketplace listing shows the released version live ----------
@@ -435,16 +514,17 @@ export const COMMANDS = {
     },
   },
   release: {
-    desc: 'plan a governed release: --dry-run prints the full phase plan (ordering + deps + the 2 signings) + preflight (#409)',
+    desc: 'resumable release driver: status + next step (default), or --dry-run for the full phase plan + preflight (#409)',
     run: (args) => {
       const version = args.find((a) => !a.startsWith('--'));
-      if (!/^\d+\.\d+\.\d+/.test(version || '')) { console.error('usage: lba release X.Y.Z --dry-run'); process.exit(2); }
+      if (!/^\d+\.\d+\.\d+/.test(version || '')) { console.error('usage: lba release X.Y.Z [--dry-run]'); process.exit(2); }
       const plan = releasePlan(version);
       const issues = releasePlanIssues(plan);
       if (issues.length) { console.error(`\u2717 internal: release plan malformed: ${issues.join('; ')}`); process.exit(1); }
       if (!args.includes('--dry-run')) {
-        console.log('lba release is PLAN-ONLY today. Re-run with --dry-run to see the full phase plan + preflight status.');
-        console.log('Live execution composes the operator-gated signings (#411/#415) + the auto-cut release (#412); until those land, drive a release via docs/release/release-runbook.md.');
+        const probes = liveReleaseProbes(version);
+        console.log(renderReleaseStatus(releaseStatus({ version, probes })));
+        console.log(`\n(full plan: \`lba release ${version} --dry-run\`  |  gate doctor: \`lba release-preflight ${version}\`  |  Marketplace confirm: \`lba release-verify-published ${version}\`)`);
         return;
       }
       console.log(renderReleasePlan(plan));
@@ -635,6 +715,18 @@ const SELFTEST = [
   ['release --dry-run render (#409) is pure + names the version, the OPERATOR signings, and the #410 assembler command', () => {
     const out = renderReleasePlan(releasePlan('1.2.0'));
     return /release\/1\.2\.0 from develop/.test(out) && /OPERATOR/.test(out) && /assemble-composite\.mjs/.test(out) && /Ed25519 signings/.test(out);
+  }],
+  ['release status (#409) is resumable: fresh -> next is cut-branch; mid -> the first unmet phase; all-probed -> complete', () => {
+    const fresh = releaseStatus({ version: '1.2.0', probes: {} });
+    const mid = releaseStatus({ version: '1.2.0', probes: { branchExists: true, versionBumped: true, vsixBuilt: true, attestationReady: true } });
+    const all = {}; for (const k of Object.values(PHASE_PROBE)) all[k] = true;
+    const done = releaseStatus({ version: '1.2.0', probes: all });
+    return fresh.next.key === 'cut-branch' && mid.next.key === 'quorum-signoff' && done.complete === true && done.next === null && done.doneCount === 13;
+  }],
+  ['release status render (#409) marks done/pending + classifies the next step as an OPERATOR hand-off at the quorum signing', () => {
+    const st = releaseStatus({ version: '1.2.0', probes: { branchExists: true, versionBumped: true, vsixBuilt: true, attestationReady: true } });
+    const out = renderReleaseStatus(st);
+    return /NEXT/.test(out) && /phase 6/.test(out) && /OPERATOR/.test(out) && out.includes('\u2713') && out.includes('\u25cb');
   }],
   ['release-verify-published (#412) confirms a version present in the Marketplace query result', () => {
     const q = { results: [{ extensions: [{ publisher: { publisherName: 'pub' }, extensionName: 'ext', versions: [{ version: '1.2.0' }, { version: '1.1.1' }] }] }] };
