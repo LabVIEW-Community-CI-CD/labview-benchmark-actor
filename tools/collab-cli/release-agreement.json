@@ -383,6 +383,69 @@
               "signature": "0LFoFgBs197PP9pWWsFJbQSzJmEPOWl7svEwHgNOur//q2DwZsS0Mso55LVe9Zggzx0hbMna64/R493Aa6r4AA=="
             }
           }
+        },
+        "1.1.1": {
+          "summary": "LabVIEW Benchmark Actor 1.1.1 -- patch: a winget-installed ffmpeg is now detected without restarting VS Code (#405, stable %LOCALAPPDATA%\\Microsoft\\WinGet\\Links resolution) + a misconfigured labviewBenchmarkActor.labviewPath now gives the clear 'LabVIEW.exe not found' prompt with hermetic capture tests (#407). Extension-only patch over 1.1.0; reviewed==shipped reproducible node-24 .vsix (sha256 d68690e41af0f93009fb70e16a6eff3aa994626940be32f1c0d3c4f0b7b4112e).",
+          "signoffs": {
+            "LINUX": {
+              "agreed": true,
+              "reviewedCommit": "4894be776fee14f940bb19297f709ce20f65047e",
+              "at": "2026-08-05T16:48:48.125Z",
+              "note": "Validated on the LINUX plane (node v24.19.0, the publish-plane node major) at release/1.1.1 4894be77: node scripts/lba.mjs verify 190/190; npm test all suites PASS (activate() registered 26 commands; viewer/panels/mcp/normalize-vsix/verify-published-vsix green). The reviewed==shipped .vsix is the reproducible node-24 build d68690e4. Machine cross-plane corroboration run 31021981978 (4 witnesses ubuntu-22.04/24.04 + windows-2022/2025, confidence 0.944, consensus 1.1.1@4894be77). LINUX agrees to publish extension 1.1.1."
+            },
+            "WIN": {
+              "agreed": true,
+              "reviewedCommit": "4894be776fee14f940bb19297f709ce20f65047e",
+              "at": "2026-08-05T16:48:48.125Z",
+              "note": "Independently validated on the WIN plane (the actor reviewer VM, native Windows, node v22.15.0) at release/1.1.1 4894be77 via reviewer-workstation/win-plane-validate.sh: npm ci + npm run compile + per-suite tests (viewer-render, viewer-plain-render, panels-render, mcp-server, mcp-tool-doc all green) + masked activation (registered 26 commands) + packaging gate (agent-last-gate PASS 8/8) -> winPlaneReady:true. The candidate node-24 vsix d68690e4 was staged in the VM (sha verified) and an enrolled human WINDOWS_VM reviewer verdict PASS was Ed25519-signed (reviewer@vi-tech.nl, decision approve) over it. WIN agrees to publish extension 1.1.1."
+            }
+          },
+          "visualReview": {
+            "verdict": {
+              "schema": "labview-benchmark-actor/reviewer-verdict@1",
+              "target": {
+                "component": "extension",
+                "version": "1.1.1",
+                "commit": "4894be776fee14f940bb19297f709ce20f65047e",
+                "vsixSha256": "d68690e41af0f93009fb70e16a6eff3aa994626940be32f1c0d3c4f0b7b4112e"
+              },
+              "verdict": "pass",
+              "reviewer": "reviewer@vi-tech.nl",
+              "station": "WINDOWS_VM",
+              "notes": "",
+              "evidence": [
+                {
+                  "kind": "win-plane-validation",
+                  "ref": "release/1.1.1@4894be77 winPlaneReady=true (npm ci+compile+6 suites+masked activation 26 cmds+agent-last-gate 8/8, Windows NT 10.0.26200)"
+                },
+                {
+                  "kind": "machine-corroboration",
+                  "ref": "acg-cross-plane run 31021981978, 4 witnesses linux+windows, confidence 0.944, consensus 1.1.1@4894be77 seriesHash 7ad1c75d"
+                }
+              ],
+              "renderedAt": "2026-08-05T16:29:51.882Z"
+            },
+            "signOff": {
+              "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+              "subject": {
+                "verdictDigest": "f619a11e6023f6c4435c024a84e53c668e1c28392d1108ccc6ee6c3cce358632",
+                "consensusVerdict": "pass",
+                "target": {
+                  "component": "extension",
+                  "version": "1.1.1",
+                  "commit": "4894be776fee14f940bb19297f709ce20f65047e",
+                  "vsixSha256": "d68690e41af0f93009fb70e16a6eff3aa994626940be32f1c0d3c4f0b7b4112e"
+                }
+              },
+              "reviewer": "reviewer@vi-tech.nl",
+              "decision": "approve",
+              "station": "WINDOWS_VM",
+              "algorithm": "ed25519",
+              "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
+              "signedAt": "2026-08-05T16:29:51.883Z",
+              "signature": "e8Dh0kthYZxfUwyKP+DQDf5hhWgg6NqXWBmpPGzcnBUhCYxERavDeffn+qLlJS5uMcPiCQc3qQiF9X7mCTScDg=="
+            }
+          }
         }
       }
     }
