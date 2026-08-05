@@ -6,6 +6,13 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+### Fixed
+- **"Capture LabVIEW Launch" no longer misleads Linux/macOS users with a "LabVIEW.exe not found" error**
+  (issue #423). The command is Windows-only (gdigrab + `LabVIEW.exe`), but on non-Windows hosts it fell through to
+  the Windows LabVIEW resolver and surfaced a misleading not-found prompt. It now fails fast on non-Windows hosts
+  with an explicit Windows-only message and offers a direct handoff to **Capture LabVIEW Launch (mprr,
+  cross-platform VM)** (`labviewBenchmarkActor.captureLaunchMprr`). Existing Windows behavior is unchanged.
+
 ## [1.1.1] - 2026-08-05
 
 ### Fixed
