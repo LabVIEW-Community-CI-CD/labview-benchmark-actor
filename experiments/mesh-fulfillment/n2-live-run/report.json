@@ -1,0 +1,88 @@
+{
+  "schema": "labview-benchmark-actor/mesh-cross-plane-report@1",
+  "requirement": "LBA-REQ-092",
+  "adr": "ADR-0075",
+  "dispatchId": "mesh-run-labview-ide-launch-2026-08-04",
+  "identity": "9fd14fed62e22425cede480c8b36d146f9a6a8e07d95dbf2d33e59d9b9c01817",
+  "planes": [
+    "LINUX",
+    "WIN"
+  ],
+  "corroboration": {
+    "crossPlane": true,
+    "allPass": true,
+    "identityBound": true,
+    "verdicts": {
+      "LINUX": "PASS",
+      "WIN": "PASS"
+    }
+  },
+  "comparison": {
+    "schema": "labview-benchmark-actor/cross-plane-compare@v1",
+    "benchmarkId": "labview-ide-launch",
+    "linux": {
+      "latest": 1919,
+      "mean": 1866.3,
+      "median": 1848,
+      "min": 1832,
+      "max": 1919,
+      "spread": 87,
+      "baselineMs": 1848
+    },
+    "win": {
+      "latest": 7073,
+      "mean": 6919,
+      "median": 6930,
+      "min": 6754,
+      "max": 7073,
+      "spread": 319,
+      "baselineMs": 6930
+    },
+    "deltas": {
+      "latest": {
+        "linux": 1919,
+        "win": 7073,
+        "delta": 5154,
+        "pctOfLinux": 268.6
+      },
+      "mean": {
+        "linux": 1866.3,
+        "win": 6919,
+        "delta": 5052.7,
+        "pctOfLinux": 270.7
+      },
+      "median": {
+        "linux": 1848,
+        "win": 6930,
+        "delta": 5082,
+        "pctOfLinux": 275
+      },
+      "min": {
+        "linux": 1832,
+        "win": 6754,
+        "delta": 4922,
+        "pctOfLinux": 268.7
+      },
+      "max": {
+        "linux": 1919,
+        "win": 7073,
+        "delta": 5154,
+        "pctOfLinux": 268.6
+      },
+      "spread": {
+        "linux": 87,
+        "win": 319,
+        "delta": 232,
+        "pctOfLinux": 266.7
+      },
+      "baselineMs": {
+        "linux": 1848,
+        "win": 6930,
+        "delta": 5082,
+        "pctOfLinux": 275
+      }
+    },
+    "digests": {}
+  },
+  "corroborated": true
+}

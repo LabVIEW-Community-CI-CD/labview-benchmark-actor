@@ -38,7 +38,7 @@ import { describeFlow, analyzeFlow } from '../experiments/first-win/firstWinOnbo
 import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIngest.mjs';
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 
-export const ITERATION = 5; // bump when you refine this tool (see the banner above)
+export const ITERATION = 6; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -220,6 +220,12 @@ const SELFTEST = [
     const returned = readReturned(join(repoRoot, 'experiments/mesh-fulfillment/returned-demo'));
     const r = driveMeshRun({ dispatch, returned });
     return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.crossPlane && r.comparison !== null;
+  }],
+  ['mesh-run driver corroborates the REAL live N=2 run (n2-live-run: LINUX vbox-vnc 1866ms + WIN vbox-sdk 6919ms, identity-bound)', () => {
+    const dispatch = JSON.parse(read('experiments/mesh-fulfillment/n2-live-run/dispatch.json'));
+    const returned = readReturned(join(repoRoot, 'experiments/mesh-fulfillment/n2-live-run/returned'));
+    const r = driveMeshRun({ dispatch, returned });
+    return r.ok && r.report.planes.join(',') === 'LINUX,WIN' && r.report.corroboration.allPass && r.report.corroboration.identityBound && r.comparison !== null;
   }],
 ];
 function runSelftest() {
