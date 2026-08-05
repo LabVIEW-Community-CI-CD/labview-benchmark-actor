@@ -33,6 +33,7 @@ const cap = spawnSync('python3', [capturer], { stdio: 'inherit', env: { ...proce
 if (cap.status !== 0) { throw new Error(`vbox-sdk-capture.py failed (exit ${cap.status}); ensure vboxapi + the running actor VM + SSH are available`); }
 
 const captured = JSON.parse(readFileSync(framesOut, 'utf8'));
+const minLaunchMs = Number(process.env.LBA_MIN_LAUNCH_MS ?? 500);
 const records = captured.map(({ launchStartMs, frames }, i) => {
   const rec = buildWorkloadRecord({
     frames,
@@ -40,7 +41,13 @@ const records = captured.map(({ launchStartMs, frames }, i) => {
     meta: { plane: 'WIN', hypervisor: 'vbox-sdk', workload: 'labview-ide-launch', iteration: `win-sdk-launch-${i}` },
     settle: { window, toleranceHamming },
   });
-  console.log(`  run ${i + 1}/${captured.length}: launchMs=${rec.spans.find((s) => s.id === 'launchMs').ms}ms (${frames.length} frames)`);
+  const ms = rec.spans.find((s) => s.id === 'launchMs').ms;
+  // Plausibility floor: a real LabVIEW launch is seconds; a sub-floor settle means the screen never transitioned
+  // (LabVIEW already open / never rendered a cold launch) -> a static-screen artifact. Fail loud, never emit it.
+  if (ms < minLaunchMs) {
+    throw new Error(`run ${i + 1}: launchMs=${ms}ms < ${minLaunchMs}ms floor -> static-screen artifact (LabVIEW likely already open at capture start); aborting rather than emit a bogus trend`);
+  }
+  console.log(`  run ${i + 1}/${captured.length}: launchMs=${ms}ms (${frames.length} frames)`);
   return rec;
 });
 
