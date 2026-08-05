@@ -29,6 +29,8 @@
 //   mesh-run                     agent-drive one mesh run: ingest a live dispatch + returned receipts, then cross-plane corroborate + compare
 //   release-preflight <X.Y.Z>    release doctor: node major + version + CHANGELOG + the 3 publish agreement gates
 //   release <X.Y.Z> --dry-run    print the full governed-release phase plan (ordering + deps + the 2 signings) + preflight
+//   release-verify-published <X.Y.Z>  confirm the VS Code Marketplace listing shows the version live after publish (#412)
+//   release-cut-github <X.Y.Z> --run <id>  verify the publish-workflow run artifact + cut the immutable ext-v* release (#412)
 //   signing-status               discover + report the enrolled reviewer key location + where each sign-off runs
 //   selftest                     self-check this tool (run by the `agent-tooling-selftest` gate)
 
@@ -42,7 +44,7 @@ import { ingestRun, readReturned } from '../experiments/mesh-fulfillment/meshIng
 import { corroborateRun } from '../experiments/mesh-fulfillment/meshCorroborate.mjs';
 import { assembleLiveN2 } from '../experiments/mesh-fulfillment/driveLiveN2.mjs';
 
-export const ITERATION = 13; // bump when you refine this tool (see the banner above)
+export const ITERATION = 15; // bump when you refine this tool (see the banner above)
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '..');
@@ -196,6 +198,54 @@ export function renderReleasePlan(plan) {
     lines.push(`        ${p.command}`);
   }
   return lines.join('\n');
+}
+
+// ---- release-verify-published (#412): confirm the Marketplace listing shows the released version live ----------
+// The last mile of a release is off-CI + easy to get subtly wrong; after `vsce publish` nothing confirmed the
+// PUBLIC Marketplace listing actually shows the new version. `assertPublished` is a PURE check over a gallery
+// extensionquery result; the fetch is the command's live leg. Fails closed unless the queried extension matches the
+// expected publisher+name AND lists the target version.
+export function assertPublished(queryResult, { publisher, name, version } = {}) {
+  const ext = queryResult?.results?.[0]?.extensions?.[0] ?? null;
+  if (!ext) return { ok: false, live: false, versions: [], latest: null, reason: 'no extension in the Marketplace query result' };
+  const reasons = [];
+  const pub = ext.publisher?.publisherName ?? ext.publisher?.publisherId ?? '';
+  const nm = ext.extensionName ?? '';
+  if (publisher && String(pub).toLowerCase() !== String(publisher).toLowerCase()) reasons.push(`publisher "${pub}" != "${publisher}"`);
+  if (name && String(nm).toLowerCase() !== String(name).toLowerCase()) reasons.push(`extension "${nm}" != "${name}"`);
+  const versions = Array.isArray(ext.versions) ? ext.versions.map((v) => String(v.version)) : [];
+  const live = versions.includes(String(version));
+  if (!live) reasons.push(`version ${version} is not live on the Marketplace (latest: ${versions[0] ?? 'none'})`);
+  return { ok: reasons.length === 0, live, versions, latest: versions[0] ?? null, reason: reasons.join('; ') };
+}
+
+// Live leg: POST the VS Code Marketplace gallery extensionquery for one extension. `fetchImpl` is injectable so the
+// pure path stays testable; defaults to the global fetch (Node 18+).
+export async function queryMarketplaceExtension({ publisher, name, fetchImpl = globalThis.fetch } = {}) {
+  const res = await fetchImpl('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json;api-version=7.2-preview.1' },
+    body: JSON.stringify({ filters: [{ criteria: [{ filterType: 7, value: `${publisher}.${name}` }] }], flags: 914 }),
+  });
+  if (!res.ok) throw new Error(`Marketplace query failed: HTTP ${res.status}`);
+  return res.json();
+}
+
+// ---- release-cut-github (#412): turn a green extension-release.yml run artifact into the immutable GH release ----
+// The publish workflow uploads the signed .vsix + its sigstore bundle (+ the reviewer verdict) as a run ARTIFACT --
+// it CANNOT push the ext-v* tag (the org ruleset blocks it), so a maintainer cuts the immutable release locally with
+// an authorized bypass token. verifyReleaseAssets is a PURE fail-closed check that the downloaded artifact set is
+// COMPLETE before cutting; the gh download + gh release create are the command's live/operator legs.
+export function verifyReleaseAssets(fileNames, { version } = {}) {
+  const base = (fileNames || []).map((f) => String(f).split('/').pop());
+  const reasons = [];
+  const vsix = base.filter((f) => /\.vsix$/i.test(f));
+  if (vsix.length === 0) reasons.push('no signed .vsix in the artifact');
+  const hasSigstore = base.some((f) => /\.sigstore(\.json)?$/i.test(f)) || (base.some((f) => /\.pem$/i.test(f)) && base.some((f) => /\.sig$/i.test(f)));
+  if (!hasSigstore) reasons.push('no sigstore bundle (.sigstore/.sigstore.json, or .pem + .sig)');
+  const hasVerdict = base.some((f) => /verdict.*\.json$/i.test(f));
+  if (!hasVerdict) reasons.push('no reviewer verdict (*verdict*.json)');
+  return { ok: reasons.length === 0, reasons, vsix: vsix[0] ?? null, tag: version ? `ext-v${version}` : null };
 }
 
 // ---- signing status (#414): discover + report WHERE each release sign-off must run ---------------
@@ -411,6 +461,49 @@ export const COMMANDS = {
       console.log('\nthe two irreducible human gates are phases 6 (quorum sign-off) + 8 (visual verdict); everything else is agent-runnable.');
     },
   },
+  'release-verify-published': {
+    desc: 'confirm the VS Code Marketplace listing shows X.Y.Z live after publish (#412)',
+    run: async (args) => {
+      const version = args.find((a) => !a.startsWith('--'));
+      if (!/^\d+\.\d+\.\d+/.test(version || '')) { console.error('usage: lba release-verify-published X.Y.Z [--extension <publisher.name>]'); process.exit(2); }
+      const extIdx = args.indexOf('--extension');
+      const pkg = JSON.parse(read('package.json'));
+      const extId = extIdx >= 0 && args[extIdx + 1] ? args[extIdx + 1] : `${pkg.publisher}.${pkg.name}`;
+      const [publisher, name] = extId.split('.');
+      try {
+        const q = await queryMarketplaceExtension({ publisher, name });
+        const r = assertPublished(q, { publisher, name, version });
+        if (!r.ok) { console.error(`\u2717 ${extId} ${version} NOT confirmed live: ${r.reason}`); process.exit(1); }
+        console.log(`\u2713 ${extId} ${version} is LIVE on the Marketplace (latest ${r.latest}; recent: ${r.versions.slice(0, 5).join(', ')})`);
+      } catch (e) { console.error(`\u2717 Marketplace query error: ${e.message}`); process.exit(1); }
+    },
+  },
+  'release-cut-github': {
+    desc: 'verify a green extension-release.yml run artifact + cut the immutable ext-v* GitHub Release (#412)',
+    run: (args) => {
+      const version = args.find((a) => !a.startsWith('--'));
+      if (!/^\d+\.\d+\.\d+/.test(version || '')) { console.error('usage: lba release-cut-github X.Y.Z (--run <id> | --dir <artifactdir>) [--create]'); process.exit(2); }
+      const dirIdx = args.indexOf('--dir'); const runIdx = args.indexOf('--run');
+      let dir = dirIdx >= 0 ? args[dirIdx + 1] : null;
+      if (!dir) {
+        if (runIdx < 0) { console.error('provide --dir <artifactdir> or --run <run-id>'); process.exit(2); }
+        dir = execFileSync('mktemp', ['-d']).toString().trim();
+        execFileSync('gh', ['run', 'download', String(args[runIdx + 1]), '--dir', dir], { stdio: 'inherit' });
+      }
+      const files = readdirSync(dir, { recursive: true }).map((f) => join(dir, String(f)));
+      const r = verifyReleaseAssets(files, { version });
+      if (!r.ok) { console.error(`\u2717 artifact for ${version} is incomplete: ${r.reasons.join('; ')}`); process.exit(1); }
+      const assets = files.filter((f) => /\.(vsix|sigstore|sigstore\.json|json|pem|sig)$/i.test(f));
+      const quoted = assets.map((a) => `'${a}'`).join(' ');
+      if (!args.includes('--create')) {
+        console.log(`\u2713 artifact verified for ${r.tag} (vsix ${String(r.vsix)}). DRY-RUN -- re-run with --create (needs your authorized bypass token) to cut it:`);
+        console.log(`  gh release create ${r.tag} ${quoted} --title '${r.tag}' --notes 'Immutable release ${version}.'`);
+        return;
+      }
+      execFileSync('gh', ['release', 'create', r.tag, ...assets, '--title', r.tag, '--notes', `Immutable release ${version}.`], { stdio: 'inherit' });
+      console.log(`\u2713 cut ${r.tag} with ${assets.length} asset(s).`);
+    },
+  },
   'signing-status': {
     desc: 'discover + report the enrolled reviewer key location + WHERE each release sign-off must run (#414)',
     run: (args) => {
@@ -542,6 +635,29 @@ const SELFTEST = [
   ['release --dry-run render (#409) is pure + names the version, the OPERATOR signings, and the #410 assembler command', () => {
     const out = renderReleasePlan(releasePlan('1.2.0'));
     return /release\/1\.2\.0 from develop/.test(out) && /OPERATOR/.test(out) && /assemble-composite\.mjs/.test(out) && /Ed25519 signings/.test(out);
+  }],
+  ['release-verify-published (#412) confirms a version present in the Marketplace query result', () => {
+    const q = { results: [{ extensions: [{ publisher: { publisherName: 'pub' }, extensionName: 'ext', versions: [{ version: '1.2.0' }, { version: '1.1.1' }] }] }] };
+    const r = assertPublished(q, { publisher: 'pub', name: 'ext', version: '1.2.0' });
+    return r.ok === true && r.live === true && r.latest === '1.2.0';
+  }],
+  ['release-verify-published (#412) fails closed on absent version / publisher mismatch / no extension', () => {
+    const q = { results: [{ extensions: [{ publisher: { publisherName: 'pub' }, extensionName: 'ext', versions: [{ version: '1.1.1' }] }] }] };
+    const absent = assertPublished(q, { publisher: 'pub', name: 'ext', version: '1.2.0' });
+    const wrongPub = assertPublished(q, { publisher: 'other', name: 'ext', version: '1.1.1' });
+    const noExt = assertPublished({ results: [{ extensions: [] }] }, { publisher: 'pub', name: 'ext', version: '1.1.1' });
+    return absent.ok === false && absent.live === false && wrongPub.ok === false && noExt.ok === false;
+  }],
+  ['release-cut-github (#412) verifyReleaseAssets passes a complete artifact set + names the tag', () => {
+    const r = verifyReleaseAssets(['x/labview-benchmark-actor.vsix', 'x/labview-benchmark-actor.vsix.sigstore', 'x/extension-verdict.json'], { version: '1.2.0' });
+    return r.ok === true && r.tag === 'ext-v1.2.0' && /\.vsix$/.test(r.vsix);
+  }],
+  ['release-cut-github (#412) fails closed on a missing vsix / sigstore / verdict; accepts a .pem+.sig bundle', () => {
+    const noVsix = verifyReleaseAssets(['a.sigstore', 'x-verdict.json'], { version: '1.2.0' });
+    const noSig = verifyReleaseAssets(['a.vsix', 'x-verdict.json'], { version: '1.2.0' });
+    const noVerdict = verifyReleaseAssets(['a.vsix', 'a.sigstore'], { version: '1.2.0' });
+    const pemSig = verifyReleaseAssets(['a.vsix', 'a.pem', 'a.sig', 'x-verdict.json'], { version: '1.2.0' });
+    return noVsix.ok === false && noSig.ok === false && noVerdict.ok === false && pemSig.ok === true;
   }],
   ['signing-status binds the QUORUM sign-off to the VM when the enrolled key lives there (#414), key never read', () => {
     const enrolled = readReviewerAllowlist()['reviewer@vi-tech.nl'];
