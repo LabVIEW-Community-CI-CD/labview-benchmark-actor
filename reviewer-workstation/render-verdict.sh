@@ -41,9 +41,32 @@ command -v VBoxManage >/dev/null || { echo "render-verdict: VBoxManage not on PA
 gc() { VBoxManage guestcontrol "$vm" --username "$user" --password "$pass" "$@"; }
 guest_handoff="C:\\Users\\${user}\\AppData\\Roaming\\Code\\User\\globalStorage\\svelderrainruiz.labview-benchmark-actor\\handoff"
 
+# Compute the sha256 of the staged candidate .vsix INSIDE the VM (PowerShell Get-FileHash -> 64-hex). Empty when
+# the .vsix is not staged. Used by `guard` + the auto-guarded set-target to enforce reviewed==shipped (#411).
+guest_vsix="${LBA_GUEST_VSIX:-C:\\lba-review\\candidate.vsix}"
+staged_vsix_sha() {
+  gc run --exe 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' --wait-stdout -- \
+    powershell -NoProfile -Command "if (Test-Path '${guest_vsix}') { (Get-FileHash -Algorithm SHA256 '${guest_vsix}').Hash }" 2>/dev/null | tr -d '\r' | grep -oiE '[0-9a-f]{64}' | head -1
+}
+
 case "$sub" in
+  guard)
+    command -v node >/dev/null || { echo "render-verdict: node not on PATH" >&2; exit 3; }
+    [[ -n "$vsix" ]] || { echo "render-verdict: guard requires --vsix-sha256 <candidate sha>" >&2; exit 2; }
+    staged="$(staged_vsix_sha)"
+    [[ -n "$staged" ]] || { echo "render-verdict: no candidate .vsix staged in the VM at ${guest_vsix} -- stage it first (stage-local-vsix.ps1)" >&2; exit 1; }
+    node "${here}/verify-staged-vsix.mjs" --candidate-sha256 "$vsix" --staged-sha256 "$staged"
+    ;;
   set-target)
     command -v node >/dev/null || { echo "render-verdict: node not on PATH" >&2; exit 3; }
+    # reviewed==shipped guard (#411): when a candidate sha is given, REFUSE to bind the review target unless the
+    # .vsix actually staged in the VM is byte-identical -- so the reviewer never signs a build that is not the one
+    # that ships (the 1.1.0 node-22-review-vs-node-24-ship defect). Stage the candidate first (stage-local-vsix.ps1).
+    if [[ -n "$vsix" ]]; then
+      staged="$(staged_vsix_sha)"
+      [[ -n "$staged" ]] || { echo "render-verdict: --vsix-sha256 given but no candidate .vsix is staged in the VM at ${guest_vsix} -- stage it first (stage-local-vsix.ps1)" >&2; exit 1; }
+      node "${here}/verify-staged-vsix.mjs" --candidate-sha256 "$vsix" --staged-sha256 "$staged" >&2
+    fi
     # Build review-target.json locally (node JSON-escapes the evidence refs), then drop it into the VM handoff dir.
     # Each --evidence ARG is ONE entry, and a ref MAY contain spaces (e.g. "run-42: 495 frames @12fps/1866ms,
     # peakCpu 100%"). Pass the array NEWLINE-delimited (a ref is single-line) so element boundaries survive --
@@ -71,7 +94,7 @@ case "$sub" in
     echo "[render-verdict] collected the signed verdict -> ${out}" >&2
     ;;
   *)
-    echo "usage: render-verdict.sh <set-target|collect> ... (see --help)" >&2
+    echo "usage: render-verdict.sh <guard|set-target|collect> ... (see --help)" >&2
     exit 2
     ;;
 esac

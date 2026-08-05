@@ -3303,6 +3303,15 @@ check('verify-quorum-signoff', () => {
   return { selftest: 'verify-quorum-signoff 7/7', proves: 'host-side quorum sign-off verify (enrolled + passing crossPlane), fail-closed' };
 });
 
+// Issue #411 (LBA-REQ-057): the staged-candidate SHA GUARD -- render-verdict.sh refuses to bind a review target
+// (and thus refuses to produce a verdict) unless the .vsix staged in the VM is byte-identical to the candidate the
+// verdict binds to (target.vsixSha256), so the reviewer never signs a build that is not the one that ships (the
+// 1.1.0 reviewed!=shipped defect). Asserts the selftest (7/7); the in-VM sha computation is the wrapper's live leg.
+check('verify-staged-vsix', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'verify-staged-vsix.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'verify-staged-vsix 7/7', proves: 'reviewed==shipped staged-.vsix sha guard, fail-closed' };
+});
+
 // The genuine cross-plane COMPOSITE re-seal (ADR-0072 / LBA-REQ-090): the 1.0.0 composite release decision rebuilt
 // over the genuine two-plane quorum (LBA-REQ-088) + the enrolled machine sign-off (LBA-REQ-089) + a signed human
 // visual PASS of the byte-reproducible candidate + the genuine WIN staging -- all five bindings hold AND the
