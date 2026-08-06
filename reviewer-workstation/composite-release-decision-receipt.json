@@ -3,36 +3,26 @@
   "requirement": "LBA-REQ-070",
   "adr": "ADR-0051",
   "transport": "lbabus net -- bus-msg@1, ADR-0003/0004 (TCP 7420; guest->host via VirtualBox NAT 10.0.2.2). NET-ONLY: staging rides net, not a GitHub Discussion (ADR-0047).",
-  "capability": {
-    "crossPlaneProvenance": {
-      "workflow": "acg cross-plane corroboration (.github/workflows/acg-cross-plane-corroboration.yml)",
-      "event": "workflow_dispatch",
-      "runId": "31021981978",
-      "runUrl": "https://github.com/LabVIEW-Community-CI-CD/labview-benchmark-actor/actions/runs/31021981978",
-      "commit": "4894be776fee14f940bb19297f709ce20f65047e",
-      "note": "Genuine cross-plane witnesses from real ubuntu-22.04/24.04 (linux plane) + windows-2022/2025 (windows plane) runners, dispatched at the 1.1.1 candidate commit 4894be77; re-downloadable + byte-comparable from the run artifacts.",
-      "capturedAt": "2026-08-05T16:46:57.679Z"
-    }
-  },
+  "capability": null,
   "candidate": {
     "component": "extension",
-    "version": "1.1.1",
-    "commit": "4894be776fee14f940bb19297f709ce20f65047e",
-    "vsixSha256": "d68690e41af0f93009fb70e16a6eff3aa994626940be32f1c0d3c4f0b7b4112e"
+    "version": "1.2.0",
+    "commit": "a807318c4d16e830e6349844541c9c57ba16de75",
+    "vsixSha256": "0d28f6b4926d153586a534d9c029e7b8a54f3af575563c56d19cdc3d811bcd50"
   },
   "staged": {
-    "drive": "release/1.1.1 WIN-plane staging (offline-signed path, ADR-0047): the actor VM (WIN plane) staged the ext 1.1.1 candidate 4894be77 -- the reproducible node-24 vsix d68690e4 (C:\\lba-validate\\labview-benchmark-actor.vsix, sha verified) -- and ran win-plane-validate.ps1 -> winPlaneReady:true; an enrolled reviewer rendered + signed a PASS visual verdict of it in the VM. The DONE frame records the WIN-plane staging of that exact candidate.",
-    "vm": "actor",
+    "drive": "release/1.2.0 WIN-plane staging (offline-signed path, ADR-0047): native Windows host staged the ext 1.2.0 candidate a807318 -- the node-24 vsix 0d28f6b4 -- and ran win-plane-validate.ps1 -> winPlaneReady:true; an enrolled reviewer signed a PASS visual verdict of it on the WIN station. The DONE frame records the WIN-plane staging of that exact candidate.",
+    "vm": "native-windows-host",
     "matched": true,
     "candidate": {
       "component": "extension",
-      "version": "1.1.1"
+      "version": "1.2.0"
     },
     "frame": {
       "type": "DONE",
-      "task": "rev-1.1.1-net",
+      "task": "rev-1.2.0-net",
       "senderId": "WIN",
-      "payload": "ext 1.1.1 staged + WIN-plane validated (winPlaneReady:true, commit 4894be77, node-24 vsix d68690e4): npm ci + compile + 6 suites + masked activation 26 cmds + agent-last-gate 8/8; review PASS"
+      "payload": "ext 1.2.0 staged + WIN-plane validated (winPlaneReady:true, commit a807318, node-24 vsix 0d28f6b4): npm ci + compile + 6 suites + masked activation 26 cmds + agent-last-gate 8/8; review PASS"
     }
   },
   "machine": {
@@ -47,8 +37,8 @@
       "crossPlane": true,
       "consensusVerdict": "pass",
       "consensus": {
-        "version": "1.1.1",
-        "sourceCommit": "4894be776fee14f940bb19297f709ce20f65047e",
+        "version": "1.2.0",
+        "sourceCommit": "a807318c4d16e830e6349844541c9c57ba16de75",
         "verdict": "pass",
         "seriesHash": "7ad1c75d08244013d339c3f256fd14220a2df7cea56d5be5b38af2d82d68efaa",
         "pngSha256": null,
@@ -67,16 +57,16 @@
       {
         "schema": "labview-benchmark-actor/acg-human-signoff-v1",
         "subject": {
-          "verdictDigest": "737c20ee3e02c885cfea5e3c14d8e0029d091764e24709d5213230c663ce560e",
+          "verdictDigest": "3849fe9762f66600ec55aee071bc16f992ec09d100ef9fd99b1aa1d1d28bb258",
           "consensusVerdict": "pass"
         },
         "reviewer": "reviewer@vi-tech.nl",
         "decision": "approve",
         "station": "WINDOWS_VM",
         "algorithm": "ed25519",
-        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
-        "signedAt": "2026-08-05T16:44:25.714Z",
-        "signature": "vcSbgtcu198uF1+CCBmQlDpqNkVwAswpG3CZP13BfDkez3CC6W6TygbN7Lr7tE5qnqk0PkiGv359J5WJfFfHDw=="
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAWRnlX++0MkQq+vtVEEMnBDON+cQEjNi49qFY07DwV2g=\n-----END PUBLIC KEY-----\n",
+        "signedAt": "2026-08-06T06:09:04.724Z",
+        "signature": "8QydAPk08p3/18ul71Rm21ku6g2TxqloNVzigjak0FP4BESCf29zaQie8BIxPuMpbJj6TqzdiJj1H6A446RwBg=="
       }
     ]
   },
@@ -85,57 +75,61 @@
       "schema": "labview-benchmark-actor/reviewer-verdict@1",
       "target": {
         "component": "extension",
-        "version": "1.1.1",
-        "commit": "4894be776fee14f940bb19297f709ce20f65047e",
-        "vsixSha256": "d68690e41af0f93009fb70e16a6eff3aa994626940be32f1c0d3c4f0b7b4112e"
+        "version": "1.2.0",
+        "commit": "a807318c4d16e830e6349844541c9c57ba16de75",
+        "vsixSha256": "0d28f6b4926d153586a534d9c029e7b8a54f3af575563c56d19cdc3d811bcd50"
       },
       "verdict": "pass",
       "reviewer": "reviewer@vi-tech.nl",
       "station": "WINDOWS_VM",
-      "notes": "",
+      "notes": "WIN-plane validated on native Windows host (winPlaneReady:true): npm ci + compile + 6 suites + masked activation 26 cmds + agent-last-gate 8/8. Candidate vsix sha 0d28f6b4 at commit a807318.",
       "evidence": [
         {
-          "kind": "win-plane-validation",
-          "ref": "release/1.1.1@4894be77 winPlaneReady=true (npm ci+compile+6 suites+masked activation 26 cmds+agent-last-gate 8/8, Windows NT 10.0.26200)"
+          "kind": "win-plane-validate",
+          "ref": "winPlaneReady:true head a807318 suites all green maskedActivationCommands 26 agentLastGate PASS 8/8"
         },
         {
-          "kind": "machine-corroboration",
-          "ref": "acg-cross-plane run 31021981978, 4 witnesses linux+windows, confidence 0.944, consensus 1.1.1@4894be77 seriesHash 7ad1c75d"
+          "kind": "vsix",
+          "ref": "labview-benchmark-actor.vsix sha256 0d28f6b4926d153586a534d9c029e7b8a54f3af575563c56d19cdc3d811bcd50"
+        },
+        {
+          "kind": "attestation",
+          "ref": "run 31048092052 crossPlaneCorroborated true confidence 0.9444"
         }
       ],
-      "renderedAt": "2026-08-05T16:29:51.882Z"
+      "renderedAt": "2026-08-06T06:13:08.069Z"
     },
     "signOff": {
       "schema": "labview-benchmark-actor/acg-human-signoff-v1",
       "subject": {
-        "verdictDigest": "f619a11e6023f6c4435c024a84e53c668e1c28392d1108ccc6ee6c3cce358632",
+        "verdictDigest": "23750064ee531401f92edbb5b04df16cd71561bd4c8f8b47500d93d90959971a",
         "consensusVerdict": "pass",
         "target": {
           "component": "extension",
-          "version": "1.1.1",
-          "commit": "4894be776fee14f940bb19297f709ce20f65047e",
-          "vsixSha256": "d68690e41af0f93009fb70e16a6eff3aa994626940be32f1c0d3c4f0b7b4112e"
+          "version": "1.2.0",
+          "commit": "a807318c4d16e830e6349844541c9c57ba16de75",
+          "vsixSha256": "0d28f6b4926d153586a534d9c029e7b8a54f3af575563c56d19cdc3d811bcd50"
         }
       },
       "reviewer": "reviewer@vi-tech.nl",
       "decision": "approve",
       "station": "WINDOWS_VM",
       "algorithm": "ed25519",
-      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n",
-      "signedAt": "2026-08-05T16:29:51.883Z",
-      "signature": "e8Dh0kthYZxfUwyKP+DQDf5hhWgg6NqXWBmpPGzcnBUhCYxERavDeffn+qLlJS5uMcPiCQc3qQiF9X7mCTScDg=="
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAWRnlX++0MkQq+vtVEEMnBDON+cQEjNi49qFY07DwV2g=\n-----END PUBLIC KEY-----\n",
+      "signedAt": "2026-08-06T06:13:08.071Z",
+      "signature": "joWvdN1isMuuJIMxIwNhfHR6BI36V9f/veEoUOSsWrzGVWoNs1t8zvubUJIBuLlLlA1Jlh7GMj1z5ndbqRt4Dw=="
     }
   },
   "reviewerAllowlist": {
     "_comment": "Enrolled reviewer visual-verdict signing keys (reviewer id -> Ed25519 SPKI public key PEM). Add entries with reviewer-workstation/enroll-reviewer.mjs (the private key stays LOCAL to the reviewer, never committed). The verify-visual-review gate + the extension-release workflow verify a release's signed reviewer verdict against these keys (LBA-REQ-057, ADR-0037).",
-    "reviewer@vi-tech.nl": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEABCDORk4fzg4GamJz5efDQXP0wF52Rodj+ua8kHj1ISE=\n-----END PUBLIC KEY-----\n"
+    "reviewer@vi-tech.nl": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAWRnlX++0MkQq+vtVEEMnBDON+cQEjNi49qFY07DwV2g=\n-----END PUBLIC KEY-----\n"
   },
   "gate": {
     "minReviewers": 1,
     "minVisualReviewers": 1
   },
-  "capturedAt": "2026-08-05T16:46:57.679Z",
-  "note": "1.1.1 patch: ffmpeg winget-Links detection (#405) + labviewPath validation (#407). Composite capstone bound to candidate extension/1.1.1/4894be77/d68690e4.",
+  "capturedAt": null,
+  "note": null,
   "binding": {
     "machinePublish": true,
     "visualPublish": true,
@@ -151,7 +145,7 @@
   },
   "verdict": {
     "compositeReleaseProven": true,
-    "reason": "both gates publish for extension 1.1.1: machine quorum + enrolled sign-off (ADR-0018) AND human visual PASS (LBA-REQ-057), bound to the same net-staged candidate"
+    "reason": "both gates publish for extension 1.2.0: machine quorum + enrolled sign-off (ADR-0018) AND human visual PASS (LBA-REQ-057), bound to the same net-staged candidate"
   },
-  "digest": "82b96f553bf681aafd42c6f56aa4b6c36b26316eef72b18681d4f9d80fd539c6"
+  "digest": "6242bb49f32bc551d9a1d0f0e99eb0f226286efc30afc85ca099e2be46b09b06"
 }

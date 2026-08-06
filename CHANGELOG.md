@@ -6,6 +6,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-05
+
 ### Fixed
 - **"Capture LabVIEW Launch" no longer misleads Linux/macOS users with a "LabVIEW.exe not found" error**
   (issue #423). The command is Windows-only (gdigrab + `LabVIEW.exe`), but on non-Windows hosts it fell through to
