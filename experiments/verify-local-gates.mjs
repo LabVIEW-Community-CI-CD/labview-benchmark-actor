@@ -305,7 +305,7 @@ check('test-report-current', () => {
 //     cited file or a dropped invariant is rejected).
 check('release-procedure-references-resolve', () => {
   execFileSync(process.execPath, [join(here, 'release', 'verify-release-procedure.selftest.mjs')], { stdio: 'pipe' });
-  return { standard: 'ISO/IEC/IEEE 15289 + 12207', selftest: 'verify-release-procedure 3/3 (conformant + fail-closed)' };
+  return { standard: 'ISO/IEC/IEEE 15289 + 12207', selftest: 'verify-release-procedure 6/6 (procedure + runbook conformant + fail-closed)' };
 });
 
 // 6h. Continuous compliance self-audit (CAPSTONE, LBA-REQ-037): score THIS repo against the
@@ -1329,6 +1329,17 @@ check('gitflow-branch-governance-documented', () => {
   assert(/merge method/i.test(cm) && /squash/i.test(cm) && /--no-ff|merge commit/i.test(cm), 'CM plan must document the merge method by branch type (squash for feature; --no-ff merge commit for release/hotfix back-merges)');
   assert(existsSync(join(pkgRoot, 'docs', 'architecture', 'adr', 'ADR-0010-gitflow-branch-governance.md')), 'ADR-0010 must record the GitFlow decision');
   return { rules: ['feature', 'release', 'hotfix', 'merge-method'], adr: 'ADR-0010' };
+});
+
+// 17c-lineage. Release lineage (LBA-REQ-016, #417 / ADR-0010): every ext-v* release tag must be an ancestor of
+// BOTH main and develop -- a --no-ff release merge to main + a --no-ff back-merge to develop SHARE the release
+// commit; a squashed/divergent back-merge diverges main<->develop and 3-way-conflicts the NEXT release/* (hit live
+// in 1.1.0 AND 1.1.1). Asserts the selftest (5/5: pure verdict + injected-git probe). Run
+// `experiments/release/verify-release-lineage.mjs --check` after a release (full-history checkout) to catch a live
+// divergence; the pure verdict + fail-closed reasons are proven here.
+check('release-lineage', () => {
+  execFileSync(process.execPath, [join(here, 'release', 'verify-release-lineage.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'verify-release-lineage 5/5', proves: 'every ext-v* tag shared by main + develop; fail-closed on divergence (#417)' };
 });
 
 // 17d. Coverage gate (LBA-REQ-016 CM / ISO-IEC-IEEE 29119): the committed Cobertura coverage artifact meets
@@ -2701,15 +2712,27 @@ check('composite-release-decision', () => {
   return { selftest: 'composite-release-decision 7/7', candidate: `${r.candidate.component} ${r.candidate.version}`, machine: r.binding.machinePublish, visual: r.binding.visualPublish, bound: true };
 });
 
+// Issue #410 (LBA-REQ-070 / ADR-0051): the one-shot composite receipt ASSEMBLER fuses the four release pieces
+// (candidate, machine quorum + sign-off, signed visual verdict, staged net frame) into the composite receipt AND
+// fails closed with a PRECISE per-field diff the moment any piece names a different candidate -- so a binding
+// mismatch is caught at assembly, not as a late opaque publish-gate failure. Asserts the selftest (7/7) + that
+// the assembler reproduces the committed receipt from its own pieces (offline, deterministic).
+check('assemble-composite', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'assemble-composite.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'assemble-composite 7/7', proves: 'precise fail-closed candidate binding + composite assembly' };
+});
+
 // LBA-REQ-071 / ADR-0052: composite release ENFORCEMENT -- the extension release workflow blocks publishing
 // unless a committed composite release-decision proves both gates pass for the tagged candidate. Asserts (offline)
 // that the enforcement CLI clears the committed candidate + fails closed for a version with no decision, AND that
 // extension-release.yml runs the CLI in the publish-gating agreement job (release needs: [build, agreement]).
 check('composite-release-enforced', () => {
   const cli = join(here, '..', 'tools', 'collab-cli', 'verify-composite-release.mjs');
-  // the committed composite receipt (ext 1.1.1) clears the release gate...
-  execFileSync(process.execPath, [cli, '--component', 'extension', '1.1.1'], { stdio: 'pipe' });
-  // ...and a version with no proven composite decision fails closed (exit 1).
+  // The committed receipt's candidate.version is the SINGLE SOURCE OF TRUTH (#416): assert the receipt is
+  // PROVEN for ITS OWN version, so a release version bump touches only the receipt, never this gate file.
+  const receiptVersion = JSON.parse(readFileSync(join(here, '..', 'reviewer-workstation', 'composite-release-decision-receipt.json'), 'utf8')).candidate.version;
+  execFileSync(process.execPath, [cli, '--component', 'extension', receiptVersion], { stdio: 'pipe' });
+  // ...and a synthetic version with no proven composite decision fails closed (exit 1).
   let blocked = false;
   try { execFileSync(process.execPath, [cli, '--component', 'extension', '0.9.9-none'], { stdio: 'pipe' }); }
   catch { blocked = true; }
@@ -2718,7 +2741,7 @@ check('composite-release-enforced', () => {
   const wf = readFileSync(join(here, '..', '.github', 'workflows', 'extension-release.yml'), 'utf8');
   assert(/verify-composite-release\.mjs --component extension/.test(wf), 'extension-release.yml runs the composite-release enforcement CLI');
   assert(/needs:\s*\[build,\s*agreement\]/.test(wf), 'the release job needs the agreement job, so the composite gate blocks the publish');
-  return { cli: 'verify-composite-release', clears: 'extension 1.1.1', failsClosed: true, wired: true };
+  return { cli: 'verify-composite-release', clears: `extension ${receiptVersion}`, failsClosed: true, wired: true };
 });
 
 // LBA-REQ-060 / ADR-0040: live-only net coordination -- the per-actor receive-log (`net listen --log`) + the
@@ -3200,6 +3223,25 @@ check('vsix-cross-plane-repro-workflow-wired', () => {
   return { planes: ['linux', 'windows'], proof: 'npm run package on both -> identical sha256 (fail-closed)' };
 });
 
+// Release-path node identity (#408): the .vsix is byte-reproducible only within an EXACT node version (a node
+// minor can perturb the packaged bytes). A repo-root .nvmrc pins that exact version, and EVERY release-path
+// workflow (extension-release, vsix-cross-plane-repro, acg-cross-plane-corroboration) must source node from it
+// via `node-version-file: .nvmrc` -- never a floating `node-version: '24'` -- so reviewed(local)==shipped(CI).
+check('release-path-node-pinned', () => {
+  const nvmrc = join(pkgRoot, '.nvmrc');
+  assert(existsSync(nvmrc), 'a repo-root .nvmrc must pin the exact release node version');
+  const pin = readFileSync(nvmrc, 'utf8').trim();
+  assert(/^\d+\.\d+\.\d+$/.test(pin), `.nvmrc must pin an EXACT node version (got "${pin}")`);
+  const releasePathWorkflows = ['extension-release.yml', 'vsix-cross-plane-repro.yml', 'acg-cross-plane-corroboration.yml'];
+  for (const name of releasePathWorkflows) {
+    const t = readFileSync(join(pkgRoot, '.github', 'workflows', name), 'utf8').replace(/\r\n/g, '\n');
+    assert(/setup-node/.test(t), `${name} must set up node`);
+    assert(/node-version-file:\s*\.nvmrc/.test(t), `${name} must source node from .nvmrc (node-version-file: .nvmrc)`);
+    assert(!/node-version:\s*['"]/.test(t), `${name} must NOT pin a floating node-version literal (use .nvmrc)`);
+  }
+  return { nvmrc: pin, workflows: releasePathWorkflows.length, sourced: 'node-version-file: .nvmrc' };
+});
+
 // Genuine cross-plane corroboration (ADR-0069 / LBA-REQ-087): a LINUX plane and a WINDOWS plane each produce a
 // witness over the deterministic anchors (version/sourceCommit/verdict/seriesHash) and the corrected quorum
 // (ADR-0068 -- independence is the OS-plane) proves they CROSS-PLANE corroborate. Run the producer + corroboration
@@ -3262,6 +3304,25 @@ check('acg-signed-cross-plane-corroboration', () => {
   return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), approvals: receipt.decision.approvals };
 });
 
+// Issue #415 (LBA-REQ-089): render-quorum.sh's host-side VERIFY leg -- verify-quorum-signoff.mjs confirms a
+// VM-produced quorum sign-off genuinely signs THIS attestation's quorum bundleDigest with an ENROLLED key AND that
+// the attested quorum is a genuine passing cross-plane consensus (a signed single-plane/non-pass quorum is the
+// shipped 1.0.0 defect). Asserts the selftest (7/7). The VM-bridge legs (stage/sign/collect) are the operator's
+// key act against the VM-resident enrolled key; the wrapper drives them but the private key never leaves the VM.
+check('verify-quorum-signoff', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'verify-quorum-signoff.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'verify-quorum-signoff 7/7', proves: 'host-side quorum sign-off verify (enrolled + passing crossPlane), fail-closed' };
+});
+
+// Issue #411 (LBA-REQ-057): the staged-candidate SHA GUARD -- render-verdict.sh refuses to bind a review target
+// (and thus refuses to produce a verdict) unless the .vsix staged in the VM is byte-identical to the candidate the
+// verdict binds to (target.vsixSha256), so the reviewer never signs a build that is not the one that ships (the
+// 1.1.0 reviewed!=shipped defect). Asserts the selftest (7/7); the in-VM sha computation is the wrapper's live leg.
+check('verify-staged-vsix', () => {
+  execFileSync(process.execPath, [join(here, '..', 'reviewer-workstation', 'verify-staged-vsix.selftest.mjs')], { stdio: 'pipe' });
+  return { selftest: 'verify-staged-vsix 7/7', proves: 'reviewed==shipped staged-.vsix sha guard, fail-closed' };
+});
+
 // The genuine cross-plane COMPOSITE re-seal (ADR-0072 / LBA-REQ-090): the 1.0.0 composite release decision rebuilt
 // over the genuine two-plane quorum (LBA-REQ-088) + the enrolled machine sign-off (LBA-REQ-089) + a signed human
 // visual PASS of the byte-reproducible candidate + the genuine WIN staging -- all five bindings hold AND the
@@ -3276,6 +3337,15 @@ check('acg-crossplane-composite-reseal', () => {
   for (const k of ['machinePublish', 'visualPublish', 'stagedOverNet', 'visualTargetBound', 'machineConsensusBound']) assert(receipt.binding[k] === true, `binding ${k} must hold`);
   return { candidate: `${receipt.candidate.component} ${receipt.candidate.version}`, commit: String(receipt.candidate.commit).slice(0, 9), crossPlane: true };
 });
+// Release-agreement recorder (#419): the turnkey helper that inserts a components.<comp>.releases.<version>
+// entry (both planes agreed:true + the embedded signed visualReview) as a MINIMAL structured edit, refuses to
+// clobber, and fails closed unless BOTH release gates pass. Guarded by its selftest so a release entry is never
+// hand-edited JSON again.
+check('record-release-agreement-selftested', () => {
+  execFileSync(process.execPath, [join(here, '..', 'tools', 'collab-cli', 'record-release-agreement.selftest.mjs')], { stdio: 'pipe' });
+  return { helper: 'tools/collab-cli/record-release-agreement.mjs', proof: 'records + minimal-diff + no-clobber + empty-seed (both gates pass)' };
+});
+
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const receipt = {

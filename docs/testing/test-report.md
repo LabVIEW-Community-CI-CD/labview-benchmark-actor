@@ -21,7 +21,7 @@ the `LBA Local Gates verify` CI job.
 
 ## 2. Executed verification evidence (ISO/IEC/IEEE 29119-3)
 
-### 2.1 Local gate suite — 190 fail-closed checks
+### 2.1 Local gate suite — 196 fail-closed checks
 
 Run by `node experiments/verify-local-gates.mjs`. All must pass. The full gate inventory (the executed
 test items at the gate granularity) is:
@@ -57,6 +57,7 @@ activation-receipt-confirms-activation
 adr-index-integrity
 agent-tooling-selftest
 all-plane-receipts-authoritative-zero-skew
+assemble-composite
 authoring-dep-manifest
 benchmark-observatory
 benchmark-store-receipt-green
@@ -187,8 +188,11 @@ provisioner-headless-readiness
 provisioner-installs-labview-and-vipm
 readme-marketplace-safe-links
 real-corpus-wiring-green
+record-release-agreement-selftested
 release-lanes-keyless-attested
+release-lineage
 release-no-discussion-announce
+release-path-node-pinned
 release-procedure-references-resolve
 release-with-review-drive
 reproducible-vsix-normalizer
@@ -203,6 +207,8 @@ stress-discounted-comparison
 test-report-current
 test-requirement-correspondence
 traceability-matrix-current
+verify-quorum-signoff
+verify-staged-vsix
 vi-analyzer-ascii-parser-green
 vi-analyzer-real-report-cross-plane-green
 vi-analyzer-report-schema-green
@@ -251,13 +257,13 @@ The controlled state of the repository's configuration items, derived from the r
 
 | Configuration item class | Count | Register |
 | --- | --- | --- |
-| Requirements (total) | 92 | docs/requirements/srs.md, rtm.csv |
-| — Status: Proven | 91 | rtm.csv |
+| Requirements (total) | 93 | docs/requirements/srs.md, rtm.csv |
+| — Status: Proven | 92 | rtm.csv |
 | — Status: Superseded | 1 | rtm.csv |
-| Architecture decisions (ADRs) | 75 | docs/architecture/adr/README.md |
-| Governed gates | 190 | experiments/verify-local-gates.mjs |
+| Architecture decisions (ADRs) | 76 | docs/architecture/adr/README.md |
+| Governed gates | 196 | experiments/verify-local-gates.mjs |
 | Correspondence rules | 7 | experiments/reqs-coverage/verify-correspondences.mjs |
-| Governed test items | 91 | docs/testing/test-plan.md |
+| Governed test items | 92 | docs/testing/test-plan.md |
 
 Baselines are cut on the `main` branch via SemVer tags (GitFlow); each release is keyless-signed and
 corroborated across planes before publication (see `docs/cm/cm-plan.md` and the release procedure).
@@ -274,4 +280,4 @@ the same correspondence graph (ADR-0013).
 `node experiments/reqs-coverage/generate-test-report.mjs` rewrites this file; `--check` (the
 `test-report-current` gate) fails closed on drift, so the report can never silently lag the apparatus.
 
-_Generated from 190 gates, 7 correspondence rules, 92 requirements, 75 ADRs, 91 test items._
+_Generated from 196 gates, 7 correspondence rules, 93 requirements, 76 ADRs, 92 test items._
