@@ -446,6 +446,73 @@
               "signature": "e8Dh0kthYZxfUwyKP+DQDf5hhWgg6NqXWBmpPGzcnBUhCYxERavDeffn+qLlJS5uMcPiCQc3qQiF9X7mCTScDg=="
             }
           }
+        },
+        "1.2.0": {
+          "summary": "extension 1.2.0 -- Capture LabVIEW Launch no longer misleads Linux/macOS users with a LabVIEW.exe-not-found error (issue #423); fails fast on non-Windows with handoff to Capture LabVIEW Launch (mprr).",
+          "signoffs": {
+            "WIN": {
+              "agreed": true,
+              "reviewedCommit": "a807318c4d16e830e6349844541c9c57ba16de75",
+              "at": "2026-08-06T06:16:29.444Z",
+              "note": "WIN plane: native Windows host win-plane-validate.ps1 -> winPlaneReady:true at a807318 (npm ci + compile + 6 suites + masked activation 26 cmds + agent-last-gate 8/8); enrolled reviewer signed PASS visual + quorum on WINDOWS_VM for vsix 0d28f6b4."
+            },
+            "LINUX": {
+              "agreed": true,
+              "reviewedCommit": "a807318c4d16e830e6349844541c9c57ba16de75",
+              "at": "2026-08-06T06:16:29.444Z",
+              "note": "LINUX plane: release/1.2.0 candidate a807318 packaged on node 24.19.0; cross-plane corroboration run 31048092052 pass (linux+windows, confidence 0.9444); compositeReleaseProven=true with vsix 0d28f6b4."
+            }
+          },
+          "visualReview": {
+            "verdict": {
+              "schema": "labview-benchmark-actor/reviewer-verdict@1",
+              "target": {
+                "component": "extension",
+                "version": "1.2.0",
+                "commit": "a807318c4d16e830e6349844541c9c57ba16de75",
+                "vsixSha256": "0d28f6b4926d153586a534d9c029e7b8a54f3af575563c56d19cdc3d811bcd50"
+              },
+              "verdict": "pass",
+              "reviewer": "reviewer@vi-tech.nl",
+              "station": "WINDOWS_VM",
+              "notes": "WIN-plane validated on native Windows host (winPlaneReady:true): npm ci + compile + 6 suites + masked activation 26 cmds + agent-last-gate 8/8. Candidate vsix sha 0d28f6b4 at commit a807318.",
+              "evidence": [
+                {
+                  "kind": "win-plane-validate",
+                  "ref": "winPlaneReady:true head a807318 suites all green maskedActivationCommands 26 agentLastGate PASS 8/8"
+                },
+                {
+                  "kind": "vsix",
+                  "ref": "labview-benchmark-actor.vsix sha256 0d28f6b4926d153586a534d9c029e7b8a54f3af575563c56d19cdc3d811bcd50"
+                },
+                {
+                  "kind": "attestation",
+                  "ref": "run 31048092052 crossPlaneCorroborated true confidence 0.9444"
+                }
+              ],
+              "renderedAt": "2026-08-06T06:13:08.069Z"
+            },
+            "signOff": {
+              "schema": "labview-benchmark-actor/acg-human-signoff-v1",
+              "subject": {
+                "verdictDigest": "23750064ee531401f92edbb5b04df16cd71561bd4c8f8b47500d93d90959971a",
+                "consensusVerdict": "pass",
+                "target": {
+                  "component": "extension",
+                  "version": "1.2.0",
+                  "commit": "a807318c4d16e830e6349844541c9c57ba16de75",
+                  "vsixSha256": "0d28f6b4926d153586a534d9c029e7b8a54f3af575563c56d19cdc3d811bcd50"
+                }
+              },
+              "reviewer": "reviewer@vi-tech.nl",
+              "decision": "approve",
+              "station": "WINDOWS_VM",
+              "algorithm": "ed25519",
+              "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAWRnlX++0MkQq+vtVEEMnBDON+cQEjNi49qFY07DwV2g=\n-----END PUBLIC KEY-----\n",
+              "signedAt": "2026-08-06T06:13:08.071Z",
+              "signature": "joWvdN1isMuuJIMxIwNhfHR6BI36V9f/veEoUOSsWrzGVWoNs1t8zvubUJIBuLlLlA1Jlh7GMj1z5ndbqRt4Dw=="
+            }
+          }
         }
       }
     }
