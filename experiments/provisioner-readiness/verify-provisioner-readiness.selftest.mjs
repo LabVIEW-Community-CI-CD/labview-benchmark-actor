@@ -13,6 +13,13 @@ import {
   buildReadinessReceipt, validateReadinessReceipt, digestReadinessReceipt,
   analyzeProvisioner, READINESS_SCHEMA,
 } from './provisionerReadiness.mjs';
+import {
+  buildGoldenActivationReadinessReceipt,
+  validateGoldenActivationReadinessReceipt,
+  digestGoldenActivationReadiness,
+  REQUIRED_RUNTIME_CHECKS,
+  GOLDEN_ACTIVATION_READINESS_SCHEMA,
+} from './goldenActivationReadiness.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
@@ -93,6 +100,39 @@ const ok = (m) => { n++; console.log(`ok ${n} - ${m}`); };
   const v = validateReadinessReceipt(tampered, realScript);
   assert.ok(!v.ok && v.findings.some((f) => /digest/.test(f)), 'a tampered digest must be rejected');
   ok('fail-closed: a tampered digest is rejected');
+}
+
+// 8. A live golden actor handoff receipt is deterministic and requires every no-secret prerequisite.
+{
+  const checks = Object.fromEntries(REQUIRED_RUNTIME_CHECKS.map((name) => [name, true]));
+  const capture = {
+    schema: 'labview-benchmark-actor/golden-activation-readiness-capture@1',
+    mode: 'check',
+    repairPerformed: false,
+    rebootRequired: false,
+    checks,
+  };
+  const receipt = buildGoldenActivationReadinessReceipt(capture);
+  const v = validateGoldenActivationReadinessReceipt(receipt);
+  assert.equal(receipt.schema, GOLDEN_ACTIVATION_READINESS_SCHEMA, 'golden readiness schema is stable');
+  assert.ok(v.ok && v.ready, `all runtime prerequisites produce READY: ${v.findings.join('; ')}`);
+  assert.equal(receipt.digest, digestGoldenActivationReadiness(receipt), 'golden readiness digest is deterministic');
+  ok('golden activation readiness: all public prerequisites yield a deterministic READY handoff receipt');
+}
+
+// 9. Missing guest dependencies and tampered verdicts refuse the human activation handoff.
+{
+  const checks = Object.fromEntries(REQUIRED_RUNTIME_CHECKS.map((name) => [name, true]));
+  checks.xvfb = false;
+  const receipt = buildGoldenActivationReadinessReceipt({ checks });
+  let v = validateGoldenActivationReadinessReceipt(receipt);
+  assert.ok(v.ok && !v.ready && receipt.missing.includes('xvfb'), 'missing Xvfb yields an incomplete handoff receipt');
+  receipt.ready = true;
+  receipt.verdict.ready = true;
+  receipt.digest = digestGoldenActivationReadiness(receipt);
+  v = validateGoldenActivationReadinessReceipt(receipt);
+  assert.ok(!v.ok && !v.ready, 'a resealed forged readiness verdict is rejected');
+  ok('golden activation readiness: missing prerequisites and forged verdicts fail closed');
 }
 
 console.log(`\n# provisioner-headless-readiness self-test: ${n}/${n} passed`);

@@ -21,35 +21,68 @@ EXPECTED=$((A + B))
 VIP=/usr/local/natinst/share/nilvcli/Examples/AddTwoNumbers/AddTwoNumbers.vi
 LVP=/usr/local/natinst/LabVIEW-2026-64/labview
 LVCLI=/usr/local/bin/LabVIEWCLI
+PROBE_OUT=/tmp/lba-activation-probe.out
+
+emit_capture() {
+  python3 - "$A" "$B" "$EXPECTED" "$1" "$2" "$VIP" "$LVP" "$PROBE_OUT" "$OUT" <<'PY'
+import json
+import os
+import platform
+import socket
+import sys
+
+a, b, expected, exit_code, wall_ms, probe_vi, labview_path, probe_out, destination = sys.argv[1:]
+try:
+    with open(probe_out, encoding="utf-8", errors="replace") as handle:
+        output = handle.read()
+except FileNotFoundError:
+    output = ""
+
+record = {
+    "schema": "labview-benchmark-actor/activation-capture@1",
+    "probeVi": probe_vi,
+    "labviewPath": labview_path,
+    "inputs": [int(a), int(b)],
+    "expectedOutput": int(expected),
+    "exitCode": int(exit_code),
+    "wallMs": int(wall_ms),
+    "output": output,
+    "host": {"os": platform.system().lower(), "hostname": socket.gethostname()},
+}
+with open(destination, "w", encoding="utf-8") as handle:
+    json.dump(record, handle, indent=2)
+    handle.write("\n")
+PY
+}
+
+if ! command -v python3 >/dev/null 2>&1; then
+  printf '%s\n' 'python3 is required to write the activation capture' > "$PROBE_OUT"
+  echo "activation capture unavailable: python3 is missing" >&2
+  exit 127
+fi
 
 # Headless display :99 (isolated from any gdm :0 session); start only if not already up. LabVIEW SEGFAULTS
 # on a half-initialized display, so poll xdpyinfo (bounded ~30s) + a 1s settle before launching.
-if ! pgrep -f 'Xvfb :99' >/dev/null 2>&1; then
-  Xvfb :99 -screen 0 1920x1080x24 >/dev/null 2>&1 &
+if ! command -v xvfb-run >/dev/null 2>&1; then
+  printf '%s\n' 'xvfb-run is required for the headless activation probe; run provision-guest.sh first.' > "$PROBE_OUT"
+  emit_capture 127 0
+  echo "activation capture -> $OUT (exit=127; missing headless display prerequisite)" >&2
+  cat "$PROBE_OUT"
+  exit 127
 fi
-export DISPLAY=:99
-for _ in $(seq 1 60); do xdpyinfo -display :99 >/dev/null 2>&1 && break; sleep 0.5; done
-sleep 1
+
+run_probe() {
+  xvfb-run -a timeout 240 "$LVCLI" -LabVIEWPath "$LVP" -PortNumber 3363 \
+    -OperationName RunVI -VIPath "$VIP" "$A" "$B"
+}
 
 t0=$(date +%s%N)
-timeout 240 "$LVCLI" -LabVIEWPath "$LVP" -OperationName RunVI -VIPath "$VIP" "$A" "$B" > /tmp/lba-activation-probe.out 2>&1
+run_probe > "$PROBE_OUT" 2>&1
 rc=$?
 t1=$(date +%s%N)
 wall=$(( (t1 - t0) / 1000000 ))
-OUTTEXT=$(cat /tmp/lba-activation-probe.out)
 
-# Emit a raw capture (JSON) the host builder consumes. jq-free: escape the output text with node (which
-# also re-parses OUTTEXT). The destination path is passed as the last argv so it survives a non-exported var.
-node -e '
-  const [a,b,expected,rc,wall,viPath,lvPath,out,dest] = process.argv.slice(1);
-  const rec = {
-    schema: "labview-benchmark-actor/activation-capture@1",
-    probeVi: viPath, labviewPath: lvPath,
-    inputs: [Number(a), Number(b)], expectedOutput: Number(expected),
-    exitCode: Number(rc), wallMs: Number(wall), output: out,
-    host: { os: process.platform, hostname: require("os").hostname() },
-  };
-  require("fs").writeFileSync(dest, JSON.stringify(rec, null, 2) + "\n");
-' "$A" "$B" "$EXPECTED" "$rc" "$wall" "$VIP" "$LVP" "$OUTTEXT" "$OUT"
+emit_capture "$rc" "$wall"
 echo "activation capture -> $OUT (exit=$rc wall=${wall}ms expected=$EXPECTED)"
-cat /tmp/lba-activation-probe.out
+cat "$PROBE_OUT"
+exit "$rc"

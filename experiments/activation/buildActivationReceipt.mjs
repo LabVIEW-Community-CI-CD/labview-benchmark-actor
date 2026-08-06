@@ -12,7 +12,9 @@
 // (wall time, temp-log path, TCP port), so a committed receipt replays offline byte-stably in CI.
 
 import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const RECEIPT_SCHEMA = 'labview-benchmark-actor/activation-receipt@1';
 
@@ -102,3 +104,27 @@ export function validateActivationReceipt(receipt) {
   if (receipt.digest !== digestReceipt(receipt)) findings.push('digest does not match the verdict-bearing fields (tampered)');
   return { ok: findings.length === 0, activated: !!receipt.verdict.activated && findings.length === 0, findings };
 }
+
+function main() {
+  const [, , capturePath, receiptPath] = process.argv;
+  if (!capturePath || !receiptPath) {
+    console.error('usage: node buildActivationReceipt.mjs <capture.json> <receipt.json>');
+    process.exit(2);
+  }
+  const capture = JSON.parse(readFileSync(capturePath, 'utf8'));
+  if (capture.schema !== 'labview-benchmark-actor/activation-capture@1') {
+    console.error('activation receipt: unsupported capture schema');
+    process.exit(1);
+  }
+  const receipt = buildActivationReceipt(capture);
+  const result = validateActivationReceipt(receipt);
+  if (!result.ok) {
+    console.error(`activation receipt: invalid generated receipt: ${result.findings.join('; ')}`);
+    process.exit(1);
+  }
+  writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+  console.log(`activation receipt: ${result.activated ? 'ACTIVATED' : 'UNCONFIRMED'}`);
+  process.exit(result.activated ? 0 : 1);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

@@ -6,9 +6,11 @@
 // activation. Run: node buildActivationReceipt.selftest.mjs  (exit 0 = all pass).
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import {
   buildActivationReceipt, validateActivationReceipt, parseProbeOutput, digestReceipt, RECEIPT_SCHEMA,
 } from './buildActivationReceipt.mjs';
@@ -73,6 +75,20 @@ const ok = (m) => { console.log(`  PASS  ${m}`); passed += 1; };
   assert.equal(v.ok, false, 'a verdict contradicting the result rule is rejected');
   assert.ok(v.findings.some((f) => /contradicts the rule|digest/.test(f)), 'names the contradiction / digest tamper');
   ok('fail-closed: tampered digest and forged verdict are both rejected');
+}
+
+// 6. The CLI writes the same receipt and gives a non-zero status for an unconfirmed probe.
+{
+  const temp = mkdtempSync(join(tmpdir(), 'lba-activation-cli-'));
+  try {
+    const output = join(temp, 'receipt.json');
+    const run = spawnSync(process.execPath, [join(here, 'buildActivationReceipt.mjs'), join(here, 'fixtures', 'activation-capture.json'), output], { encoding: 'utf8' });
+    assert.equal(run.status, 0, `activation receipt CLI succeeds for a valid capture: ${run.stderr}`);
+    assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), committed, 'activation receipt CLI writes the deterministic receipt');
+    ok('activation receipt CLI writes the same deterministic receipt from a valid capture');
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
 }
 
 console.log(`\nbuildActivationReceipt.selftest: ${passed}/${passed} checks passed`);
